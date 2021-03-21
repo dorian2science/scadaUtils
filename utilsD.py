@@ -1,5 +1,4 @@
-import pandas as pd
-import numpy as np
+import pandas as pd, numpy as np
 import subprocess as sp, os
 import pickle
 import re
@@ -7,6 +6,7 @@ import time, datetime
 import plotly.graph_objects as go
 from pylab import cm
 import matplotlib.colors as mtpcl
+import scipy
 
 class Utils:
     def __init__(self):
@@ -31,7 +31,8 @@ class Utils:
         '[A-Z0-9]+_[A-Z0-9]+_[A-Z0-9]+_[A-Z0-9]+',
         '[\w_]+[A-Z]+',
         '[A-Za-z]+',]
-        self.cmapNames = pickle.load(open("conf/colormaps.pkl",'rb'))[::3]
+        self.dirNameOfFileUtilsD=os.path.dirname(os.path.realpath(__file__))
+        self.cmapNames = pickle.load(open(self.dirNameOfFileUtilsD + "/conf/colormaps.pkl",'rb'))[::3]
 
     def isTimeFormat(self,input,formatT='%Y-%m-%d %H:%M:%S.%f'):
         try:
@@ -96,7 +97,7 @@ class Utils:
     def removeNaN(self,list2RmNan):
         tmp = pd.DataFrame(list2RmNan)
         return list(tmp[~tmp[0].isna()][0])
-        # return list(tmp[~tmp.isna()])
+
     def sortIgnoCase(self,lst):
         df = pd.DataFrame(lst)
         return list(df.iloc[df[0].str.lower().argsort()][0])
@@ -133,14 +134,85 @@ class Utils:
                 valToShow   = value.shape
             print(colored(rowTxt, 'red', attrs=['bold']), ' : ', valToShow)
 
-# '''to do '''
     def combineFilter(self,df,columns,filters):
         cf  = [df[col]==f for col,f in zip(columns,filters)]
         dfF = [all([cfR[k] for cfR in cf]) for k in range(len(cf[0]))]
         return df[dfF]
 
+    def skipWithMean(self,df,windowPts,idxForMean=None):
+        ''' compress a dataframe by computing the mean around idxForMean points'''
+        if not idxForMean :
+            idxForMean = list(range(windowPts,len(df),windowPts))
+        ll = [df.iloc[k-windowPts:k+windowPts+1,:].mean().to_frame().transpose()
+                for k in idxForMean]
+        dfR = pd.concat(ll)
+        dfR.index = idxForMean
+        return dfR
+    # ==========================================================================
+    #                           GRAPHICS
+    # ==========================================================================
     def getColorMapHex(self, cmapName,N):
         cmap        = cm.get_cmap(cmapName, N)
         colorList   = []
         for i in range(cmap.N):colorList.append(mtpcl.rgb2hex(cmap(i)))
         return colorList
+
+    def getAutoAxes(self,N,inc=0.05):
+        allSides =['left','right']*6
+        allAnch = ['free']*12
+
+        t=round((N-2)/2)+1
+        graphLims = [0+t*inc,1-t*inc]
+        tmp     = [[graphLims[0]-k,graphLims[1]+k] for k in np.arange(0,0.3,inc)]
+        positions  = [it for sub in tmp for it in sub][:N]
+
+        sides       = allSides[:N]
+        anchors     = allAnch[:N]
+        overlays    = [None] + ['y']*(N-1)
+        return [graphLims,sides,anchors,positions,overlays]
+
+    def goMultYAxis(self,df,nameColX,nameColsY,names=None,inc=0.05):
+        print('y : ',nameColsY)
+        N = len(nameColsY)
+        x = df[nameColX]
+        yList = [df[colonne] for colonne in nameColsY]
+
+        if not names:
+            names = nameColsY
+
+        cols = self.getColorMapHex('jet',N)
+        yNum=[str(k) for k in range(1,N+1)]
+        graphLims,sides,anchors,positions,overlays = self.getAutoAxes(N,inc=inc)
+
+        fig = go.Figure()
+
+        dictYaxis={}
+        for nameVar,y,side,anc,pos,col,k,overlay in zip(names,yList,sides,anchors,positions,cols,yNum,overlays):
+            fig.add_trace(go.Scatter(x=x,y=y,name=nameVar,yaxis='y'+k,mode='markers',
+                                    marker=dict(color = col,size=10)))
+
+            dictYaxis['yaxis'+k] = dict(
+            title=nameVar,
+            titlefont=dict(color=col),
+            tickfont=dict(color=col),
+            anchor=anc,
+            overlaying=overlay,
+            side=side,
+            position=pos
+            )
+        fig.update_layout(xaxis=dict(domain=graphLims))
+        fig.update_layout(dictYaxis)
+        fig.update_layout(title_text="multiple y-axes example",font=dict(family="Courier New, monospace",size=18))
+        return fig
+
+    def printDFSpecial(self,df,allRows=True):
+        # pd.describe_option('col',True)
+        colWidthOri = pd.get_option('display.max_colwidth')
+        rowNbOri = pd.get_option('display.max_rows')
+
+        pd.set_option('display.max_colwidth',None)
+        if allRows :
+            pd.set_option('display.max_rows',None)
+        print(df)
+        pd.set_option('display.max_colwidth',colWidthOri)
+        pd.set_option('display.max_rows',rowNbOri)
