@@ -69,7 +69,7 @@ class TemplateDashMaster:
         cmap        = cm.get_cmap(cmapName, len(df.Tag.unique()))
         colorList   = []
         for i in range(cmap.N):colorList.append(mtpcl.rgb2hex(cmap(i)))
-        print('typeGraph',typeGraph)
+        # print('typeGraph',typeGraph)
         if typeGraph == 'scatter' :
             fig = px.scatter(df, x='timestamp', y='value', color='Tag',color_discrete_sequence=colorList,**kwargs)
         elif typeGraph == 'line' :

@@ -9,9 +9,12 @@ from utilsD import Utils
 class ConfigMaster:
     """docstring for ConfigMaster."""
 
-    def __init__(self,folderPath,):
+    def __init__(self,folderPath,folderFig=None):
         self.utils      = Utils()
         self.folderPath = folderPath
+        if not folderFig :
+            folderFig = os.getenv('HOME') + '/Images/'
+        self.folderFig  = folderFig
 # ==============================================================================
 #                                 functions
 # ==============================================================================

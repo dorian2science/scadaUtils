@@ -34,6 +34,9 @@ class Utils:
         self.dirNameOfFileUtilsD=os.path.dirname(os.path.realpath(__file__))
         self.cmapNames = pickle.load(open(self.dirNameOfFileUtilsD + "/conf/colormaps.pkl",'rb'))[::3]
 
+    def printCTime(self,start):
+        print('time laps : {:.2f} seconds'.format(time.time()-start))
+
     def isTimeFormat(self,input,formatT='%Y-%m-%d %H:%M:%S.%f'):
         try:
             time.strptime(input, formatT)
@@ -51,8 +54,7 @@ class Utils:
         print("convert file to .pkl : ",filename)
         with open(saveFolder+nameFile + '.pkl', 'wb') as handle:# save the file
             pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        end = time.time()
-        print('time laps :',end-start)
+        print('time laps :',time.time()-start)
 
     def convert_csv2pkl_all(self,folderCSV,saveFolder,fileNbs=None):
         # filesPkl = sp.check_output('cd ' + '{:s}'.format(saveFolder) + ' && ls *.pkl',shell=True).decode().split('\n')
@@ -139,18 +141,38 @@ class Utils:
         dfF = [all([cfR[k] for cfR in cf]) for k in range(len(cf[0]))]
         return df[dfF]
 
-    def skipWithMean(self,df,windowPts,idxForMean=None):
+    def skipWithMean(self,df,windowPts,idxForMean=None,col=None):
         ''' compress a dataframe by computing the mean around idxForMean points'''
+        if not col :
+            col = [k for k in range(len(df.columns))]
+        print(col)
         if not idxForMean :
             idxForMean = list(range(windowPts,len(df),windowPts))
-        ll = [df.iloc[k-windowPts:k+windowPts+1,:].mean().to_frame().transpose()
+        ll = [df.iloc[k-windowPts:k+windowPts+1,col].mean().to_frame().transpose()
                 for k in idxForMean]
         dfR = pd.concat(ll)
-        dfR.index = idxForMean
+        dfR.index = df.index[idxForMean]
         return dfR
     # ==========================================================================
     #                           GRAPHICS
     # ==========================================================================
+    def customLegend(self,fig, nameSwap):
+        if ~isinstance(nameSwap,dict):
+            namesOld = [k.name  for k in fig.data]
+            nameSwap     = dict(zip(namesOld,nameSwap))
+        for i, dat in enumerate(fig.data):
+            for elem in dat:
+                if elem == 'name':
+                    # print(fig.data[i].name)
+                    fig.data[i].name = nameSwap[fig.data[i].name]
+        return(fig)
+
+    def makeFigureName(self,filename,patStop,toAdd):
+        idx=filename.find(patStop)
+        f=filename[:idx]
+        return '_'.join([f]+toAdd)
+        # return idx
+
     def getColorMapHex(self, cmapName,N):
         cmap        = cm.get_cmap(cmapName, N)
         colorList   = []

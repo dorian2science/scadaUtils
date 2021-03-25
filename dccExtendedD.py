@@ -3,7 +3,6 @@ import dash_core_components as dcc
 import re
 
 class DccExtended:
-
     ''' dropdown with a list or dictionnary. Dictionnary doesn"t work for the moment '''
     def dropDownFromList(self,idName,listdd,pddPhrase = None,defaultIdx=None,labelsPattern=None,**kwargs):
         if not pddPhrase :
@@ -14,10 +13,14 @@ class DccExtended:
         else :
             ddOpt =[{'label': t, 'value': t} for t in listdd]
 
-        if defaultIdx:
-            dd = dcc.Dropdown(id=idName,options=ddOpt,value=listdd[defaultIdx],clearable=False,**kwargs)
-        else :
+        if 'value' in list(kwargs.keys()):
             dd = dcc.Dropdown(id=idName,options=ddOpt,clearable=False,**kwargs)
+        else :
+            if not defaultIdx:
+                defaultIdx = 0
+            if 'value' in list(kwargs.keys()):
+                del kwargs['value']
+            dd = dcc.Dropdown(id=idName,options=ddOpt,value=listdd[defaultIdx],clearable=False,**kwargs)
         return [p,dd]
 
     # def basicLayoutWithFiles(self,idRT,listFilenames,widthG,list)
