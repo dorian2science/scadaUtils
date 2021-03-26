@@ -157,13 +157,14 @@ class Utils:
     #                           GRAPHICS
     # ==========================================================================
     def customLegend(self,fig, nameSwap):
-        if ~isinstance(nameSwap,dict):
+        dictYes = isinstance(nameSwap,dict)
+        if not dictYes:
+            print('not a dictionnary, there may be wrong assignment')
             namesOld = [k.name  for k in fig.data]
             nameSwap     = dict(zip(namesOld,nameSwap))
         for i, dat in enumerate(fig.data):
             for elem in dat:
                 if elem == 'name':
-                    # print(fig.data[i].name)
                     fig.data[i].name = nameSwap[fig.data[i].name]
         return(fig)
 
