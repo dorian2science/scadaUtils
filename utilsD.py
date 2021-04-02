@@ -75,6 +75,10 @@ class Utils:
         tmp = self.combineUnits(['','N'],self.phyQties['volume'],'')
         self.phyQties['volumetric flow'] = self.combineUnits(tmp,self.phyQties['time'])
 
+    def linspace(self,arr,numElems):
+        idx = np.round(np.linspace(0, len(arr) - 1, numElems)).astype(int)
+        return list([arr[k] for k in idx])
+
     def combineUnits(self,units1,units2,oper='/'):
         return [x1 + oper + x2 for x2 in units2 for x1 in units1]
 
@@ -104,12 +108,14 @@ class Utils:
         df = pd.DataFrame(lst)
         return list(df.iloc[df[0].str.lower().argsort()][0])
 
-    def get_filesDir(self,folderName,ext='.pkl'):
+    def get_filesDir(self,folderName=None,ext='.pkl'):
+        if not folderName :
+            folderName = os.getcwd()
         return sp.check_output('cd ' + '{:s}'.format(folderName) + ' && ls *' + ext,
                                 shell=True).decode().split('\n')[:-1]
 
     def dfcolwithnbs(self,df):
-        a=df.columns.to_list()
+        a = df.columns.to_list()
         coldict=dict(zip(range(0,len(a)),a))
         coldict
         return coldict
@@ -153,6 +159,26 @@ class Utils:
         dfR = pd.concat(ll)
         dfR.index = df.index[idxForMean]
         return dfR
+
+
+    def convertCSVtoPklWrap(self,func):
+        def wrapper(folderCSV,saveFolder,filename):
+            start       = time.time()
+            nameFile    = filename[:-4]
+            print("============================================")
+            print("convert file to .pkl : ",filename)
+            df = pd.read_csv(folderCSV + filename,low_memory=False)
+            print("reading csv finished ")
+            ######## fonction wrapped ###################
+            df= func(df)
+            print("wrapped function correctly executed ")
+            ###########################
+            # with open(saveFolder+nameFile + '.pkl', 'wb') as handle:# save the file
+            #     pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            self.printCTime(start)
+            print("============================================")
+        return wrapper
+
     # ==========================================================================
     #                           GRAPHICS
     # ==========================================================================
@@ -171,7 +197,7 @@ class Utils:
     def makeFigureName(self,filename,patStop,toAdd):
         idx=filename.find(patStop)
         f=filename[:idx]
-        return '_'.join([f]+toAdd)
+        return '_'.join([f]+toAdd).replace('/','_')
         # return idx
 
     def getColorMapHex(self, cmapName,N):

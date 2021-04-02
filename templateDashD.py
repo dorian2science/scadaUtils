@@ -78,7 +78,7 @@ class TemplateDashMaster:
         elif typeGraph == 'area':
             fig = px.area(df, color_discrete_sequence=colorList,**kwargs)
 
-        fig.update_traces(mode='lines + markers', marker_line_width=0.8, marker_size=10)
+        fig.update_traces(mode='lines + markers', marker_line_width=0.1, marker_size=5)
         # fig.update_traces(line=dict(width=4, dash='dash'),marker=dict(size=5),selector=dict(mode='line + markers'))
         return fig
 
