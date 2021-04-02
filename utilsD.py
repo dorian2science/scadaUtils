@@ -2,7 +2,7 @@ import pandas as pd, numpy as np
 import subprocess as sp, os
 import pickle
 import re
-import time, datetime
+import time, datetime as dt
 import plotly.graph_objects as go
 from pylab import cm
 import matplotlib.colors as mtpcl
@@ -78,6 +78,9 @@ class Utils:
     def linspace(self,arr,numElems):
         idx = np.round(np.linspace(0, len(arr) - 1, numElems)).astype(int)
         return list([arr[k] for k in idx])
+
+    def flattenList(self,l):
+        return [item for sublist in l for item in sublist]
 
     def combineUnits(self,units1,units2,oper='/'):
         return [x1 + oper + x2 for x2 in units2 for x1 in units1]
@@ -182,23 +185,34 @@ class Utils:
     # ==========================================================================
     #                           GRAPHICS
     # ==========================================================================
-    def customLegend(self,fig, nameSwap):
+    def customLegend(self,fig, nameSwap,breakLine=60):
         dictYes = isinstance(nameSwap,dict)
         if not dictYes:
             print('not a dictionnary, there may be wrong assignment')
             namesOld = [k.name  for k in fig.data]
-            nameSwap     = dict(zip(namesOld,nameSwap))
+            nameSwap = dict(zip(namesOld,nameSwap))
         for i, dat in enumerate(fig.data):
             for elem in dat:
                 if elem == 'name':
-                    fig.data[i].name = nameSwap[fig.data[i].name]
+                    # <br>s
+                    newName = nameSwap[fig.data[i].name].capitalize()
+                    newName = '<br>s'.join([newName[k:k+breakLine] for k in range(0,len(newName),breakLine)])
+                    fig.data[i].name = newName
         return(fig)
 
     def makeFigureName(self,filename,patStop,toAdd):
         idx=filename.find(patStop)
         f=filename[:idx]
-        return '_'.join([f]+toAdd).replace('/','_')
-        # return idx
+        f=re.sub('[\./]','_','_'.join([f]+toAdd))
+        print(f)
+        return f
+
+    def buildTimeMarks(self,t0,mini=0,maxi=3600*24-1,nbMarks=10):
+        listSeconds = [int(t) for t in np.linspace(0,maxi,nbMarks)]
+        print(listSeconds)
+        listMarksTime = [(t0+dt.timedelta(seconds=k)).strftime('%H:%M') for k in listSeconds]
+        dictTimeMarks = dict(zip(listSeconds,listMarksTime))
+        return dictTimeMarks
 
     def getColorMapHex(self, cmapName,N):
         cmap        = cm.get_cmap(cmapName, N)

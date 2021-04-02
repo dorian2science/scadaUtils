@@ -1,8 +1,8 @@
 import dash_html_components as html
 import dash_core_components as dcc
-import re,dateutil
+import re,dateutil,datetime as dt
 from utilsD import Utils
-
+import numpy as np
 class DccExtended:
     utils=Utils()
     ''' dropdown with a list or dictionnary. Dictionnary doesn"t work for the moment '''
@@ -51,15 +51,12 @@ class DccExtended:
         inp = dcc.Input(id=idName,placeholder=pddPhrase,type=typeIn,value=dftVal,**kwargs)
         return [p,inp]
 
-    def rangeSliderTime(self,tt,nbMarks = 5,parseYes=0):
-        marksT = self.utils.linspace(tt,nbMarks)
-        if parseYes :
-            marksT = [dateutil.parser.parse(k) for k in marksT]
-        values = [round((k-marksT[0]).total_seconds()) for k in marksT]
-        labels = [{'label' : k.strftime('%H:%M')} for k in marksT]
-        mini = round(values[0])
-        maxi = round(values[-1])
-        dictMarks = dict(zip(values,labels))
-        value = [mini,maxi]
-        return mini,maxi,value, dictMarks
-        # return min,max,value,dictMarks
+    def timeRangeSlider(self,idName,mini=0,maxi=3600*24-1,t0=None):
+        if not isinstance(t0,dt.datetime):
+            t0 = dt.datetime(2021,1,1,0,0)
+        p = html.H5('select the time window')
+        rs = dcc.RangeSlider(id=idName,allowCross=False,min = mini,max = maxi,
+                    marks = self.utils.buildTimeMarks(t0,maxi=maxi,mini=mini),
+                    value = [mini,maxi],
+                    tooltip={'always_visible' : False,'placement':'bottom'})
+        return [p,rs]
