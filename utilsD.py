@@ -1,12 +1,15 @@
 import pandas as pd, numpy as np
 import subprocess as sp, os
 import pickle
+from dateutil import parser
 import re
 import time, datetime as dt
 import plotly.graph_objects as go
 from pylab import cm
 import matplotlib.colors as mtpcl
+import matplotlib.pyplot as plt
 import scipy
+from scipy.optimize import curve_fit
 
 class Utils:
     def __init__(self):
@@ -34,28 +37,16 @@ class Utils:
         self.dirNameOfFileUtilsD=os.path.dirname(os.path.realpath(__file__))
         self.cmapNames = pickle.load(open(self.dirNameOfFileUtilsD + "/conf/colormaps.pkl",'rb'))[::3]
 
+    # ==========================================================================
+    #                           DEBUG
+    # ==========================================================================
+
     def printCTime(self,start):
         print('time laps : {:.2f} seconds'.format(time.time()-start))
 
-    def isTimeFormat(self,input,formatT='%Y-%m-%d %H:%M:%S.%f'):
-        try:
-            time.strptime(input, formatT)
-            return True
-        except ValueError:
-            return False
-
-    def convert_csv2pkl(self,folderCSV,saveFolder,filename):
-        start       = time.time()
-        nameFile    = filename[:-4]
-        df          = pd.read_csv(folderCSV + filename)
-        df.columns  = ['Tag','value','timestamp']
-        tags        = np.unique(df.Tag)
-        print("============================================")
-        print("convert file to .pkl : ",filename)
-        with open(saveFolder+nameFile + '.pkl', 'wb') as handle:# save the file
-            pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print('time laps :',time.time()-start)
-
+    # ==========================================================================
+    #                           SYSTEM
+    # ==========================================================================
     def convert_csv2pkl_all(self,folderCSV,saveFolder,fileNbs=None):
         # filesPkl = sp.check_output('cd ' + '{:s}'.format(saveFolder) + ' && ls *.pkl',shell=True).decode().split('\n')
         filesPkl = self.get_filesDir(saveFolder,'.pkl')
@@ -69,18 +60,63 @@ class Utils:
             if not namePkl in filesPkl:
                 self.convert_csv2pkl(folderCSV,saveFolder,filename)
 
+    def get_filesDir(self,folderName=None,ext='.pkl'):
+        if not folderName :
+            folderName = os.getcwd()
+        return sp.check_output('cd ' + '{:s}'.format(folderName) + ' && ls *' + ext,
+                                shell=True).decode().split('\n')[:-1]
+
+    def convert_csv2pkl(self,folderCSV,saveFolder,filename):
+        start       = time.time()
+        nameFile    = filename[:-4]
+        df          = pd.read_csv(folderCSV + filename)
+        df.columns  = ['Tag','value','timestamp']
+        tags        = np.unique(df.Tag)
+        print("============================================")
+        print("convert file to .pkl : ",filename)
+        with open(saveFolder+nameFile + '.pkl', 'wb') as handle:# save the file
+            pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print('time laps :',time.time()-start)
+
+    def skipWithMean(self,df,windowPts,idxForMean=None,col=None):
+        ''' compress a dataframe by computing the mean around idxForMean points'''
+        if not col :
+            col = [k for k in range(len(df.columns))]
+        print(col)
+        if not idxForMean :
+            idxForMean = list(range(windowPts,len(df),windowPts))
+        ll = [df.iloc[k-windowPts:k+windowPts+1,col].mean().to_frame().transpose()
+                for k in idxForMean]
+        dfR = pd.concat(ll)
+        dfR.index = df.index[idxForMean]
+        return dfR
+
+    def convertCSVtoPklWrap(self,func):
+        def wrapper(folderCSV,saveFolder,filename):
+            start       = time.time()
+            nameFile    = filename[:-4]
+            print("============================================")
+            print("convert file to .pkl : ",filename)
+            df = pd.read_csv(folderCSV + filename,low_memory=False)
+            print("reading csv finished ")
+            ######## fonction wrapped ###################
+            df= func(df)
+            print("wrapped function correctly executed ")
+            ###########################
+            # with open(saveFolder+nameFile + '.pkl', 'wb') as handle:# save the file
+            #     pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            self.printCTime(start)
+            print("============================================")
+        return wrapper
+
+    # ==========================================================================
+    #                           PHYSICS
+    # ==========================================================================
     def buildNewUnits(self):
         self.phyQties['speed'] = self.combineUnits(self.phyQties['distance'],self.phyQties['time'])
         self.phyQties['mass flow'] = self.combineUnits(self.phyQties['weight'],self.phyQties['time'])
         tmp = self.combineUnits(['','N'],self.phyQties['volume'],'')
         self.phyQties['volumetric flow'] = self.combineUnits(tmp,self.phyQties['time'])
-
-    def linspace(self,arr,numElems):
-        idx = np.round(np.linspace(0, len(arr) - 1, numElems)).astype(int)
-        return list([arr[k] for k in idx])
-
-    def flattenList(self,l):
-        return [item for sublist in l for item in sublist]
 
     def combineUnits(self,units1,units2,oper='/'):
         return [x1 + oper + x2 for x2 in units2 for x1 in units1]
@@ -103,6 +139,16 @@ class Utils:
         else :
             return tmp
 
+    # ==========================================================================
+    #                  lIST AND DICTIONNARIES
+    # ==========================================================================
+    def linspace(self,arr,numElems):
+        idx = np.round(np.linspace(0, len(arr) - 1, numElems)).astype(int)
+        return list([arr[k] for k in idx])
+
+    def flattenList(self,l):
+        return [item for sublist in l for item in sublist]
+
     def removeNaN(self,list2RmNan):
         tmp = pd.DataFrame(list2RmNan)
         return list(tmp[~tmp[0].isna()][0])
@@ -111,17 +157,14 @@ class Utils:
         df = pd.DataFrame(lst)
         return list(df.iloc[df[0].str.lower().argsort()][0])
 
-    def get_filesDir(self,folderName=None,ext='.pkl'):
-        if not folderName :
-            folderName = os.getcwd()
-        return sp.check_output('cd ' + '{:s}'.format(folderName) + ' && ls *' + ext,
-                                shell=True).decode().split('\n')[:-1]
-
     def dfcolwithnbs(self,df):
         a = df.columns.to_list()
         coldict=dict(zip(range(0,len(a)),a))
         coldict
         return coldict
+
+    def listWithNbs(self,l):
+        return [k+ ' : '+ str(i) for i,k in zip(range(len(l)),l)]
 
     def dspDict(self,dict,showRows=1):
         '''display dictionnary in a easy readable way :
@@ -150,37 +193,61 @@ class Utils:
         dfF = [all([cfR[k] for cfR in cf]) for k in range(len(cf[0]))]
         return df[dfF]
 
-    def skipWithMean(self,df,windowPts,idxForMean=None,col=None):
-        ''' compress a dataframe by computing the mean around idxForMean points'''
-        if not col :
-            col = [k for k in range(len(df.columns))]
-        print(col)
-        if not idxForMean :
-            idxForMean = list(range(windowPts,len(df),windowPts))
-        ll = [df.iloc[k-windowPts:k+windowPts+1,col].mean().to_frame().transpose()
-                for k in idxForMean]
-        dfR = pd.concat(ll)
-        dfR.index = df.index[idxForMean]
-        return dfR
+    def convertToSecs(self,lt,t0=None):
+        if not t0:
+            t0=parser.parse('00:00')
+        tmp=[parser.parse(k) for k in lt]
+        return [(t.hour-t0.hour)*3600+(t.minute-t0.minute)*60 for t in tmp ]
 
+    def convertSecstoHHMM(self,lt,t0):
+        print('lt : ',lt)
+        if not isinstance(lt,list):
+            lt=[lt]
+        return [(t0 + dt.timedelta(seconds=k)).strftime('%H:%M') for k in lt]
 
-    def convertCSVtoPklWrap(self,func):
-        def wrapper(folderCSV,saveFolder,filename):
-            start       = time.time()
-            nameFile    = filename[:-4]
-            print("============================================")
-            print("convert file to .pkl : ",filename)
-            df = pd.read_csv(folderCSV + filename,low_memory=False)
-            print("reading csv finished ")
-            ######## fonction wrapped ###################
-            df= func(df)
-            print("wrapped function correctly executed ")
-            ###########################
-            # with open(saveFolder+nameFile + '.pkl', 'wb') as handle:# save the file
-            #     pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            self.printCTime(start)
-            print("============================================")
-        return wrapper
+    # ==========================================================================
+    #                           COMPUTATION
+    # ==========================================================================
+
+    def expDown(self,x, a, b, c):
+        return a * np.exp(-b * x) + c
+
+    def expUp(self,x,a,b,c):
+        return a *(1- np.exp(-b * x)) + c
+
+    def poly2(self,x,a,b,c):
+        return a*x**2 +b*x + c
+
+    def expUpandDown(self,x,a1,b1,c1,a2,b2,c2):
+        return self.expUp(x,a1,b1,c1) + self.expDown(x,a2,b2,c2)
+
+    def generateSimuData(self,func='expDown'):
+        x = np.linspace(0, 2, 150)
+        y = eval(func)(x, 5.5, 10.3, 0.5)
+        np.random.seed(1729)
+        y_noise = 0.2 * np.random.normal(size=x.size)
+        ydata = y + y_noise
+        return x,ydata
+
+    def fitSingle(self,dfx,func='expDown',plotYes=True,**kwargs):
+        x = dfx.index
+        y = dfx.iloc[:,0]
+        if isinstance(dfx.index[0],pd._libs.tslibs.timestamps.Timestamp):
+            xdata=np.arange(len(x))
+        else :
+            xdata=x
+        popt, pcov = curve_fit(eval('self.'+func), xdata, y,**kwargs)
+        if plotYes:
+            plt.plot(x, y, 'bo', label='data')
+            plt.plot(x, eval('self.'+func)(xdata, *popt), 'r-',
+                label='fit: a=%.2f, b=%.2f, c=%.2f' % tuple(popt))
+            plt.xlabel('x')
+            plt.title(list(dfx.columns)[0])
+            # plt.ylabel()
+            plt.gcf().autofmt_xdate()
+            plt.legend()
+            plt.show()
+        return popt
 
     # ==========================================================================
     #                           GRAPHICS
@@ -196,7 +263,8 @@ class Utils:
                 if elem == 'name':
                     # <br>s
                     newName = nameSwap[fig.data[i].name].capitalize()
-                    newName = '<br>s'.join([newName[k:k+breakLine] for k in range(0,len(newName),breakLine)])
+                    if isinstance(breakLine,int):
+                        newName = '<br>s'.join([newName[k:k+breakLine] for k in range(0,len(newName),breakLine)])
                     fig.data[i].name = newName
         return(fig)
 
@@ -209,7 +277,6 @@ class Utils:
 
     def buildTimeMarks(self,t0,mini=0,maxi=3600*24-1,nbMarks=10):
         listSeconds = [int(t) for t in np.linspace(0,maxi,nbMarks)]
-        print(listSeconds)
         listMarksTime = [(t0+dt.timedelta(seconds=k)).strftime('%H:%M') for k in listSeconds]
         dictTimeMarks = dict(zip(listSeconds,listMarksTime))
         return dictTimeMarks
