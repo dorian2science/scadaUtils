@@ -45,7 +45,6 @@ class DccExtended:
             dd = dcc.Dropdown(id=idName,options=ddOpt,clearable=False,**kwargs)
         return [p,dd]
 
-
     def quickInput(self,idName,typeIn='text',pddPhrase = 'input',dftVal=0,**kwargs):
         p = html.P(pddPhrase),
         inp = dcc.Input(id=idName,placeholder=pddPhrase,type=typeIn,value=dftVal,**kwargs)
@@ -60,3 +59,23 @@ class DccExtended:
                     value = [mini,maxi],
                     tooltip={'always_visible' : False,'placement':'bottom'})
         return [p,rs]
+
+    def buildTimeMarks(t0,t1,nbMarks=8,fontSize='20px'):
+        maxSecs=int((t1-t0).total_seconds())
+        listSeconds = [int(t) for t in np.linspace(0,maxSecs,nbMarks)]
+        dictTimeMarks = {k : {'label':(t0+dt.timedelta(seconds=k)).strftime('%H:%M'),
+                                'style' :{'font-size': fontSize}
+                                } for k in listSeconds}
+        return dictTimeMarks,maxSecs
+
+    def buildTimeRangeSlider(id,t0,t1=None,**kwargs):
+        if not t1 :
+            t1 = t0+dt.timedelta(seconds=3600*24)
+        maxSecs=int((t1-t0).total_seconds())
+        rs = dcc.RangeSlider(id=id,
+        min=0,max=maxSecs,
+        # step=None,
+        marks = buildTimeMarks(t0,t1,**kwargs)[0],
+        value=[0,maxSecs]
+        )
+        return rs

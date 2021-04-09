@@ -193,17 +193,18 @@ class Utils:
         dfF = [all([cfR[k] for cfR in cf]) for k in range(len(cf[0]))]
         return df[dfF]
 
-    def convertToSecs(self,lt,t0=None):
-        if not t0:
-            t0=parser.parse('00:00')
-        tmp=[parser.parse(k) for k in lt]
-        return [(t.hour-t0.hour)*3600+(t.minute-t0.minute)*60 for t in tmp ]
+    def convertSecstodHHMM(self,lt,t0=None,formatTime='%d - %H:%M'):
+        if not t0:t0=parser.parse('00:00')
+        if isinstance(t0,str):t0=parser.parse(t0)
+        if isinstance(lt[0],str):
+            lt = [int(t) for t in lt]
+        return [(t0 + dt.timedelta(seconds=k)).strftime(formatTime) for k in lt]
 
-    def convertSecstoHHMM(self,lt,t0):
-        print('lt : ',lt)
-        if not isinstance(lt,list):
-            lt=[lt]
-        return [(t0 + dt.timedelta(seconds=k)).strftime('%H:%M') for k in lt]
+    def convertToSecs(self,lt,t0=None):
+        if not t0:t0=parser.parse('00:00')
+        if isinstance(t0,str):t0=parser.parse(t0)
+        tmp = [parser.parse(k) for k in lt]
+        return [(t-t0).total_seconds() for t in tmp]
 
     # ==========================================================================
     #                           COMPUTATION
