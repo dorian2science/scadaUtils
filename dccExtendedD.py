@@ -1,6 +1,8 @@
 import dash_html_components as html
 import dash_core_components as dcc
-import re,dateutil,datetime as dt
+import dash_bootstrap_components as dbc
+from dateutil import parser
+import re,datetime as dt
 from utilsD import Utils
 import numpy as np
 class DccExtended:
@@ -50,32 +52,49 @@ class DccExtended:
         inp = dcc.Input(id=idName,placeholder=pddPhrase,type=typeIn,value=dftVal,**kwargs)
         return [p,inp]
 
-    def timeRangeSlider(self,idName,mini=0,maxi=3600*24-1,t0=None):
-        if not isinstance(t0,dt.datetime):
-            t0 = dt.datetime(2021,1,1,0,0)
-        p = html.H5('select the time window')
-        rs = dcc.RangeSlider(id=idName,allowCross=False,min = mini,max = maxi,
-                    marks = self.utils.buildTimeMarks(t0,maxi=maxi,mini=mini),
-                    value = [mini,maxi],
-                    tooltip={'always_visible' : False,'placement':'bottom'})
-        return [p,rs]
-
-    def buildTimeMarks(t0,t1,nbMarks=8,fontSize='20px'):
-        maxSecs=int((t1-t0).total_seconds())
-        listSeconds = [int(t) for t in np.linspace(0,maxSecs,nbMarks)]
-        dictTimeMarks = {k : {'label':(t0+dt.timedelta(seconds=k)).strftime('%H:%M'),
-                                'style' :{'font-size': fontSize}
-                                } for k in listSeconds}
-        return dictTimeMarks,maxSecs
-
-    def buildTimeRangeSlider(id,t0,t1=None,**kwargs):
+    def timeRangeSlider(self,id,t0=None,t1=None,**kwargs):
+        if not t0 :
+            t0 = parser.parse('00:00')
         if not t1 :
             t1 = t0+dt.timedelta(seconds=3600*24)
         maxSecs=int((t1-t0).total_seconds())
         rs = dcc.RangeSlider(id=id,
         min=0,max=maxSecs,
         # step=None,
-        marks = buildTimeMarks(t0,t1,**kwargs)[0],
+        marks = self.utils.buildTimeMarks(t0,t1,**kwargs)[0],
         value=[0,maxSecs]
         )
         return rs
+
+    def DoubleRangeSliderLayout(self,baseId='',t0=None,t1=None,formatTime = '%d - %H:%M',styleDBRS='small'):
+        if styleDBRS=='large':
+            style2 = {'padding-bottom' : 50,'padding-top' : 50,'border': '13px solid green'}
+        elif styleDBRS=='small':
+            style2 = {'padding-bottom' : 10,'padding-top' : 10,'border': '3px solid green'}
+        elif styleDBRS=='centered':
+            style2 = {'text-align': 'center','border': '3px solid green','font-size':'18'}
+
+        if not t0:
+            t0 = parser.parse('00:00')
+        if not t1:
+            t1 = t0 + dt.timedelta(seconds=3600*24*2-1)
+        p0      = html.H5('fixe time t0')
+        in_t0   = dcc.Input(id=baseId + 'in_t0',type='text',value=t0.strftime(formatTime),size='75')
+        in_t1   = dcc.Input(id=baseId + 'in_t1',type='text',value=t1.strftime(formatTime),size='75')
+        p       = html.H5('select the time window :',style={'font-size' : 40})
+        ine     = dcc.Input(id=baseId + 'ine',type='text',value=t0.strftime(formatTime))
+        rs      = self.timeRangeSlider(id=baseId + 'rs',t0=t0,t1=t1,nbMarks=5)
+        ins     = dcc.Input(id=baseId + 'ins',type='text',value=t1.strftime(formatTime))
+        pf      = html.H5('timeselect start and end time ', id = 'pf',style={'font-size' : 60})
+        dbrsLayout = html.Div([
+                            dbc.Row([dbc.Col(p0),
+                                    dbc.Col(in_t0),
+                                    dbc.Col(in_t1)],style=style2,no_gutters=True),
+                            dbc.Row(dbc.Col(p),style=style2,no_gutters=True),
+                            dbc.Row([dbc.Col(ine),
+                                    dbc.Col(rs,width=9),
+                                    dbc.Col(ins)],
+                                    style=style2,
+                                    no_gutters=True),
+                            ])
+        return dbrsLayout

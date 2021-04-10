@@ -276,11 +276,13 @@ class Utils:
         print(f)
         return f
 
-    def buildTimeMarks(self,t0,mini=0,maxi=3600*24-1,nbMarks=10):
-        listSeconds = [int(t) for t in np.linspace(0,maxi,nbMarks)]
-        listMarksTime = [(t0+dt.timedelta(seconds=k)).strftime('%H:%M') for k in listSeconds]
-        dictTimeMarks = dict(zip(listSeconds,listMarksTime))
-        return dictTimeMarks
+    def buildTimeMarks(self,t0,t1,nbMarks=8,fontSize='20px'):
+        maxSecs=int((t1-t0).total_seconds())
+        listSeconds = [int(t) for t in np.linspace(0,maxSecs,nbMarks)]
+        dictTimeMarks = {k : {'label':(t0+dt.timedelta(seconds=k)).strftime('%H:%M'),
+                                'style' :{'font-size': fontSize}
+                                } for k in listSeconds}
+        return dictTimeMarks,maxSecs
 
     def getColorMapHex(self, cmapName,N):
         cmap        = cm.get_cmap(cmapName, N)
