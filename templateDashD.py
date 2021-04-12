@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mtpcl
 from pylab import cm
 import pickle, time
+from dateutil import parser
 from flask_caching import Cache
 from dccExtendedD import DccExtended
 
@@ -65,22 +66,34 @@ class TemplateDashMaster:
     # ==========================================================================
     #                       GRAPH functions
     # ==========================================================================
-    def singleCatGraph(self,df,typeGraph='line',cmapName='jet',**kwargs):
+    def drawGraph(self,df,typeGraph='singleGraph',cmapName='jet',**kwargs):
         cmap        = cm.get_cmap(cmapName, len(df.Tag.unique()))
         colorList   = []
         for i in range(cmap.N):colorList.append(mtpcl.rgb2hex(cmap(i)))
         # print('typeGraph',typeGraph)
-        if typeGraph == 'scatter' :
+        if typeGraph == 'singleGraph' :
             fig = px.scatter(df, x='timestamp', y='value', color='Tag',color_discrete_sequence=colorList,**kwargs)
-        elif typeGraph == 'line' :
-            fig = px.line(df, x='timestamp', y='value', color='Tag',
-                color_discrete_sequence=colorList,**kwargs)
         elif typeGraph == 'area':
             fig = px.area(df, color_discrete_sequence=colorList,**kwargs)
-
-        fig.update_traces(mode='lines + markers', marker_line_width=0.1, marker_size=5)
         # fig.update_traces(line=dict(width=4, dash='dash'),marker=dict(size=5),selector=dict(mode='line + markers'))
         return fig
+
+    def exportDFOnClick(self,df,fig,folder=None,timeStamp=False,parseYes=False):
+        if not folder:
+            folder = '/home/dorian/testsCode/testDir/'
+        xlims=fig['layout']['xaxis']['range']
+        print('xlims : ',xlims)
+        trange=[parser.parse(k) for k in xlims]
+        if parseYes :
+            xlims=trange
+        if timeStamp ==True :
+            df = df[(df.timestamp>xlims[0]) & (df.timestamp<xlims[1])]
+        else :
+            df = df[(df.index>xlims[0]) & (df.index<xlims[1])]
+        print('df \n: ',df)
+        dateF=[k.strftime('%Y-%m-%d-%H-%M') for k in trange]
+        filename = 'test_' + dateF[0]+ '_' + dateF[1]
+        df.to_csv(folder + filename + '.txt')
 
     def generate_facetGraph(self,df,**kwargs):
         fig = px.line(df, x='timestamp', y='value', color='Tag',facet_col='categorie',**kwargs)
@@ -89,62 +102,3 @@ class TemplateDashMaster:
         fig.update_traces(marker=dict(size=2),selector=dict(mode='markers'))
             # fig['layout'] = {'margin': {'l': 20, 'r': 10, 'b': 20, 't': 10}}
         return fig
-
-        # ==========================================================================
-        #                       DASH LAYOUTS
-        # ==========================================================================
-
-    # def exploreDFDash(self,idBase,widthG=80):
-    #     dimensions = ["x", "y", "color", "facet_col", "facet_row"]
-    #     layoutExplore = html.Div(
-    #         [
-    #             html.H1("Explore graphs"),
-    #             html.Div(
-    #                 self.dccE.dropDownFromList(idBase + 'dd_listFiles',self.cfg.filesDir,
-    #                 'Select your File : ',defaultIdx=0) +
-    #                 [html.P([d + ":", dcc.Dropdown(id=d, options=col_options)])
-    #                     for d in dimensions],
-    #                 [html.P('skip points: '),dcc.Input(id=idBase + 'in_skip',
-    #                     placeholder='skip points : ',type='text',value=1)],
-    #                 ,style={"width": "15%", "float": "left",'color':'blue','fontsize':15},
-    #             ),
-    #             dcc.Graph(id=idBase + "graph", style={"width": "85%", "display": "inline-block"}),
-    #             html.Div(id=idBase + 'cacheFile', style={'display': 'none'}),
-    #         ]
-    #     )
-    #
-    #     @self.cache.memoize()
-    #     def store_df_inCache(filename):
-    #         df = self.loadFile(filename)
-    #         return df
-    #
-    #     @self.app.callback(Output(idBase + 'cacheFile', 'children'),
-    #                         Input(idBase + 'dd_listFiles','value'))
-    #     def load_Df(filename):
-    #         print(filename)
-    #         store_df_inCache(filename)
-    #         return filename
-    #
-    #     @self.app.callback([Output(idBase + 'dd_' + d, "options") for d in dimensions],
-    #     Input(idBase + 'cacheFile','children'))
-    #     def updateDropdowns(filename):
-    #         df = store_df_inCache(filename)
-    #         return [[dict(label=x, value=x) for x in df.columns] for d in dimensions]
-    #
-    #     @self.app.callback(Output(idBase + "graph", "figure"),
-    #                 Input(idBase + 'cacheFile','children'),
-    #                 [Input(idBase + 'dd_' + d, "value") for d in dimensions],
-    #                 Input(idBase + 'in_skip', "value"))
-    #     def make_figure(signalCache,x, y,color,facet_col,facet_row,skip):
-    #         df = store_df_inCache(signalCache)
-    #         df=df.iloc[::skip]
-    #         return px.scatter(
-    #             df,
-    #             x=x,
-    #             y=y,
-    #             color=color,
-    #             facet_col=facet_col,
-    #             facet_row=facet_row,
-    #             height=900,title=signalCache
-    #         )
-    #     return layoutExplore

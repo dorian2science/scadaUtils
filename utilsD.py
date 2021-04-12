@@ -304,7 +304,7 @@ class Utils:
         overlays    = [None] + ['y']*(N-1)
         return [graphLims,sides,anchors,positions,overlays]
 
-    def goMultYAxis(self,df,nameColX,nameColsY,names=None,inc=0.05):
+    def multiYAxis(self,df,nameColX,nameColsY,names=None,inc=0.05):
         print('y : ',nameColsY)
         N = len(nameColsY)
         x = df[nameColX]
@@ -336,6 +336,31 @@ class Utils:
         fig.update_layout(xaxis=dict(domain=graphLims))
         fig.update_layout(dictYaxis)
         fig.update_layout(title_text="multiple y-axes example",font=dict(family="Courier New, monospace",size=18))
+        return fig
+
+    def multiYAxisv2(self,df,mapName='jet',names=None,inc=0.05,titleTxt='title'):
+        yList = df.columns
+        cols = self.getColorMapHex(mapName,len(yList))
+        yNum=[str(k) for k in range(1,len(yList)+1)]
+        graphLims,sides,anchors,positions,overlays = self.getAutoAxes(len(yList),inc=inc)
+        fig = go.Figure()
+        dictYaxis={}
+        for y,side,anc,pos,col,k,overlay in zip(yList,sides,anchors,positions,cols,yNum,overlays):
+            fig.add_trace(go.Scatter(x=df.index,y=df[y],name=y,yaxis='y'+k,mode='markers',
+                                    marker=dict(color = col,size=10)))
+
+            dictYaxis['yaxis'+k] = dict(
+            title=y,
+            titlefont=dict(color=col),
+            tickfont=dict(color=col),
+            anchor=anc,
+            overlaying=overlay,
+            side=side,
+            position=pos
+            )
+        fig.update_layout(xaxis=dict(domain=graphLims))
+        fig.update_layout(dictYaxis)
+        fig.update_layout(title_text=titleTxt,font=dict(family="Courier New, monospace",size=18))
         return fig
 
     def printDFSpecial(self,df,allRows=True):
