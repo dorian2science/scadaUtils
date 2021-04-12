@@ -75,10 +75,9 @@ class TemplateDashMaster:
             fig = px.scatter(df, x='timestamp', y='value', color='Tag',color_discrete_sequence=colorList,**kwargs)
         elif typeGraph == 'area':
             fig = px.area(df, color_discrete_sequence=colorList,**kwargs)
-        # fig.update_traces(line=dict(width=4, dash='dash'),marker=dict(size=5),selector=dict(mode='line + markers'))
         return fig
 
-    def exportDFOnClick(self,df,fig,folder=None,timeStamp=False,parseYes=False):
+    def exportDFOnClick(self,df,fig,folder=None,timeStamp=False,parseYes=False,baseName='test'):
         if not folder:
             folder = '/home/dorian/testsCode/testDir/'
         xlims=fig['layout']['xaxis']['range']
@@ -92,7 +91,7 @@ class TemplateDashMaster:
             df = df[(df.index>xlims[0]) & (df.index<xlims[1])]
         print('df \n: ',df)
         dateF=[k.strftime('%Y-%m-%d-%H-%M') for k in trange]
-        filename = 'test_' + dateF[0]+ '_' + dateF[1]
+        filename = baseName+ '_' + dateF[0]+ '_' + dateF[1]
         df.to_csv(folder + filename + '.txt')
 
     def generate_facetGraph(self,df,**kwargs):

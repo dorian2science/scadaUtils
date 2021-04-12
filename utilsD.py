@@ -304,40 +304,6 @@ class Utils:
         overlays    = [None] + ['y']*(N-1)
         return [graphLims,sides,anchors,positions,overlays]
 
-    def multiYAxis(self,df,nameColX,nameColsY,names=None,inc=0.05):
-        print('y : ',nameColsY)
-        N = len(nameColsY)
-        x = df[nameColX]
-        yList = [df[colonne] for colonne in nameColsY]
-
-        if not names:
-            names = nameColsY
-
-        cols = self.getColorMapHex('jet',N)
-        yNum=[str(k) for k in range(1,N+1)]
-        graphLims,sides,anchors,positions,overlays = self.getAutoAxes(N,inc=inc)
-
-        fig = go.Figure()
-
-        dictYaxis={}
-        for nameVar,y,side,anc,pos,col,k,overlay in zip(names,yList,sides,anchors,positions,cols,yNum,overlays):
-            fig.add_trace(go.Scatter(x=x,y=y,name=nameVar,yaxis='y'+k,mode='markers',
-                                    marker=dict(color = col,size=10)))
-
-            dictYaxis['yaxis'+k] = dict(
-            title=nameVar,
-            titlefont=dict(color=col),
-            tickfont=dict(color=col),
-            anchor=anc,
-            overlaying=overlay,
-            side=side,
-            position=pos
-            )
-        fig.update_layout(xaxis=dict(domain=graphLims))
-        fig.update_layout(dictYaxis)
-        fig.update_layout(title_text="multiple y-axes example",font=dict(family="Courier New, monospace",size=18))
-        return fig
-
     def multiYAxisv2(self,df,mapName='jet',names=None,inc=0.05,titleTxt='title'):
         yList = df.columns
         cols = self.getColorMapHex(mapName,len(yList))
