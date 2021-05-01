@@ -2,9 +2,9 @@ import dash_html_components as html
 import dash_core_components as dcc
 import dash_bootstrap_components as dbc
 from dateutil import parser
-import re,datetime as dt
-from utilsD import Utils
-import numpy as np
+import re,datetime as dt, numpy as np
+from dorianUtils.utilsD import Utils
+
 class DccExtended:
     utils=Utils()
     ''' dropdown with a list or dictionnary. Dictionnary doesn"t work for the moment '''

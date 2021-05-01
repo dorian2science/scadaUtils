@@ -1,9 +1,6 @@
-import pandas as pd, numpy as np
+import pandas as pd, numpy as np, pickle, re, time, datetime as dt
 import subprocess as sp, os
-import pickle
 from dateutil import parser
-import re
-import time, datetime as dt
 import plotly.graph_objects as go
 from pylab import cm
 import matplotlib.colors as mtpcl
@@ -13,18 +10,8 @@ from scipy.optimize import curve_fit
 
 class Utils:
     def __init__(self):
-        self.phyQties = {
-                'power'     : ['W'],
-                'voltage'   : ['V'],
-                'current'   : ['A'],
-                'time'      : ['h','min','s','day'],
-                'temperature' : ['°C','K'],
-                'pressure'  : ['bar','Pa','Barg'],
-                'distance'  : ['m'],
-                'surface'   : ['m2'],
-                'volume'    : ['l','L','m3'],
-                'weight'    : ['g'],
-                'energy'    : ['J']}
+        self.confDir=os.path.dirname(os.path.realpath(__file__)) + '/conf'
+        self.phyQties = self.df2dict(pd.read_csv(self.confDir+ '/units.csv'))
         self.unitMag = ['u','m','c','d','','da','h','k','M']
         self.buildNewUnits()
         self.listPatterns = ['.*',
@@ -34,8 +21,7 @@ class Utils:
         '[A-Z0-9]+_[A-Z0-9]+_[A-Z0-9]+_[A-Z0-9]+',
         '[\w_]+[A-Z]+',
         '[A-Za-z]+',]
-        self.dirNameOfFileUtilsD=os.path.dirname(os.path.realpath(__file__))
-        self.cmapNames = pickle.load(open(self.dirNameOfFileUtilsD + "/conf/colormaps.pkl",'rb'))[::3]
+        self.cmapNames = pickle.load(open(self.confDir+"/colormaps.pkl",'rb'))[::3]
 
     # ==========================================================================
     #                           DEBUG
@@ -109,6 +95,27 @@ class Utils:
             print("============================================")
         return wrapper
 
+    def datesBetween2Dates(self,dates,offset=0):
+        times = [parser.parse(k) for k in dates]
+        t0,t1 = [t-dt.timedelta(hours=t.hour,minutes=t.minute,seconds=t.second) for t in times]
+        delta = t1 - t0       # as timedelta
+        return [(t0 + dt.timedelta(days=i+offset)).strftime('%Y-%m-%d') for i in range(delta.days + 1) ],times[1]-times[0]
+
+    def slugify(self,value, allow_unicode=False):
+        import unicodedata,re
+        """
+        Taken from https://github.com/django/django/blob/master/django/utils/text.py
+        Convert to ASCII if 'allow_unicode' is False. Convert spaces or repeated
+        dashes to single dashes. Remove characters that aren't alphanumerics,
+        underscores, or hyphens. Convert to lowercase. Also strip leading and
+        trailing whitespace, dashes, and underscores.
+        """
+        value = str(value)
+        if allow_unicode:value = unicodedata.normalize('NFKC', value)
+        else:value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
+        value = re.sub(r'[^\w\s-]', '', value.lower())
+        return re.sub(r'[-\s]+', '-', value).strip('-_')
+
     # ==========================================================================
     #                           PHYSICS
     # ==========================================================================
@@ -142,6 +149,9 @@ class Utils:
     # ==========================================================================
     #                  lIST AND DICTIONNARIES
     # ==========================================================================
+    def df2dict(self,df):
+        return {df.columns[k] : list(df.iloc[:,k].dropna()) for k in range(len(df.columns))}
+
     def linspace(self,arr,numElems):
         idx = np.round(np.linspace(0, len(arr) - 1, numElems)).astype(int)
         return list([arr[k] for k in idx])
@@ -206,6 +216,9 @@ class Utils:
         tmp = [parser.parse(k) for k in lt]
         return [(t-t0).total_seconds() for t in tmp]
 
+    def regExpNot(self,regexp):
+        if regexp[:2] == '--': regexp = '^((?!' + regexp[2:] + ').)*$'
+        return regexp
     # ==========================================================================
     #                           COMPUTATION
     # ==========================================================================
@@ -254,8 +267,7 @@ class Utils:
     #                           GRAPHICS
     # ==========================================================================
     def customLegend(self,fig, nameSwap,breakLine=60):
-        dictYes = isinstance(nameSwap,dict)
-        if not dictYes:
+        if not isinstance(nameSwap,dict):
             print('not a dictionnary, there may be wrong assignment')
             namesOld = [k.name  for k in fig.data]
             nameSwap = dict(zip(namesOld,nameSwap))
@@ -276,7 +288,7 @@ class Utils:
         print(f)
         return f
 
-    def buildTimeMarks(self,t0,t1,nbMarks=8,fontSize='20px'):
+    def buildTimeMarks(self,t0,t1,nbMarks=8,fontSize='12px'):
         maxSecs=int((t1-t0).total_seconds())
         listSeconds = [int(t) for t in np.linspace(0,maxSecs,nbMarks)]
         dictTimeMarks = {k : {'label':(t0+dt.timedelta(seconds=k)).strftime('%H:%M'),
@@ -304,19 +316,21 @@ class Utils:
         overlays    = [None] + ['y']*(N-1)
         return [graphLims,sides,anchors,positions,overlays]
 
-    def multiYAxisv2(self,df,mapName='jet',names=None,inc=0.05,titleTxt='title'):
+    def multiYAxisv2(self,df,mapName='jet',names=None,inc=0.05):
         yList = df.columns
         cols = self.getColorMapHex(mapName,len(yList))
         yNum=[str(k) for k in range(1,len(yList)+1)]
         graphLims,sides,anchors,positions,overlays = self.getAutoAxes(len(yList),inc=inc)
         fig = go.Figure()
         dictYaxis={}
-        for y,side,anc,pos,col,k,overlay in zip(yList,sides,anchors,positions,cols,yNum,overlays):
+        if not names :
+            names = yList
+        for y,name,side,anc,pos,col,k,overlay in zip(yList,names,sides,anchors,positions,cols,yNum,overlays):
             fig.add_trace(go.Scatter(x=df.index,y=df[y],name=y,yaxis='y'+k,mode='markers',
                                     marker=dict(color = col,size=10)))
 
             dictYaxis['yaxis'+k] = dict(
-            title=y,
+            title=name,
             titlefont=dict(color=col),
             tickfont=dict(color=col),
             anchor=anc,
@@ -326,7 +340,6 @@ class Utils:
             )
         fig.update_layout(xaxis=dict(domain=graphLims))
         fig.update_layout(dictYaxis)
-        fig.update_layout(title_text=titleTxt,font=dict(family="Courier New, monospace",size=18))
         return fig
 
     def printDFSpecial(self,df,allRows=True):

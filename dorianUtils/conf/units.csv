@@ -1,0 +1,5 @@
+power,voltage,current,time,Temperature,pressure,distance,surface,volume,weight,energy,force
+W,V,A,h,K,bar,m,m²,l,g,Wh,N
+CH,,,min,°C,Pa,,,L,,J,kgF
+,,,s,°F,Barg,,,m³,,,
+,,,day,,psi,,,,,,
