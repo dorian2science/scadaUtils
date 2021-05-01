@@ -10,6 +10,9 @@ from dorianUtils.dccExtendedD import DccExtended
 from dorianUtils.utilsD import Utils
 
 class MultiUnitTab():
+    ''' this tab can only be built with templateDashTagsUnit and ConfigDashTagUnitTimestamp instances
+        from templateDashD and configFilesD '''
+
     def __init__(self,cfgtutu,dtu):
         self.dtu    = dtu
         self.cfgtu  = cfgtutu
@@ -89,7 +92,7 @@ class MultiUnitTab():
 
         MUG_html = self.dtu.buildLayout(listWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
         listIds  = self.dtu.dccE.parseLayoutIds(MUG_html)
-        dictOpts = self.dtu.autoDictOptions(listIds)
+        dictOpts = self.dtu.dccE.autoDictOptions(listIds)
 
     # ==========================================================================
     #                           BUTTONS CALLBACKS
@@ -114,6 +117,7 @@ class MultiUnitTab():
         State(baseId + 'pdr_timeStart','value'),State(baseId + 'pdr_timeEnd','value'))
         def updateMUGGraph(tags,step,cmapName,legendType,styleSel,incSpace,btnUpdate,date0,date1,t0,t1):
             df      = self.cfgtu.loadDFTimeRange([date0+' '+t0,date1+' '+t1],'',self.dtu.skipEveryHours)
+            print([date0+' '+t0,date1+' '+t1])
             df      = self.dtu.preparePivotedData(df,tags,step)
             names   = self.cfgtu.getUnitPivotedDF(df,True)
             fig     = self.utils.multiYAxisv2(df,mapName=cmapName,inc=incSpace,names=names)

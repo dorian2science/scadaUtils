@@ -99,7 +99,7 @@ class Utils:
         times = [parser.parse(k) for k in dates]
         t0,t1 = [t-dt.timedelta(hours=t.hour,minutes=t.minute,seconds=t.second) for t in times]
         delta = t1 - t0       # as timedelta
-        return [(t0 + dt.timedelta(days=i+offset)).strftime('%Y-%m-%d') for i in range(delta.days + 1) ],times[1]-times[0]
+        return [(t0 + dt.timedelta(days=i+offset)).strftime('%Y-%m-%d') for i in range(delta.days + 1)],times[1]-times[0]
 
     def slugify(self,value, allow_unicode=False):
         import unicodedata,re

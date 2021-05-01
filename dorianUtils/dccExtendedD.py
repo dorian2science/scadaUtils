@@ -98,3 +98,37 @@ class DccExtended:
                                     no_gutters=True),
                             ])
         return dbrsLayout
+
+    def parseLayoutIds(self,obj,debug=False):
+        c = True
+        ids,queueList,k = [],[],0
+        while c:
+            if debug : k=k+1;print(k)
+            if isinstance(obj,list):
+                if debug : print('listfound')
+                if len(obj)>1 : queueList.append(obj[1:])
+                obj = obj[0]
+            elif hasattr(obj,'id'):
+                if debug : print('id prop found')
+                ids.append(obj.id)
+                obj='idfound'
+            elif hasattr(obj,'children'):
+                if debug : print('children found')
+                obj=obj.children
+            elif not queueList:
+                if debug : print('queue list empty')
+                c=False
+            else :
+                if debug : print('iterate over queue list')
+                obj = queueList.pop()
+        return ids
+
+    def autoDictOptions(self,listWidgets):
+        dictOpts = {}
+        d1 = {k : 'value' for k in listWidgets if bool(re.search('(in_)|(dd_)', k))}
+        d2 = {k : 'n_clicks' for k in listWidgets if bool(re.search('btn_', k))}
+        d3 = {k : 'figure' for k in listWidgets if bool(re.search('graph', k))}
+        d4 = {k : 'children' for k in listWidgets if bool(re.search('fileInCache', k))}
+        for d in [d1,d2,d3,d4] :
+            if not not d : dictOpts.update(d)
+        return dictOpts

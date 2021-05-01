@@ -264,7 +264,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
 
     def loadDFTimeRange(self,timeRange,conditionFile='',skipEveryHours=24):
         lfs = [k for k in self.filesDir if conditionFile in k]
-        listDates   = self.utils.datesBetween2Dates(timeRange,offset=1)
+        listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=1)
         listFiles = [f for d in listDates for f in lfs if d in f]
         if not listFiles : print('there are no files to load')
         else :

@@ -22,8 +22,8 @@ classifiers=[
     "Operating System :: OS Independent",
 ],
 # package_dir={"": dirParent},
-packages=['dorianUtils'],
-# packages=setuptools.find_packages(),
+# packages=['dorianUtils'],
+packages=setuptools.find_packages(),
 install_requires=['matplotlib','pandas','dash','scipy'],
 python_requires=">=3.6"
 )

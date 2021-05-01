@@ -18,8 +18,12 @@ class TemplateDashMaster:
         self.title      =title
         self.extSheets  = self.selectExternalSheet(extSheets)
         self.cacheRedis = cacheRedis
-        self.app        = dash.Dash(__name__, extSheets=self.extSheets,
-                                url_base_pathname = baseNameUrl + str(port) + "/",title=title)
+
+        self.app        = dash.Dash(__name__, external_stylesheets=self.extSheets,
+                                    url_base_pathname = baseNameUrl,title=title)
+
+        self.app        = dash.Dash(__name__, external_stylesheets=self.extSheets,
+                                url_base_pathname = baseNameUrl,title=title)
 
         self.formatTime   = '%Y-%m-%d %H:%M'
         self.utils=Utils()
@@ -30,11 +34,11 @@ class TemplateDashMaster:
         if extSheets == 'bootstrap':
             return  [dbc.themes.BOOTSTRAP]
         elif extSheets =='mysheet1' :
-            self.extSheets = [
+            return [
             'https://codepen.io/chriddyp/pen/bWLwgP.css',
             'https://codepen.io/chriddyp/pen/brPBPO.css']
         else :
-            self.extSheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+            return ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
     def _getDefaultFolder(self):
         folderExport = os.getenv('HOME') + '/' + self.title
@@ -65,6 +69,11 @@ class TemplateDashMaster:
     # ==============================================================================
     #                       GRAPH functions
     # ==============================================================================
+    def preparePivotedData(self,df,tags,rs='1s'):
+        df = self.cfg.getDFfromTagList(df,tags)
+        df = self.cfg.pivotDF(df,rs)
+        return df
+
     def drawGraph(self,df,typeGraph='singleGraph',cmapName='jet',**kwargs):
         cmap        = cm.get_cmap(cmapName, len(df.Tag.unique()))
         colorList   = []
@@ -114,16 +123,36 @@ class TemplateDashMaster:
 
     def saveImage(self,fig,folder=None,figname=None,w=1500,h=400):
         if not figname :
-            timeNow = dt.datetime.now().strftime('%Y %m %d %H:%M'))
-            figname = self.utils.slugify(fig.layout.title['text']
-        if not folder:folder=self._getDefaultFolder()
+            timeNow = dt.datetime.now().strftime(self.formatTime)
+            figname = self.utils.slugify(fig.layout.title['text'])
+        if not folder : folder=self._getDefaultFolder()
         fig.write_image(folder + '/' + figname + '.png',width=w,height=h)
+
+    def changeLegendBtnState(self,legendType):
+        if legendType%3==0 :
+            buttonMessage = 'tag '
+        elif legendType%3==1 :
+            buttonMessage = 'description '
+        elif legendType%3==2:
+            buttonMessage = 'unvisible '
+        return buttonMessage
+
+    def changeStyleBtnState(self,styleSel):
+        if styleSel%2==0:
+            buttonMessage = 'lines+markers'
+        elif styleSel%2==1:
+            buttonMessage = 'stairs'
+        # elif styleSel%3==2:
+        #     buttonMessage = 'markers'
+        return buttonMessage
+
 
 class TemplateDashTagsUnit(TemplateDashMaster):
     ''' you need a configuration file instance from the class ConfigDashTagUnitTimestamp
     meaning having a dfPLC with at least columns : tag,unit and description '''
-    def __init__(self,cfg,skipEveryHours=120):
-        super().__init__(baseNameUrl='/tagsUnitTemplate/',title='tagsUnitTemplate')
+    def __init__(self,cfg,title='tagsUnitTemplate',baseNameUrl='/tagsUnitTemplate/',
+                    skipEveryHours=120,**kwargs):
+        super().__init__(baseNameUrl=baseNameUrl,title=title,**kwargs)
         self.cfg = cfg
         self.skipEveryHours = skipEveryHours
         self.dccE = DccExtended()
