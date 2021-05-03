@@ -190,7 +190,7 @@ class TemplateDashTagsUnit(TemplateDashMaster):
                 widgetObj = [html.P('skip points : '),
                 dcc.Input(id=baseId+widgetId,placeholder='skip points : ',type='number',min=1,step=1,value=20)]
 
-            elif 'in_roll' in widgetId:
+            elif 'in_timeRes' in widgetId:
                 widgetObj = [html.P('time resolution : '),
                 dcc.Input(id=baseId+widgetId,placeholder='time resolution : ',type='text',value='60s')]
 
@@ -277,6 +277,124 @@ class TemplateDashTagsUnit(TemplateDashMaster):
         dicLayouts['graphLayout']= html.Div([dcc.Graph(id=baseId+'graph' + str(k)) for k in range(1,nbGraphs+1)],
                                     style={"width": str(widthG) + "%", "display": "inline-block"})
 
+
+        layout = html.Div(list(dicLayouts.values()))
+        return layout
+
+    def buildLayout_vdict(self,dicWidgets,baseId,widthG=80,nbGraphs=1,nbCaches=0):
+        widgetLayout,dicLayouts = [],{}
+        for widgetId in dicWidgets.items():
+            print(widgetId)
+            if 'dd_listFiles' in widgetId[0]:
+                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.filesDir,'Select your File : ',
+                    labelsPattern='\d{4}-\d{2}-\d{2}-\d{2}',defaultIdx=widgetId[1])
+
+            elif 'dd_Tag' in widgetId[0]:
+                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.getTagsTU('',self.cfg.listUnits),
+                'Select type graph : ',value=widgetId[1],multi=True,
+                style={'fontsize':'20 px','height': '40px','min-height': '1px',},optionHeight=20)
+
+            elif 'dd_cmap' in widgetId[0]:
+                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.utils.cmapNames[0],
+                                                'select the colormap : ',value=widgetId[1])
+
+            elif 'in_step' in widgetId[0]:
+                widgetObj = [html.P('skip points : '),
+                dcc.Input(id=baseId+widgetId[0],placeholder='skip points : ',type='number',
+                            min=1,step=1,value=widgetId[1])]
+
+            elif 'in_timeRes' in widgetId[0]:
+                widgetObj = [html.P('time resolution : '),
+                dcc.Input(id=baseId+widgetId[0],placeholder='time resolution : ',type='text',value=widgetId[1])]
+
+            elif 'btn_legend' in widgetId[0]:
+                widgetObj = [html.Button('tag',id=baseId+widgetId[0], n_clicks=widgetId[1])]
+
+            elif 'btn_export' in widgetId[0]:
+                widgetObj = [html.Button('export .txt',id=baseId+widgetId[0], n_clicks=widgetId[1])]
+
+            elif 'btn_style' in widgetId[0]:
+                widgetObj = [html.Button('lines+markers',id=baseId+widgetId[0], n_clicks=widgetId[1])]
+
+            elif 'btn_Update' in widgetId[0]:
+                widgetObj = [html.Button(children='recompute',id=baseId+widgetId[0], n_clicks=widgetId[1])]
+
+            elif 'dd_Units' in widgetId[0] :
+                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.listUnits,'Select units graph : ',value=widgetId[1])
+
+            elif 'in_patternTag' in widgetId[0]  :
+                widgetObj = [html.P('pattern with regexp on tag : '),
+                dcc.Input(id=baseId+widgetId[0],type='text',value=widgetId[1])]
+
+            elif 'dd_typeTags' in widgetId[0]:
+                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],list(self.cfg.usefulTags.index),
+                            'Select type graph : ',defaultIdx=widgetId[1],
+                            style={'fontsize':'20 px','height': '40px','min-height': '1px',},optionHeight=20)
+
+            elif 'dd_patternCat' in widgetId[0]:
+                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.allPatterns,
+                            'Select regExpPattern : ',defaultIdx=widgetId[1],
+                            style={'fontsize':'20 px','height': '40px','min-height': '1px',},optionHeight=20)
+
+            elif 'dd_multiPattern' in widgetId[0]:
+                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.allPatterns,
+                                            style={'fontsize':'20 px','height': '40px','min-height': '1px',},
+                                            multi=True,optionHeight=20)
+
+            elif 'rs_time' in widgetId[0]:
+                widgetObj = self.dccE.timeRangeSlider(baseId+widgetId[0])
+
+            elif 'in_time' in widgetId[0]:
+                t1=widgetId[1]
+                if not t1 : t1 = dt.datetime.now()
+                t1 = t1 - dt.timedelta(hours=t1.hour+1)
+                t0 = t1 - dt.timedelta(days=3)
+                t0,t1 = [d.strftime(self.formatTime) for d in [t0,t1]]
+                widgetObj = [
+                html.Div([
+                    dbc.Row([dbc.Col(html.P('select start and end time : '))]),
+                    dbc.Row([dbc.Col(dcc.Input(id = baseId + widgetId[0] + 'Start',type='text',value = t0,size='13',style={'font-size' : 13})),
+                            dbc.Col(dcc.Input(id = baseId + widgetId[0] + 'End',type='text',value = t1,size='13',style={'font-size' : 13}))])
+                ])]
+
+            elif 'pdr_time' in widgetId[0] :
+                tmax=widgetId[1]
+                # if not tmax : tmax = dt.datetime.now()
+                if not tmax :
+                    tmax = cfg.filesDir[-1].split('-')[:3]# read the date of the last file in the folder
+                    tmax = dt.datetime(int(tmax[0]),int(tmax[1]),int(tmax[2]-1))
+                t1 = tmax - dt.timedelta(hours=tmax.hour+1)
+                t0 = t1 - dt.timedelta(days=3)
+
+                widgetObj = [
+                html.Div([
+                    dbc.Row([dbc.Col(html.P('select start and end time : ')),
+                        dbc.Col(html.Button(id  = baseId + widgetId[0] + 'Btn',children='update Time'))]),
+
+                    dbc.Row([dbc.Col(dcc.DatePickerRange( id = baseId + widgetId[0] + 'Pdr',
+                                max_date_allowed = tmax, initial_visible_month = t0.date(),
+                                display_format = 'MMM D, YY',minimum_nights=0,
+                                start_date = t0.date(), end_date   = t1.date()))]),
+
+                    dbc.Row([dbc.Col(dcc.Input(id = baseId + widgetId[0] + 'Start',type='text',value = '07:00',size='13',style={'font-size' : 13})),
+                            dbc.Col(dcc.Input(id = baseId + widgetId[0] + 'End',type='text',value = '21:00',size='13',style={'font-size' : 13}))])
+                ])]
+
+            elif 'in_axisSp' in widgetId[0]  :
+                widgetObj = [html.P('select the space between axis : '),
+                dcc.Input(id=baseId+widgetId[0],type='number',value=widgetId[1],max=1,min=0,step=0.02)]
+
+            for widObj in widgetObj:
+                widgetLayout.append(widObj)
+
+        dicLayouts['widgetLayout'] = html.Div(widgetLayout,
+                                    style={"width": str(100-widthG) + "%", "float": "left"})
+
+        dicLayouts['cacheLayout']= html.Div([html.Div(id=baseId+'fileInCache' + str(k)) for k in range(1,nbCaches+1)],
+                                    style={"display": "none"})
+
+        dicLayouts['graphLayout']= html.Div([dcc.Graph(id=baseId+'graph' + str(k)) for k in range(1,nbGraphs+1)],
+                                    style={"width": str(widthG) + "%", "display": "inline-block"})
 
         layout = html.Div(list(dicLayouts.values()))
         return layout

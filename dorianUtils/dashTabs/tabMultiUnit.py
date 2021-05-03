@@ -20,7 +20,7 @@ class MultiUnitTab():
         self.dccE   = DccExtended()
 
     def mut_pdr(self,baseId,widthG=80,heightGraph=900):
-        listWidgets = ['pdr_time','in_roll','dd_cmap','btn_legend',
+        listWidgets = ['pdr_time','in_timeRes','dd_cmap','btn_legend',
                         'btn_export','btn_style','in_axisSp','dd_Tag']
 
         MUG_html = self.dtu.buildLayout(listWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
@@ -44,7 +44,7 @@ class MultiUnitTab():
         @self.dtu.app.callback(
             Output(baseId + 'fileInCache1','children'),
             Input(baseId + 'pdr_timeBtn','n_clicks'),
-            State(baseId + 'dd_Tag','value'),State(baseId + 'in_roll','value'),
+            State(baseId + 'dd_Tag','value'),State(baseId + 'in_timeRes','value'),
             State(baseId + 'pdr_timePdr','start_date'),State(baseId + 'pdr_timePdr','end_date'),
             State(baseId + 'pdr_timeStart','value'),State(baseId + 'pdr_timeEnd','value'))
         def computeDataFrame(btnUpdate,tags,step,date0,date1,t0,t1):
@@ -87,7 +87,7 @@ class MultiUnitTab():
         return MUG_html
 
     def mut_pdr_nocache(self,baseId,widthG=80,heightGraph=900):
-        listWidgets = ['pdr_time','in_roll','dd_cmap','btn_legend',
+        listWidgets = ['pdr_time','in_timeRes','dd_cmap','btn_legend',
                         'btn_export','btn_style','in_axisSp','dd_Tag']
 
         MUG_html = self.dtu.buildLayout(listWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
@@ -107,7 +107,7 @@ class MultiUnitTab():
     # ==========================================================================
     #                           COMPUTE AND GRAPHICS CALLBACKS
     # ==========================================================================
-        listInputsGraph = [baseId+l for l in ['dd_Tag','in_roll','dd_cmap','btn_legend',
+        listInputsGraph = [baseId+l for l in ['dd_Tag','in_timeRes','dd_cmap','btn_legend',
                                             'btn_style','in_axisSp']]
         @self.dtu.app.callback(
         Output(baseId + 'graph1', 'figure'),
@@ -127,7 +127,7 @@ class MultiUnitTab():
   # ==========================================================================
   #                           EXPORT CALLBACKS
   # ==========================================================================
-        listStatesExport = [baseId+l for l in ['graph1','dd_Tag','in_roll']]
+        listStatesExport = [baseId+l for l in ['graph1','dd_Tag','in_timeRes']]
         @self.dtu.app.callback(Output(baseId + 'btn_export','children'),
         Input(baseId + 'btn_export', 'n_clicks'),
         [State(k,v) for k,v in {key: dictOpts[key] for key in listStatesExport}.items()],
@@ -144,7 +144,7 @@ class MultiUnitTab():
         return MUG_html
 
     def mut_f(self,baseId,widthG=80,heightGraph=700):
-        listWidgets = ['dd_listFiles','in_roll','dd_cmap','btn_legend',
+        listWidgets = ['dd_listFiles','in_timeRes','dd_cmap','btn_legend',
                         'btn_export','btn_style','in_axisSp','dd_Tag']
         MUGlayout=self.dtu.buildLayout(listWidgets,baseId,widthG=widthG)
 
@@ -180,3 +180,65 @@ class MultiUnitTab():
             fig     = self.dtu.updateStyleGraph(fig,styleSel)
             return fig
         return MUGlayout
+
+
+
+    def mut_pdr_nocache_vdic(self,baseId,widthG=80,heightGraph=900):
+        dicWidgets = {'pdr_time' : dt.datetime(2021,4,29),'in_timeRes':str(60*10)+'s','dd_cmap':'jet','btn_legend':0,
+                        'btn_export':0,'btn_style':0,'in_axisSp':0.1,'dd_Tag':self.cfgtu.getTagsTU('B001.+[\)s]-JTW',['W','J'],'tag')}
+
+        MUG_htmlVdic = self.dtu.buildLayout_vdict(dicWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
+        listIds  = self.dtu.dccE.parseLayoutIds(MUG_htmlVdic)
+        dictOpts = self.dtu.dccE.autoDictOptions(listIds)
+
+    # ==========================================================================
+    #                           BUTTONS CALLBACKS
+    # ==========================================================================
+
+        @self.dtu.app.callback(Output(baseId + 'btn_legend', 'children'),Input(baseId + 'btn_legend','n_clicks'))
+        def updateLgdBtn(legendType):return self.dtu.changeLegendBtnState(legendType)
+
+        @self.dtu.app.callback(Output(baseId + 'btn_style', 'children'),Input(baseId + 'btn_style','n_clicks'))
+        def updateStyleBtn(styleSel):return self.dtu.changeStyleBtnState(styleSel)
+
+    # ==========================================================================
+    #                           COMPUTE AND GRAPHICS CALLBACKS
+    # ==========================================================================
+        listInputsGraph = [baseId+l for l in ['dd_Tag','in_timeRes','dd_cmap','btn_legend',
+                                            'btn_style','in_axisSp']]
+        @self.dtu.app.callback(
+        Output(baseId + 'graph1', 'figure'),
+        [Input(k,v) for k,v in {key: dictOpts[key] for key in listInputsGraph}.items()],
+        Input(baseId + 'pdr_timeBtn','n_clicks'),
+        State(baseId + 'pdr_timePdr','start_date'),State(baseId + 'pdr_timePdr','end_date'),
+        State(baseId + 'pdr_timeStart','value'),State(baseId + 'pdr_timeEnd','value'))
+        def updateMUGGraph(tags,step,cmapName,legendType,styleSel,incSpace,btnUpdate,date0,date1,t0,t1):
+            start = time.time()
+            timeRange = [date0+' '+t0,date1+' '+t1]
+            df      = self.cfgtu.loadDF_TimeRange_Tags(timeRange,tags,rs=step,applyMethod='mean')
+            names   = self.cfgtu.getUnitPivotedDF(df,True)
+
+            print(time.time()-start, 's')
+
+            fig     = self.utils.multiYAxisv2(df,mapName=cmapName,inc=incSpace,names=names)
+            fig     = self.dtu.updateLegend(df,fig,legendType,pivoted=True,breakLine=30,addUnit=True)
+            fig     = self.dtu.updateStyleGraph(fig,styleSel)
+            return fig
+  # ==========================================================================
+  #                           EXPORT CALLBACKS
+  # ==========================================================================
+        listStatesExport = [baseId+l for l in ['graph1','dd_Tag','in_timeRes']]
+        @self.dtu.app.callback(Output(baseId + 'btn_export','children'),
+        Input(baseId + 'btn_export', 'n_clicks'),
+        [State(k,v) for k,v in {key: dictOpts[key] for key in listStatesExport}.items()],
+        State(baseId + 'pdr_timePdr','start_date'),State(baseId + 'pdr_timePdr','end_date'),
+        State(baseId + 'pdr_timeStart','value'),State(baseId + 'pdr_timeEnd','value'))
+        def exportClick(btn,fig,tags,step,date0,date1,t0,t1):
+            if btn > 0:
+                df    = self.cfgtu.loadDFTimeRange([date0+' '+t0,date1+' '+t1],'',self.dtu.skipEveryHours)
+                df    = self.dtu.preparePivotedData(df,tags,step)
+                xlims = fig['layout']['xaxis']['range']
+                self.dtu.exportDFOnClick(df,xlims)
+            return 'export Data'
+
+        return MUG_htmlVdic

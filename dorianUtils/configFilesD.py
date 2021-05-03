@@ -145,17 +145,6 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         listUnits = self.dfPLC[self.unitCol]
         return listUnits[~listUnits.isna()].unique().tolist()
 
-    def getTagsRegexp(self,pat,onCol='tag',case=False):
-        res = self.dfPLC.copy()
-        if 'tag' in onCol.lower() :
-            whichCol = self.tagCol
-        elif 'des' in onCol.lower():
-            whichCol = self.descriptCol
-        res = res[res[whichCol].str.contains(pat,case=case)][[self.tagCol,self.descriptCol,self.unitCol]]
-        # res = res[res[whichCol].str.contains(pat)]
-        # self.utils.printDFSpecial(res)
-        return res
-
     def getTagsSameUnit(self,unitName,showPLC=0):
         res = self.dfPLC.copy()
         if not showPLC :
@@ -167,20 +156,21 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
             # self.utils.printDFSpecial(res)
             return res
 
-    def getTagsTU(self,patTag,units,onCol='tag',case=False,ds=True,printRes=False):
+    def getTagsTU(self,patTag,units,onCol='tag',case=False,ds=True,format='tag'):
         res = self.dfPLC.copy()
-        if 'tag' in onCol.lower() :
-            whichCol = self.tagCol
-        elif 'des' in onCol.lower():
-            whichCol = self.descriptCol
+        if 'tag' in onCol.lower():whichCol = self.tagCol
+        elif 'des' in onCol.lower():whichCol = self.descriptCol
         filter1 = res[whichCol].str.contains(patTag,case=case)
-        if isinstance(units,str) :
+        if isinstance(units,str):
             units = [units]
         filter2 = res[self.unitCol].isin(units)
-        res=res[filter1&filter2][[self.tagCol,self.descriptCol,self.unitCol]]
-        # res=res[filter2][[self.tagCol,self.descriptCol]]
-        if printRes:
-            self.utils.printDFSpecial(res)
+        res = res[filter1&filter2]
+        if format=='tdu':
+            res = res[[self.tagCol,self.descriptCol,self.unitCol]]
+        elif format=='tag':
+            res = list(res[self.tagCol])
+        elif format=='print':
+            res = self.utils.printDFSpecial(res)
         return res
 
     def getCatsFromUnit(self,unitName,pattern=None):
@@ -233,14 +223,13 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
     def getDFfromTagList(self,df,ll,formatted=1):
         if not isinstance(ll,list):ll =[ll]
         dfOut = df[df.Tag.isin(ll)]
-        if not formatted :
-            dfOut.value = pd.to_numeric(dfOut['value'],errors='coerce')
+        if not formatted :dfOut.value = pd.to_numeric(dfOut['value'],errors='coerce')
         return dfOut.sort_values(by=['Tag','timestamp'])
 
     def getDFTagsTU(self,df,patTags,units,formatted=1,**kwargs):
         lls=[]
         if isinstance(patTags,str) : patTags = [patTags]
-        for patTag in patTags : lls.append(list(self.getTagsTU(patTag,units,**kwargs).TAG))
+        for patTag in patTags : lls.append(self.getTagsTU(patTag,units,format='tag',**kwargs))
         ll = self.utils.flattenList(lls)
         return self.getDFfromTagList(df,ll,formatted)
 
@@ -286,29 +275,53 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         for tagname in listTags :
             dftmp=df[df.Tag==tagname]
             dftmp.index=list(dftmp.timestamp)
-            if applyMethod=='mean':
-                dftmp=dftmp.resample(resampleRate,origin=t0).apply(np.nanmean)
+            # dftmp = eval('dftmp.resample(resampleRate,origin=t0).apply(' + applyMethod + ')')
+            # print('applyMethod : ',applyMethod)
             if applyMethod=='min':
                 dftmp=dftmp.resample(resampleRate,origin=t0).apply(np.nanmin)
+            if applyMethod=='mean':
+                dftmp=dftmp.resample(resampleRate,origin=t0).apply(np.nanmean)
             if applyMethod=='max':
                 dftmp=dftmp.resample(resampleRate,origin=t0).apply(np.nanmax)
             dfOut[tagname]= dftmp['value']
         dfOut=dfOut.fillna(method='ffill')
         return dfOut
 
-    def loadDF_TimeRange_TU(self,timeRange,tagPat,unit,rs='auto',applyMethod='nanmean'):
+    def loadDF_TimeRange_TU(self,timeRange,tagPat,unit,rs='auto',applyMethod='mean'):
         lfs = [k for k in self.filesDir]
         listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=1)
         listFiles = [f for d in listDates for f in lfs if d in f]
         if rs=='auto':
             rs = '{:.0f}'.format(max(1,delta.total_seconds()/3600)) + 's'
-
+            print(rs)
         if not listFiles : print('there are no files to load')
         else :
             dfs = []
             for filename in listFiles :
                 df = self.loadFile(filename)
                 df = self.getDFTagsTU(df,tagPat,unit)
+                df = self.pivotDF(df,resampleRate=rs,applyMethod=applyMethod)
+                if not '00-00' in filename: # remvove the part of the dataframe that expands over the next date
+                    t0      = df.timestamp.iloc[0]
+                    tmax    = t0+dt.timedelta(days=1)-dt.timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second+1)
+                    df      = df[df.timestamp<tmax]
+                dfs.append(df)
+        return self.getDFTimeRange(pd.concat(dfs),timeRange,'index')
+
+    def loadDF_TimeRange_Tags(self,timeRange,tagPat,unit=None,rs='auto',applyMethod='mean'):
+        lfs = [k for k in self.filesDir]
+        listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=1)
+        listFiles = [f for d in listDates for f in lfs if d in f]
+        if rs=='auto':
+            rs = '{:.0f}'.format(max(1,delta.total_seconds()/3600)) + 's'
+            print(rs)
+        if not listFiles : print('there are no files to load')
+        else :
+            dfs = []
+            for filename in listFiles :
+                df = self.loadFile(filename)
+                if not unit : df = self.getDFfromTagList(df,tagPat)
+                else : df = self.getDFTagsTU(df,tagPat,unit)
                 df = self.pivotDF(df,resampleRate=rs,applyMethod=applyMethod)
                 if not '00-00' in filename: # remvove the part of the dataframe that expands over the next date
                     t0      = df.timestamp.iloc[0]
