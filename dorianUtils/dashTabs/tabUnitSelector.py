@@ -35,6 +35,16 @@ class UnitSelectorTab():
         fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
         return fig
 
+    def updateTUGraph_rs(self,df,unit,cmapName,legendType,figname=None,breakLine=None):
+        fig = self.dtu.drawGraph(df,cmapName=cmapName)
+        fig = self.dtu.updateLegend(df,fig,legendType,pivoted=False)
+        nameGrandeur = self.cfgtu.utils.detectUnit(unit)
+        fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
+        # if not isinstance(figname,str):figname = self.cfgtu.utils.makeFigureName(filename,'Small',[unit,tagPat])
+        ## build the Y-AXIS name
+        # fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit,title=figname)
+        return fig
+
     # ==========================================================================
     #                           LAYOUT FUNCTIONS
     # ==========================================================================
@@ -96,7 +106,7 @@ class UnitSelectorTab():
                         'btn_style','btn_export','dd_cmap']
         TUinPDR_html = self.dtu.buildLayout(listWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
         listIds = self.dccE.parseLayoutIds(TUinPDR_html)
-        dictOpts = self.dtu.autoDictOptions(listIds)
+        dictOpts = self.dccE.autoDictOptions(listIds)
 
         # ==========================================================================
         #                           BUTTONS CALLBACKS
@@ -120,6 +130,7 @@ class UnitSelectorTab():
         State(baseId + 'pdr_timeStart','value'),State(baseId + 'pdr_timeEnd','value'))
         def updateGraphIn(unit,tagPat,cmapName,legendType,styleSel,step,btn,date0,date1,t0,t1):
             df  = self.dtu.computeDataFrame(date0,date1,t0,t1,toJson=False)
+            print(df)
             fig = self.updateTUGraph(df,tagPat,unit,step,cmapName,legendType,breakLine=None)
             fig = self.dtu.updateStyleGraph(fig,styleSel)
             return fig
@@ -338,3 +349,64 @@ class UnitSelectorTab():
                     self.dtu.exportDFOnClick(df,fig,folder=self.dtu.cfgtu.folderExport,baseName='smallPower')
                 return 'export Data'
         return TUinGhtml
+
+
+    def tagUnit_in_pdr_nocache_resample(self,baseId,widthG=80,heightGraph=900):
+        dicWidgets = {'pdr_time' : None,'in_timeRes':str(60*10)+'s',
+                        'dd_Units':'W','in_patternTag':'B001',
+                        'btn_legend':0,'btn_style':0,'btn_export':0,'dd_cmap':'jet'}
+
+        TUinPDRrs_html = self.dtu.buildLayout_vdict(dicWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
+        listIds = self.dccE.parseLayoutIds(TUinPDRrs_html)
+        dictOpts = self.dccE.autoDictOptions(listIds)
+
+        # ==========================================================================
+        #                           BUTTONS CALLBACKS
+        # ==========================================================================
+
+        @self.dtu.app.callback(Output(baseId + 'btn_legend', 'children'),Input(baseId + 'btn_legend','n_clicks'))
+        def updateLgdBtn(legendType):return self.dtu.changeLegendBtnState(legendType)
+
+        @self.dtu.app.callback(Output(baseId + 'btn_style', 'children'),Input(baseId + 'btn_style','n_clicks'))
+        def updateStyleBtn(styleSel):return self.dtu.changeStyleBtnState(styleSel)
+
+        # ==========================================================================
+        #                           COMPUTE AND GRAPHICS CALLBACKS
+        # ==========================================================================
+
+        listInputsGraph = [baseId+l for l in ['dd_Units','in_patternTag','in_timeRes','dd_cmap','btn_legend','btn_style']]
+        @self.dtu.app.callback(Output(baseId + 'graph1', 'figure'),
+        [Input(k,v) for k,v in {key: dictOpts[key] for key in listInputsGraph}.items()],
+        Input(baseId + 'pdr_timeBtn','n_clicks'),
+        State(baseId + 'pdr_timePdr','start_date'),State(baseId + 'pdr_timePdr','end_date'),
+        State(baseId + 'pdr_timeStart','value'),State(baseId + 'pdr_timeEnd','value'))
+        def updateGraphIn(unit,tagPat,rs,cmapName,legendType,styleSel,btn,date0,date1,t0,t1):
+            start = time.time()
+            timeRange = [date0+' '+t0,date1+' '+t1]
+            listTags= self.cfgtu.getTagsTU(tagPat,unit)
+            df      = self.cfgtu.loadDF_TimeRange_Tags(timeRange,listTags,rs=rs,applyMethod='mean')
+            names   = self.cfgtu.getUnitPivotedDF(df,True)
+            print(time.time()-start, 's')
+            print(df)
+            fig = self.updateTUGraph_rs(df,unit,cmapName,legendType,breakLine=None)
+            fig = self.dtu.updateStyleGraph(fig,styleSel)
+            return fig
+
+        # ==========================================================================
+        #                           EXPORT CALLBACK
+        # ==========================================================================
+        listStatesExport = [baseId+l for l in ['graph1','in_patternTag','dd_Units']]
+        @self.dtu.app.callback(Output(baseId + 'btn_export','children'),
+        Input(baseId + 'btn_export', 'n_clicks'),
+        [State(k,v) for k,v in {key: dictOpts[key] for key in listStatesExport}.items()],
+        State(baseId + 'pdr_timePdr','start_date'),State(baseId + 'pdr_timePdr','end_date'),
+        State(baseId + 'pdr_timeStart','value'),State(baseId + 'pdr_timeEnd','value'))
+        def exportClick(btn,fig,tagPattern,unit,date0,date1,t0,t1):
+            if btn>1:
+                df = self.dtu.computeDataFrame(date0,date1,t0,t1,toJson=False)
+                xlims = fig['layout']['xaxis']['range']
+                print('xlims : ',xlims)
+                self.dtu.exportDFOnClick(xlims,tagPattern,unit,fig,df=df)
+            return 'export Data'
+
+        return TUinPDRrs_html

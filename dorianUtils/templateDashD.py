@@ -74,14 +74,24 @@ class TemplateDashMaster:
         df = self.cfg.pivotDF(df,rs)
         return df
 
-    def drawGraph(self,df,typeGraph='singleGraph',cmapName='jet',**kwargs):
-        cmap        = cm.get_cmap(cmapName, len(df.Tag.unique()))
+    def getColDisSeq(self,N,cmapName='jet'):
+        cmap        = cm.get_cmap(cmapName,N)
         colorList   = []
         for i in range(cmap.N):colorList.append(mtpcl.rgb2hex(cmap(i)))
-        if typeGraph == 'singleGraph' :
-            fig = px.scatter(df, x='timestamp', y='value', color='Tag',color_discrete_sequence=colorList,**kwargs)
+        return colorList
+
+    def drawGraph(self,df,typeGraph='singleGraph',cmapName='jet',**kwargs):
+        if typeGraph == 'singleGraph':
+            if 'tag' in df.columns:
+                fig = px.scatter(df, x='timestamp', y='value', color='Tag',
+                        color_discrete_sequence=self.getColDisSeq(len(df.Tag.unique()),cmapName),
+                            **kwargs)
+            else :
+                fig = px.scatter(df,color_discrete_sequence=self.getColDisSeq(len(df.columns),cmapName),**kwargs)
+
         elif typeGraph == 'area':
             fig = px.area(df, color_discrete_sequence=colorList,**kwargs)
+
         return fig
 
     def updateStyleGraph(self,fig,style=0,heightGraph=700):
@@ -361,8 +371,8 @@ class TemplateDashTagsUnit(TemplateDashMaster):
                 tmax=widgetId[1]
                 # if not tmax : tmax = dt.datetime.now()
                 if not tmax :
-                    tmax = cfg.filesDir[-1].split('-')[:3]# read the date of the last file in the folder
-                    tmax = dt.datetime(int(tmax[0]),int(tmax[1]),int(tmax[2]-1))
+                    tmax = self.cfg.filesDir[-1].split('-')[:3]# read the date of the last file in the folder
+                    tmax = dt.datetime(int(tmax[0]),int(tmax[1]),int(tmax[2]))
                 t1 = tmax - dt.timedelta(hours=tmax.hour+1)
                 t0 = t1 - dt.timedelta(days=3)
 

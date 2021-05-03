@@ -184,12 +184,12 @@ class MultiUnitTab():
 
 
     def mut_pdr_nocache_vdic(self,baseId,widthG=80,heightGraph=900):
-        dicWidgets = {'pdr_time' : dt.datetime(2021,4,29),'in_timeRes':str(60*10)+'s','dd_cmap':'jet','btn_legend':0,
+        dicWidgets = {'pdr_time' : None,'in_timeRes':str(60*10)+'s','dd_cmap':'jet','btn_legend':0,
                         'btn_export':0,'btn_style':0,'in_axisSp':0.1,'dd_Tag':self.cfgtu.getTagsTU('B001.+[\)s]-JTW',['W','J'],'tag')}
 
         MUG_htmlVdic = self.dtu.buildLayout_vdict(dicWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
-        listIds  = self.dtu.dccE.parseLayoutIds(MUG_htmlVdic)
-        dictOpts = self.dtu.dccE.autoDictOptions(listIds)
+        listIds  = self.dccE.parseLayoutIds(MUG_htmlVdic)
+        dictOpts = self.dccE.autoDictOptions(listIds)
 
     # ==========================================================================
     #                           BUTTONS CALLBACKS
