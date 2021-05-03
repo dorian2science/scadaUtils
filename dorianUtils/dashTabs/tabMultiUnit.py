@@ -183,7 +183,7 @@ class MultiUnitTab():
 
 
 
-    def mut_pdr_nocache_vdic(self,baseId,widthG=80,heightGraph=900):
+    def mut_pdr_nocache_resample(self,baseId,widthG=80,heightGraph=900):
         dicWidgets = {'pdr_time' : None,'in_timeRes':str(60*10)+'s','dd_cmap':'jet','btn_legend':0,
                         'btn_export':0,'btn_style':0,'in_axisSp':0.1,'dd_Tag':self.cfgtu.getTagsTU('B001.+[\)s]-JTW',['W','J'],'tag')}
 
