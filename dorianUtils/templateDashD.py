@@ -82,7 +82,7 @@ class TemplateDashMaster:
 
     def drawGraph(self,df,typeGraph='singleGraph',cmapName='jet',**kwargs):
         if typeGraph == 'singleGraph':
-            if 'tag' in df.columns:
+            if 'Tag' in df.columns:
                 fig = px.scatter(df, x='timestamp', y='value', color='Tag',
                         color_discrete_sequence=self.getColDisSeq(len(df.Tag.unique()),cmapName),
                             **kwargs)
@@ -172,7 +172,7 @@ class TemplateDashTagsUnit(TemplateDashMaster):
     # ==========================================================================
     def updateLegend(self,df,fig,legendType,pivoted=False,breakLine=None,addUnit=False):
         if legendType%3==1: # description name
-            dfDes       = self.cfg.getTagDescription(df,pivoted,2)
+            dfDes       = self.cfg.getTagDescription(df,cols=2)
             newNames    = dfDes[self.cfg.descriptCol]
             dictNames   = dict(zip(dfDes[self.cfg.tagCol],newNames))
             fig         = self.utils.customLegend(fig,dictNames,breakLine=breakLine)
@@ -307,15 +307,22 @@ class TemplateDashTagsUnit(TemplateDashMaster):
             elif 'dd_cmap' in widgetId[0]:
                 widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.utils.cmapNames[0],
                                                 'select the colormap : ',value=widgetId[1])
+            elif 'dd_Units' in widgetId[0] :
+                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.listUnits,'Select units graph : ',value=widgetId[1])
 
-            elif 'in_step' in widgetId[0]:
-                widgetObj = [html.P('skip points : '),
-                dcc.Input(id=baseId+widgetId[0],placeholder='skip points : ',type='number',
-                            min=1,step=1,value=widgetId[1])]
+            elif 'dd_typeTags' in widgetId[0]:
+                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],list(self.cfg.usefulTags.index),
+                            'Select type graph : ',defaultIdx=widgetId[1],
+                            style={'fontsize':'20 px','height': '40px','min-height': '1px',},optionHeight=20)
 
-            elif 'in_timeRes' in widgetId[0]:
-                widgetObj = [html.P('time resolution : '),
-                dcc.Input(id=baseId+widgetId[0],placeholder='time resolution : ',type='text',value=widgetId[1])]
+            elif 'dd_multiPattern' in widgetId[0]:
+                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.allPatterns,
+                                            style={'fontsize':'20 px','height': '40px','min-height': '1px',},
+                                            multi=widgetId[1],optionHeight=20)
+
+            elif 'dd_resampleMethod' in widgetId[0]:
+                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],['mean','max','min','median'],
+                'Select the resampling method: ',value=widgetId[1],multi=False)
 
             elif 'btn_legend' in widgetId[0]:
                 widgetObj = [html.Button('tag',id=baseId+widgetId[0], n_clicks=widgetId[1])]
@@ -329,30 +336,13 @@ class TemplateDashTagsUnit(TemplateDashMaster):
             elif 'btn_Update' in widgetId[0]:
                 widgetObj = [html.Button(children='recompute',id=baseId+widgetId[0], n_clicks=widgetId[1])]
 
-            elif 'dd_Units' in widgetId[0] :
-                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.listUnits,'Select units graph : ',value=widgetId[1])
+            elif 'in_timeRes' in widgetId[0]:
+                widgetObj = [html.P('time resolution : '),
+                dcc.Input(id=baseId+widgetId[0],placeholder='time resolution : ',type='text',value=widgetId[1])]
 
             elif 'in_patternTag' in widgetId[0]  :
                 widgetObj = [html.P('pattern with regexp on tag : '),
                 dcc.Input(id=baseId+widgetId[0],type='text',value=widgetId[1])]
-
-            elif 'dd_typeTags' in widgetId[0]:
-                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],list(self.cfg.usefulTags.index),
-                            'Select type graph : ',defaultIdx=widgetId[1],
-                            style={'fontsize':'20 px','height': '40px','min-height': '1px',},optionHeight=20)
-
-            elif 'dd_patternCat' in widgetId[0]:
-                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.allPatterns,
-                            'Select regExpPattern : ',defaultIdx=widgetId[1],
-                            style={'fontsize':'20 px','height': '40px','min-height': '1px',},optionHeight=20)
-
-            elif 'dd_multiPattern' in widgetId[0]:
-                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.allPatterns,
-                                            style={'fontsize':'20 px','height': '40px','min-height': '1px',},
-                                            multi=True,optionHeight=20)
-
-            elif 'rs_time' in widgetId[0]:
-                widgetObj = self.dccE.timeRangeSlider(baseId+widgetId[0])
 
             elif 'in_time' in widgetId[0]:
                 t1=widgetId[1]
@@ -366,6 +356,19 @@ class TemplateDashTagsUnit(TemplateDashMaster):
                     dbc.Row([dbc.Col(dcc.Input(id = baseId + widgetId[0] + 'Start',type='text',value = t0,size='13',style={'font-size' : 13})),
                             dbc.Col(dcc.Input(id = baseId + widgetId[0] + 'End',type='text',value = t1,size='13',style={'font-size' : 13}))])
                 ])]
+
+            elif 'in_step' in widgetId[0]:
+                widgetObj = [html.P('skip points : '),
+                dcc.Input(id=baseId+widgetId[0],placeholder='skip points : ',type='number',
+                            min=1,step=1,value=widgetId[1])]
+
+            elif 'in_axisSp' in widgetId[0]  :
+                widgetObj = [html.P('select the space between axis : '),
+                dcc.Input(id=baseId+widgetId[0],type='number',value=widgetId[1],max=1,min=0,step=0.02)]
+
+
+            elif 'rs_time' in widgetId[0]:
+                widgetObj = self.dccE.timeRangeSlider(baseId+widgetId[0])
 
             elif 'pdr_time' in widgetId[0] :
                 tmax=widgetId[1]
@@ -390,12 +393,7 @@ class TemplateDashTagsUnit(TemplateDashMaster):
                             dbc.Col(dcc.Input(id = baseId + widgetId[0] + 'End',type='text',value = '21:00',size='13',style={'font-size' : 13}))])
                 ])]
 
-            elif 'in_axisSp' in widgetId[0]  :
-                widgetObj = [html.P('select the space between axis : '),
-                dcc.Input(id=baseId+widgetId[0],type='number',value=widgetId[1],max=1,min=0,step=0.02)]
-
-            for widObj in widgetObj:
-                widgetLayout.append(widObj)
+            for widObj in widgetObj:widgetLayout.append(widObj)
 
         dicLayouts['widgetLayout'] = html.Div(widgetLayout,
                                     style={"width": str(100-widthG) + "%", "float": "left"})

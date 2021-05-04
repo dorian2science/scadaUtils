@@ -187,15 +187,11 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         else:
             return ''
 
-    def getTagDescription(self,df,pivoted=False,cols=1):
-        if pivoted :
-            listTags = list(df.columns)
-        else:
-            listTags = list(df.Tag.unique())
-        if cols==1:
-            listCols = [self.descriptCol]
-        if cols==2:
-            listCols = [self.tagCol,self.descriptCol]
+    def getTagDescription(self,df,cols=1):
+        if 'tag' in [k.lower() for k in df.columns]:listTags = list(df.Tag.unique())
+        else : listTags = list(df.columns)
+        if cols==1:listCols = [self.descriptCol]
+        if cols==2:listCols = [self.tagCol,self.descriptCol]
         return self.dfPLC[self.dfPLC[self.tagCol].isin(listTags)][listCols]
 
     # ==============================================================================
@@ -268,24 +264,18 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
                 dfs.append(df)
             return self.getDFTimeRange(pd.concat(dfs),timeRange)
 
-    def pivotDF(self,df,resampleRate='60s',applyMethod='mean'):
+    def pivotDF(self,df,resampleRate='60s',applyMethod='nanmean'):
         listTags=list(df.Tag.unique())
         t0=df.timestamp.min()
         dfOut = pd.DataFrame()
         for tagname in listTags :
             dftmp=df[df.Tag==tagname]
             dftmp.index=list(dftmp.timestamp)
-            # dftmp = eval('dftmp.resample(resampleRate,origin=t0).apply(' + applyMethod + ')')
-            # print('applyMethod : ',applyMethod)
-            if applyMethod=='min':
-                dftmp=dftmp.resample(resampleRate,origin=t0).apply(np.nanmin)
-            if applyMethod=='mean':
-                dftmp=dftmp.resample(resampleRate,origin=t0).apply(np.nanmean)
-            if applyMethod=='max':
-                dftmp=dftmp.resample(resampleRate,origin=t0).apply(np.nanmax)
+            dftmp = eval('dftmp.resample(resampleRate,origin=t0).apply(np.' + applyMethod + ')')
             dfOut[tagname]= dftmp['value']
         dfOut=dfOut.fillna(method='ffill')
         return dfOut
+
 
     def loadDF_TimeRange_TU(self,timeRange,tagPat,unit,rs='auto',applyMethod='mean'):
         lfs = [k for k in self.filesDir]

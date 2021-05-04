@@ -184,7 +184,7 @@ class MultiUnitTab():
 
 
     def mut_pdr_nocache_resample(self,baseId,widthG=80,heightGraph=900):
-        dicWidgets = {'pdr_time' : None,'in_timeRes':str(60*10)+'s','dd_cmap':'jet','btn_legend':0,
+        dicWidgets = {'pdr_time' : None,'in_timeRes':str(60*10)+'s','dd_resampleMethod':'mean','dd_cmap':'jet','btn_legend':0,
                         'btn_export':0,'btn_style':0,'in_axisSp':0.1,'dd_Tag':self.cfgtu.getTagsTU('B001.+[\)s]-JTW',['W','J'],'tag')}
 
         MUG_htmlVdic = self.dtu.buildLayout_vdict(dicWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
@@ -204,7 +204,7 @@ class MultiUnitTab():
     # ==========================================================================
     #                           COMPUTE AND GRAPHICS CALLBACKS
     # ==========================================================================
-        listInputsGraph = [baseId+l for l in ['dd_Tag','in_timeRes','dd_cmap','btn_legend',
+        listInputsGraph = [baseId+l for l in ['dd_Tag','in_timeRes','dd_resampleMethod','dd_cmap','btn_legend',
                                             'btn_style','in_axisSp']]
         @self.dtu.app.callback(
         Output(baseId + 'graph1', 'figure'),
@@ -212,10 +212,11 @@ class MultiUnitTab():
         Input(baseId + 'pdr_timeBtn','n_clicks'),
         State(baseId + 'pdr_timePdr','start_date'),State(baseId + 'pdr_timePdr','end_date'),
         State(baseId + 'pdr_timeStart','value'),State(baseId + 'pdr_timeEnd','value'))
-        def updateMUGGraph(tags,step,cmapName,legendType,styleSel,incSpace,btnUpdate,date0,date1,t0,t1):
+        def updateMUGGraph(tags,step,rsMethod,cmapName,legendType,styleSel,incSpace,btnUpdate,date0,date1,t0,t1):
             start = time.time()
             timeRange = [date0+' '+t0,date1+' '+t1]
-            df      = self.cfgtu.loadDF_TimeRange_Tags(timeRange,tags,rs=step,applyMethod='mean')
+            print('rsMethod:',step)
+            df      = self.cfgtu.loadDF_TimeRange_Tags(timeRange,tags,rs=step,applyMethod=rsMethod)
             names   = self.cfgtu.getUnitPivotedDF(df,True)
 
             print(time.time()-start, 's')
