@@ -6,7 +6,7 @@ dirParent = "dorianUtils"
 
 setuptools.setup(
 name="dorianUtils", # Replace with your own username
-version="0.0.1",
+version="1.0",
 author="Dorian Drevon",
 author_email="drevondorian@gmail.com",
 description="Utilities package",
