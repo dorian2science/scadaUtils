@@ -15,7 +15,7 @@ class TemplateDashMaster:
     def __init__(self,baseNameUrl='/templateDash/',title='tempDash',port=45000,
                     extSheets='bootstrap',cacheRedis=False):
         self.port       = port
-        self.title      =title
+        self.title      = title
         self.extSheets  = self.selectExternalSheet(extSheets)
         self.cacheRedis = cacheRedis
 
@@ -27,6 +27,8 @@ class TemplateDashMaster:
 
         self.formatTime   = '%Y-%m-%d %H:%M'
         self.utils=Utils()
+        self.graphStyles = ['lines+markers','stairs','markers']
+        self.graphTypes = ['scatter','area']
     # ==============================================================================
     #                       BASIC FUNCTIONS
     # ==============================================================================
@@ -66,110 +68,9 @@ class TemplateDashMaster:
     def createTabs(self,tabs):
         return dbc.Tabs([t for t in tabs])
 
-    # ==============================================================================
-    #                       GRAPH functions
-    # ==============================================================================
-    def preparePivotedData(self,df,tags,rs='1s'):
-        df = self.cfg.getDFfromTagList(df,tags)
-        df = self.cfg.pivotDF(df,rs)
-        return df
-
-    def getColDisSeq(self,N,cmapName='jet'):
-        cmap        = cm.get_cmap(cmapName,N)
-        colorList   = []
-        for i in range(cmap.N):colorList.append(mtpcl.rgb2hex(cmap(i)))
-        return colorList
-
-    def drawGraph(self,df,typeGraph='singleGraph',cmapName='jet',**kwargs):
-        if typeGraph == 'singleGraph':
-            if 'Tag' in df.columns:
-                fig = px.scatter(df, x='timestamp', y='value', color='Tag',
-                        color_discrete_sequence=self.getColDisSeq(len(df.Tag.unique()),cmapName),
-                            **kwargs)
-            else :
-                fig = px.scatter(df,color_discrete_sequence=self.getColDisSeq(len(df.columns),cmapName),**kwargs)
-
-        elif typeGraph == 'area':
-            fig = px.area(df, color_discrete_sequence=colorList,**kwargs)
-
-        return fig
-
-    def updateStyleGraph(self,fig,style=0,heightGraph=700):
-        if style%2==0 :
-            fig.update_traces(mode='lines+markers', marker_line_width=0.2, marker_size=6,
-                            line=dict(width=3))
-            # fig.update_layout(font=dict(family="Courier New, monospace",size=12))
-        elif style%2==1:
-            fig.update_traces(mode='lines+markers',line_shape='hv', marker_line_width=0.2, marker_size=6,
-                            line=dict(width=3))
-        # elif style == 2 :
-        #     fig.update_traces(selector=dict(mode='markers'))
-        fig.update_layout(height=heightGraph)
-        return fig
-
-    def generate_facetGraph(self,df,**kwargs):
-        fig = px.line(df, x='timestamp', y='value', color='Tag',facet_col='categorie',**kwargs)
-        fig.update_yaxes(matches=None)
-        fig.update_yaxes(showticklabels=True)
-        fig.update_traces(marker=dict(size=2),selector=dict(mode='markers'))
-        return fig
-
-    # ==========================================================================
-    #                       for callback functions
-    # ==========================================================================
-    def exportDFOnClick(self,df,fig,folder=None,timeStamp=False,parseYes=False,baseName=None):
-        xlims=fig['layout']['xaxis']['range']
-        print('xlims : ',xlims)
-        trange=[parser.parse(k) for k in xlims]
-        if parseYes : xlims=trange
-        if timeStamp ==True : df = df[(df.timestamp>xlims[0]) & (df.timestamp<xlims[1])]
-        else : df = df[(df.index>xlims[0]) & (df.index<xlims[1])]
-        print('df \n: ',df)
-        dateF=[k.strftime('%Y-%m-%d %H_%M') for k in trange]
-        if not baseName : baseName = self.title
-        filename = baseName+ '_' + dateF[0]+ '_' + dateF[1]
-        if not folder:folder=self._getDefaultFolder()
-        df.to_csv(self.utils.slugify(folder + filename + '.csv'))
-
-    def saveImage(self,fig,folder=None,figname=None,w=1500,h=400):
-        if not figname :
-            timeNow = dt.datetime.now().strftime(self.formatTime)
-            figname = self.utils.slugify(fig.layout.title['text'])
-        if not folder : folder=self._getDefaultFolder()
-        fig.write_image(folder + '/' + figname + '.png',width=w,height=h)
-
-    def changeLegendBtnState(self,legendType):
-        if legendType%3==0 :
-            buttonMessage = 'tag '
-        elif legendType%3==1 :
-            buttonMessage = 'description '
-        elif legendType%3==2:
-            buttonMessage = 'unvisible '
-        return buttonMessage
-
-    def changeStyleBtnState(self,styleSel):
-        if styleSel%2==0:
-            buttonMessage = 'lines+markers'
-        elif styleSel%2==1:
-            buttonMessage = 'stairs'
-        # elif styleSel%3==2:
-        #     buttonMessage = 'markers'
-        return buttonMessage
-
-
-class TemplateDashTagsUnit(TemplateDashMaster):
-    ''' you need a configuration file instance from the class ConfigDashTagUnitTimestamp
-    meaning having a dfPLC with at least columns : tag,unit and description '''
-    def __init__(self,cfg,title='tagsUnitTemplate',baseNameUrl='/tagsUnitTemplate/',
-                    skipEveryHours=120,**kwargs):
-        super().__init__(baseNameUrl=baseNameUrl,title=title,**kwargs)
-        self.cfg = cfg
-        self.skipEveryHours = skipEveryHours
-        self.dccE = DccExtended()
-
-    # ==========================================================================
-    #                       LAYOUT functions
-    # ==========================================================================
+# ==========================================================================
+#                       LAYOUT functions
+# ==========================================================================
     def updateLegend(self,df,fig,legendType,pivoted=False,breakLine=None,addUnit=False):
         if legendType%3==1: # description name
             dfDes       = self.cfg.getTagDescription(df,cols=2)
@@ -178,6 +79,23 @@ class TemplateDashTagsUnit(TemplateDashMaster):
             fig         = self.utils.customLegend(fig,dictNames,breakLine=breakLine)
         elif legendType%3==2: # unvisible
             fig.update_layout(showlegend=False)
+        return fig
+
+    def updateLegend_v2(self,fig,lgd):
+        fig.update_layout(showlegend=True)
+        oldNames = [k['name'] for k in fig['data']]
+        if lgd=='description': # get description name
+            newNames = [self.cfg.getDescriptionFromTagname(k) for k in oldNames]
+            dictNames   = dict(zip(oldNames,newNames))
+            fig         = self.utils.customLegend(fig,dictNames)
+
+        elif lgd=='unvisible': fig.update_layout(showlegend=False)
+
+        elif lgd=='tag': # get tags
+            if not oldNames[0] in list(self.cfg.dfPLC[self.cfg.tagCol]):# for initialization mainly
+                newNames = [self.cfg.getTagnamefromDescription(k) for k in oldNames]
+                dictNames   = dict(zip(oldNames,newNames))
+                fig         = self.utils.customLegend(fig,dictNames)
         return fig
 
     def buildLayout(self,listWidgets,baseId,widthG=80,nbGraphs=1,nbCaches=0):
@@ -294,7 +212,6 @@ class TemplateDashTagsUnit(TemplateDashMaster):
     def buildLayout_vdict(self,dicWidgets,baseId,widthG=80,nbGraphs=1,nbCaches=0):
         widgetLayout,dicLayouts = [],{}
         for widgetId in dicWidgets.items():
-            print(widgetId)
             if 'dd_listFiles' in widgetId[0]:
                 widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.filesDir,'Select your File : ',
                     labelsPattern='\d{4}-\d{2}-\d{2}-\d{2}',defaultIdx=widgetId[1])
@@ -323,6 +240,9 @@ class TemplateDashTagsUnit(TemplateDashMaster):
             elif 'dd_resampleMethod' in widgetId[0]:
                 widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],['mean','max','min','median'],
                 'Select the resampling method: ',value=widgetId[1],multi=False)
+
+            elif 'dd_style' in widgetId[0]:
+                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.graphStyles,'Select the style : ',value = widgetId[1])
 
             elif 'btn_legend' in widgetId[0]:
                 widgetObj = [html.Button('tag',id=baseId+widgetId[0], n_clicks=widgetId[1])]
@@ -406,3 +326,113 @@ class TemplateDashTagsUnit(TemplateDashMaster):
 
         layout = html.Div(list(dicLayouts.values()))
         return layout
+
+    # ==============================================================================
+    #                       GRAPH functions
+    # ==============================================================================
+    def preparePivotedData(self,df,tags,rs='1s'):
+        df = self.cfg.getDFfromTagList(df,tags)
+        df = self.cfg.pivotDF(df,rs)
+        return df
+
+    def drawGraph(self,df,typeGraph='singleGraph',cmapName='jet',**kwargs):
+        if typeGraph == 'singleGraph':
+            if 'Tag' in df.columns:
+                fig = px.scatter(df, x='timestamp', y='value', color='Tag',
+                        color_discrete_sequence=self.utils.getColorHexSeq(len(df.Tag.unique()),cmapName),
+                            **kwargs)
+            else :
+                fig = px.scatter(df,color_discrete_sequence=self.utils.getColorHexSeq(len(df.columns),cmapName),**kwargs)
+
+        elif typeGraph == 'area':
+            fig = px.area(df, color_discrete_sequence=colorList,**kwargs)
+        return fig
+
+    def updateStyleGraph(self,fig,style=0,heightGraph=700):
+        if style%2==0 :
+            fig.update_traces(mode='lines+markers', marker_line_width=0.2, marker_size=6,
+                            line=dict(width=3))
+            # fig.update_layout(font=dict(family="Courier New, monospace",size=12))
+        elif style%2==1:
+            fig.update_traces(mode='lines+markers',line_shape='hv', marker_line_width=0.2, marker_size=6,
+                            line=dict(width=3))
+        # elif style == 2 :
+        #     fig.update_traces(selector=dict(mode='markers'))
+        fig.update_layout(height=heightGraph)
+        return fig
+
+    def updateStyleGraph_v2(self,fig,style='lines+markers',cmapName='jet',heightGraph=700):
+        if style=='lines+markers':
+            fig.update_traces(mode='lines+markers', marker_line_width=0.2, marker_size=6,line=dict(width=3))
+        elif style=='markers':
+            fig.update_traces(mode='markers', marker_line_width=0.2, marker_size=12,line=dict(width=3))
+        elif style=='stairs':
+            fig.update_traces(mode='lines+markers',line_shape='hv', marker_line_width=0.2, marker_size=6,line=dict(width=3))
+        fig.update_layout(height=heightGraph)
+        self.utils.updateColorMap(fig,cmapName)
+        return fig
+
+    def drawGraph_v2(self,df,typeGraph='scatter',**kwargs):
+        if 'Tag' in df.columns:
+            return eval("px."+typeGraph +"(df, x='timestamp', y='value', color='Tag'),**kwargs)")
+        else : return eval("px."+typeGraph +"(df,**kwargs)")
+
+    def generate_facetGraph(self,df,**kwargs):
+        fig = px.line(df, x='timestamp', y='value', color='Tag',facet_col='categorie',**kwargs)
+        fig.update_yaxes(matches=None)
+        fig.update_yaxes(showticklabels=True)
+        fig.update_traces(marker=dict(size=2),selector=dict(mode='markers'))
+        return fig
+
+    # ==========================================================================
+    #                       for callback functions
+    # ==========================================================================
+    def exportDFOnClick(self,df,fig,folder=None,timeStamp=False,parseYes=False,baseName=None):
+        xlims=fig['layout']['xaxis']['range']
+        print('xlims : ',xlims)
+        trange=[parser.parse(k) for k in xlims]
+        if parseYes : xlims=trange
+        if timeStamp ==True : df = df[(df.timestamp>xlims[0]) & (df.timestamp<xlims[1])]
+        else : df = df[(df.index>xlims[0]) & (df.index<xlims[1])]
+        print('df \n: ',df)
+        dateF=[k.strftime('%Y-%m-%d %H_%M') for k in trange]
+        if not baseName : baseName = self.title
+        filename = baseName+ '_' + dateF[0]+ '_' + dateF[1]
+        if not folder:folder=self._getDefaultFolder()
+        df.to_csv(self.utils.slugify(folder + filename + '.csv'))
+
+    def saveImage(self,fig,folder=None,figname=None,w=1500,h=400):
+        if not figname :
+            timeNow = dt.datetime.now().strftime(self.formatTime)
+            figname = self.utils.slugify(fig.layout.title['text'])
+        if not folder : folder=self._getDefaultFolder()
+        fig.write_image(folder + '/' + figname + '.png',width=w,height=h)
+
+    def changeLegendBtnState(self,legendType):
+        if legendType%3==0 :
+            buttonMessage = 'tag'
+        elif legendType%3==1 :
+            buttonMessage = 'description'
+        elif legendType%3==2:
+            buttonMessage = 'unvisible'
+        return buttonMessage
+
+    def changeStyleBtnState(self,styleSel):
+        if styleSel%2==0:
+            buttonMessage = 'lines+markers'
+        elif styleSel%2==1:
+            buttonMessage = 'stairs'
+        # elif styleSel%3==2:
+        #     buttonMessage = 'markers'
+        return buttonMessage
+
+
+class TemplateDashTagsUnit(TemplateDashMaster):
+    ''' you need a configuration file instance from the class ConfigDashTagUnitTimestamp
+    meaning having a dfPLC with at least columns : tag,unit and description '''
+    def __init__(self,cfg,title='tagsUnitTemplate',baseNameUrl='/tagsUnitTemplate/',
+                    skipEveryHours=120,**kwargs):
+        super().__init__(baseNameUrl=baseNameUrl,title=title,**kwargs)
+        self.cfg = cfg
+        self.skipEveryHours = skipEveryHours
+        self.dccE = DccExtended()

@@ -266,7 +266,20 @@ class Utils:
     # ==========================================================================
     #                           GRAPHICS
     # ==========================================================================
-    def customLegend(self,fig, nameSwap,breakLine=60):
+    def getColorHexSeq(self,N,cmapName='jet'):
+        cmap        = cm.get_cmap(cmapName,N)
+        colorList   = []
+        for i in range(cmap.N):colorList.append(mtpcl.rgb2hex(cmap(i)))
+        return colorList
+
+    def updateColorMap(self,fig,cmapName=None):
+        listCols = self.getColorHexSeq(len(fig.data)+1,cmapName=cmapName)
+        k=0
+        for d in fig.data :
+            k+=1
+            d.marker['color']=listCols[k]
+
+    def customLegend(self,fig, nameSwap,breakLine=None):
         if not isinstance(nameSwap,dict):
             print('not a dictionnary, there may be wrong assignment')
             namesOld = [k.name  for k in fig.data]
@@ -274,12 +287,11 @@ class Utils:
         for i, dat in enumerate(fig.data):
             for elem in dat:
                 if elem == 'name':
-                    # <br>s
-                    newName = nameSwap[fig.data[i].name].capitalize()
+                    newName = nameSwap[fig.data[i].name]
                     if isinstance(breakLine,int):
                         newName = '<br>s'.join([newName[k:k+breakLine] for k in range(0,len(newName),breakLine)])
                     fig.data[i].name = newName
-        return(fig)
+        return fig
 
     def makeFigureName(self,filename,patStop,toAdd):
         idx=filename.find(patStop)
@@ -295,12 +307,6 @@ class Utils:
                                 'style' :{'font-size': fontSize}
                                 } for k in listSeconds}
         return dictTimeMarks,maxSecs
-
-    def getColorMapHex(self, cmapName,N):
-        cmap        = cm.get_cmap(cmapName, N)
-        colorList   = []
-        for i in range(cmap.N):colorList.append(mtpcl.rgb2hex(cmap(i)))
-        return colorList
 
     def getAutoAxes(self,N,inc=0.05):
         allSides =['left','right']*6

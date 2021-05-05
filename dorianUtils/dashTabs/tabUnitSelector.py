@@ -474,3 +474,89 @@ class UnitSelectorTab():
             return 'export Data'
 
         return TUinPDRrs_html
+
+    def tagUnit_preSelected_pdr_nocache_resample_v2(self,baseId,widthG=80,heightGraph=900):
+        dicWidgets = {'pdr_time' : None,'dd_typeTags':0,'in_timeRes':str(60*10)+'s','dd_resampleMethod' : 'mean',
+                        'dd_style':'lines+markers','dd_cmap':'jet','btn_legend':0,'btn_export':0}
+        TUinPDRrs_html = self.dtu.buildLayout_vdict(dicWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
+        listIds = self.dccE.parseLayoutIds(TUinPDRrs_html)
+        dictOpts = self.dccE.autoDictOptions(listIds)
+
+        # ==========================================================================
+        #                           BUTTONS CALLBACKS
+        # ==========================================================================
+
+        @self.dtu.app.callback(Output(baseId + 'btn_legend', 'children'),Input(baseId + 'btn_legend','n_clicks'))
+        def updateLgdBtn(legendType):return self.dtu.changeLegendBtnState(legendType)
+
+        # ==========================================================================
+        #                           COMPUTE AND GRAPHICS CALLBACKS
+        # ==========================================================================
+
+        def computeDataFrame(timeRange,preSelectedGraph,rs,applyMethod):
+            unit    = self.cfgtu.usefulTags.loc[preSelectedGraph,'Unit']
+            tagPat  = self.cfgtu.usefulTags.loc[preSelectedGraph,'Pattern']
+            listTags = self.cfgtu.getTagsTU(tagPat,unit)
+            return self.cfgtu.loadDF_TimeRange_Tags(timeRange,listTags,rs=rs,applyMethod=applyMethod),unit
+
+
+        listInputsGraph = {
+                        'dd_typeTags':'value',
+                        'pdr_timeBtn':'n_clicks',
+                        'dd_resampleMethod':'value',
+                        'dd_cmap':'value',
+                        'btn_legend':'children',
+                        'dd_style':'value'}
+        listStatesGraph = {
+                            'graph1':'figure',
+                            'in_timeRes' : 'value',
+                            'pdr_timeStart' : 'value',
+                            'pdr_timeEnd':'value',
+                            'pdr_timePdr':'start_date',
+                            }
+        @self.dtu.app.callback(
+        Output(baseId + 'graph1', 'figure'),
+        Output(baseId + 'pdr_timeBtn', 'n_clicks'),
+        [Input(baseId + k,v) for k,v in listInputsGraph.items()],
+        [State(baseId + k,v) for k,v in listStatesGraph.items()],
+        State(baseId+'pdr_timePdr','end_date'))
+        def updateGraph(preSelGraph,timeBtn,rsMethod,cmapName,lgdType,styleSel,fig,rs,date0,date1,t0,t1):
+            ctx = dash.callback_context
+            trigId = ctx.triggered[0]['prop_id'].split('.')[0]
+            # to ensure that action on graphs only without computation do not
+            # trigger computing the dataframe again
+            if not timeBtn or trigId in [baseId+k for k in ['dd_typeTags','pdr_timeBtn','dd_resampleMethod']] :
+                if not timeBtn : timeBtn=1 # to initialize the first graph
+                start       = time.time()
+                timeRange   = [date0+' '+t0,date1+' '+t1]
+                df,unit     = computeDataFrame(timeRange,preSelGraph,rs,rsMethod)
+                names       = self.cfgtu.getUnitPivotedDF(df,True)
+                print(time.time()-start, 's')
+                fig     = self.dtu.drawGraph_v2(df,'scatter')
+                timeBtn = max(timeBtn,1) # to close the initialisation
+                nameGrandeur = self.cfgtu.utils.detectUnit(unit)
+                fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
+            else :fig = go.Figure(fig)
+            fig = self.dtu.updateStyleGraph_v2(fig,styleSel,cmapName)
+            fig = self.dtu.updateLegend_v2(fig,lgdType)
+            return fig,timeBtn
+
+        # ==========================================================================
+        #                           EXPORT CALLBACK
+        # ==========================================================================
+        listStatesExport = [baseId+l for l in ['graph1','dd_typeTags','in_timeRes']]
+        @self.dtu.app.callback(Output(baseId + 'btn_export','children'),
+        Input(baseId + 'btn_export', 'n_clicks'),
+        [State(k,v) for k,v in {key: dictOpts[key] for key in listStatesExport}.items()],
+        State(baseId + 'pdr_timePdr','start_date'),State(baseId + 'pdr_timePdr','end_date'),
+        State(baseId + 'pdr_timeStart','value'),State(baseId + 'pdr_timeEnd','value'))
+        def exportClick(btn,fig,preSelGraph,rs,date0,date1,t0,t1):
+            if btn>1:
+                timeRange = [date0+' '+t0,date1+' '+t1]
+                df = computeDataFrame(timeRange,preSelGraph,rs)
+                xlims = fig['layout']['xaxis']['range']
+                print('xlims : ',xlims)
+                self.dtu.exportDFOnClick(xlims,tagPattern,unit,fig,df=df)
+            return 'export Data'
+
+        return TUinPDRrs_html

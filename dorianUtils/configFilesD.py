@@ -156,22 +156,19 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
             # self.utils.printDFSpecial(res)
             return res
 
-    def getTagsTU(self,patTag,units,onCol='tag',case=False,ds=True,format='tag'):
+    def getTagsTU(self,patTag,units=None,onCol='tag',case=False,ds=True,cols='tag'):
+        if not units : units = self.listUnits
         res = self.dfPLC.copy()
         if 'tag' in onCol.lower():whichCol = self.tagCol
         elif 'des' in onCol.lower():whichCol = self.descriptCol
         filter1 = res[whichCol].str.contains(patTag,case=case)
-        if isinstance(units,str):
-            units = [units]
+        if isinstance(units,str):units = [units]
         filter2 = res[self.unitCol].isin(units)
         res = res[filter1&filter2]
-        if format=='tdu':
-            res = res[[self.tagCol,self.descriptCol,self.unitCol]]
-        elif format=='tag':
-            res = list(res[self.tagCol])
-        elif format=='print':
-            res = self.utils.printDFSpecial(res)
-        return res
+        if cols=='tdu' :
+            return res.loc[:,[self.tagCol,self.descriptCol,self.unitCol]]
+        elif cols=='tag' : return list(res[self.tagCol])
+        elif cols=='print':return self.utils.printDFSpecial(res)
 
     def getCatsFromUnit(self,unitName,pattern=None):
         if not pattern:
@@ -180,12 +177,10 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         return list(pd.DataFrame([re.findall(pattern,k)[0] for k in sameUnitTags])[0].unique())
 
     def getDescriptionFromTagname(self,tagName):
-        res = self.dfPLC[self.dfPLC[self.tagCol]==tagName][self.descriptCol]
-        # print(res)
-        if not res :
-            return res.iloc[0]
-        else:
-            return ''
+        return list(self.dfPLC[self.dfPLC[self.tagCol]==tagName][self.descriptCol])[0]
+
+    def getTagnamefromDescription(self,desName):
+        return list(self.dfPLC[self.dfPLC[self.descriptCol]==desName][self.tagCol])[0]
 
     def getTagDescription(self,df,cols=1):
         if 'tag' in [k.lower() for k in df.columns]:listTags = list(df.Tag.unique())
@@ -225,7 +220,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
     def getDFTagsTU(self,df,patTags,units,formatted=1,**kwargs):
         lls=[]
         if isinstance(patTags,str) : patTags = [patTags]
-        for patTag in patTags : lls.append(self.getTagsTU(patTag,units,format='tag',**kwargs))
+        for patTag in patTags : lls.append(self.getTagsTU(patTag,units,cols='tag',**kwargs))
         ll = self.utils.flattenList(lls)
         return self.getDFfromTagList(df,ll,formatted)
 
