@@ -27,8 +27,8 @@ class TemplateDashMaster:
 
         self.formatTime   = '%Y-%m-%d %H:%M'
         self.utils=Utils()
-        self.graphStyles = ['lines+markers','stairs','markers']
-        self.graphTypes = ['scatter','area']
+        self.graphStyles = ['lines+markers','stairs','markers','lines']
+        self.graphTypes = ['scatter','area','area %']
     # ==============================================================================
     #                       BASIC FUNCTIONS
     # ==============================================================================
@@ -105,6 +105,8 @@ class TemplateDashMaster:
                 widgetObj = self.dccE.dropDownFromList(baseId+widgetId,self.cfg.filesDir,'Select your File : ',
                     labelsPattern='\d{4}-\d{2}-\d{2}-\d{2}',defaultIdx=-1)
 
+
+
             elif 'dd_Tag' in widgetId:
                 widgetObj = self.dccE.dropDownFromList(baseId+widgetId,list(self.cfg.getTagsRegexp('').TAG),
                 'Select type graph : ',defaultIdx=0,multi=True,
@@ -155,6 +157,7 @@ class TemplateDashMaster:
                 widgetObj = self.dccE.dropDownFromList(baseId+widgetId,self.cfg.allPatterns,
                                             style={'fontsize':'20 px','height': '40px','min-height': '1px',},
                                             multi=True,optionHeight=20)
+
             elif 'rs_time' in widgetId:
                 widgetObj = self.dccE.timeRangeSlider(baseId+widgetId)
 
@@ -216,19 +219,26 @@ class TemplateDashMaster:
                 widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.filesDir,'Select your File : ',
                     labelsPattern='\d{4}-\d{2}-\d{2}-\d{2}',defaultIdx=widgetId[1])
 
+
             elif 'dd_Tag' in widgetId[0]:
-                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.getTagsTU('',self.cfg.listUnits),
+                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.getTagsTU(''),
                 'Select type graph : ',value=widgetId[1],multi=True,
                 style={'fontsize':'20 px','height': '40px','min-height': '1px',},optionHeight=20)
 
             elif 'dd_cmap' in widgetId[0]:
                 widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.utils.cmapNames[0],
                                                 'select the colormap : ',value=widgetId[1])
+
             elif 'dd_Units' in widgetId[0] :
                 widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.listUnits,'Select units graph : ',value=widgetId[1])
 
             elif 'dd_typeTags' in widgetId[0]:
                 widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],list(self.cfg.usefulTags.index),
+                            'Select categories : ',defaultIdx=widgetId[1],
+                            style={'fontsize':'20 px','height': '40px','min-height': '1px',},optionHeight=20)
+
+            elif 'dd_typeGraph' in widgetId[0]:
+                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.graphTypes,
                             'Select type graph : ',defaultIdx=widgetId[1],
                             style={'fontsize':'20 px','height': '40px','min-height': '1px',},optionHeight=20)
 
@@ -285,7 +295,6 @@ class TemplateDashMaster:
             elif 'in_axisSp' in widgetId[0]  :
                 widgetObj = [html.P('select the space between axis : '),
                 dcc.Input(id=baseId+widgetId[0],type='number',value=widgetId[1],max=1,min=0,step=0.02)]
-
 
             elif 'rs_time' in widgetId[0]:
                 widgetObj = self.dccE.timeRangeSlider(baseId+widgetId[0])
@@ -361,21 +370,26 @@ class TemplateDashMaster:
         fig.update_layout(height=heightGraph)
         return fig
 
-    def updateStyleGraph_v2(self,fig,style='lines+markers',cmapName='jet',heightGraph=700):
+    def updateStyleGraph_v2(self,fig,typeGraph='scatter',style='lines+markers',cmapName='jet',heightGraph=700):
         if style=='lines+markers':
             fig.update_traces(mode='lines+markers', marker_line_width=0.2, marker_size=6,line=dict(width=3))
         elif style=='markers':
             fig.update_traces(mode='markers', marker_line_width=0.2, marker_size=12,line=dict(width=3))
         elif style=='stairs':
             fig.update_traces(mode='lines+markers',line_shape='hv', marker_line_width=0.2, marker_size=6,line=dict(width=3))
+        elif style=='lines':
+            fig.update_traces(mode='lines', marker_line_width=0.2, marker_size=6,line=dict(width=3))
+        self.utils.updateColorMap(fig,typeGraph,cmapName)
         fig.update_layout(height=heightGraph)
-        self.utils.updateColorMap(fig,cmapName)
         return fig
 
     def drawGraph_v2(self,df,typeGraph='scatter',**kwargs):
         if 'Tag' in df.columns:
             return eval("px."+typeGraph +"(df, x='timestamp', y='value', color='Tag'),**kwargs)")
-        else : return eval("px."+typeGraph +"(df,**kwargs)")
+        else :
+            if typeGraph == 'scatter' :return px.scatter(df)
+            if typeGraph == 'area' :return px.area(df)
+            if typeGraph == 'area %' :return px.area(df,groupnorm='percent')
 
     def generate_facetGraph(self,df,**kwargs):
         fig = px.line(df, x='timestamp', y='value', color='Tag',facet_col='categorie',**kwargs)
@@ -384,7 +398,6 @@ class TemplateDashMaster:
         fig.update_traces(marker=dict(size=2),selector=dict(mode='markers'))
         return fig
 
-    # ==========================================================================
     #                       for callback functions
     # ==========================================================================
     def exportDFOnClick(self,df,fig,folder=None,timeStamp=False,parseYes=False,baseName=None):

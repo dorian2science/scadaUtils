@@ -476,7 +476,7 @@ class UnitSelectorTab():
         return TUinPDRrs_html
 
     def tagUnit_preSelected_pdr_nocache_resample_v2(self,baseId,widthG=80,heightGraph=900):
-        dicWidgets = {'pdr_time' : None,'dd_typeTags':0,'in_timeRes':str(60*10)+'s','dd_resampleMethod' : 'mean',
+        dicWidgets = {'pdr_time' : None,'dd_typeGraph':0,'dd_typeTags':0,'in_timeRes':str(60*10)+'s','dd_resampleMethod' : 'mean',
                         'dd_style':'lines+markers','dd_cmap':'jet','btn_legend':0,'btn_export':0}
         TUinPDRrs_html = self.dtu.buildLayout_vdict(dicWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
         listIds = self.dccE.parseLayoutIds(TUinPDRrs_html)
@@ -504,6 +504,7 @@ class UnitSelectorTab():
                         'dd_typeTags':'value',
                         'pdr_timeBtn':'n_clicks',
                         'dd_resampleMethod':'value',
+                        'dd_typeGraph':'value',
                         'dd_cmap':'value',
                         'btn_legend':'children',
                         'dd_style':'value'}
@@ -520,24 +521,24 @@ class UnitSelectorTab():
         [Input(baseId + k,v) for k,v in listInputsGraph.items()],
         [State(baseId + k,v) for k,v in listStatesGraph.items()],
         State(baseId+'pdr_timePdr','end_date'))
-        def updateGraph(preSelGraph,timeBtn,rsMethod,cmapName,lgdType,styleSel,fig,rs,date0,date1,t0,t1):
+        def updateGraph(preSelGraph,timeBtn,rsMethod,typeGraph,cmapName,lgdType,style,fig,rs,date0,date1,t0,t1):
             ctx = dash.callback_context
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
             # to ensure that action on graphs only without computation do not
             # trigger computing the dataframe again
-            if not timeBtn or trigId in [baseId+k for k in ['dd_typeTags','pdr_timeBtn','dd_resampleMethod']] :
+            if not timeBtn or trigId in [baseId+k for k in ['dd_typeTags','pdr_timeBtn','dd_resampleMethod','dd_typeGraph']] :
                 if not timeBtn : timeBtn=1 # to initialize the first graph
                 start       = time.time()
                 timeRange   = [date0+' '+t0,date1+' '+t1]
                 df,unit     = computeDataFrame(timeRange,preSelGraph,rs,rsMethod)
                 names       = self.cfgtu.getUnitPivotedDF(df,True)
                 print(time.time()-start, 's')
-                fig     = self.dtu.drawGraph_v2(df,'scatter')
-                timeBtn = max(timeBtn,1) # to close the initialisation
+                fig     = self.dtu.drawGraph_v2(df,typeGraph)
                 nameGrandeur = self.cfgtu.utils.detectUnit(unit)
                 fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
+                timeBtn = max(timeBtn,1) # to close the initialisation
             else :fig = go.Figure(fig)
-            fig = self.dtu.updateStyleGraph_v2(fig,styleSel,cmapName)
+            fig = self.dtu.updateStyleGraph_v2(fig,typeGraph,style,cmapName)
             fig = self.dtu.updateLegend_v2(fig,lgdType)
             return fig,timeBtn
 

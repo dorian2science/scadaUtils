@@ -272,12 +272,13 @@ class Utils:
         for i in range(cmap.N):colorList.append(mtpcl.rgb2hex(cmap(i)))
         return colorList
 
-    def updateColorMap(self,fig,cmapName=None):
+    def updateColorMap(self,fig,typeGraph='scatter',cmapName=None):
         listCols = self.getColorHexSeq(len(fig.data)+1,cmapName=cmapName)
         k=0
         for d in fig.data :
             k+=1
-            d.marker['color']=listCols[k]
+            if typeGraph=='scatter':d.marker['color']=listCols[k]
+            elif 'area' in typeGraph :d.line['color']=listCols[k]
 
     def customLegend(self,fig, nameSwap,breakLine=None):
         if not isinstance(nameSwap,dict):

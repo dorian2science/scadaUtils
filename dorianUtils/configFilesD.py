@@ -273,7 +273,6 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         dfOut=dfOut.fillna(method='ffill')
         return dfOut
 
-
     def loadDF_TimeRange_TU(self,timeRange,tagPat,unit,rs='auto',applyMethod='mean'):
         lfs = [k for k in self.filesDir]
         listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=1)
