@@ -251,12 +251,14 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         lfs = [k for k in self.filesDir if conditionFile in k]
         listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=1)
         listFiles = [f for d in listDates for f in lfs if d in f]
+        skip = (parser.parse(timeRange[1])-parser.parse(timeRange[0])).total_seconds()/(3600*skipEveryHours)
+        skip = max(1,round(skip))
+        print('skip : ',skip)
         if not listFiles : print('there are no files to load')
         else :
             dfs = []
             for filename in listFiles :
-                skip = (parser.parse(timeRange[1])-parser.parse(timeRange[0])).total_seconds()/(3600*skipEveryHours)
-                df = self.loadFile(filename,skip=max(1,round(skip)))
+                df = self.loadFile(filename,skip=skip)
                 if not '00-00' in filename: # remvove the part of the dataframe that expands over the next date
                     t0      = df.timestamp.iloc[0]
                     tmax    = t0+dt.timedelta(days=1)-dt.timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second+1)

@@ -251,12 +251,11 @@ class UnitSelectorTab():
         return TUddPSG_html
 
     def tagUnit_preSelected_pdr_nocache(self,baseId,widthG=80,heightGraph=900):
-        listWidgets = ['pdr_time','dd_typeTags','btn_legend',
-                        'btn_style','btn_export','in_step','dd_cmap',]
-
-        TUddPSG_html=self.dtu.buildLayout(listWidgets,baseId,widthG=widthG,nbCaches=1)
+        dicWidgets = {'pdr_time' : None,'dd_typeTags':0,'in_step':20,
+                        'btn_legend':0,'btn_style':0,'btn_export':0,'dd_cmap':'jet'}
+        TUddPSG_html = self.dtu.buildLayout_vdict(dicWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
         listIds = self.dccE.parseLayoutIds(TUddPSG_html)
-        dictOpts = self.dtu.autoDictOptions(listIds)
+        dictOpts = self.dccE.autoDictOptions(listIds)
 
         # ==========================================================================
         #                           BUTTONS CALLBACKS
@@ -278,7 +277,7 @@ class UnitSelectorTab():
         State(baseId + 'pdr_timePdr','start_date'),State(baseId + 'pdr_timePdr','end_date'),
         State(baseId + 'pdr_timeStart','value'),State(baseId + 'pdr_timeEnd','value'))
         def updateGraphDD(btnUpdate,keyDD,cmapName,legendType,styleSel,step,date0,date1,t0,t1,):
-            df = self.cfgtu.loadDFTimeRange([date0+' '+t0,date1+' '+t1],'',self.skipEveryHours)
+            df = self.cfgtu.loadDFTimeRange([date0+' '+t0,date1+' '+t1],'',self.dtu.skipEveryHours)
             unit    = self.cfgtu.usefulTags.loc[keyDD,'Unit']
             tagPat  = self.cfgtu.usefulTags.loc[keyDD,'Pattern']
             print

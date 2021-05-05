@@ -24,6 +24,8 @@ classifiers=[
 # package_dir={"": dirParent},
 # packages=['dorianUtils'],
 packages=setuptools.find_packages(),
-install_requires=['matplotlib','pandas','dash','scipy'],
+package_data={'': ['conf/*']},
+include_package_data=True,
+install_requires=['matplotlib','pandas','dash','scipy','dash_bootstrap_components','flask_caching'],
 python_requires=">=3.6"
 )
