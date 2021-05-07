@@ -348,7 +348,6 @@ class UnitSelectorTab():
                 return 'export Data'
         return TUinGhtml
 
-
     def tagUnit_in_pdr_nocache_resample(self,baseId,widthG=80,heightGraph=900):
         dicWidgets = {'pdr_time' : None,'in_timeRes':str(60*10)+'s','dd_resampleMethod':'mean',
                         'dd_Units':'W','in_patternTag':'B001',

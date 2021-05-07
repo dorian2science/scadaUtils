@@ -374,12 +374,12 @@ class TemplateDashMaster:
         if style=='lines+markers':
             fig.update_traces(mode='lines+markers', marker_line_width=0.2, marker_size=6,line=dict(width=3))
         elif style=='markers':
-            fig.update_traces(mode='markers', marker_line_width=0.2, marker_size=12,line=dict(width=3))
+            fig.update_traces(mode='markers', marker_line_width=0.2, marker_size=12)
         elif style=='stairs':
             fig.update_traces(mode='lines+markers',line_shape='hv', marker_line_width=0.2, marker_size=6,line=dict(width=3))
         elif style=='lines':
-            fig.update_traces(mode='lines', marker_line_width=0.2, marker_size=6,line=dict(width=3))
-        self.utils.updateColorMap(fig,typeGraph,cmapName)
+            fig.update_traces(mode='lines',line=dict(width=1))
+        self.utils.updateColorMap(fig,cmapName)
         fig.update_layout(height=heightGraph)
         return fig
 

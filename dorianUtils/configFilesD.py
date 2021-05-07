@@ -55,27 +55,13 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
 # ==============================================================================
 #                     basic functions
 # ==============================================================================
-
-    def formatRawDF(self,df,printCT=0,parseDatesManual=False):
-        start=time.time()
-        dfOut = df.copy()
-        if parseDatesManual :
-            t  = [parser.parse(k) for k in df.timestamp]
-            dfOut['timestamp']  = t
-        dfOut['value']      = pd.to_numeric(df['value'],errors='coerce')
-        if printCT : self.utils.printCTime(start)
-        return dfOut.sort_values(by=['timestamp','Tag'])
-
     def convertCSVtoPklFormatted(self,folderCSV,filenames=None,parseDatesManual=False):
         ''' get column value with numeric values
         and convert timestamp to datetime format'''
         listFiles = self.utils.get_filesDir(folderName=folderCSV,ext='.csv')
-        if not filenames:
-            filenames = listFiles
-        if not isinstance(filenames,list):
-            filenames = [filenames]
-        if isinstance(filenames[0],int):
-            filenames = [listFiles[k] for k in filenames]
+        if not filenames:filenames = listFiles
+        if not isinstance(filenames,list):filenames = [filenames]
+        if isinstance(filenames[0],int):filenames = [listFiles[k] for k in filenames]
         for filename in filenames :
             if not filename[:-4] + '_f.pkl' in self.filesDir:
                 start       = time.time()
@@ -87,7 +73,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
                 start = time.time()
                 print("============================================")
                 print("formatting file : ",filename)
-                df = self.formatRawDF(df,parseDatesManual=parseDatesManual)
+                dfOut['value'] = pd.to_numeric(df['value'],errors='coerce')
                 self.utils.printCTime(start)
                 with open(self.folderPath + filename[:-4] + '_f.pkl' , 'wb') as handle:# save the file
                     pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -273,7 +259,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         dfOut=dfOut.fillna(method='ffill')
         return dfOut
 
-    def loadDF_TimeRange_TU(self,timeRange,tagPat,unit,rs='auto',applyMethod='mean'):
+    def loadDF_TimeRange_TU(self,timeRange,tagPat,unit=None,rs='auto',applyMethod='mean'):
         lfs = [k for k in self.filesDir]
         listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=1)
         listFiles = [f for d in listDates for f in lfs if d in f]

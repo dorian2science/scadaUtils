@@ -1,4 +1,4 @@
-import pandas as pd, numpy as np, pickle, re, time, datetime as dt
+import pandas as pd, numpy as np, pickle, re, time, datetime as dt,glob
 import subprocess as sp, os
 from dateutil import parser
 import plotly.graph_objects as go
@@ -33,36 +33,37 @@ class Utils:
     # ==========================================================================
     #                           SYSTEM
     # ==========================================================================
-    def convert_csv2pkl_all(self,folderCSV,saveFolder,fileNbs=None):
-        # filesPkl = sp.check_output('cd ' + '{:s}'.format(saveFolder) + ' && ls *.pkl',shell=True).decode().split('\n')
-        filesPkl = self.get_filesDir(saveFolder,'.pkl')
-        filesCSV = self.get_filesDir(folderCSV,'.csv')
-        print(filesPkl)
-        if fileNbs:
-            filesCSV = [filesCSV[k] for k in fileNbs]
-        for filename in filesCSV:
-            namePkl=filename[:-4] + '.pkl'
-            # make sure that it has not been already read
-            if not namePkl in filesPkl:
-                self.convert_csv2pkl(folderCSV,saveFolder,filename)
+    def read_csv_datetimeTZ(self,filename,**kwargs):
+        start   = time.time()
+        print("============================================")
+        print('reading of file',filename)
+        df      = pd.read_csv(filename,**kwargs,names=['tag','value','timestampUTC'])
+        self.printCTime(start)
+        start = time.time()
+        print("============================================")
+        print("parsing the dates : ",filename)
+        df.timestampUTC=pd.to_datetime(df.timestampUTC,utc=True)# convert datetime to utc
+        df['value'] = pd.to_numeric(df['value'],errors='coerce')
+        self.printCTime(start)
+        print("============================================")
+        return df
+
+    def convert_csv2pkl(self,folderCSV,folderPKL):
+        for filename in self.get_filesDir(folderCSV,'.csv'):
+            df=self.read_csv_datetimeTZ(folderCSV + filename)
+            with open(folderPKL + filename[:-4] + '.pkl' , 'wb') as handle:
+                pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     def get_filesDir(self,folderName=None,ext='.pkl'):
-        if not folderName :
-            folderName = os.getcwd()
-        return sp.check_output('cd ' + '{:s}'.format(folderName) + ' && ls *' + ext,
-                                shell=True).decode().split('\n')[:-1]
+        if not folderName :folderName = os.getcwd()
+        listFiles = sp.check_output('cd ' + '{:s}'.format(folderName) + ' && ls *' + ext,shell=True)
+        listFiles=listFiles.decode().split('\n')[:-1]
+        return listFiles
 
-    def convert_csv2pkl(self,folderCSV,saveFolder,filename):
-        start       = time.time()
-        nameFile    = filename[:-4]
-        df          = pd.read_csv(folderCSV + filename)
-        df.columns  = ['Tag','value','timestamp']
-        tags        = np.unique(df.Tag)
-        print("============================================")
-        print("convert file to .pkl : ",filename)
-        with open(saveFolder+nameFile + '.pkl', 'wb') as handle:# save the file
-            pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print('time laps :',time.time()-start)
+    def get_filesDirV2(self,folderName=None,pattern='*.pkl'):
+        if not folderName :folderName = os.getcwd()
+        return glob.glob(folderName+pattern)
+
 
     def skipWithMean(self,df,windowPts,idxForMean=None,col=None):
         ''' compress a dataframe by computing the mean around idxForMean points'''
@@ -76,24 +77,6 @@ class Utils:
         dfR = pd.concat(ll)
         dfR.index = df.index[idxForMean]
         return dfR
-
-    def convertCSVtoPklWrap(self,func):
-        def wrapper(folderCSV,saveFolder,filename):
-            start       = time.time()
-            nameFile    = filename[:-4]
-            print("============================================")
-            print("convert file to .pkl : ",filename)
-            df = pd.read_csv(folderCSV + filename,low_memory=False)
-            print("reading csv finished ")
-            ######## fonction wrapped ###################
-            df= func(df)
-            print("wrapped function correctly executed ")
-            ###########################
-            # with open(saveFolder+nameFile + '.pkl', 'wb') as handle:# save the file
-            #     pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            self.printCTime(start)
-            print("============================================")
-        return wrapper
 
     def datesBetween2Dates(self,dates,offset=0):
         times = [parser.parse(k) for k in dates]
@@ -115,6 +98,12 @@ class Utils:
         else:value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
         value = re.sub(r'[^\w\s-]', '', value.lower())
         return re.sub(r'[-\s]+', '-', value).strip('-_')
+
+    def is_dst(self,t=None, timezone="UTC"):
+        if t is None:t = dt.utcnow()
+        timezone = pytz.timezone(timezone)
+        timezone_aware_date = timezone.localize(t, is_dst=None)
+        return timezone_aware_date.tzinfo._dst.seconds != 0
 
     # ==========================================================================
     #                           PHYSICS
@@ -147,7 +136,7 @@ class Utils:
             return tmp
 
     # ==========================================================================
-    #                  lIST AND DICTIONNARIES
+    #                  lIST AND DICTIONNARIES AND DATAFRAMES
     # ==========================================================================
     def df2dict(self,df):
         return {df.columns[k] : list(df.iloc[:,k].dropna()) for k in range(len(df.columns))}
@@ -219,6 +208,22 @@ class Utils:
     def regExpNot(self,regexp):
         if regexp[:2] == '--': regexp = '^((?!' + regexp[2:] + ').)*$'
         return regexp
+
+    def pivotDataFrame(self,df,colPivot=None,colValue=None,colTimestamp=None,resampleRate='60s',applyMethod='nanmean'):
+        if not colPivot : colPivot = df.columns[0]
+        if not colValue : colValue = df.columns[1]
+        if not colTimestamp : colTimestamp = df.columns[2]
+
+        listTags = list(df[colPivot].unique())
+        t0 = df[colTimestamp].min()
+        dfOut = pd.DataFrame()
+        for tagname in listTags:
+            dftmp=df[df[colPivot]==tagname]
+            dftmp.index=list(dftmp[colTimestamp])
+            dftmp = eval('dftmp.resample(resampleRate,origin=t0).apply(np.' + applyMethod + ')')
+            dfOut[tagname] = dftmp[colValue]
+        dfOut=dfOut.fillna(method='ffill')
+        return dfOut
     # ==========================================================================
     #                           COMPUTATION
     # ==========================================================================
@@ -272,13 +277,22 @@ class Utils:
         for i in range(cmap.N):colorList.append(mtpcl.rgb2hex(cmap(i)))
         return colorList
 
-    def updateColorMap(self,fig,typeGraph='scatter',cmapName=None):
+    def updateColorMap(self,fig,cmapName=None):
         listCols = self.getColorHexSeq(len(fig.data)+1,cmapName=cmapName)
-        k=0
-        for d in fig.data :
-            k+=1
-            if typeGraph=='scatter':d.marker['color']=listCols[k]
-            elif 'area' in typeGraph :d.line['color']=listCols[k]
+        k,l=0,0
+        listYaxis = [k for k in fig._layout.keys() if 'yax' in k]
+        if len(listYaxis)>1:
+            for yax in listYaxis :
+                k+=1
+                fig.layout[yax]['title']['font']['color'] = listCols[k]
+                fig.layout[yax]['tickfont']['color'] = listCols[k]
+        for d in fig._data :
+            l+=1
+            if 'marker' in d.keys():
+                d['marker']['color']=listCols[l]
+            if 'line' in d.keys():d['line']['color']=listCols[l]
+        return fig
+
 
     def customLegend(self,fig, nameSwap,breakLine=None):
         if not isinstance(nameSwap,dict):
@@ -325,7 +339,7 @@ class Utils:
 
     def multiYAxisv2(self,df,mapName='jet',names=None,inc=0.05):
         yList = df.columns
-        cols = self.getColorMapHex(mapName,len(yList))
+        cols = self.getColorHexSeq(len(yList),mapName)
         yNum=[str(k) for k in range(1,len(yList)+1)]
         graphLims,sides,anchors,positions,overlays = self.getAutoAxes(len(yList),inc=inc)
         fig = go.Figure()
@@ -333,7 +347,7 @@ class Utils:
         if not names :
             names = yList
         for y,name,side,anc,pos,col,k,overlay in zip(yList,names,sides,anchors,positions,cols,yNum,overlays):
-            fig.add_trace(go.Scatter(x=df.index,y=df[y],name=y,yaxis='y'+k,mode='markers',
+            fig.add_trace(go.Scatter(x=df.index,y=df[y],name=y,yaxis='y'+k,
                                     marker=dict(color = col,size=10)))
 
             dictYaxis['yaxis'+k] = dict(
