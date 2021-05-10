@@ -64,7 +64,6 @@ class Utils:
         if not folderName :folderName = os.getcwd()
         return glob.glob(folderName+pattern)
 
-
     def skipWithMean(self,df,windowPts,idxForMean=None,col=None):
         ''' compress a dataframe by computing the mean around idxForMean points'''
         if not col :
@@ -225,7 +224,7 @@ class Utils:
         dfOut=dfOut.fillna(method='ffill')
         return dfOut
     # ==========================================================================
-    #                           COMPUTATION
+    #                           FITTING FUNCTIONS
     # ==========================================================================
 
     def expDown(self,x, a, b, c):
@@ -271,14 +270,14 @@ class Utils:
     # ==========================================================================
     #                           GRAPHICS
     # ==========================================================================
-    def getColorHexSeq(self,N,cmapName='jet'):
-        cmap        = cm.get_cmap(cmapName,N)
+    def getColorHexSeq(self,N,colmap='jet'):
+        cmap        = cm.get_cmap(colmap,N)
         colorList   = []
         for i in range(cmap.N):colorList.append(mtpcl.rgb2hex(cmap(i)))
         return colorList
 
-    def updateColorMap(self,fig,cmapName=None):
-        listCols = self.getColorHexSeq(len(fig.data)+1,cmapName=cmapName)
+    def updateColorMap(self,fig,colmap=None):
+        listCols = self.getColorHexSeq(len(fig.data)+1,colmap=colmap)
         k,l=0,0
         listYaxis = [k for k in fig._layout.keys() if 'yax' in k]
         if len(listYaxis)>1:
@@ -292,7 +291,6 @@ class Utils:
                 d['marker']['color']=listCols[l]
             if 'line' in d.keys():d['line']['color']=listCols[l]
         return fig
-
 
     def customLegend(self,fig, nameSwap,breakLine=None):
         if not isinstance(nameSwap,dict):
@@ -337,7 +335,7 @@ class Utils:
         overlays    = [None] + ['y']*(N-1)
         return [graphLims,sides,anchors,positions,overlays]
 
-    def multiYAxisv2(self,df,mapName='jet',names=None,inc=0.05):
+    def multiYAxis(self,df,mapName='jet',names=None,inc=0.05):
         yList = df.columns
         cols = self.getColorHexSeq(len(yList),mapName)
         yNum=[str(k) for k in range(1,len(yList)+1)]

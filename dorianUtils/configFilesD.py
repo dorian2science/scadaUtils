@@ -178,49 +178,11 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
     # ==============================================================================
     #                   functions filter on dataFrame
     # ==============================================================================
-
-    def getDFsameCat(self,df,unitName,cats,pattern=None,formatted=1):
-        dfOut = df.copy()
-        if not pattern:
-            pattern = self.listPatterns[0]
-        sameUnitTags    = self.getTagsSameUnit(unitName)
-        dfOut             = dfOut[dfOut.Tag.isin(sameUnitTags)]
-        if not cats:
-            cats = self.getCatsFromUnit(unitName,pattern)
-        for cat in cats:
-            tagSels = dfOut[dfOut.Tag.str.contains(cat,case=True)].Tag.unique()
-            dfOut.at[dfOut.Tag.isin(tagSels),'categorie'] = cat
-        dfOut = dfOut[~dfOut.categorie.isna()]
-        if not formatted :
-            dfOut.value = pd.to_numeric(dfOut['value'],errors='coerce')
-            return dfOut.sort_values(by=['Tag','timestamp'])
-        else :
-            return dfOut
-
     def getDFfromTagList(self,df,ll,formatted=1):
         if not isinstance(ll,list):ll =[ll]
         dfOut = df[df.Tag.isin(ll)]
         if not formatted :dfOut.value = pd.to_numeric(dfOut['value'],errors='coerce')
         return dfOut.sort_values(by=['Tag','timestamp'])
-
-    def getDFTagsTU(self,df,patTags,units,formatted=1,**kwargs):
-        lls=[]
-        if isinstance(patTags,str) : patTags = [patTags]
-        for patTag in patTags : lls.append(self.getTagsTU(patTag,units,cols='tag',**kwargs))
-        ll = self.utils.flattenList(lls)
-        return self.getDFfromTagList(df,ll,formatted)
-
-    def getDFTime(self,dfF,timeRange,t0=None):
-        if not 'timestamp' in dfF.columns:timestamp = dfF.index
-        else : timestamp = dfF.timestamp
-        if not isinstance(t0,dt.datetime): t0 = timestamp[0]
-        print('t0 : ',t0)
-        if isinstance(timeRange[0],str):
-            timeRange = self.utils.convertToSecs(timeRange,t0)
-            print('timeRange : ',timeRange)
-        t1 = t0 + dt.timedelta(seconds=timeRange[0])
-        t2 = t0 + dt.timedelta(seconds=timeRange[1])
-        return dfF[(timestamp>t1)&(timestamp<t2)]
 
     def getDFTimeRange(self,df,timeRange,col='timestamp'):
         t0 = parser.parse(timeRange[0]).astimezone(pytz.timezone('UTC'))
@@ -247,19 +209,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
                 dfs.append(df)
             return self.getDFTimeRange(pd.concat(dfs),timeRange)
 
-    def pivotDF(self,df,resampleRate='60s',applyMethod='nanmean'):
-        listTags=list(df.Tag.unique())
-        t0=df.timestamp.min()
-        dfOut = pd.DataFrame()
-        for tagname in listTags :
-            dftmp=df[df.Tag==tagname]
-            dftmp.index=list(dftmp.timestamp)
-            dftmp = eval('dftmp.resample(resampleRate,origin=t0).apply(np.' + applyMethod + ')')
-            dfOut[tagname]= dftmp['value']
-        dfOut=dfOut.fillna(method='ffill')
-        return dfOut
-
-    def loadDF_TimeRange_TU(self,timeRange,tagPat,unit=None,rs='auto',applyMethod='mean'):
+    def loadDF_TimeRange_Tags(self,timeRange,listTags,rs='auto',applyMethod='mean'):
         lfs = [k for k in self.filesDir]
         listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=1)
         listFiles = [f for d in listDates for f in lfs if d in f]
@@ -271,37 +221,14 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
             dfs = []
             for filename in listFiles :
                 df = self.loadFile(filename)
-                df = self.getDFTagsTU(df,tagPat,unit)
-                df = self.pivotDF(df,resampleRate=rs,applyMethod=applyMethod)
+                df = self.getDFfromTagList(df,listTags)
+                df = self.utils.pivotDataFrame(df,resampleRate=rs,applyMethod=applyMethod)
                 if not '00-00' in filename: # remvove the part of the dataframe that expands over the next date
                     t0      = df.timestamp.iloc[0]
                     tmax    = t0+dt.timedelta(days=1)-dt.timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second+1)
                     df      = df[df.timestamp<tmax]
                 dfs.append(df)
         return self.getDFTimeRange(pd.concat(dfs),timeRange,'index')
-
-    def loadDF_TimeRange_Tags(self,timeRange,tagPat,unit=None,rs='auto',applyMethod='mean'):
-        lfs = [k for k in self.filesDir]
-        listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=1)
-        listFiles = [f for d in listDates for f in lfs if d in f]
-        if rs=='auto':
-            rs = '{:.0f}'.format(max(1,delta.total_seconds()/3600)) + 's'
-            print(rs)
-        if not listFiles : print('there are no files to load')
-        else :
-            dfs = []
-            for filename in listFiles :
-                df = self.loadFile(filename)
-                if not unit : df = self.getDFfromTagList(df,tagPat)
-                else : df = self.getDFTagsTU(df,tagPat,unit)
-                df = self.pivotDF(df,resampleRate=rs,applyMethod=applyMethod)
-                if not '00-00' in filename: # remvove the part of the dataframe that expands over the next date
-                    t0      = df.timestamp.iloc[0]
-                    tmax    = t0+dt.timedelta(days=1)-dt.timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second+1)
-                    df      = df[df.timestamp<tmax]
-                dfs.append(df)
-        return self.getDFTimeRange(pd.concat(dfs),timeRange,'index')
-
     # ==============================================================================
     #                   functions to compute new variables
     # ==============================================================================
@@ -331,15 +258,6 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
     # ==============================================================================
     #                   functions computation
     # ==============================================================================
-
-    def prepareDFforFit(self,filename,ts=None,group='temperatures Stack 1',rs='30s'):
-        df = self.loadFile(filename)
-        a  = self.usefulTags[group]
-        df = self.getDFTagsTU(df,a[0],a[1])
-        df = self.pivotDF(df,resampleRate=rs)
-        if not not ts :
-            df= self.getDFTime(df,ts)
-        return df
 
     def fitDataframe(self,df,func='expDown',plotYes=True,**kwargs):
         res = {}

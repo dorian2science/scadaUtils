@@ -19,7 +19,7 @@ class MultiUnitTab():
         self.utils  = Utils()
         self.dccE   = DccExtended()
 
-    def mut_pdr(self,baseId,widthG=80,heightGraph=900):
+    def mut_pdr_cached(self,baseId,widthG=80,heightGraph=900):
         listWidgets = ['pdr_time','in_timeRes','dd_cmap','btn_legend',
                         'btn_export','btn_style','in_axisSp','dd_Tag']
 
@@ -65,7 +65,7 @@ class MultiUnitTab():
         def updateMUGGraph(dfjson,cmapName,legendType,styleSel,incSpace):
             df      = pd.read_json(dfjson, orient='split')
             names   = self.cfgtu.getUnitPivotedDF(df,True)
-            fig     = self.utils.multiYAxisv2(df,mapName=cmapName,inc=incSpace,names=names)
+            fig     = self.utils.multiYAxis(df,mapName=cmapName,inc=incSpace,names=names)
             fig     = self.dtu.updateLegend(df,fig,legendType,pivoted=True,breakLine=30,addUnit=True)
             fig     = self.dtu.updateStyleGraph(fig,styleSel)
             return fig
@@ -86,7 +86,7 @@ class MultiUnitTab():
 
         return MUG_html
 
-    def mut_pdr_nocache(self,baseId,widthG=80,heightGraph=900):
+    def mut_pdr(self,baseId,widthG=80,heightGraph=900):
         listWidgets = ['pdr_time','in_timeRes','dd_cmap','btn_legend',
                         'btn_export','btn_style','in_axisSp','dd_Tag']
 
@@ -120,7 +120,7 @@ class MultiUnitTab():
             print([date0+' '+t0,date1+' '+t1])
             df      = self.dtu.preparePivotedData(df,tags,step)
             names   = self.cfgtu.getUnitPivotedDF(df,True)
-            fig     = self.utils.multiYAxisv2(df,mapName=cmapName,inc=incSpace,names=names)
+            fig     = self.utils.multiYAxis(df,mapName=cmapName,inc=incSpace,names=names)
             fig     = self.dtu.updateLegend(df,fig,legendType,pivoted=True,breakLine=30,addUnit=True)
             fig     = self.dtu.updateStyleGraph(fig,styleSel)
             return fig
@@ -175,18 +175,17 @@ class MultiUnitTab():
             df      = self.cfgtu.loadFile(filename)
             df      = self.dtu.preparePivotedData(df,tags,rs=step)
             names   = self.cfgtu.getUnitPivotedDF(df,True)
-            fig     = self.cfgtu.utils.multiYAxisv2(df,mapName=cmapName,inc=incSpace,names=names)
+            fig     = self.cfgtu.utils.multiYAxis(df,mapName=cmapName,inc=incSpace,names=names)
             fig     = self.dtu.updateLegend(df,fig,legendType,pivoted=True,breakLine=30,addUnit=True)
             fig     = self.dtu.updateStyleGraph(fig,styleSel)
             return fig
         return MUGlayout
 
-
-    def mut_pdr_nocache_resample_v2(self,baseId,widthG=80,heightGraph=900):
+    def mut_pdr_resample(self,baseId,widthG=80,heightGraph=900):
         dicWidgets = {'pdr_time' : None,'in_timeRes':str(60*10)+'s','dd_resampleMethod':'mean','dd_cmap':'jet','btn_legend':0,
                         'btn_export':0,'dd_style':'lines+markers','in_axisSp':0.1,'dd_Tag':self.cfgtu.getTagsTU('B001.+[\)s]-JTW',onCol='tag')}
 
-        MUG_htmlVdic = self.dtu.buildLayout_vdict(dicWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
+        MUG_htmlVdic = self.dtu.buildLayout(dicWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
         listIds  = self.dccE.parseLayoutIds(MUG_htmlVdic)
         dictOpts = self.dccE.autoDictOptions(listIds)
 
@@ -230,75 +229,14 @@ class MultiUnitTab():
             if not timeBtn or trigId in [baseId+k for k in ['dd_Tag','pdr_timeBtn','dd_resampleMethod','in_axisSp']] :
                 if not timeBtn : timeBtn=1 # to initialize the first graph
                 timeRange = [date0+' '+t0,date1+' '+t1]
-                df      = self.cfgtu.load_TimeRange_tags(timeRange,tags,rs=rs,applyMethod=rsMethod)
+                df      = self.cfgtu.loadDF_TimeRange_Tags(timeRange,tags,rs=rs,applyMethod=rsMethod)
                 names   = self.cfgtu.getUnitPivotedDF(df,True)
-                fig     = self.utils.multiYAxisv2(df,mapName=cmapName,inc=axSP,names=names)
+                fig     = self.utils.multiYAxis(df,mapName=cmapName,inc=axSP,names=names)
                 timeBtn = max(timeBtn,1) # to close the initialisation
             else :fig = go.Figure(fig)
-            fig = self.dtu.updateStyleGraph_v2(fig,'scatter',style,cmapName)
-            fig = self.dtu.updateLegend_v2(fig,lgd)
+            fig = self.dtu.updateStyleGraph(fig,style,cmapName)
+            fig = self.dtu.updateLegend(fig,lgd)
             return fig,timeBtn
-  # ==========================================================================
-  #                           EXPORT CALLBACKS
-  # ==========================================================================
-        listStatesExport = [baseId+l for l in ['graph1','dd_Tag','in_timeRes']]
-        @self.dtu.app.callback(Output(baseId + 'btn_export','children'),
-        Input(baseId + 'btn_export', 'n_clicks'),
-        [State(k,v) for k,v in {key: dictOpts[key] for key in listStatesExport}.items()],
-        State(baseId + 'pdr_timePdr','start_date'),State(baseId + 'pdr_timePdr','end_date'),
-        State(baseId + 'pdr_timeStart','value'),State(baseId + 'pdr_timeEnd','value'))
-        def exportClick(btn,fig,tags,step,date0,date1,t0,t1):
-            if btn > 0:
-                df    = self.cfgtu.loadDFTimeRange([date0+' '+t0,date1+' '+t1],'',self.dtu.skipEveryHours)
-                df    = self.dtu.preparePivotedData(df,tags,step)
-                xlims = fig['layout']['xaxis']['range']
-                self.dtu.exportDFOnClick(df,xlims)
-            return 'export Data'
-
-        return MUG_htmlVdic
-
-    def mut_pdr_nocache_resample(self,baseId,widthG=80,heightGraph=900):
-        dicWidgets = {'pdr_time' : None,'in_timeRes':str(60*10)+'s','dd_resampleMethod':'mean','dd_cmap':'jet','btn_legend':0,
-                        'btn_export':0,'btn_style':0,'in_axisSp':0.1,'dd_Tag':self.cfgtu.getTagsTU('B001.+[\)s]-JTW',['W','J'],'tag')}
-
-        MUG_htmlVdic = self.dtu.buildLayout_vdict(dicWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
-        listIds  = self.dccE.parseLayoutIds(MUG_htmlVdic)
-        dictOpts = self.dccE.autoDictOptions(listIds)
-
-    # ==========================================================================
-    #                           BUTTONS CALLBACKS
-    # ==========================================================================
-
-        @self.dtu.app.callback(Output(baseId + 'btn_legend', 'children'),Input(baseId + 'btn_legend','n_clicks'))
-        def updateLgdBtn(legendType):return self.dtu.changeLegendBtnState(legendType)
-
-        @self.dtu.app.callback(Output(baseId + 'btn_style', 'children'),Input(baseId + 'btn_style','n_clicks'))
-        def updateStyleBtn(styleSel):return self.dtu.changeStyleBtnState(styleSel)
-
-    # ==========================================================================
-    #                           COMPUTE AND GRAPHICS CALLBACKS
-    # ==========================================================================
-        listInputsGraph = [baseId+l for l in ['dd_Tag','in_timeRes','dd_resampleMethod','dd_cmap','btn_legend',
-                                            'btn_style','in_axisSp']]
-        @self.dtu.app.callback(
-        Output(baseId + 'graph1', 'figure'),
-        [Input(k,v) for k,v in {key: dictOpts[key] for key in listInputsGraph}.items()],
-        Input(baseId + 'pdr_timeBtn','n_clicks'),
-        State(baseId + 'pdr_timePdr','start_date'),State(baseId + 'pdr_timePdr','end_date'),
-        State(baseId + 'pdr_timeStart','value'),State(baseId + 'pdr_timeEnd','value'))
-        def updateMUGGraph(tags,step,rsMethod,cmapName,legendType,styleSel,incSpace,btnUpdate,date0,date1,t0,t1):
-            start = time.time()
-            timeRange = [date0+' '+t0,date1+' '+t1]
-            print('rsMethod:',step)
-            df      = self.cfgtu.loadDF_TimeRange_Tags(timeRange,tags,rs=step,applyMethod=rsMethod)
-            names   = self.cfgtu.getUnitPivotedDF(df,True)
-
-            print(time.time()-start, 's')
-
-            fig     = self.utils.multiYAxisv2(df,mapName=cmapName,inc=incSpace,names=names)
-            fig     = self.dtu.updateLegend(df,fig,legendType,pivoted=True,breakLine=30,addUnit=True)
-            fig     = self.dtu.updateStyleGraph(fig,styleSel)
-            return fig
   # ==========================================================================
   #                           EXPORT CALLBACKS
   # ==========================================================================
