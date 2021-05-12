@@ -27,8 +27,8 @@ class Utils:
     #                           DEBUG
     # ==========================================================================
 
-    def printCTime(self,start):
-        print('time laps : {:.2f} seconds'.format(time.time()-start))
+    def printCTime(self,start,entete='time laps' ):
+        print(entete + ' : {:.2f} seconds'.format(time.time()-start))
 
     # ==========================================================================
     #                           SYSTEM
@@ -227,10 +227,11 @@ class Utils:
         t0 = df[colTimestamp].min()
         dfOut = pd.DataFrame()
         for tagname in listTags:
-            dftmp=df[df[colPivot]==tagname]
-            dftmp.index=list(dftmp[colTimestamp])
+            dftmp = df[df[colPivot]==tagname]
+            dftmp = dftmp.set_index(colTimestamp)
             dftmp = eval('dftmp.resample(resampleRate,origin=t0).apply(np.' + applyMethod + ')')
             dfOut[tagname] = dftmp[colValue]
+
         dfOut=dfOut.fillna(method='ffill')
         return dfOut
     # ==========================================================================

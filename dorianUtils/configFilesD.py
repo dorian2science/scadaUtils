@@ -206,15 +206,23 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         for d in listDates:
             print(d)
             dftmp  = self.loadFile('*'+d+'*')
-            if 'tag' in dftmp.columns : dftmp = self.getDFfromTagList(dftmp,tags)
+            if 'tag' in dftmp.columns :
+                dftmp = self.getDFfromTagList(dftmp,tags)
             if len(dftmp.columns)>0:
                 df = self.utils.pivotDataFrame(dftmp,colPivot='tag',colValue='value',colTimestamp='timestampUTC',resampleRate=rs,applyMethod=applyMethod)
                 dfs.append(df)
         if not dfs : print('there are no files to load')
         else :
+            # start = time.time()
             df=pd.concat(dfs,axis=0)
-            df.index=df.index.tz_convert(tzSel)# convert utc to tzSel timezone
-            return self.getDFTimeRange(df,timeRange,'index')
+            # self.utils.printCTime(start,'concatenation')
+            # start = time.time()
+            # df.index=df.index.tz_convert(tzSel)# convert utc to tzSel timezone
+            # self.utils.printCTime(start,'converting timestamp')
+            # start = time.time()
+            # self.getDFTimeRange(df,timeRange,'index')
+            # self.utils.printCTime(start,'filtering timerange')
+            return df
 
     # ==============================================================================
     #                   functions to compute new variables
