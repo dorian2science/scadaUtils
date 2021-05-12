@@ -182,8 +182,8 @@ class MultiUnitTab():
         return MUGlayout
 
     def mut_pdr_resample(self,baseId,defaultTag=[],widthG=80,heightGraph=900):
-        dicWidgets = {'pdr_time' : None,'in_timeRes':str(60*10)+'s','dd_Tag':defaultTag,'dd_resampleMethod':'mean','dd_cmap':'jet','btn_legend':0,
-                        'btn_export':0,'dd_style':'lines+markers','in_axisSp':0.1}
+        dicWidgets = {'pdr_time' : None,'in_timeRes':str(60*10)+'s','dd_resampleMethod':'mean','dd_cmap':'jet','btn_legend':0,
+                        'btn_export':0,'dd_style':'lines+markers','in_axisSp':0.1,'dd_Tag':defaultTag}
 
         MUG_htmlVdic = self.dtu.buildLayout(dicWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
         listIds  = self.dccE.parseLayoutIds(MUG_htmlVdic)
