@@ -96,13 +96,13 @@ class TemplateDashTagsUnit(TemplateDashMaster):
         widgetLayout,dicLayouts = [],{}
         for widgetId in dicWidgets.items():
             if 'dd_listFiles' in widgetId[0]:
-                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.filesDir,'Select your File : ',
+                widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.listFilesPkl,'Select your File : ',
                     labelsPattern='\d{4}-\d{2}-\d{2}-\d{2}',defaultIdx=widgetId[1])
 
 
             elif 'dd_Tag' in widgetId[0]:
                 widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],self.cfg.getTagsTU(''),
-                'Select type graph : ',value=widgetId[1],multi=True,
+                'Select the tags : ',value=widgetId[1],multi=True,
                 style={'fontsize':'20 px','height': '40px','min-height': '1px',},optionHeight=20)
 
             elif 'dd_cmap' in widgetId[0]:
@@ -114,7 +114,7 @@ class TemplateDashTagsUnit(TemplateDashMaster):
 
             elif 'dd_typeTags' in widgetId[0]:
                 widgetObj = self.dccE.dropDownFromList(baseId+widgetId[0],list(self.cfg.usefulTags.index),
-                            'Select categories : ',defaultIdx=widgetId[1],
+                            'Select categorie : ',defaultIdx=widgetId[1],
                             style={'fontsize':'20 px','height': '40px','min-height': '1px',},optionHeight=20)
 
             elif 'dd_typeGraph' in widgetId[0]:
@@ -183,8 +183,7 @@ class TemplateDashTagsUnit(TemplateDashMaster):
                 tmax=widgetId[1]
                 # if not tmax : tmax = dt.datetime.now()
                 if not tmax :
-                    tmax = re.findall('\d{4}-\d{2}-\d{2}',self.cfg.filesDir[-1].split('/')[-1])[0].split('-')# read the date of the last file in the folder
-                    tmax = dt.datetime(int(tmax[0]),int(tmax[1]),int(tmax[2]))
+                    tmax = self.utils.findDateInFilename(self.cfg.listFilesPkl[-1])
                 t1 = tmax - dt.timedelta(hours=tmax.hour+1)
                 t0 = t1 - dt.timedelta(days=3)
 
@@ -221,20 +220,24 @@ class TemplateDashTagsUnit(TemplateDashMaster):
     # ==============================================================================
     def updateStyleGraph(self,fig,style='lines+markers',colmap='jet',heightGraph=700):
         if style=='lines+markers':
-            fig.update_traces(mode='lines+markers', marker_line_width=0.2, marker_size=6,line=dict(width=3))
+            fig.update_traces(mode='lines+markers',line_shape='linear', marker_line_width=0.2, marker_size=6,line=dict(width=3))
         elif style=='markers':
             fig.update_traces(mode='markers', marker_line_width=0.2, marker_size=12)
         elif style=='stairs':
             fig.update_traces(mode='lines+markers',line_shape='hv', marker_line_width=0.2, marker_size=6,line=dict(width=3))
         elif style=='lines':
-            fig.update_traces(mode='lines',line=dict(width=1))
+            fig.update_traces(mode='lines',line=dict(width=1),line_shape='linear')
         self.utils.updateColorMap(fig,colmap)
         fig.update_layout(height=heightGraph)
         return fig
 
     def drawGraph(self,df,typeGraph='scatter',**kwargs):
-        if 'Tag' in df.columns:
-            return eval("px."+typeGraph +"(df, x='timestamp', y='value', color='Tag'),**kwargs)")
+        if 'tag' in df.columns:
+            timeStamp = [k for k in list(df.columns) if 'timestamp' in k.lower()][0]
+            if typeGraph == 'scatter' :return px.scatter(df,x=timeStamp, y='value', color='tag',**kwargs)
+            if typeGraph == 'area' :return px.area(df,x=timeStamp, y='value', color='tag',**kwargs)
+            if typeGraph == 'area %' :return px.area(df,x=timeStamp, y='value', color='tag',groupnorm='percent',**kwargs)
+            # return eval("px."+typeGraph +"(df, )")
         else :
             if typeGraph == 'scatter' :return px.scatter(df)
             if typeGraph == 'area' :return px.area(df)

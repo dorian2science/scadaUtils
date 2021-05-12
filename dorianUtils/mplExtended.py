@@ -133,7 +133,7 @@ def demo_multiYmpl():
 def plotMultiUnitSmallPower(fileNb=0,skip=5,folder =None ,**kwargs):
     if not folder :
         folder = '/home/dorian/sylfen/exploreSmallPower/dataExported/'
-    lsfiles = utils.get_filesDir(folder,'.txt')
+    lsfiles = utils.get_listFilesPkl(folder,'.txt')
     print(utils.listWithNbs(lsfiles))
     df = pd.read_csv(folder + lsfiles[fileNb],index_col = 0,parse_dates=True)
     fig = multiYmpl(df.iloc[::skip,:],xlab='time',**kwargs)

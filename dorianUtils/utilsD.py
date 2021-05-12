@@ -49,18 +49,18 @@ class Utils:
         return df
 
     def convert_csv2pkl(self,folderCSV,folderPKL):
-        for filename in self.get_filesDir(folderCSV,'.csv'):
+        for filename in self.get_listFilesPkl(folderCSV,'.csv'):
             df=self.read_csv_datetimeTZ(folderCSV + filename)
             with open(folderPKL + filename[:-4] + '.pkl' , 'wb') as handle:
                 pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def get_filesDir(self,folderName=None,ext='.pkl'):
+    def get_listFilesPkl(self,folderName=None,ext='.pkl'):
         if not folderName :folderName = os.getcwd()
         listFiles = sp.check_output('cd ' + '{:s}'.format(folderName) + ' && ls *' + ext,shell=True)
         listFiles=listFiles.decode().split('\n')[:-1]
         return listFiles
 
-    def get_filesDirV2(self,folderName=None,pattern='*.pkl'):
+    def get_listFilesPklV2(self,folderName=None,pattern='*.pkl'):
         if not folderName :folderName = os.getcwd()
         listfiles = glob.glob(folderName+pattern)
         listfiles.sort()
@@ -105,6 +105,14 @@ class Utils:
         timezone = pytz.timezone(timezone)
         timezone_aware_date = timezone.localize(t, is_dst=None)
         return timezone_aware_date.tzinfo._dst.seconds != 0
+
+    def findDateInFilename(self,filename,formatDate='\d{4}-\d{2}-\d{2}'):
+        if '/' in filename:filename = filename.split('/')[-1]
+        print('filename:',filename)
+        tmax = re.findall(formatDate,filename)[0].split('-')# read the date of the last file in the folder
+        print('tmax:',tmax)
+        tmax = dt.datetime(int(tmax[0]),int(tmax[1]),int(tmax[2]))
+        return tmax
 
     # ==========================================================================
     #                           PHYSICS
@@ -371,6 +379,5 @@ class Utils:
         pd.set_option('display.max_colwidth',None)
         if allRows :
             pd.set_option('display.max_rows',None)
-        print(df)
         pd.set_option('display.max_colwidth',colWidthOri)
         pd.set_option('display.max_rows',rowNbOri)

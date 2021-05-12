@@ -45,6 +45,17 @@ class UnitSelectorTab():
         # fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit,title=figname)
         return fig
 
+    def computeDataFrame(self,timeRange,tagPat,unit,rs,rsMethod):
+        start     = time.time()
+        listTags  = self.cfgtu.getTagsTU(tagPat,unit)
+        if not rsMethod :
+            df = self.cfgtu.loadDF_TimeRange_Tags_raw(timeRange,listTags,skip=rs)
+            names=list(df.tag.unique())
+        else:
+            df = self.cfgtu.loadDF_TimeRange_Tags(timeRange,listTags,rs=rs,applyMethod=rsMethod)
+            names     = self.cfgtu.getUnitPivotedDF(df,True)
+        print(time.time()-start, 's')
+        return df,names
     # ==========================================================================
     #                           with unit and tag INPUT  FUNCTIONS
     # ==========================================================================
@@ -101,9 +112,10 @@ class UnitSelectorTab():
 
         return TUinPDR_html
 
-    def tagUnit_in_pdr(self,baseId,widthG=80,heightGraph=900):
-        dicWidgets = {'pdr_time':None,'in_step':20,'dd_Units':'W','in_patternTag':'B001',
-                        'btn_legend':0,'btn_style':0,'btn_export':0,'dd_cmap':'jet'}
+    def tagUnit_in_pdr(self,baseId,unitDefault='W',patternDefault='',widthG=80,heightGraph=900):
+        dicWidgets = {'pdr_time':None,'in_step':300,'dd_Units':unitDefault,'in_patternTag':patternDefault,
+                        'dd_typeGraph':0,'dd_style':'lines+markers',
+                        'btn_legend':0,'btn_export':0,'dd_cmap':'jet'}
         TUinPDR_html = self.dtu.buildLayout(dicWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
         listIds = self.dccE.parseLayoutIds(TUinPDR_html)
         dictOpts = self.dccE.autoDictOptions(listIds)
@@ -115,24 +127,52 @@ class UnitSelectorTab():
         @self.dtu.app.callback(Output(baseId + 'btn_legend', 'children'),Input(baseId + 'btn_legend','n_clicks'))
         def updateLgdBtn(legendType):return self.dtu.changeLegendBtnState(legendType)
 
-        @self.dtu.app.callback(Output(baseId + 'btn_style', 'children'),Input(baseId + 'btn_style','n_clicks'))
-        def updateStyleBtn(styleSel):return self.dtu.changeStyleBtnState(styleSel)
-
         # ==========================================================================
         #                           COMPUTE AND GRAPHICS CALLBACKS
         # ==========================================================================
+        listInputsGraph = {
+                        'pdr_timeBtn':'n_clicks',
+                        'dd_typeGraph':'value',
+                        'dd_cmap':'value',
+                        'btn_legend':'children',
+                        'dd_style':'value'
+                        }
+        listStatesGraph = {
+                            'dd_Units':'value',
+                            'in_patternTag':'value',
+                            'in_step' : 'value',
+                            'graph1':'figure',
+                            'pdr_timeStart' : 'value',
+                            'pdr_timeEnd':'value',
+                            'pdr_timePdr':'start_date',
+                            }
 
-        listInputsGraph = [baseId+l for l in ['dd_Units','in_patternTag','dd_cmap','btn_legend','btn_style','in_step']]
-        @self.dtu.app.callback(Output(baseId + 'graph1', 'figure'),
-        [Input(k,v) for k,v in {key: dictOpts[key] for key in listInputsGraph}.items()],
-        Input(baseId + 'pdr_timeBtn','n_clicks'),
-        State(baseId + 'pdr_timePdr','start_date'),State(baseId + 'pdr_timePdr','end_date'),
-        State(baseId + 'pdr_timeStart','value'),State(baseId + 'pdr_timeEnd','value'))
-        def updateGraphIn(unit,tagPat,cmapName,legendType,styleSel,step,btn,date0,date1,t0,t1):
-            df = self.cfgtu.loadDFTimeRange([date0+' '+t0,date1+' '+t1],'')
-            fig = self.updateTUGraph(df,tagPat,unit,step,cmapName,legendType,breakLine=None)
-            fig = self.dtu.updateStyleGraph(fig,styleSel)
-            return fig
+        @self.dtu.app.callback(
+        Output(baseId + 'graph1', 'figure'),
+        Output(baseId + 'pdr_timeBtn', 'n_clicks'),
+        [Input(baseId + k,v) for k,v in listInputsGraph.items()],
+        [State(baseId + k,v) for k,v in listStatesGraph.items()],
+        State(baseId+'pdr_timePdr','end_date'))
+        def updateGraph(timeBtn,typeGraph,cmap,lgd,style,unit,tagPat,skip,fig,date0,date1,t0,t1):
+            ctx = dash.callback_context
+            trigId = ctx.triggered[0]['prop_id'].split('.')[0]
+            # to ensure that action on graphs only without computation do not
+            # trigger computing the dataframe again
+            if not timeBtn or trigId in [baseId+k for k in ['pdr_timeBtn']] :
+                if not timeBtn : timeBtn=1 # to initialize the first graph
+                timeRange = [date0+' '+t0,date1+' '+t1]
+                df,names  = self.computeDataFrame(timeRange,tagPat,unit,skip,rsMethod=None)
+                print("==================== drawingGraph time ================")
+                start=time.time()
+                fig       = self.dtu.drawGraph(df,typeGraph)
+                nameGrandeur = self.cfgtu.utils.detectUnit(unit)
+                fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
+                timeBtn = max(timeBtn,1) # to close the initialisation
+                print(time.time()-start, 's')
+            else :fig = go.Figure(fig)
+            fig = self.dtu.updateStyleGraph(fig,style,cmap)
+            fig = self.dtu.updateLegend(fig,lgd)
+            return fig,timeBtn
 
         # ==========================================================================
         #                           EXPORT CALLBACKS
@@ -191,9 +231,9 @@ class UnitSelectorTab():
                 return 'export Data'
         return TUinGhtml
 
-    def tagUnit_in_pdr_resample(self,baseId,widthG=80,heightGraph=900):
+    def tagUnit_in_pdr_resample(self,baseId,unitDefault='W',patternDefault='',widthG=80,heightGraph=900):
         dicWidgets = {'pdr_time' : None,'in_timeRes':str(60*10)+'s','dd_resampleMethod':'mean',
-                        'dd_Units':'W','in_patternTag':'B001','dd_typeGraph':0,'dd_style':'lines+markers',
+                        'dd_Units':unitDefault,'in_patternTag':patternDefault,'dd_typeGraph':0,'dd_style':'lines+markers',
                         'btn_legend':0,'btn_export':0,'dd_cmap':'jet'}
 
         TUinPDRrs_html = self.dtu.buildLayout(dicWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
@@ -238,13 +278,13 @@ class UnitSelectorTab():
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
             # to ensure that action on graphs only without computation do not
             # trigger computing the dataframe again
-            if not timeBtn or trigId in [baseId+k for k in ['dd_typeTags','pdr_timeBtn','dd_resampleMethod','dd_typeGraph']] :
+            if not timeBtn or trigId in [baseId+k for k in ['pdr_timeBtn']] :
                 if not timeBtn : timeBtn=1 # to initialize the first graph
                 start     = time.time()
                 timeRange = [date0+' '+t0,date1+' '+t1]
                 listTags  = self.cfgtu.getTagsTU(tagPat,unit)
                 df        = self.cfgtu.loadDF_TimeRange_Tags(timeRange,listTags,rs=rs,applyMethod=rsMethod)
-                names     = self.cfgtu.getUnitPivotedDF(df,True)
+                # names     = self.cfgtu.getUnitPivotedDF(df,True)
                 print(time.time()-start, 's')
                 fig     = self.dtu.drawGraph(df,typeGraph)
                 nameGrandeur = self.cfgtu.utils.detectUnit(unit)

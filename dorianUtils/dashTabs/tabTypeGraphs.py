@@ -3,7 +3,7 @@ def typeGraph(self,baseId,widthG=80):
     listTGDisabled = list(self.cfg.typeGraphs.values())
     AGVL_html = html.Div([
         html.Div(
-            self.dccE.dropDownFromList(baseId + 'dd_listFiles',self.cfg.filesDir,'Select your File : ',
+            self.dccE.dropDownFromList(baseId + 'dd_listFiles',self.cfg.listFilesPkl,'Select your File : ',
                                         labelsPattern = '\d{4}-\d{2}-\d{2}-\d{2}',defaultIdx=5)+
             [html.P('Select the type of Graph : '),
             dcc.Dropdown(id=baseId + 'dd_typeGraph',options = [{'label' : t, 'value' : t, 'disabled' : d}

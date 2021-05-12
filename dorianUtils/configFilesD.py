@@ -10,9 +10,9 @@ pd.options.mode.chained_assignment = None  # default='warn'
 class ConfigMaster:
     """docstring for ConfigMaster."""
 
-    def __init__(self,folderPath,folderFig=None,folderExport=None):
+    def __init__(self,folderPkl,folderFig=None,folderExport=None):
         self.utils      = Utils()
-        self.folderPath = folderPath
+        self.folderPkl = folderPkl
         if not folderFig :
             folderFig = os.getenv('HOME') + '/Images/'
         self.folderFig  = folderFig
@@ -24,26 +24,29 @@ class ConfigMaster:
 # ==============================================================================
 
     def get_ValidFiles(self):
-        return sp.check_output('cd ' + '{:s}'.format(self.folderPath) + ' && ls *' + self.validPattern +'*',shell=True).decode().split('\n')[:-1]
+        return sp.check_output('cd ' + '{:s}'.format(self.folderPkl) + ' && ls *' + self.validPattern +'*',shell=True).decode().split('\n')[:-1]
 
     def convert_csv2pkl(self,folderCSV,filename):
-        self.utils.convert_csv2pkl(folderCSV,self.folderPath,filename)
+        self.utils.convert_csv2pkl(folderCSV,self.folderPkl,filename)
 
     def convert_csv2pkl_all(self,folderCSV,fileNbs=None):
-        self.utils.convert_csv2pkl_all(folderCSV,self.folderPath)
+        self.utils.convert_csv2pkl_all(folderCSV,self.folderPkl)
+
 
     def loadFile(self,filename,skip=1):
-        print('absolute Path: ', self.folderPath)
-        print('loading dataframe : {}'.format(filename))
-        return pickle.load(open(self.folderPath + filename, "rb" ))[::skip]
+        if '*' in filename :
+            filenames=self.utils.get_listFilesPklV2(self.folderPkl,filename)
+            if len(filenames)>0 : filename=filenames[0]
+            else : return pd.DataFrame()
+        df = pickle.load(open(filename, "rb" ))
+        return df[::skip]
 
 class ConfigDashTagUnitTimestamp(ConfigMaster):
-    def __init__(self,folderPath,confFile,folderFig=None,folderExport=None,encode='utf-8'):
-        super().__init__(folderPath,folderFig=folderFig,folderExport=folderExport)
+    def __init__(self,folderPkl,confFile,folderFig=None,folderExport=None,encode='utf-8'):
+        super().__init__(folderPkl,folderFig=folderFig,folderExport=folderExport)
         self.confFile   = confFile
-
-        self.modelAndFile = '*10002-001*'
-        self.filesDir     = self.get_ValidFiles()
+        self.modelAndFile = self.__getModelNumber()
+        self.listFilesPkl     = self.get_ValidFiles()
         self.dfPLC        = pd.read_csv(confFile,encoding=encode)
 
         self.unitCol,self.descriptCol,self.tagCol = self.getPLC_ColName()
@@ -52,18 +55,23 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         self.allPatterns = self.utils.listPatterns
         self.listPatterns = self.get_validPatterns()
 
+    def __getModelNumber(self):
+        modelNb = re.findall('\d{5}-\d{3}',self.confFile)
+        if not modelNb: return ''
+        else : return modelNb[0]
+
 # ==============================================================================
 #                     basic functions
 # ==============================================================================
     def convertCSVtoPklFormatted(self,folderCSV,filenames=None,parseDatesManual=False):
         ''' get column value with numeric values
         and convert timestamp to datetime format'''
-        listFiles = self.utils.get_filesDir(folderName=folderCSV,ext='.csv')
+        listFiles = self.utils.get_listFilesPkl(folderName=folderCSV,ext='.csv')
         if not filenames:filenames = listFiles
         if not isinstance(filenames,list):filenames = [filenames]
         if isinstance(filenames[0],int):filenames = [listFiles[k] for k in filenames]
         for filename in filenames :
-            if not filename[:-4] + '_f.pkl' in self.filesDir:
+            if not filename[:-4] + '_f.pkl' in self.listFilesPkl:
                 start       = time.time()
                 if parseDatesManual : df = pd.read_csv(folderCSV + filename,names=['Tag','value','timestamp'])
                 else : df = pd.read_csv(folderCSV + filename,parse_dates=[2],names=['Tag','value','timestamp'])
@@ -75,12 +83,12 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
                 print("formatting file : ",filename)
                 dfOut['value'] = pd.to_numeric(df['value'],errors='coerce')
                 self.utils.printCTime(start)
-                with open(self.folderPath + filename[:-4] + '_f.pkl' , 'wb') as handle:# save the file
+                with open(self.folderPkl + filename[:-4] + '_f.pkl' , 'wb') as handle:# save the file
                     pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 print("============================================")
             else :
                 print("============================================")
-                print('filename : ' ,filename,' already in folder : ',self.folderPath)
+                print('filename : ' ,filename,' already in folder : ',self.folderPkl)
                 print("============================================")
 
     def getPLC_ColName(self):
@@ -99,14 +107,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
             return [self.allPatterns[k] for k in [1,2,3,4,5,0]]
 
     def get_ValidFiles(self):
-        return self.utils.get_filesDirV2(self.folderPath,self.modelAndFile)
-
-    def loadFile(self,filename=0,skip=1):
-        if isinstance(filename,int):
-            filename=self.filesDir[filename]
-        df=pickle.load(open(filename, "rb" ))
-        print('dataframe loaded : {}'.format(filename))
-        return df[::skip]
+        return self.utils.get_listFilesPklV2(self.folderPkl)
 
 # ==============================================================================
 #                   functions filter on configuration file with tags
@@ -170,9 +171,9 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
     # ==============================================================================
     #                   functions filter on dataFrame
     # ==============================================================================
-    def getDFfromTagList(self,df,ll,formatted=1):
-        if not isinstance(ll,list):ll =[ll]
-        dfOut = df[df.tag.isin(ll)]
+    def getDFfromTagList(self,df,tagList,formatted=1):
+        if not isinstance(tagList,list):tagList =[tagList]
+        dfOut = df[df.tag.isin(tagList)]
         if not formatted :dfOut.value = pd.to_numeric(dfOut['value'],errors='coerce')
         return dfOut.sort_values(by=['tag','timestampUTC'])
 
@@ -182,45 +183,39 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         if col == 'index': return df[(df.index>t0)&(df.index<t1)].sort_index()
         else : return df[(df[col]>t0)&(df[col]<t1)].sort_values(by=col)
 
-    def loadDFTimeRange(self,timeRange,conditionFile='',skipEveryHours=24):
-        lfs = [k for k in self.filesDir if conditionFile in k]
+    def loadDF_TimeRange_Tags_raw(self,timeRange,listTags,skip=1,conditionFile='',tzSel='Europe/Paris'):
+        lfs = [k for k in self.listFilesPkl if conditionFile in k]
         listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=1)
         listFiles = [f for d in listDates for f in lfs if d in f]
-        skip = (parser.parse(timeRange[1])-parser.parse(timeRange[0])).total_seconds()/(3600*skipEveryHours)
-        skip = max(1,round(skip))
-        print('skip : ',skip)
         if not listFiles : print('there are no files to load')
         else :
             dfs = []
             for filename in listFiles :
+                print(filename)
                 df = self.loadFile(filename,skip=skip)
-                if not '00-00' in filename: # remvove the part of the dataframe that expands over the next date
-                    t0      = df.timestamp.iloc[0]
-                    tmax    = t0+dt.timedelta(days=1)-dt.timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second+1)
-                    df      = df[df.timestamp<tmax]
-                dfs.append(df)
-            return self.getDFTimeRange(pd.concat(dfs),timeRange)
-
-    def loadDF_TimeRange_Tags(self,timeRange,listTags,rs='auto',applyMethod='mean'):
-        lfs = [k for k in self.filesDir]
-        listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=1)
-        listFiles = [f for d in listDates for f in lfs if d in f]
-        if rs=='auto':
-            rs = '{:.0f}'.format(max(1,delta.total_seconds()/3600)) + 's'
-            print(rs)
-        if not listFiles : print('there are no files to load')
-        else :
-            dfs = []
-            for filename in listFiles :
-                df = self.loadFile(filename)
                 df = self.getDFfromTagList(df,listTags)
-                df = self.utils.pivotDataFrame(df,resampleRate=rs,applyMethod=applyMethod)
-                if not '00-00' in filename: # remvove the part of the dataframe that expands over the next date
-                    t0      = df.timestamp.iloc[0]
-                    tmax    = t0+dt.timedelta(days=1)-dt.timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second+1)
-                    df      = df[df.timestamp<tmax]
                 dfs.append(df)
-        return self.getDFTimeRange(pd.concat(dfs),timeRange,'index')
+            df= self.getDFTimeRange(pd.concat(dfs),timeRange)
+            # df.timestamp = df.timestampUTC.tz_convert(tzSel)
+            return df
+
+    def loadDF_TimeRange_Tags(self,timeRange,tags,rs='auto',applyMethod='mean',tzSel='Europe/Paris'):
+        listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=1)
+        if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()/3600)) + 's'
+        dfs = []
+        for d in listDates:
+            print(d)
+            dftmp  = self.loadFile('*'+d+'*')
+            if 'tag' in dftmp.columns : dftmp = self.getDFfromTagList(dftmp,tags)
+            if len(dftmp.columns)>0:
+                df = self.utils.pivotDataFrame(dftmp,colPivot='tag',colValue='value',colTimestamp='timestampUTC',resampleRate=rs,applyMethod=applyMethod)
+                dfs.append(df)
+        if not dfs : print('there are no files to load')
+        else :
+            df=pd.concat(dfs,axis=0)
+            df.index=df.index.tz_convert(tzSel)# convert utc to tzSel timezone
+            return self.getDFTimeRange(df,timeRange,'index')
+
     # ==============================================================================
     #                   functions to compute new variables
     # ==============================================================================
