@@ -62,7 +62,9 @@ class Utils:
 
     def get_filesDirV2(self,folderName=None,pattern='*.pkl'):
         if not folderName :folderName = os.getcwd()
-        return glob.glob(folderName+pattern)
+        listfiles = glob.glob(folderName+pattern)
+        listfiles.sort()
+        return listfiles
 
     def skipWithMean(self,df,windowPts,idxForMean=None,col=None):
         ''' compress a dataframe by computing the mean around idxForMean points'''

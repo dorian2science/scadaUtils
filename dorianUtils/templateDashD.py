@@ -1,4 +1,4 @@
-import pandas as pd, os
+import pandas as pd, os,re
 import dash, dash_core_components as dcc, dash_html_components as html, dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 import plotly.express as px, plotly.graph_objects as go
@@ -18,10 +18,6 @@ class TemplateDashMaster:
         self.title      = title
         self.extSheets  = self.selectExternalSheet(extSheets)
         self.cacheRedis = cacheRedis
-
-        self.app        = dash.Dash(__name__, external_stylesheets=self.extSheets,
-                                    url_base_pathname = baseNameUrl,title=title)
-
         self.app        = dash.Dash(__name__, external_stylesheets=self.extSheets,
                                 url_base_pathname = baseNameUrl,title=title)
 
@@ -71,11 +67,9 @@ class TemplateDashMaster:
 class TemplateDashTagsUnit(TemplateDashMaster):
     ''' you need a configuration file instance from the class ConfigDashTagUnitTimestamp
     meaning having a dfPLC with at least columns : tag,unit and description '''
-    def __init__(self,cfg,title='tagsUnitTemplate',baseNameUrl='/tagsUnitTemplate/',
-                    skipEveryHours=120,**kwargs):
+    def __init__(self,cfg,title='tagsUnitTemplate',baseNameUrl='/tagsUnitTemplate/',**kwargs):
         super().__init__(baseNameUrl=baseNameUrl,title=title,**kwargs)
         self.cfg = cfg
-        self.skipEveryHours = skipEveryHours
         self.dccE = DccExtended()
 
     # ==========================================================================
@@ -189,7 +183,7 @@ class TemplateDashTagsUnit(TemplateDashMaster):
                 tmax=widgetId[1]
                 # if not tmax : tmax = dt.datetime.now()
                 if not tmax :
-                    tmax = self.cfg.filesDir[-1].split('-')[:3]# read the date of the last file in the folder
+                    tmax = re.findall('\d{4}-\d{2}-\d{2}',self.cfg.filesDir[-1].split('/')[-1])[0].split('-')# read the date of the last file in the folder
                     tmax = dt.datetime(int(tmax[0]),int(tmax[1]),int(tmax[2]))
                 t1 = tmax - dt.timedelta(hours=tmax.hour+1)
                 t0 = t1 - dt.timedelta(days=3)

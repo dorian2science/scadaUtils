@@ -497,7 +497,6 @@ class UnitSelectorTab():
                 fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
                 timeBtn = max(timeBtn,1) # to close the initialisation
             else :fig = go.Figure(fig)
-            print(colmap)
             fig = self.dtu.updateStyleGraph(fig,style,colmap)
             fig = self.dtu.updateLegend(fig,lgd)
             return fig,timeBtn

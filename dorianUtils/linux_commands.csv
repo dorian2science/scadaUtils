@@ -1,0 +1,74 @@
+command line,instruction,categorie,link,status
+pretty_csv filename,show csv in pretty way. Alias in bash_aliases using commands column and less,alias,,ok
+sudo add-apt-repository <url or ppa:packageName>,add repository to apt programm if not known ,apt,https://wiki.inkscape.org/wiki/index.php/Installing_Inkscape,ok
+apt list - - installed,see the list of software installed with apt,apt,,ok
+#! <obejctPath>,enables to make any file executable. It is the shebang with the path of the object file. Example : #!usr/bin/python script.py → in the terminal if the file script.py has the executive rights(chmod x+u to give the executable rights) will run the file with python=same as python3 script.py,bash,,ok
+~/.input.rc ,modify ~/.input.rc so that the key up and down deroule le history ,bash,,ok
+oeg filename,open image with .jpg or .png … format,bash,,ok
+declare -F,see list of functions in shell,bash,,ok
+alias,list of aliases ,bash,,ok
+man <command>,get help,bash,,
+dmesg,open boot log error,boot,,ok
+Echo peerdns=”no” >> ifcfg-<device> ,prevent resolv.conf to be overwritten ,categorie,https://www.thegeekdiary.com/centos-rhel-dns-servers-in-etcresolv-conf-change-after-a-rebootnetwork-service-restart-how-to-make-them-permanent/,ok
+yum repolist all,see the list of all repo,centos7,https://serverfault.com/questions/904304/could-not-resolve-host-mirrorlist-centos-org-centos-7,ok
+yum-config-manager --disable repository,disable a repo for not automatic update,centos7,https://unix.stackexchange.com/questions/53627/remove-yum-repo-using-yum,ok
+Echo nmcontrolled=”yes” >> ifcfg-<device> ,To let network manager manage this device,centos7,https://serverfault.com/questions/878065/what-nm-controlled-variable-does-in-centos-rhel,ok
+rpm -qa,package manager list all ,centos7,,ok
+yum list installed ,see the list of software installed with yum,centos7,,ok
+Make recetteMakefile,Makefile make makefile first .nom de la recette dans le Makefile. Le makefile contient toutes les recettes.,compilation,,ok
+e- crontab ,Programm scheduler. This command opens the scheduler file. ,crontab ,,a revoir
+Modify / etc /vsftp.conf file to enable access for only some user ,configure ftp server and log in,ftp,https://www.tecmint.com/install-ftp-server-in-ubuntu/,ok
+systemctl start vsftpd && systemctl enable vsftpd,start a ftp server ,ftp,http://doc.ubuntu-fr.org/vsftpd,ok
+Systemctl start vsftpd ,start ftp deamon. Check vsftpd.conf ,ftp,https://www.cyberciti.biz/faq/ftp-connection-refused-error-solution-to-problem/,ok
+grep -nHsr <pattern> <listFiles>,look for specific pattern using regular expression in all files recursively,grep,,ok
+grep -c pattern directory,detect the files that haven’t a spec pattern with grep. -vl or –count flag does the same ,grep,,ok
+adduser -aG <username>,Create user ,group User,,ok
+getent group or cat /etc/group,list all the groups and the UID belonging to those groups ,group User,,ok
+groups ,list all the groups of the current user ,group User,,ok
+less  /etc/passwd,list all user. Combine with grep to find particular one ,group User,https://linuxize.com/post/how-to-list-users-in-linux/,ok
+passwd <username>,Change user password ,group User,,ok
+sudo addgroup <groupname>,create group ,group User,https://phoenixnap.com/kb/how-to-add-user-to-group-linux,ok
+sudo adduser <username> <groupname>,Create a user to and assign a group to it. -h to create a home.,group User,,
+sudo usermod -a -G <groupname> <username>,add a user to a group  ,group User,https://phoenixnap.com/kb/how-to-add-user-to-group-linux,ok
+,Delete user ,group User,,to do
+apt-get remove linux-image-3.8.0-27-generic,remove a kernel version of linux ,kernel,https://askubuntu.com/questions/329934/uninstall-specific-kernel-version,ok
+sudo mount -a ,"Mount all disks from lines in /etc/fstab like : //IPServeur/nameFolder cifs username=usrname,rw,iocharset=utf8,file_mode=0777,dir_mode=0777
+",mount,,ok
+Unmount <foldername>,unmount ,mount,,ok
+sudo nano /etc/samba/smb.conf,create a shared server with security context with samba and configure </etc/samba/smb.conf,mount,https://www.digitalocean.com/community/tutorials/how-to-set-up-a-samba-share-for-a-small-organization-on-ubuntu-16-04,ok
+Qsub sur sungrid,Lance un job ,multithreading,,ok
+Sungrid ,sungrid gère l’allocation des coeurs ,multithreading,,ok
+systemctl restart NetworkManager,Check /etc/resolv.conf restart dns resolution server,network,https://serverfault.com/questions/904304/could-not-resolve-host-mirrorlist-centos-org-centos-7,ok
+sudo ifup <devicename>,restart a network connection ,network,,ok
+Cd /etc/sysconfig/network-scripts,go into the directory of network devices. ,network,,
+go on free website and add a device with ipadress and port number,configure the router to make a portforwarding,portforwarding,,to do
+fuser <portnumber>/tcp,find a process whose port is known. Kill it with -k ,process,,ok
+systemctl list-unit-files | grep enabled,list all the deamons that are launched at boot,process,https://askubuntu.com/questions/795226/how-to-list-all-enabled-services-from-systemctl,ok
+systemctl | grep running,list the deamons that are currently running ,process,https://askubuntu.com/questions/795226/how-to-list-all-enabled-services-from-systemctl,ok
+systemctl start <processname>,start a deamon ,process,,ok
+sudo netstat -nlput | grep <processname>,find the port on which a deamon is listening,process,https://unix.stackexchange.com/questions/54975/how-to-check-that-a-daemon-is-listening-on-what-interface,ok
+systemctl enable <processname>,let a process start at boot,process,,ok
+rename 's/(\d)/_$1/' *.csv,rename files with regular expression and back references. In this example the first number that is shown will be added an underscore in front of it. Add  <g> after the last forward slash to make it for all numbers in the file name ,rename,https://linuxize.com/post/how-to-rename-files-in-linux/,to do
+for file in fileTest*;do mv $file  $(echo $file| sed -E 's/fileTest\([0-9]*\)/file\1Test/'); done,For loop to rename all files in a folder with a certain pattern using extended regexp ,rename,,ok
+"chmod 700 filename 
+Chmod [ugoa]-+[rwx] filename","donne tous les droits a current user 700. 770 :groupe d'utilisateur, 777 pour tout le monde",rights,,ok
+ls *.py | xargs -n1 sed -n '2p' ,Show the second line of all .py files in a folder with sed,sed,,ok
+configure your .ssh/config file with hostname port and username,create alias for ssh connection,ssh,,ok
+scp source dest,Copy files between machines,ssh,,ok
+ssh usr@ipadress -p nb,Establish a connection with remote machine using ssh protocole,ssh,,ok
+ssh-copy-id -i ~/.ssh/id_rsa.pub user@server,register the public key from your computer in the host in order not to have ,ssh,,ok
+ssh-keygen,Generate public private ssh key ,ssh,,ok
+df -h,see freespace on disk human readable,system,,ok
+free -h,see freespace on ram,system,,ok
+lscpu,Cpu caracteristiques du pc ,system,,ok
+lspci -vnnn | perl -lne 'print if /^\d+\:.+(\[\S+\:\S+\])/' | grep VGA,check which graphic card is active,system,,ok
+speedtest ,get internet speed,system,,ok
+Uname -a ,Caractéristiques de la machine,system,,ok
+Uname -r,get the kernel version of ubuntu ,system,,ok
+Gnome-tweaks,manage workspaces and displays,system,https://askubuntu.com/questions/1059479/dual-monitor-workspaces-in-ubuntu-18-04,ok
+gnome-control-center keyboard,Set keyboard shortcuts to move window on second display ==> use gnome-control-center keyboard instead of gnome-key-properties,system,https://superuser.com/questions/297819/move-window-to-another-monitor-in-ubuntu-using-keyboard,ok
+gnome-control-center keyboard,Set keyboard shortcuts,system,,ok
+xrandr | grep '*',get screen size display linux,system,https://www.cyberciti.biz/faq/how-do-i-find-out-screen-resolution-of-my-linux-desktop/,ok
+top ou htop,Cpu and memory usage ,system,https://phoenixnap.com/kb/check-cpu-usage-load-linux,ok
+,"How to use bind 
+bind ""\C-a"":""\C-u echo \C-y | xclip -selection clipboard\n"" Bind mouse scroll button for fast copy-paste (can’t find anything better, does not seem easy to get from bash clipboard to system clipboard ) sounds promising but not quite what we want yet : ",,,to do

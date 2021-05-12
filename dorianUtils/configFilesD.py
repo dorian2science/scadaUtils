@@ -42,7 +42,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         super().__init__(folderPath,folderFig=folderFig,folderExport=folderExport)
         self.confFile   = confFile
 
-        self.modelAndFile = ''
+        self.modelAndFile = '*10002-001*'
         self.filesDir     = self.get_ValidFiles()
         self.dfPLC        = pd.read_csv(confFile,encoding=encode)
 
@@ -99,20 +99,12 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
             return [self.allPatterns[k] for k in [1,2,3,4,5,0]]
 
     def get_ValidFiles(self):
-        try :
-            res = sp.check_output('cd ' + '{:s}'.format(self.folderPath) + ' && ls *' +
-                                self.modelAndFile +'*',shell=True)
-            # print(res)
-            return res.decode().split('\n')[:-1]
-        except :
-            print('no formatted files in the folder : ', self.folderPath)
-            return []
+        return self.utils.get_filesDirV2(self.folderPath,self.modelAndFile)
 
     def loadFile(self,filename=0,skip=1):
         if isinstance(filename,int):
             filename=self.filesDir[filename]
-        print('absolute Path: ', self.folderPath)
-        df=pickle.load(open(self.folderPath + filename, "rb" ))
+        df=pickle.load(open(filename, "rb" ))
         print('dataframe loaded : {}'.format(filename))
         return df[::skip]
 
@@ -180,11 +172,11 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
     # ==============================================================================
     def getDFfromTagList(self,df,ll,formatted=1):
         if not isinstance(ll,list):ll =[ll]
-        dfOut = df[df.Tag.isin(ll)]
+        dfOut = df[df.tag.isin(ll)]
         if not formatted :dfOut.value = pd.to_numeric(dfOut['value'],errors='coerce')
-        return dfOut.sort_values(by=['Tag','timestamp'])
+        return dfOut.sort_values(by=['tag','timestampUTC'])
 
-    def getDFTimeRange(self,df,timeRange,col='timestamp'):
+    def getDFTimeRange(self,df,timeRange,col='timestampUTC'):
         t0 = parser.parse(timeRange[0]).astimezone(pytz.timezone('UTC'))
         t1 = parser.parse(timeRange[1]).astimezone(pytz.timezone('UTC'))
         if col == 'index': return df[(df.index>t0)&(df.index<t1)].sort_index()
