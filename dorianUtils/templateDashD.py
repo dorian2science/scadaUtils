@@ -166,6 +166,8 @@ class TemplateDashTagsUnit(TemplateDashMaster):
                     dbc.Row([dbc.Col(dcc.Input(id = baseId + widgetId[0] + 'Start',type='text',value = t0,size='13',style={'font-size' : 13})),
                             dbc.Col(dcc.Input(id = baseId + widgetId[0] + 'End',type='text',value = t1,size='13',style={'font-size' : 13}))])
                 ])]
+            elif 'interval' in widgetId[0]:
+                widgetObj = [dcc.Interval(id=baseId + widgetId[0],interval=widgetId[1]*1000,n_intervals=0)]
 
             elif 'in_step' in widgetId[0]:
                 widgetObj = [html.P('skip points : '),

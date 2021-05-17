@@ -2,14 +2,13 @@ import setuptools
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
-dirParent = "dorianUtils"
 
 setuptools.setup(
-name="dorianUtils", # Replace with your own username
-version="1.4",
+name="sparkUtils", # Replace with your own username
+version="1.5",
 author="Dorian Drevon",
 author_email="drevondorian@gmail.com",
-description="Utilities package",
+description="Spark Utilities package",
 long_description=long_description,
 long_description_content_type="text/markdown",
 # url="https://github.com/pypa/sampleproject",
@@ -24,8 +23,6 @@ classifiers=[
 # package_dir={"": dirParent},
 # packages=['dorianUtils'],
 packages=setuptools.find_packages(),
-package_data={'': ['conf/*']},
 include_package_data=True,
-install_requires=['matplotlib','pandas','dash','scipy','dash_bootstrap_components','flask_caching'],
-python_requires=">=3.8"
+python_requires=">=3.6"
 )

@@ -264,3 +264,58 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
                             1/tmpRes[1]/float(period),tmpRes[0]+tmpRes[2]]
         res  = pd.DataFrame(res,index = ['a','b','c','tau(s)','T0'])
         return res
+
+class ConfigDashRealTime():
+    def __init__(self,confFolder,
+                    host="192.168.1.222",port="5434",db="BigBrother",user="postgres",passwd="SylfenBDD",
+                    folderFig=None,folderExport=None,encode='utf-8'):
+        import glob
+        self.confFile   = glob.glob(confFolder+'*PLC*')[0]
+        self.dfPLC      = pd.read_csv(self.confFile,encoding=encode)
+        self.usefulTags = pd.read_csv(glob.glob(confFolder+'*predefinedCategories*')[0] + '',index_col=0)
+        self.utils  = Utils()
+        self.host   = host
+        self.port   = port
+        self.db     = db
+        self.user   = user
+        self.passwd = passwd
+        # self.modelAndFile = self.__getModelNumber()
+        # self.unitCol,self.descriptCol,self.tagCol = self.getPLC_ColName()
+        # self.listUnits    = self.getUnitsdfPLC()
+        self.unitCol,self.descriptCol,self.tagCol = self.getPLC_ColName()
+
+    def getPLC_ColName(self):
+        l = self.dfPLC.columns
+        v = l.to_frame()
+        unitCol = ['unit' in k.lower() for k in l]
+        descriptName = ['descript' in k.lower() for k in l]
+        tagName = ['tag' in k.lower() for k in l]
+        return [list(v[k][0])[0] for k in [unitCol,descriptName,tagName]]
+
+    def connectToDB(self):
+        return self.utils.connectToDataBase(h = self.host ,p =self.port,d = self.db ,u = self.user,
+                                                w = self.passwd)
+
+    def realtimeDF(self,preSelGraph,rs,rsMethod):
+        preSelGraph = self.usefulTags.loc[preSelGraph]
+        conn = self.connectToDB()
+        df   = self.utils.readSQLdataBase(conn,preSelGraph.Pattern,secs=120*60)
+        df['value'] = pd.to_numeric(df['value'],errors='coerce')
+        df = df.sort_values(by=['timestampz','tag'])
+        df['timestampz'] = df.timestampz.dt.tz_convert('Europe/Paris')
+        df = self.utils.pivotDataFrame(df,resampleRate=rs,applyMethod='nan'+rsMethod)
+        conn.close()
+        return df, preSelGraph.Unit
+
+    def getDescriptionFromTagname(self,tagName):
+        return list(self.dfPLC[self.dfPLC[self.tagCol]==tagName][self.descriptCol])[0]
+
+    def getTagnamefromDescription(self,desName):
+        return list(self.dfPLC[self.dfPLC[self.descriptCol]==desName][self.tagCol])[0]
+
+    def getTagDescription(self,df,cols=1):
+        if 'tag' in [k.lower() for k in df.columns]:listTags = list(df.Tag.unique())
+        else : listTags = list(df.columns)
+        if cols==1:listCols = [self.descriptCol]
+        if cols==2:listCols = [self.tagCol,self.descriptCol]
+        return self.dfPLC[self.dfPLC[self.tagCol].isin(listTags)][listCols]

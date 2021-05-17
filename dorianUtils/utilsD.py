@@ -1,4 +1,6 @@
 import pandas as pd, numpy as np, pickle, re, time, datetime as dt,glob
+from datetime import timezone
+import psycopg3 as psycopg
 import subprocess as sp, os
 from dateutil import parser
 import plotly.graph_objects as go
@@ -382,3 +384,30 @@ class Utils:
             pd.set_option('display.max_rows',None)
         pd.set_option('display.max_colwidth',colWidthOri)
         pd.set_option('display.max_rows',rowNbOri)
+    # ==========================================================================
+    #                           SQL
+    # ==========================================================================
+
+    def connectToDataBase(self,h,p,d,u,w):
+        connReq = "host=" + h + " port=" + p + " dbname="+ d +" user="+ u + " password=" + w
+        conn    = psycopg.connect(connReq,autocommit=True)
+        return conn
+
+    def gettimeSQL(self,secs=10*60):
+        t1 = dt.datetime.now()
+        # t1 = dt.datetime.now(tz=timezone.utc)
+        t0 = t1 - dt.timedelta(seconds=secs)
+        timeRange = [t.strftime('%Y-%m-%d %H:%M:%S').replace('T',' ') for t in [t0,t1]]
+        return timeRange[0], timeRange[1]
+
+    def readSQLdataBase(self,conn,patSql,secs=60*2,tagCol="tag",tsCol="timestampz"):
+        t0,t1 = self.gettimeSQL(secs=secs)
+        start = time.time()
+        timeSQL = tsCol + " BETWEEN '" + t0 +"' AND '" + t1 +"'"
+        # tagSQL = tagCol + " like '" + patSql + "'"
+        tagSQL = tagCol + " ~ '" + patSql + "'"
+        sqlQ = "select * from realtimedata where " + timeSQL + " and  " + tagSQL + ";"
+        print(sqlQ)
+        df = pd.read_sql_query(sqlQ,conn,parse_dates=[tsCol])
+        self.printCTime(start)
+        return df

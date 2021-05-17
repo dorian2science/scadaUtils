@@ -560,3 +560,64 @@ class UnitSelectorTab():
             return 'export Data'
 
         return TUinPDRrs_html
+
+    def tagUnit_preSelected_realTime(self,baseId,widthG=80,heightGraph=900):
+        dicWidgets = {'in_timeRes':str(10)+'s','dd_resampleMethod' : 'mean','dd_typeTags':0,'dd_typeGraph':0,'dd_style':'lines+markers',
+                        'dd_cmap':'jet','btn_legend':0,'btn_export':0,'interval':10}
+        TU_RT_html = self.dtu.buildLayout(dicWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
+        listIds = self.dccE.parseLayoutIds(TU_RT_html)
+        # print(listIds)
+        dictOpts = self.dccE.autoDictOptions(listIds)
+
+        # ==========================================================================
+        #                           BUTTONS CALLBACKS
+        # ==========================================================================
+
+        @self.dtu.app.callback(Output(baseId + 'btn_legend', 'children'),Input(baseId + 'btn_legend','n_clicks'))
+        def updateLgdBtn(legendType):return self.dtu.changeLegendBtnState(legendType)
+
+        # ==========================================================================
+        #                           COMPUTE AND GRAPHICS CALLBACKS
+        # ==========================================================================
+        listInputsGraph = {
+                        'in_timeRes':'value',
+                        'dd_resampleMethod':'value',
+                        'interval':'n_intervals',
+                        'dd_typeTags':'value',
+                        'dd_typeGraph':'value',
+                        'dd_cmap':'value',
+                        'btn_legend':'children',
+                        'dd_style':'value'}
+        @self.dtu.app.callback(
+        Output(baseId + 'graph1', 'figure'),
+        [Input(baseId + k,v) for k,v in listInputsGraph.items()],
+        State(baseId + 'graph1','figure'))
+        def updateGraph(rs,rsMethod,n,preSelGraph,typeGraph,colmap,lgd,style,fig):
+            ctx = dash.callback_context
+            trigId = ctx.triggered[0]['prop_id'].split('.')[0]
+            # to ensure that action on graphs only without computation do not
+            # trigger computing the dataframe again
+            if n==0 or trigId in [baseId+k for k in ['interval','dd_typeTags','dd_typeGraph','dd_resampleMethod']] :
+                df,unit = self.cfgtu.realtimeDF(preSelGraph,rs,rsMethod)
+                fig     = self.dtu.drawGraph(df,typeGraph)
+                nameGrandeur = self.utils.detectUnit(unit)
+                fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
+            else :fig = go.Figure(fig)
+            fig = self.dtu.updateStyleGraph(fig,style,colmap)
+            fig = self.dtu.updateLegend(fig,lgd)
+            return fig
+
+        # ==========================================================================
+        #                           EXPORT CALLBACK
+        # ==========================================================================
+        # listStatesExport = [baseId+l for l in ['graph1','dd_typeTags']]
+        # @self.dtu.app.callback(Output(baseId + 'btn_export','children'),
+        # Input(baseId + 'btn_export', 'n_clicks'),
+        # [State(k,v) for k,v in {key: dictOpts[key] for key in listStatesExport}.items()])
+        # def exportClick(btn,fig,preSelGraph,rs,date0,date1,t0,t1):
+        #     if btn>1:
+        #         df = fig.data(timeRange,preSelGraph,rs)
+        #         self.dtu.exportDFOnClick(xlims,tagPattern,unit,fig,df=df)
+        #     return 'export Data'
+
+        return TU_RT_html
