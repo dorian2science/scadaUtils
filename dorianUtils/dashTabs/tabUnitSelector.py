@@ -498,7 +498,6 @@ class UnitSelectorTab():
             listTags = self.cfgtu.getTagsTU(tagPat,unit)
             return self.cfgtu.loadDF_TimeRange_Tags(timeRange,listTags,rs=rs,applyMethod=applyMethod),unit
 
-
         listInputsGraph = {
                         'dd_typeTags':'value',
                         'pdr_timeBtn':'n_clicks',
@@ -561,9 +560,9 @@ class UnitSelectorTab():
 
         return TUinPDRrs_html
 
-    def tagUnit_preSelected_realTime(self,baseId,widthG=80,heightGraph=900):
+    def tagUnit_preSelected_realTime(self,baseId,refreshTime=10,widthG=80,heightGraph=900):
         dicWidgets = {'in_timeRes':str(10)+'s','dd_resampleMethod' : 'mean','dd_typeTags':0,'dd_typeGraph':0,'dd_style':'lines+markers',
-                        'dd_cmap':'jet','btn_legend':0,'btn_export':0,'interval':10}
+                        'dd_cmap':'jet','btn_legend':0,'btn_export':0,'interval':refreshTime}
         TU_RT_html = self.dtu.buildLayout(dicWidgets,baseId,widthG=widthG,nbCaches=1,nbGraphs=1)
         listIds = self.dccE.parseLayoutIds(TU_RT_html)
         # print(listIds)

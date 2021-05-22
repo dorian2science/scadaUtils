@@ -16,13 +16,6 @@ class Utils:
         self.phyQties = self.df2dict(pd.read_csv(self.confDir+ '/units.csv'))
         self.unitMag = ['u','m','c','d','','da','h','k','M']
         self.buildNewUnits()
-        self.listPatterns = ['.*',
-        '[A-Z0-9]+',
-        '[A-Z0-9]+_[A-Z0-9]+',
-        '[A-Z0-9]+_[A-Z0-9]+_[A-Z0-9]+',
-        '[A-Z0-9]+_[A-Z0-9]+_[A-Z0-9]+_[A-Z0-9]+',
-        '[\w_]+[A-Z]+',
-        '[A-Za-z]+',]
         self.cmapNames = pickle.load(open(self.confDir+"/colormaps.pkl",'rb'))[::3]
 
     # ==========================================================================
@@ -116,9 +109,31 @@ class Utils:
         tmax = dt.datetime(int(tmax[0]),int(tmax[1]),int(tmax[2]))
         return tmax
 
-    # ==========================================================================
-    #                           PHYSICS
-    # ==========================================================================
+    def convertSecstodHHMM(self,lt,t0=None,formatTime='%d - %H:%M'):
+        if not t0:t0=parser.parse('00:00')
+        if isinstance(t0,str):t0=parser.parse(t0)
+        if isinstance(lt[0],str):
+            lt = [int(t) for t in lt]
+        return [(t0 + dt.timedelta(seconds=k)).strftime(formatTime) for k in lt]
+
+    def convertToSecs(self,lt,t0=None):
+        if not t0:t0=parser.parse('00:00')
+        if isinstance(t0,str):t0=parser.parse(t0)
+        tmp = [parser.parse(k) for k in lt]
+        return [(t-t0).total_seconds() for t in tmp]
+
+    def regExpNot(self,regexp):
+        if regexp[:2] == '--': regexp = '^((?!' + regexp[2:] + ').)*$'
+        return regexp
+
+class Physics():
+    def __init__(self):
+        self.confDir=os.path.dirname(os.path.realpath(__file__)) + '/conf'
+        self.phyQties = self.df2dict(pd.read_csv(self.confDir+ '/units.csv'))
+        self.unitMag = ['u','m','c','d','','da','h','k','M']
+        self.buildNewUnits()
+        self.cmapNames = pickle.load(open(self.confDir+"/colormaps.pkl",'rb'))[::3]
+
     def buildNewUnits(self):
         self.phyQties['speed'] = self.combineUnits(self.phyQties['distance'],self.phyQties['time'])
         self.phyQties['mass flow'] = self.combineUnits(self.phyQties['weight'],self.phyQties['time'])
@@ -146,9 +161,8 @@ class Utils:
         else :
             return tmp
 
-    # ==========================================================================
-    #                  lIST AND DICTIONNARIES AND DATAFRAMES
-    # ==========================================================================
+class DataTypesUtils():
+
     def df2dict(self,df):
         return {df.columns[k] : list(df.iloc[:,k].dropna()) for k in range(len(df.columns))}
 
@@ -204,23 +218,6 @@ class Utils:
         dfF = [all([cfR[k] for cfR in cf]) for k in range(len(cf[0]))]
         return df[dfF]
 
-    def convertSecstodHHMM(self,lt,t0=None,formatTime='%d - %H:%M'):
-        if not t0:t0=parser.parse('00:00')
-        if isinstance(t0,str):t0=parser.parse(t0)
-        if isinstance(lt[0],str):
-            lt = [int(t) for t in lt]
-        return [(t0 + dt.timedelta(seconds=k)).strftime(formatTime) for k in lt]
-
-    def convertToSecs(self,lt,t0=None):
-        if not t0:t0=parser.parse('00:00')
-        if isinstance(t0,str):t0=parser.parse(t0)
-        tmp = [parser.parse(k) for k in lt]
-        return [(t-t0).total_seconds() for t in tmp]
-
-    def regExpNot(self,regexp):
-        if regexp[:2] == '--': regexp = '^((?!' + regexp[2:] + ').)*$'
-        return regexp
-
     def pivotDataFrame(self,df,colPivot=None,colValue=None,colTimestamp=None,resampleRate='60s',applyMethod='nanmean'):
         if not colPivot : colPivot = df.columns[0]
         if not colValue : colValue = df.columns[1]
@@ -237,9 +234,8 @@ class Utils:
 
         dfOut=dfOut.fillna(method='ffill')
         return dfOut
-    # ==========================================================================
-    #                           FITTING FUNCTIONS
-    # ==========================================================================
+
+class FitUtils():
 
     def expDown(self,x, a, b, c):
         return a * np.exp(-b * x) + c
@@ -281,9 +277,7 @@ class Utils:
             plt.show()
         return popt
 
-    # ==========================================================================
-    #                           GRAPHICS
-    # ==========================================================================
+class GraphUtils():
     def getColorHexSeq(self,N,colmap='jet'):
         cmap        = cm.get_cmap(colmap,N)
         colorList   = []
@@ -385,25 +379,8 @@ class Utils:
             pd.set_option('display.max_rows',None)
         pd.set_option('display.max_colwidth',colWidthOri)
         pd.set_option('display.max_rows',rowNbOri)
-    # ==========================================================================
-    #                           SQL
-    # ==========================================================================
 
-    def connectToPSQLsDataBase(self,connParameters=None,version=2):
-        if not connParameters :
-            connParameters ={
-                'host'     : "192.168.1.222",
-                'port'     : "5434",
-                'dbname'   : "Jules",
-                'user'     : "postgres",
-                'password' : "SylfenBDD"
-            }
-        connReq = ''.join([k + "=" + v + " " for k,v in connParameters.items()])
-        if version==2:
-            conn = psycopg2.connect(connReq)
-        elif version==3:
-            conn = psycopg.connect(connReq,autocommit=True)
-        return conn
+class SqlUtils():
 
     def connectToDataBase(self,h,p,d,u,w):
         connReq = "host=" + h + " port=" + p + " dbname="+ d +" user="+ u + " password=" + w
@@ -429,13 +406,144 @@ class Utils:
         self.printCTime(start)
         return df
 
-    def executeSQLRequest(self,conn,sqlR):
-        cur  = conn.cursor()
-        cur.execute(sqlR)
-        data = cur.fetchall()
-        for row in data :
-            print(row)
+class ConnectUtils():
+    import pandas as pd, numpy as np, pickle, re, time, datetime as dt,glob
+    import subprocess as sp, os
+    from datetime import timezone
+    from dateutil import parser
+    import xml.etree.ElementTree as ET, pandas as pd,re,struct,importlib
+    def getSizeOf(typeVar,f=1):
+        if typeVar == 'IEEE754':return 2*f
+        elif typeVar == 'INT64': return 4*f
+        elif typeVar == 'INT32': return 2*f
+        elif typeVar == 'INT16': return 1*f
+        elif typeVar == 'INT8': return f/2
 
-    def showAllTables(self,conn):
-        sqlR = 'select * from information_schema.tables'
-        self.executeSQLRequest(sqlR)
+    def demoBytesInt():
+    # https://docs.python.org/fr/3/library/stdtypes.html
+
+        #convert an int to bytes
+        (1000).to_bytes(2, byteorder='little')
+        #convert bytes to int
+        int.from_bytes(b'\xfc\x00', byteorder='big', signed=False)
+        int.from_bytes([255, 0], byteorder='big')
+
+        float.hex(3740.0)
+        float.fromhex('0x3.a7p10')
+
+    def wordTofloat(t = (123, 456)):
+        import struct,binascii
+        packed_string = struct.pack("HH", *t)
+        print(binascii.hexlify(packed_string))
+        unpacked_float = struct.unpack("f", packed_string)[0]
+        return unpacked_float
+
+    def ieee_754_conversion(n, sgn_len=1, exp_len=8, mant_len=23):
+        """
+        Converts an arbitrary precision Floating Point number.
+        Note: Since the calculations made by python inherently use floats, the accuracy is poor at high precision.
+        :param n: An unsigned integer of length `sgn_len` + `exp_len` + `mant_len` to be decoded as a float
+        :param sgn_len: number of sign bits
+        :param exp_len: number of exponent bits
+        :param mant_len: number of mantissa bits
+        :return: IEEE 754 Floating Point representation of the number `n`
+        """
+        if n >= 2 ** (sgn_len + exp_len + mant_len):
+            raise ValueError("Number n is longer than prescribed parameters allows")
+
+        sign = (n & (2 ** sgn_len - 1) * (2 ** (exp_len + mant_len))) >> (exp_len + mant_len)
+        exponent_raw = (n & ((2 ** exp_len - 1) * (2 ** mant_len))) >> mant_len
+        mantissa = n & (2 ** mant_len - 1)
+
+        sign_mult = 1
+        if sign == 1:
+            sign_mult = -1
+
+        if exponent_raw == 2 ** exp_len - 1:  # Could be Inf or NaN
+            if mantissa == 2 ** mant_len - 1:
+                return float('nan')  # NaN
+
+            return sign_mult * float('inf')  # Inf
+
+        exponent = exponent_raw - (2 ** (exp_len - 1) - 1)
+
+        if exponent_raw == 0:
+            mant_mult = 0  # Gradual Underflowsion 	2 	24 	7
+        else:
+            mant_mult = 1
+
+        for b in range(mant_len - 1, -1, -1):
+            if mantissa & (2 ** b):
+                mant_mult += 1 / (2 ** (mant_len - b))
+
+        return sign_mult * (2 ** exponent) * mant_mult
+        '''conversion of a byte flow in ieee54 numbers'''
+
+    def decodeModeBusIEEE754(a,b,endianness='big',signed=False):
+        a = '{0:04x}'.format(a)# from decimal to hexadecimal representation of a word
+        b = '{0:04x}'.format(b)
+        # a = a.to_bytes(2, byteorder=endianness,signed=signed)
+        # b = b.to_bytes(2, byteorder=endianness,signed=signed)
+        # xx = a+b
+        xx = b+a
+        # try:return struct.unpack('!f', xx)[0]
+        try:return struct.unpack('!f', bytes.fromhex(xx))[0]
+        except : return 'error'
+
+    def decodeModeBusINT32(a,b,endianness='big',signed=False):
+        # a = '{0:04x}'.format(a)
+        # b = '{0:04x}'.format(b)
+        # a = a.to_bytes(2, byteorder=endianness,signed=signed)
+        # b = b.to_bytes(2, byteorder=endianness,signed=signed)
+        # xx = a+b
+        # xx = b+a
+        # try:return struct.unpack('!f', bytes.fromhex(xx))[0]
+        # except : return 'error'
+        return a + 256**2*b
+
+    def decodeModeBusINT64(a,b,c,d):
+        return a + 256**2*b + 256**4*c + 256**6*d
+
+    def showRegisterValue(c,dfInstr,id):
+        idinit=id
+        if isinstance(id,int): id = dfInstr.iloc[id,:]
+        else :
+            id = dfInstr[dfInstr['id']==id]
+            if len(id)>1: id=id.iloc[0,:]
+            else : id = id.squeeze()
+        # print(id)
+        intadd,typedata   = id['intAddress'],id['type']
+        sizeType = getSizeOf(typedata,1)
+        regs     = c.read_holding_registers(intadd,sizeType)
+        if typedata == 'INT32':value = decodeModeBusINT32(regs[0],regs[1])
+        if typedata == 'IEEE754':value = decodeModeBusIEEE754(regs[0],regs[1])
+        elif typedata == 'INT64':value = decodeModeBusINT64(regs[0],regs[1],regs[2],regs[3])
+        value=value*id.scale
+        print(typedata,intadd,id['id'],regs,'======>',value)
+        return value
+
+    def tryDecoding(regs,formatOut=None,endianness='!'):
+        import itertools,numpy as np
+        if len(regs)==2 :
+            if not formatOut :formatOut = endianness+'f'
+            permutRep = list(itertools.permutations(['a ','b ']))
+            permutRep = list(itertools.permutations(['a ','b ','c ','d ']))
+            hexList   = ['{0:04x}'.format(k) for k in regs]
+        elif len(regs)==4 :
+            if not formatOut :formatOut = endianness+'d'
+            permutRep = list(itertools.permutations(['a ','b ','c ','d ']))
+            permutRep = list(itertools.permutations(['a ','b ','c ','d ','e','f','g','h']))
+            hexList     = ['{0:04x}'.format(k) for k in regs]
+        hexList   = utils.flattenList([[k[:2],k[2:]] for k in hexList])
+        allPerms    = list(itertools.permutations(hexList))
+        permHexList = [''.join(k) for k in allPerms]
+        # print(permutRep)
+        for xx,p in zip(permHexList,permutRep):
+            # print(p)
+            try:
+                res = struct.unpack(formatOut, bytes.fromhex(xx))[0]
+                if abs(np.log(abs(res)))<5 :
+                    print('p=',p,';hexCode:',xx,';endianness:',endianness,';out:',
+                                formatOut,'====>',res)
+                # else : print(';hexCode:',xx,'extrem value')
+            except : print('p=',p,',hexCode:',xx,',endianness:',endianness,';out:',formatOut,'===>','error')

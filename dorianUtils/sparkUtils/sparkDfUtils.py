@@ -13,7 +13,7 @@ class SparkDfUtils:
     from pyspark.sql.window import Window as W
     from pyspark import StorageLevel
     import json
-    from sparkSqlDumpLoader import  SparkSqlDumpLoader
+    from sparkUtils.sparkSqlDumpLoader import  SparkSqlDumpLoader
 
     sc = None
     spark = None

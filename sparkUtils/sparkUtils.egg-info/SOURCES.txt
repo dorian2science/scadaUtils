@@ -1,6 +1,0 @@
-README.md
-setup.py
-sparkUtils.egg-info/PKG-INFO
-sparkUtils.egg-info/SOURCES.txt
-sparkUtils.egg-info/dependency_links.txt
-sparkUtils.egg-info/top_level.txt
