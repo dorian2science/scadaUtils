@@ -1,6 +1,7 @@
 import pandas as pd, numpy as np, pickle, re, time, datetime as dt,glob
 from datetime import timezone
-import psycopg3 as psycopg
+try : import psycopg3 as psycopg
+except : import psycopg2 as psycopg
 import subprocess as sp, os
 from dateutil import parser
 import plotly.graph_objects as go
@@ -387,7 +388,7 @@ class Utils:
     #                           SQL
     # ==========================================================================
 
-    def connectToPSQLsDataBase(self,connParameters=None,version=2):
+    def connectToPSQLsDataBase(self,connParameters=None):
         if not connParameters :
             connParameters ={
                 'host'     : "192.168.1.222",
@@ -397,10 +398,8 @@ class Utils:
                 'password' : "SylfenBDD"
             }
         connReq = ''.join([k + "=" + v + " " for k,v in connParameters.items()])
-        if version==2:
-            conn = psycopg2.connect(connReq)
-        elif version==3:
-            conn = psycopg.connect(connReq,autocommit=True)
+        conn = psycopg.connect(connReq)
+        # conn = psycopg.connect(connReq,autocommit=True)
         return conn
 
     def connectToDataBase(self,h,p,d,u,w):
