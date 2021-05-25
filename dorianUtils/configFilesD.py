@@ -6,7 +6,6 @@ from dateutil import parser
 from dorianUtils.utilsD import Utils
 from pyspark.sql import SparkSession
 from dorianUtils.sparkUtils.sparkDfUtils import SparkDfUtils
-# from pyspark import SparkConf, SparkContext
 import findspark, glob
 
 
@@ -319,7 +318,7 @@ class ConfigDashRealTime():
         return self.dfPLC[self.dfPLC[self.tagCol].isin(listTags)][listCols]
 
 class ConfigDashSpark():
-    def __init__(self,sparkData,confFile,folderFig=None,folderExport=None,encode='utf-8'):
+    def __init__(self,sparkData,sparkConfFile,confFile,folderFig=None,folderExport=None,encode='utf-8'):
         if not folderFig : folderFig = os.getenv('HOME') + '/Images/'
         if not folderExport : folderExport = os.getenv('HOME') + '/Documents/'
 
@@ -330,11 +329,11 @@ class ConfigDashSpark():
         self.unitCol,self.descriptCol,self.tagCol = self.__getPLC_ColName()
         self.listUnits      = self.__getUnitsdfPLC()
 
-        self.cfgSys     = self._getSysConf("/home/dorian/sylfen/akkaBigData/sylfenconsumerv4.0/bin/config.sh")
+        self.cfgSys     = self._getSysConf(sparkConfFile)
         self.spark      = self.__createSparkSession()
         self.sparkConf  = self.spark.sparkContext.getConf().getAll()
 
-        self.sparkData  = '/home/dorian/data/sylfenData/share/sylfen/node0/ro/Gaston/products/SmallPower/10002/001/'
+        self.sparkData  = sparkData
 
         self.sdu   = SparkDfUtils(self.spark)
         self.utils = Utils()
