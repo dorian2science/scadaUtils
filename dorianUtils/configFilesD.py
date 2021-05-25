@@ -48,15 +48,15 @@ class ConfigMaster:
 class ConfigDashTagUnitTimestamp(ConfigMaster):
     def __init__(self,folderPkl,confFile,folderFig=None,folderExport=None,encode='utf-8'):
         super().__init__(folderPkl,folderFig=folderFig,folderExport=folderExport)
-        self.confFile   = confFile
+        self.confFile     = confFile
         self.modelAndFile = self.__getModelNumber()
-        self.listFilesPkl     = self.get_ValidFiles()
+        self.listFilesPkl = self.get_ValidFiles()
         self.dfPLC        = pd.read_csv(confFile,encoding=encode)
 
         self.unitCol,self.descriptCol,self.tagCol = self.__getPLC_ColName()
         self.listUnits    = self.__getUnitsdfPLC()
 
-        self.allPatterns = self.utils.listPatterns
+        self.allPatterns  = self.utils.listPatterns
         self.listPatterns = self.get_validPatterns()
 
     def __getModelNumber(self):
@@ -139,7 +139,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
             # self.utils.printDFSpecial(res)
             return res
 
-    def getTagsTU(self,patTag,units=None,onCol='tag',case=False,ds=True,cols='tag'):
+    def getTagsTU(self,patTag,units=None,onCol='tag',case=False,cols='tag'):
         if not units : units = self.listUnits
         res = self.dfPLC.copy()
         if 'tag' in onCol.lower():whichCol = self.tagCol
@@ -213,7 +213,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
             if 'tag' in dftmp.columns :
                 dftmp = self.getDFfromTagList(dftmp,tags)
             if len(dftmp.columns)>0:
-                df = self.utils.pivotDataFrame(dftmp,colPivot='tag',colValue='value',colTimestamp='timestampUTC',resampleRate=rs,applyMethod=applyMethod)
+                df = self.utils.pivotDataFrame(dftmp,resampleRate=rs,applyMethod=applyMethod)
                 dfs.append(df)
         if not dfs : print('there are no files to load')
         else :
@@ -473,7 +473,7 @@ class ConfigDashSpark():
     # ==========================================================================
     #                         functions on dataframe
     # ==========================================================================
-    def getTagsTU(self,patTag,units=None,onCol='tag',case=False,ds=True,cols='tag'):
+    def getTagsTU(self,patTag,units=None,onCol='tag',case=False,cols='tag'):
         if not units : units = self.listUnits
         res = self.dfPLC.copy()
         if 'tag' in onCol.lower():whichCol = self.tagCol
@@ -532,21 +532,22 @@ class ConfigDashSpark():
         partitions = [k + "=" + v for k,v in partitions.items()]
         return '/'.join(partitions)
 
-    def loadSparkTimeDF(self,timeRange,typeData="EncodedData/"):
+    def loadSparkTimeDF(self,timeRange,typeData="EncodedData"):
         ''' typeData = {
-        encoded data : "EncodedData/"
-        aggregated data : "AggregatedData/"
-        populated data :"PopulatedData/"
-        refined  data :"RefinedData/"
+        encoded data : "EncodedData"
+        aggregated data : "AggregatedData`"
+        populated data :"PopulatedData"
+        refined  data :"RefinedData"
         }
         '''
-        df = self.sdu.loadParquet(inputDir=self.sparkData+typeData,partitions=self.getPartitions(timeRange))
+        df = self.sdu.loadParquet(inputDir=self.sparkData+typeData+"/",partitions=self.getPartitions(timeRange))
         df = self.sdu.organizeColumns(df, columns=["YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND"], atStart=True)
         timeSQL = "TIMESTAMP_UTC" + " BETWEEN '" + timeRange[0] +"' AND '" + timeRange[1] +"'"
         return df.where(timeSQL)
 
     def getSparkTU(self,df,listTags):
         dfs=[]
+        if not isinstance(listTags,list):listTags=[listTags]
         for tag in listTags:
             print(tag)
             df2 = df.where("TAG == "+ "'" + tag + "'")
@@ -554,3 +555,15 @@ class ConfigDashSpark():
             dfs.append(df3.toPandas())
         pdf = pd.concat(dfs).sort_values(by=['TIMESTAMP_UTC','TAG'])
         return pdf
+
+    def getSparkTU_v2(self,df,listTags):
+        dfs=self.sdu.createDataFrame(schema=[["TAG","string"],["VALUE","double"],["TIMESTAMP_UTC","timestamp"]])
+
+        if not isinstance(listTags,list):listTags=[listTags]
+        for tag in listTags:
+            print(tag)
+            df2 = df.where("TAG == "+ "'" + tag + "'").select('TAG','VALUE','TIMESTAMP_UTC')
+            dfs=dfs.unionByName(df2)
+        pdf = dfs.toPandas().sort_values(by=['TIMESTAMP_UTC','TAG'])
+        return pdf
+        # return dfs

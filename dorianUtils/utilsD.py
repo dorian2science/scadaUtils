@@ -221,19 +221,17 @@ class Utils:
         if regexp[:2] == '--': regexp = '^((?!' + regexp[2:] + ').)*$'
         return regexp
 
-    def pivotDataFrame(self,df,colPivot=None,colValue=None,colTimestamp=None,resampleRate='60s',applyMethod='nanmean'):
-        if not colPivot : colPivot = df.columns[0]
-        if not colValue : colValue = df.columns[1]
-        if not colTimestamp : colTimestamp = df.columns[2]
-
-        listTags = list(df[colPivot].unique())
-        t0 = df[colTimestamp].min()
+    def pivotDataFrame(self,df,colTagValTS=None,resampleRate='60s',applyMethod='nanmean'):
+        if not colTagValTS : colTagValTS = [0,1,2]
+        colTagValTS = df.columns[colTagValTS]
+        listTags = list(df[colTagValTS[0]].unique())
+        t0 = df[colTagValTS[2]].min()
         dfOut = pd.DataFrame()
         for tagname in listTags:
-            dftmp = df[df[colPivot]==tagname]
-            dftmp = dftmp.set_index(colTimestamp)
+            dftmp = df[df[colTagValTS[0]]==tagname]
+            dftmp = dftmp.set_index(colTagValTS[2])
             dftmp = eval('dftmp.resample(resampleRate,origin=t0).apply(np.' + applyMethod + ')')
-            dfOut[tagname] = dftmp[colValue]
+            dfOut[tagname] = dftmp[colTagValTS[1]]
 
         dfOut=dfOut.fillna(method='ffill')
         return dfOut
