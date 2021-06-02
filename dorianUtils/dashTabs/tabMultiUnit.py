@@ -64,7 +64,7 @@ class MultiUnitTab():
         [Input(k,v) for k,v in {key: dictOpts[key] for key in listInputsGraph}.items()])
         def updateMUGGraph(dfjson,cmapName,legendType,styleSel,incSpace):
             df      = pd.read_json(dfjson, orient='split')
-            names   = self.cfgtu.getUnitPivotedDF(df,True)
+            names   = self.cfgtu.getUnitsOfpivotedDF(df,True)
             fig     = self.utils.multiYAxis(df,mapName=cmapName,inc=incSpace,names=names)
             fig     = self.dtu.updateLegend(df,fig,legendType,pivoted=True,breakLine=30,addUnit=True)
             fig     = self.dtu.updateStyleGraph(fig,styleSel)
@@ -119,7 +119,7 @@ class MultiUnitTab():
             df      = self.cfgtu.loadDFTimeRange([date0+' '+t0,date1+' '+t1],'',self.dtu.skipEveryHours)
             print([date0+' '+t0,date1+' '+t1])
             df      = self.dtu.preparePivotedData(df,tags,step)
-            names   = self.cfgtu.getUnitPivotedDF(df,True)
+            names   = self.cfgtu.getUnitsOfpivotedDF(df,True)
             fig     = self.utils.multiYAxis(df,mapName=cmapName,inc=incSpace,names=names)
             fig     = self.dtu.updateLegend(df,fig,legendType,pivoted=True,breakLine=30,addUnit=True)
             fig     = self.dtu.updateStyleGraph(fig,styleSel)
@@ -174,7 +174,7 @@ class MultiUnitTab():
         def updateGraph(filename,step,cmapName,legendType,styleSel,incSpace,tags):
             df      = self.cfgtu.loadFile(filename)
             df      = self.dtu.preparePivotedData(df,tags,rs=step)
-            names   = self.cfgtu.getUnitPivotedDF(df,True)
+            names   = self.cfgtu.getUnitsOfpivotedDF(df,True)
             fig     = self.cfgtu.utils.multiYAxis(df,mapName=cmapName,inc=incSpace,names=names)
             fig     = self.dtu.updateLegend(df,fig,legendType,pivoted=True,breakLine=30,addUnit=True)
             fig     = self.dtu.updateStyleGraph(fig,styleSel)
@@ -230,8 +230,8 @@ class MultiUnitTab():
                 if not timeBtn : timeBtn=1 # to initialize the first graph
                 timeRange = [date0+' '+t0,date1+' '+t1]
                 start     = time.time()
-                df      = self.cfgtu.loadDF_TimeRange_Tags(timeRange,tags,rs=rs,applyMethod=rsMethod)
-                names   = self.cfgtu.getUnitPivotedDF(df,True)
+                df      = self.cfgtu.DF_loadTimeRangeTags(timeRange,tags,rs=rs,applyMethod=rsMethod)
+                names   = self.cfgtu.getUnitsOfpivotedDF(df,True)
                 fig     = self.utils.multiYAxis(df,mapName=cmapName,inc=axSP,names=names)
                 timeBtn = max(timeBtn,1) # to close the initialisation
                 print(time.time()-start, 's')
@@ -307,8 +307,8 @@ class MultiUnitTab():
                 if not timeBtn : timeBtn=1 # to initialize the first graph
                 timeRange = [date0+' '+t0,date1+' '+t1]
                 start     = time.time()
-                df      = self.cfgtu.loadDF_TimeRange_Tags(timeRange,tags,rs=rs,applyMethod=rsMethod)
-                names   = self.cfgtu.getUnitPivotedDF(df,True)
+                df      = self.cfgtu.DF_loadTimeRangeTags(timeRange,tags,rs=rs,applyMethod=rsMethod)
+                names   = self.cfgtu.getUnitsOfpivotedDF(df,True)
                 fig     = self.utils.multiYAxis(df,mapName=cmapName,inc=axSP,names=names)
                 timeBtn = max(timeBtn,1) # to close the initialisation
                 print(time.time()-start, 's')

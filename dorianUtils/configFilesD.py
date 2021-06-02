@@ -1,4 +1,6 @@
 import pandas as pd,numpy as np
+from multiprocessing import Process, Queue, current_process,Pool
+from pandas.tseries.frequencies import to_offset
 import subprocess as sp, os,re, pickle
 import time, datetime as dt, pytz
 from scipy import linalg, integrate
@@ -7,7 +9,6 @@ from dorianUtils.utilsD import Utils
 from pyspark.sql import SparkSession
 from dorianUtils.sparkUtils.sparkDfUtils import SparkDfUtils
 import findspark, glob
-
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -27,7 +28,7 @@ class ConfigMaster:
 #                                 functions
 # ==============================================================================
 
-    def get_ValidFiles(self):
+    def _getValidFiles(self):
         return sp.check_output('cd ' + '{:s}'.format(self.folderPkl) + ' && ls *' + self.validPattern +'*',shell=True).decode().split('\n')[:-1]
 
     def convert_csv2pkl(self,folderCSV,filename):
@@ -49,14 +50,14 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         super().__init__(folderPkl,folderFig=folderFig,folderExport=folderExport)
         self.confFile     = confFile
         self.modelAndFile = self.__getModelNumber()
-        self.listFilesPkl = self.get_ValidFiles()
+        self.listFilesPkl = self._get_ValidFiles()
         self.dfPLC        = pd.read_csv(confFile,encoding=encode)
 
-        self.unitCol,self.descriptCol,self.tagCol = self.__getPLC_ColName()
-        self.listUnits    = self.__getUnitsdfPLC()
+        self.unitCol,self.descriptCol,self.tagCol = self._getPLC_ColName()
+        self.listUnits    = self._get_UnitsdfPLC()
 
         self.allPatterns  = self.utils.listPatterns
-        self.listPatterns = self.get_validPatterns()
+        self.listPatterns = self._get_validPatterns()
 
     def __getModelNumber(self):
         modelNb = re.findall('\d{5}-\d{3}',self.confFile)
@@ -66,35 +67,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
 # ==============================================================================
 #                     basic functions
 # ==============================================================================
-    def convertCSVtoPklFormatted(self,folderCSV,filenames=None,parseDatesManual=False):
-        ''' get column value with numeric values
-        and convert timestamp to datetime format'''
-        listFiles = self.utils.get_listFilesPkl(folderName=folderCSV,ext='.csv')
-        if not filenames:filenames = listFiles
-        if not isinstance(filenames,list):filenames = [filenames]
-        if isinstance(filenames[0],int):filenames = [listFiles[k] for k in filenames]
-        for filename in filenames :
-            if not filename[:-4] + '_f.pkl' in self.listFilesPkl:
-                start       = time.time()
-                if parseDatesManual : df = pd.read_csv(folderCSV + filename,names=['Tag','value','timestamp'])
-                else : df = pd.read_csv(folderCSV + filename,parse_dates=[2],names=['Tag','value','timestamp'])
-                print("============================================")
-                print("file converted to .pkl in : ",filename)
-                self.utils.printCTime(start)
-                start = time.time()
-                print("============================================")
-                print("formatting file : ",filename)
-                dfOut['value'] = pd.to_numeric(df['value'],errors='coerce')
-                self.utils.printCTime(start)
-                with open(self.folderPkl + filename[:-4] + '_f.pkl' , 'wb') as handle:# save the file
-                    pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                print("============================================")
-            else :
-                print("============================================")
-                print('filename : ' ,filename,' already in folder : ',self.folderPkl)
-                print("============================================")
-
-    def __getPLC_ColName(self):
+    def _getPLC_ColName(self):
         l = self.dfPLC.columns
         v = l.to_frame()
         unitCol = ['unit' in k.lower() for k in l]
@@ -102,41 +75,30 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         tagName = ['tag' in k.lower() for k in l]
         return [list(v[k][0])[0] for k in [unitCol,descriptName,tagName]]
 
-    def get_validPatterns(self):
+    def _get_validPatterns(self):
         model = self.modelAndFile.split('-')[0]
         if model=='10001' :
             return [self.allPatterns[k] for k in [6,0]]
         if model=='10002' :
             return [self.allPatterns[k] for k in [1,2,3,4,5,0]]
 
-    def get_ValidFiles(self):
+    def _get_ValidFiles(self):
         return self.utils.get_listFilesPklV2(self.folderPkl)
+
+    def _get_UnitsdfPLC(self):
+        listUnits = self.dfPLC[self.unitCol]
+        return listUnits[~listUnits.isna()].unique().tolist()
 
 # ==============================================================================
 #                   functions filter on configuration file with tags
 # ==============================================================================
-    def getUnitPivotedDF(self,df,asList=True):
+    def getUnitsOfpivotedDF(self,df,asList=True):
         dfP,listTags,tagsWithUnits=self.dfPLC,df.columns,[]
         for tagName in listTags :
             tagsWithUnits.append(dfP[dfP[self.tagCol]==tagName][[self.tagCol,self.unitCol]])
         tagsWithUnits = pd.concat(tagsWithUnits)
         if asList :tagsWithUnits = [k + ' ( in ' + l + ')' for k,l in zip(tagsWithUnits[self.tagCol],tagsWithUnits[self.unitCol])]
         return tagsWithUnits
-
-    def __getUnitsdfPLC(self):
-        listUnits = self.dfPLC[self.unitCol]
-        return listUnits[~listUnits.isna()].unique().tolist()
-
-    def getTagsSameUnit(self,unitName,showPLC=0):
-        res = self.dfPLC.copy()
-        if not showPLC :
-            return res[res[self.unitCol]==unitName][self.tagCol]
-        if showPLC==1 :
-            return res[res[self.unitCol]==unitName]
-        if showPLC==2 :
-            res = res[res[self.unitCol]==unitName][[self.tagCol,self.descriptCol]]
-            # self.utils.printDFSpecial(res)
-            return res
 
     def getTagsTU(self,patTag,units=None,onCol='tag',case=False,cols='tag'):
         if not units : units = self.listUnits
@@ -153,9 +115,8 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         elif cols=='print':return self.utils.printDFSpecial(res)
 
     def getCatsFromUnit(self,unitName,pattern=None):
-        if not pattern:
-            pattern = self.listPatterns[0]
-        sameUnitTags = self.getTagsSameUnit(unitName)
+        if not pattern:pattern = self.listPatterns[0]
+        sameUnitTags = self.getTagsTU('',unitName)
         return list(pd.DataFrame([re.findall(pattern,k)[0] for k in sameUnitTags])[0].unique())
 
     def getDescriptionFromTagname(self,tagName):
@@ -164,69 +125,80 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
     def getTagnamefromDescription(self,desName):
         return list(self.dfPLC[self.dfPLC[self.descriptCol]==desName][self.tagCol])[0]
 
-    def getTagDescription(self,df,cols=1):
-        if 'tag' in [k.lower() for k in df.columns]:listTags = list(df.Tag.unique())
-        else : listTags = list(df.columns)
-        if cols==1:listCols = [self.descriptCol]
-        if cols==2:listCols = [self.tagCol,self.descriptCol]
-        return self.dfPLC[self.dfPLC[self.tagCol].isin(listTags)][listCols]
-
     # ==============================================================================
     #                   functions filter on dataFrame
     # ==============================================================================
-    def getDFfromTagList(self,df,tagList,formatted=1):
-        if not isinstance(tagList,list):tagList =[tagList]
-        dfOut = df[df.tag.isin(tagList)]
-        if not formatted :dfOut.value = pd.to_numeric(dfOut['value'],errors='coerce')
-        return dfOut.sort_values(by=['tag','timestampUTC'])
+    def _DF_fromTagList(self,datum,tagList,rs):
+        realDatum = self.utils.datesBetween2Dates([datum,datum],offset=+1)[0]
+        df=self.loadFile('*' + realDatum[0]  + '*')
+        df = df.drop_duplicates(subset=['timestampUTC', 'tag'], keep='last')
 
-    def getDFTimeRange(self,df,timeRange,col='timestampUTC'):
+        if not isinstance(tagList,list):tagList =[tagList]
+        df = df[df.tag.isin(tagList)]
+        if not rs=='raw':df = df.pivot(index="timestampUTC", columns="tag", values="value")
+        else : df = df.sort_values(by=['tag','timestampUTC']).set_index('timestampUTC')
+        return df
+
+    def _DF_cutTimeRange(self,df,timeRange,timezone='Europe/Paris'):
+        '''df should have a timestamp object as index or raw column called timestampUTC'''
         t0 = parser.parse(timeRange[0]).astimezone(pytz.timezone('UTC'))
         t1 = parser.parse(timeRange[1]).astimezone(pytz.timezone('UTC'))
-        if col == 'index': return df[(df.index>t0)&(df.index<t1)].sort_index()
-        else : return df[(df[col]>t0)&(df[col]<t1)].sort_values(by=col)
+        df=df[(df.index>t0)&(df.index<t1)].sort_index()
+        df.index=df.index.tz_convert(timezone)# convert utc to tzSel timezone
+        return df
 
-    def loadDF_TimeRange_Tags_raw(self,timeRange,listTags,skip=1,conditionFile='',tzSel='Europe/Paris'):
-        lfs = [k for k in self.listFilesPkl if conditionFile in k]
-        listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=1)
-        listFiles = [f for d in listDates for f in lfs if d in f]
-        if not listFiles : print('there are no files to load')
+    def _loadDFTagDay(self,datum,tag,rs):
+        # print(tag)
+        folderDaySmallPower=self.folderPkl+'parkedData/'+ datum + '/'
+        df = pickle.load(open(folderDaySmallPower + tag + '.pkl', "rb" ))
+        df = df.drop_duplicates(subset=['timestampUTC', 'tag'], keep='last')
+        # df.duplicated(subset=['timestampUTC', 'tag'], keep=False)
+        if not rs=='raw':df = df.pivot(index="timestampUTC", columns="tag", values="value")
+        else : df=df.set_index('timestampUTC')
+        return df
+
+    def _loadDFTagsDay(self,datum,listTags,rs,parked,pool):
+        dfs=[]
+        print(datum)
+        if parked :
+            if pool :
+                print('pooled process')
+                with Pool() as p:
+                    dfs=p.starmap(self._loadDFTagDay, [(datum,tag,rs) for tag in listTags])
+            else :
+                for tag in listTags:
+                    dfs.append(self._loadDFTagDay(datum,tag,rs))
         else :
-            dfs = []
-            for filename in listFiles :
-                print(filename)
-                df = self.loadFile(filename,skip=skip)
-                df = self.getDFfromTagList(df,listTags)
-                dfs.append(df)
-            df= self.getDFTimeRange(pd.concat(dfs),timeRange)
-            # df.timestamp = df.timestampUTC.tz_convert(tzSel)
-            return df
-
-    def loadDF_TimeRange_Tags(self,timeRange,tags,rs='auto',applyMethod='mean',tzSel='Europe/Paris'):
-        listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=1)
-        if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()/3600)) + 's'
-        dfs = []
-        for d in listDates:
-            print(d)
-            dftmp  = self.loadFile('*'+d+'*')
-            if 'tag' in dftmp.columns :
-                dftmp = self.getDFfromTagList(dftmp,tags)
-            if len(dftmp.columns)>0:
-                df = self.utils.pivotDataFrame(dftmp,resampleRate=rs,applyMethod=applyMethod)
-                dfs.append(df)
-        if not dfs : print('there are no files to load')
+            dfs.append(self._DF_fromTagList(datum,listTags,rs))
+        if rs=='raw':df  = pd.concat(dfs,axis=0)
         else :
-            # start = time.time()
-            df=pd.concat(dfs,axis=0)
-            # self.utils.printCTime(start,'concatenation')
-            # start = time.time()
-            # df.index=df.index.tz_convert(tzSel)# convert utc to tzSel timezone
-            # self.utils.printCTime(start,'converting timestamp')
-            # start = time.time()
-            # self.getDFTimeRange(df,timeRange,'index')
-            # self.utils.printCTime(start,'filtering timerange')
-            return df
+            df = pd.concat(dfs,axis=1)
+            tmp = list(df.columns);tmp.sort();df=df[tmp]
+        return df
 
+    def DF_loadTimeRangeTags(self,timeRange,listTags,rs='auto',applyMethod='nanmean',parked=True,timezone='Europe/Paris',pool=True):
+        listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=0)
+        if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()/6400)) + 's'
+        dfs=[]
+        if pool:
+            with Pool() as p:
+                dfs=p.starmap(self._loadDFTagsDay, [(datum,listTags,rs,parked,False) for datum in listDates])
+        else:
+            for datum in listDates:
+                dfs.append(self._loadDFTagsDay(datum,listTags,rs,parked,True))
+        df = pd.concat(dfs,axis=0)
+        print("finish loading")
+        if not rs=='raw':
+            df = eval('df.resample(rs).apply(np.' + applyMethod + ')')
+            rsOffset = str(max(1,int(float(re.findall('\d+',rs)[0])/2)))
+            period=re.findall('[a-zA-z]+',rs)[0]
+            df.index=df.index+to_offset(rsOffset +period)
+        df = self._DF_cutTimeRange(df,timeRange,timezone)
+        if rs=='raw' :
+            df['timestamp']=df.index
+            df=df.sort_values(by=['tag','timestamp'])
+            df=df.drop(['timestamp'],axis=1)
+        return df
     # ==============================================================================
     #                   functions to compute new variables
     # ==============================================================================
@@ -277,12 +249,13 @@ class ConfigDashRealTime():
         self.usefulTags = pd.read_csv(glob.glob(confFolder+'*predefinedCategories*')[0] + '',index_col=0)
         self.timeWindow = timeWindow #seconds
         self.utils      = Utils()
+        self.connParameters = connParameters
         # self.modelAndFile = self.__getModelNumber()
-        # self.unitCol,self.descriptCol,self.tagCol = self.__getPLC_ColName()
-        # self.listUnits    = self.__getUnitsdfPLC()
-        self.unitCol,self.descriptCol,self.tagCol = self.__getPLC_ColName()
+        # self.unitCol,self.descriptCol,self.tagCol = self._getPLC_ColName()
+        # self.listUnits    = self._get_UnitsdfPLC()
+        self.unitCol,self.descriptCol,self.tagCol = self._getPLC_ColName()
 
-    def __getPLC_ColName(self):
+    def _getPLC_ColName(self):
         l = self.dfPLC.columns
         v = l.to_frame()
         unitCol = ['unit' in k.lower() for k in l]
@@ -293,12 +266,14 @@ class ConfigDashRealTime():
     def connectToDB(self):
         return self.utils.connectToPSQLsDataBase(self.connParameters)
 
-    def realtimeDF(self,preSelGraph,rs,rsMethod):
+    def realtimeDF(self,preSelGraph,rs,rsMethod='mean'):
         preSelGraph = self.usefulTags.loc[preSelGraph]
         conn = self.connectToDB()
         df   = self.utils.readSQLdataBase(conn,preSelGraph.Pattern,secs=self.timeWindow)
         df['value'] = pd.to_numeric(df['value'],errors='coerce')
+
         df = df.sort_values(by=['timestampz','tag'])
+        # print(df)
         df['timestampz'] = df.timestampz.dt.tz_convert('Europe/Paris')
         df = self.utils.pivotDataFrame(df,resampleRate=rs,applyMethod='nan'+rsMethod)
         conn.close()
@@ -310,13 +285,6 @@ class ConfigDashRealTime():
     def getTagnamefromDescription(self,desName):
         return list(self.dfPLC[self.dfPLC[self.descriptCol]==desName][self.tagCol])[0]
 
-    def getTagDescription(self,df,cols=1):
-        if 'tag' in [k.lower() for k in df.columns]:listTags = list(df.Tag.unique())
-        else : listTags = list(df.columns)
-        if cols==1:listCols = [self.descriptCol]
-        if cols==2:listCols = [self.tagCol,self.descriptCol]
-        return self.dfPLC[self.dfPLC[self.tagCol].isin(listTags)][listCols]
-
 class ConfigDashSpark():
     def __init__(self,sparkData,sparkConfFile,confFile,folderFig=None,folderExport=None,encode='utf-8'):
         if not folderFig : folderFig = os.getenv('HOME') + '/Images/'
@@ -326,8 +294,8 @@ class ConfigDashSpark():
         self.folderFig      = folderFig
         self.filePLC        = confFile
         self.dfPLC          = pd.read_csv(self.filePLC)
-        self.unitCol,self.descriptCol,self.tagCol = self.__getPLC_ColName()
-        self.listUnits      = self.__getUnitsdfPLC()
+        self.unitCol,self.descriptCol,self.tagCol = self._getPLC_ColName()
+        self.listUnits      = self._get_UnitsdfPLC()
 
         self.cfgSys     = self._getSysConf(sparkConfFile)
         self.spark      = self.__createSparkSession()
@@ -341,7 +309,7 @@ class ConfigDashSpark():
     #                         private functions
     # ==========================================================================
 
-    def __getPLC_ColName(self):
+    def _getPLC_ColName(self):
         l = self.dfPLC.columns
         v = l.to_frame()
         unitCol = ['unit' in k.lower() for k in l]
@@ -349,7 +317,7 @@ class ConfigDashSpark():
         tagName = ['tag' in k.lower() for k in l]
         return [list(v[k][0])[0] for k in [unitCol,descriptName,tagName]]
 
-    def __getUnitsdfPLC(self):
+    def _get_UnitsdfPLC(self):
         listUnits = self.dfPLC[self.unitCol]
         return listUnits[~listUnits.isna()].unique().tolist()
 
@@ -536,7 +504,6 @@ class ConfigDashSpark():
         encoded data : "EncodedData"
         aggregated data : "AggregatedData`"
         populated data :"PopulatedData"
-        refined  data :"RefinedData"
         }
         '''
         df = self.sdu.loadParquet(inputDir=self.sparkData+typeData+"/",partitions=self.getPartitions(timeRange))

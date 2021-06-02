@@ -49,11 +49,12 @@ class UnitSelectorTab():
         start     = time.time()
         listTags  = self.cfgtu.getTagsTU(tagPat,unit)
         if not rsMethod :
-            df = self.cfgtu.loadDF_TimeRange_Tags_raw(timeRange,listTags,skip=rs)
+            df = self.cfgtu.DF_loadTimeRangeTags(timeRange,listTags,rs='raw')
+            df=df.iloc[::rs,:]
             names=list(df.tag.unique())
         else:
-            df = self.cfgtu.loadDF_TimeRange_Tags(timeRange,listTags,rs=rs,applyMethod=rsMethod)
-            names     = self.cfgtu.getUnitPivotedDF(df,True)
+            df = self.cfgtu.DF_loadTimeRangeTags(timeRange,listTags,rs=rs,applyMethod=rsMethod)
+            names     = self.cfgtu.getUnitsOfpivotedDF(df,True)
         print(time.time()-start, 's')
         return df,names
     # ==========================================================================
@@ -162,13 +163,10 @@ class UnitSelectorTab():
                 if not timeBtn : timeBtn=1 # to initialize the first graph
                 timeRange = [date0+' '+t0,date1+' '+t1]
                 df,names  = self.computeDataFrame(timeRange,tagPat,unit,skip,rsMethod=None)
-                print("==================== drawingGraph time ================")
-                start=time.time()
                 fig       = self.dtu.drawGraph(df,typeGraph)
                 nameGrandeur = self.cfgtu.utils.detectUnit(unit)
                 fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
                 timeBtn = max(timeBtn,1) # to close the initialisation
-                print(time.time()-start, 's')
             else :fig = go.Figure(fig)
             fig = self.dtu.updateStyleGraph(fig,style,cmap)
             fig = self.dtu.updateLegend(fig,lgd)
@@ -283,8 +281,8 @@ class UnitSelectorTab():
                 start     = time.time()
                 timeRange = [date0+' '+t0,date1+' '+t1]
                 listTags  = self.cfgtu.getTagsTU(tagPat,unit)
-                df        = self.cfgtu.loadDF_TimeRange_Tags(timeRange,listTags,rs=rs,applyMethod=rsMethod)
-                # names     = self.cfgtu.getUnitPivotedDF(df,True)
+                df        = self.cfgtu.DF_loadTimeRangeTags(timeRange,listTags,rs=rs,applyMethod=rsMethod)
+                # names     = self.cfgtu.getUnitsOfpivotedDF(df,True)
                 print(time.time()-start, 's')
                 fig     = self.dtu.drawGraph(df,typeGraph)
                 nameGrandeur = self.cfgtu.utils.detectUnit(unit)
@@ -492,12 +490,6 @@ class UnitSelectorTab():
         #                           COMPUTE AND GRAPHICS CALLBACKS
         # ==========================================================================
 
-        def computeDataFrame(timeRange,preSelectedGraph,rs,applyMethod):
-            unit    = self.cfgtu.usefulTags.loc[preSelectedGraph,'Unit']
-            tagPat  = self.cfgtu.usefulTags.loc[preSelectedGraph,'Pattern']
-            listTags = self.cfgtu.getTagsTU(tagPat,unit)
-            return self.cfgtu.loadDF_TimeRange_Tags(timeRange,listTags,rs=rs,applyMethod=applyMethod),unit
-
         listInputsGraph = {
                         'dd_typeTags':'value',
                         'pdr_timeBtn':'n_clicks',
@@ -527,14 +519,17 @@ class UnitSelectorTab():
             if not timeBtn or trigId in [baseId+k for k in ['dd_typeTags','pdr_timeBtn','dd_resampleMethod','dd_typeGraph']] :
                 if not timeBtn : timeBtn=1 # to initialize the first graph
                 start       = time.time()
+                print('here')
                 timeRange   = [date0+' '+t0,date1+' '+t1]
-                df,unit     = computeDataFrame(timeRange,preSelGraph,rs,rsMethod)
-                names       = self.cfgtu.getUnitPivotedDF(df,True)
-                print(time.time()-start, 's')
+                listTags    = self.cfgtu.getUsefulTags(preSelGraph)
+                df          = self.cfgtu.DF_loadTimeRangeTags(timeRange,listTags,rs=rs,applyMethod=rsMethod)
+                print(df)
+                names       = self.cfgtu.getUnitsOfpivotedDF(df,True)
+                self.utils.printCTime(start)
                 fig     = self.dtu.drawGraph(df,typeGraph)
-                nameGrandeur = self.cfgtu.utils.detectUnit(unit)
-                fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
-                timeBtn = max(timeBtn,1) # to close the initialisation
+                # nameGrandeur = self.cfgtu.utils.detectUnit(unit)
+                # fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
+                # timeBtn = max(timeBtn,1) # to close the initialisation
             else :fig = go.Figure(fig)
             fig = self.dtu.updateStyleGraph(fig,style,colmap)
             fig = self.dtu.updateLegend(fig,lgd)
@@ -552,10 +547,10 @@ class UnitSelectorTab():
         def exportClick(btn,fig,preSelGraph,rs,date0,date1,t0,t1):
             if btn>1:
                 timeRange = [date0+' '+t0,date1+' '+t1]
-                df = computeDataFrame(timeRange,preSelGraph,rs)
-                xlims = fig['layout']['xaxis']['range']
-                print('xlims : ',xlims)
-                self.dtu.exportDFOnClick(xlims,tagPattern,unit,fig,df=df)
+                # # df = computeDataFrame(timeRange,preSelGraph,rs)
+                # xlims = fig['layout']['xaxis']['range']
+                # print('xlims : ',xlims)
+                # self.dtu.exportDFOnClick(xlims,tagPattern,unit,fig,df=df)
             return 'export Data'
 
         return TUinPDRrs_html

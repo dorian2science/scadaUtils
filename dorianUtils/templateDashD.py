@@ -187,7 +187,7 @@ class TemplateDashTagsUnit(TemplateDashMaster):
                 if not tmax :
                     tmax = self.utils.findDateInFilename(self.cfg.listFilesPkl[-1])
                 t1 = tmax - dt.timedelta(hours=tmax.hour+1)
-                t0 = t1 - dt.timedelta(days=3)
+                t0 = t1 - dt.timedelta(hours=36)
 
                 widgetObj = [
                 html.Div([
@@ -235,10 +235,9 @@ class TemplateDashTagsUnit(TemplateDashMaster):
 
     def drawGraph(self,df,typeGraph='scatter',**kwargs):
         if 'tag' in df.columns:
-            timeStamp = [k for k in list(df.columns) if 'timestamp' in k.lower()][0]
-            if typeGraph == 'scatter' :return px.scatter(df,x=timeStamp, y='value', color='tag',**kwargs)
-            if typeGraph == 'area' :return px.area(df,x=timeStamp, y='value', color='tag',**kwargs)
-            if typeGraph == 'area %' :return px.area(df,x=timeStamp, y='value', color='tag',groupnorm='percent',**kwargs)
+            if typeGraph == 'scatter' :return px.scatter(df,x=df.index, y='value', color='tag',**kwargs)
+            if typeGraph == 'area' :return px.area(df,x=df.index, y='value', color='tag',**kwargs)
+            if typeGraph == 'area %' :return px.area(df,x=df.index, y='value', color='tag',groupnorm='percent',**kwargs)
             # return eval("px."+typeGraph +"(df, )")
         else :
             if typeGraph == 'scatter' :return px.scatter(df)

@@ -5,6 +5,7 @@ except : import psycopg2 as psycopg
 import subprocess as sp, os
 from dateutil import parser
 import plotly.graph_objects as go
+import plotly.express as px
 from pylab import cm
 import matplotlib.colors as mtpcl
 import matplotlib.pyplot as plt
@@ -88,6 +89,15 @@ class Utils:
         delta = t1 - t0       # as timedelta
         return [(t0 + dt.timedelta(days=i+offset)).strftime('%Y-%m-%d') for i in range(delta.days + 1)],times[1]-times[0]
 
+    def dateOffset(self,datum,offset=0):
+        datum = parser.parse(datum)
+        return (datum + dt.timedelta(days=i+offset)).strftime('%Y-%m-%d')
+
+    def timeBetween2Dates(self,dates,N=10):
+        t0,t1 = [parser.parse(k) for k in dates]
+        listSecs = np.linspace(0,(t1-t0).total_seconds(),N)
+        return [(t0 + dt.timedelta(seconds=k)).strftime('%Y-%m-%d %H:%M') for k in listSecs]
+
     def slugify(self,value, allow_unicode=False):
         import unicodedata,re
         """
@@ -148,7 +158,7 @@ class Utils:
             return tmp
 
     # ==========================================================================
-    #                  lIST AND DICTIONNARIES AND DATAFRAMES
+    #                       lIST AND DICTIONNARIES
     # ==========================================================================
     def df2dict(self,df):
         return {df.columns[k] : list(df.iloc[:,k].dropna()) for k in range(len(df.columns))}
@@ -159,6 +169,11 @@ class Utils:
 
     def flattenList(self,l):
         return [item for sublist in l for item in sublist]
+
+    def flattenDict(self,ld):
+        finalMap = {}
+        for d in ld:finalMap.update(d)
+        return finalMap
 
     def removeNaN(self,list2RmNan):
         tmp = pd.DataFrame(list2RmNan)
@@ -174,9 +189,9 @@ class Utils:
         coldict
         return coldict
 
-    def listWithNbs(self,l):
-        return [str(i) + ' : '+ str(k) for i,k in zip(range(len(l)),l)]
-        # return pd.DataFrame(l)
+    def listWithNbs(self,l,withDF=False):
+        if withDF:return pd.DataFrame(l)
+        else : return [str(i) + ' : '+ str(k) for i,k in zip(range(len(l)),l)]
 
     def dspDict(self,dict,showRows=1):
         '''display dictionnary in a easy readable way :
@@ -200,11 +215,6 @@ class Utils:
                 valToShow   = value.shape
             print(colored(rowTxt, 'red', attrs=['bold']), ' : ', valToShow)
 
-    def combineFilter(self,df,columns,filters):
-        cf  = [df[col]==f for col,f in zip(columns,filters)]
-        dfF = [all([cfR[k] for cfR in cf]) for k in range(len(cf[0]))]
-        return df[dfF]
-
     def convertSecstodHHMM(self,lt,t0=None,formatTime='%d - %H:%M'):
         if not t0:t0=parser.parse('00:00')
         if isinstance(t0,str):t0=parser.parse(t0)
@@ -222,6 +232,21 @@ class Utils:
         if regexp[:2] == '--': regexp = '^((?!' + regexp[2:] + ').)*$'
         return regexp
 
+    def uniformListStrings(self,l):
+        newList=[]
+        for k in l:
+            li=[m.start(0) for m in re.finditer('\w',k)]
+            newList.append(k[li[0]:li[-1]+1].capitalize())
+        return newList
+
+    # ==========================================================================
+    #                                   DATAFRAMES
+    # ==========================================================================
+    def combineFilter(self,df,columns,filters):
+        cf  = [df[col]==f for col,f in zip(columns,filters)]
+        dfF = [all([cfR[k] for cfR in cf]) for k in range(len(cf[0]))]
+        return df[dfF]
+
     def pivotDataFrame(self,df,colTagValTS=None,resampleRate='60s',applyMethod='nanmean'):
         if not colTagValTS : colTagValTS = [0,1,2]
         colTagValTS = df.columns[colTagValTS]
@@ -234,8 +259,9 @@ class Utils:
             dftmp = eval('dftmp.resample(resampleRate,origin=t0).apply(np.' + applyMethod + ')')
             dfOut[tagname] = dftmp[colTagValTS[1]]
 
-        dfOut=dfOut.fillna(method='ffill')
+        # dfOut=dfOut.fillna(method='ffill')
         return dfOut
+
     # ==========================================================================
     #                           FITTING FUNCTIONS
     # ==========================================================================
@@ -384,6 +410,75 @@ class Utils:
             pd.set_option('display.max_rows',None)
         pd.set_option('display.max_colwidth',colWidthOri)
         pd.set_option('display.max_rows',rowNbOri)
+
+    def exportDataOnClick(self,fig,folder=None,baseName=None):
+        dfs = []
+        for trace in fig.data :
+            tmp = pd.DataFrame([trace['x'],trace['y']])
+            tmp = tmp.transpose()
+            tmp = tmp.set_index(0)
+            tmp.columns=[trace.name]
+            dfs.append(tmp)
+        df = pd.concat(dfs,axis=1)
+
+        xlims=fig['layout']['xaxis']['range']
+        trange=[parser.parse(k) for k in xlims]
+        df.index = [parser.parse(k) for k in df.index]
+        df = df[(df.index>xlims[0]) & (df.index<xlims[1])]
+
+        dateF=[k.strftime('%Y-%m-%d %H_%M') for k in trange]
+
+        if not baseName :baseName = ''
+        filename = baseName +  '_' + dateF[0]+ '_' + dateF[1]
+        if not folder:folder=os.getenv('HOME')+'/Pictures/'
+        filename = self.slugify(filename)
+        df.to_csv(folder + filename + '.csv')
+        return df
+
+    def updateStyleGraph(self,fig,style='lines+markers',colmap='jet',heightGraph=700):
+        '''style = {'lines+markers','markers','stairs','lines'}'''
+        if style=='lines+markers':
+            fig.update_traces(mode='lines+markers',line_shape='linear', marker_line_width=0.2, marker_size=6,line=dict(width=3))
+        elif style=='markers':
+            fig.update_traces(mode='markers', marker_line_width=0.2, marker_size=4)
+        elif style=='stairs':
+            fig.update_traces(mode='lines+markers',line_shape='hv', marker_line_width=0.2, marker_size=6,line=dict(width=3))
+        elif style=='lines':
+            fig.update_traces(mode='lines',line=dict(width=1),line_shape='linear')
+        self.updateColorMap(fig,colmap)
+        fig.update_layout(height=heightGraph)
+        return fig
+
+    def addTiYXlabs(self,fig,title='',ylab='',style=1):
+        if style==1:
+            fig.update_layout(title={'text': title,
+                                    'x':0.5,'xanchor': 'center','yanchor': 'top'},
+            title_font_color="RebeccaPurple",title_font_size=18,
+            yaxis_title = ylab)
+        # fig.show(config=dict({'scrollZoom': True}))
+        return fig
+
+    def prepareDFsforComparison(self,dfs,groups,group1='group1',group2='group2',regexpVar='',rs=None,):
+        'dfs:list of pivoted dataframes with a timestamp as index'
+        dfsOut=[]
+        for df,groupy in zip(dfs,groups):
+            if not not rs:
+                print(rs)
+                df=df.resample(rs).apply(np.mean)
+            df['timestamp']= df.index
+            df[group1]  = groupy
+            df = df.melt(id_vars = ['timestamp',group1])
+            if not regexpVar:df[group2] = df.variable
+            else:df[group2] = df.variable.apply(lambda x:re.findall(regexpVar,x)[0])
+            dfsOut.append(df)
+        return pd.concat(dfsOut,axis=0)
+
+    def graphComparaison(self,df,title,ylab,line=True):
+        if line : fig=px.line(df,x='timestamp',y='value',color=group2,line_dash=group1)
+        else : px.scatter(df,x='timestamp',y='value',color=group2,symbol=group1)
+        fig.update_traces(mode='lines+markers',line=dict(width=2))
+        fig = self.addTiYXlabs(fig,title='comparaison of ' + title,ylab=ylab,style=1)
+        return fig
     # ==========================================================================
     #                           SQL
     # ==========================================================================
