@@ -100,9 +100,10 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         if asList :tagsWithUnits = [k + ' ( in ' + l + ')' for k,l in zip(tagsWithUnits[self.tagCol],tagsWithUnits[self.unitCol])]
         return tagsWithUnits
 
-    def getTagsTU(self,patTag,units=None,onCol='tag',case=False,cols='tag'):
+    def getTagsTU(self,patTag,units=None,onCol='tag',case=False,cols='tag',ds=True):
         if not units : units = self.listUnits
-        res = self.dfPLC.copy()
+        if ds: res=self.dfPLC[self.dfPLC.DATASCIENTISM==True]
+        else: res = self.dfPLC.copy()
         if 'tag' in onCol.lower():whichCol = self.tagCol
         elif 'des' in onCol.lower():whichCol = self.descriptCol
         filter1 = res[whichCol].str.contains(patTag,case=case)

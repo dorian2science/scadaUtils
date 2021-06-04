@@ -5,7 +5,7 @@ import pandas as pd
 import plotly.express as px
 from dateutil import parser
 import sys
-from utilsD import Utils
+from dorianUtils.utilsD import Utils
 utils=Utils()
 
 def make_patch_spines_invisible(ax):
