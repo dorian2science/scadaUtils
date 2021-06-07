@@ -102,7 +102,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
 
     def getTagsTU(self,patTag,units=None,onCol='tag',case=False,cols='tag',ds=True):
         if not units : units = self.listUnits
-        if ds: res=self.dfPLC[self.dfPLC.DATASCIENTISM==True]
+        if ds and 'DATASCIENTISM' in self.dfPLC.columns: res=self.dfPLC[self.dfPLC.DATASCIENTISM==True]
         else: res = self.dfPLC.copy()
         if 'tag' in onCol.lower():whichCol = self.tagCol
         elif 'des' in onCol.lower():whichCol = self.descriptCol
