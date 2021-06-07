@@ -242,7 +242,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         return res
 
 class ConfigDashRealTime():
-    def __init__(self,confFolder,timeWindow=2*60*60,connParameters=None,
+    def __init__(self,confFolder,connParameters,timeWindow=2*60*60,
                     folderFig=None,folderExport=None,encode='utf-8'):
         import glob
         self.confFile   = glob.glob(confFolder+'*PLC*')[0]
@@ -251,7 +251,6 @@ class ConfigDashRealTime():
         self.timeWindow = timeWindow #seconds
         self.utils      = Utils()
         self.connParameters = connParameters
-        if not self.connParameters :
         # self.modelAndFile = self.__getModelNumber()
         # self.unitCol,self.descriptCol,self.tagCol = self._getPLC_ColName()
         # self.listUnits    = self._get_UnitsdfPLC()
