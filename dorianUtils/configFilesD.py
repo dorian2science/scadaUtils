@@ -251,6 +251,7 @@ class ConfigDashRealTime():
         self.timeWindow = timeWindow #seconds
         self.utils      = Utils()
         self.connParameters = connParameters
+        if not self.connParameters :
         # self.modelAndFile = self.__getModelNumber()
         # self.unitCol,self.descriptCol,self.tagCol = self._getPLC_ColName()
         # self.listUnits    = self._get_UnitsdfPLC()
@@ -269,12 +270,11 @@ class ConfigDashRealTime():
 
     def realtimeDF(self,preSelGraph,rs,rsMethod='mean'):
         preSelGraph = self.usefulTags.loc[preSelGraph]
-        conn = self.connectToDB()
+        conn = self.connectToDB(self.connParameters)
         df   = self.utils.readSQLdataBase(conn,preSelGraph.Pattern,secs=self.timeWindow)
         df['value'] = pd.to_numeric(df['value'],errors='coerce')
-
         df = df.sort_values(by=['timestampz','tag'])
-        # print(df)
+        print(df)
         df['timestampz'] = df.timestampz.dt.tz_convert('Europe/Paris')
         df = self.utils.pivotDataFrame(df,resampleRate=rs,applyMethod='nan'+rsMethod)
         conn.close()
