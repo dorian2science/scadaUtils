@@ -269,7 +269,7 @@ class ConfigDashRealTime():
 
     def realtimeDF(self,preSelGraph,rs,rsMethod='mean'):
         preSelGraph = self.usefulTags.loc[preSelGraph]
-        conn = self.connectToDB(self.connParameters)
+        conn = self.connectToDB()
         df   = self.utils.readSQLdataBase(conn,preSelGraph.Pattern,secs=self.timeWindow)
         df['value'] = pd.to_numeric(df['value'],errors='coerce')
         df = df.sort_values(by=['timestampz','tag'])
