@@ -1,14 +1,11 @@
 import pandas as pd,numpy as np
 from multiprocessing import Process, Queue, current_process,Pool
 from pandas.tseries.frequencies import to_offset
-import subprocess as sp, os,re, pickle
+import subprocess as sp, os,re, pickle,glob
 import time, datetime as dt, pytz
 from scipy import linalg, integrate
 from dateutil import parser
 from dorianUtils.utilsD import Utils
-from pyspark.sql import SparkSession
-from dorianUtils.sparkUtils.sparkDfUtils import SparkDfUtils
-import findspark, glob
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -45,6 +42,33 @@ class ConfigMaster:
         df = pickle.load(open(filename, "rb" ))
         return df[::skip]
 
+    def _parkTag(self,df,tag,folder):
+        # print(tag)
+        dfTag=df[df.tag==tag]
+        with open(folder + tag + '.pkl' , 'wb') as handle:
+            pickle.dump(dfTag, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def parkDayPKL(self,datum,pool=False):
+        print(datum)
+        realDatum=parser.parse(datum)+dt.timedelta(days=1)
+        df = self.loadFile('*'+ realDatum.strftime('%Y-%m-%d') + '*')
+        if not df.empty:
+            folder=self.folderPkl+'parkedData/'+ datum + '/'
+            if not os.path.exists(folder):os.mkdir(folder)
+            listTags=list(self.dfPLC.TAG.unique())
+            if pool:
+                with Pool() as p:p.starmap(self._parkTag,[(df,tag,folder) for tag in listTags])
+            else:
+                for tag in listTags:
+                    self._parkTag(df,tag,folder)
+
+    def parkDates(self,listDates,nCores=4):
+        if nCores>1:
+            with Pool(nCores) as p:
+                p.starmap(self.parkDayPKL,[(datum,False) for datum in listDates])
+        else :
+            for datum in listDates:
+                self.parkDayPKL(datum)
 class ConfigDashTagUnitTimestamp(ConfigMaster):
     def __init__(self,folderPkl,confFile,folderFig=None,folderExport=None,encode='utf-8'):
         super().__init__(folderPkl,folderFig=folderFig,folderExport=folderExport)
@@ -148,48 +172,54 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         df.index=df.index.tz_convert(timezone)# convert utc to tzSel timezone
         return df
 
-    def _loadDFTagDay(self,datum,tag,rs):
+    def _loadDFTagDay(self,datum,tag,raw=False):
         # print(tag)
         folderDaySmallPower=self.folderPkl+'parkedData/'+ datum + '/'
-        df = pickle.load(open(folderDaySmallPower + tag + '.pkl', "rb" ))
-        df = df.drop_duplicates(subset=['timestampUTC', 'tag'], keep='last')
-        # df.duplicated(subset=['timestampUTC', 'tag'], keep=False)
-        if not rs=='raw':df = df.pivot(index="timestampUTC", columns="tag", values="value")
-        else : df=df.set_index('timestampUTC')
+        try:
+            df = pickle.load(open(folderDaySmallPower + tag + '.pkl', "rb" ))
+            df = df.drop_duplicates(subset=['timestampUTC', 'tag'], keep='last')
+            # df.duplicated(subset=['timestampUTC', 'tag'], keep=False)
+            if not raw:df = df.pivot(index="timestampUTC", columns="tag", values="value")
+            else : df=df.set_index('timestampUTC')
+        except :
+            df = pd.DataFrame()
+            print('loading of file :',folderDaySmallPower + tag + '.pkl' ,' was not possible')
         return df
 
-    def _loadDFTagsDay(self,datum,listTags,rs,parked,pool):
+    def _loadDFTagsDay(self,datum,listTags,parked,pool,raw=False):
         dfs=[]
         print(datum)
         if parked :
             if pool :
                 print('pooled process')
                 with Pool() as p:
-                    dfs=p.starmap(self._loadDFTagDay, [(datum,tag,rs) for tag in listTags])
+                    dfs=p.starmap(self._loadDFTagDay, [(datum,tag,raw) for tag in listTags])
             else :
                 for tag in listTags:
-                    dfs.append(self._loadDFTagDay(datum,tag,rs))
+                    dfs.append(self._loadDFTagDay(datum,tag,raw))
         else :
-            dfs.append(self._DF_fromTagList(datum,listTags,rs))
-        if rs=='raw':df  = pd.concat(dfs,axis=0)
+            dfs.append(self._DF_fromTagList(datum,listTags,raw))
+        if raw:df  = pd.concat(dfs,axis=0)
         else :
             df = pd.concat(dfs,axis=1)
             tmp = list(df.columns);tmp.sort();df=df[tmp]
         return df
 
-    def DF_loadTimeRangeTags(self,timeRange,listTags,rs='auto',applyMethod='nanmean',parked=True,timezone='Europe/Paris',pool=True):
+    def DF_loadTimeRangeTags(self,timeRange,listTags,rs='auto',applyMethod='mean',
+                                parked=True,timezone='Europe/Paris',pool=True):
         listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=0)
         if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()/6400)) + 's'
         dfs=[]
         if pool:
             with Pool() as p:
-                dfs=p.starmap(self._loadDFTagsDay, [(datum,listTags,rs,parked,False) for datum in listDates])
+                dfs=p.starmap(self._loadDFTagsDay, [(datum,listTags,parked,False,rs=='raw') for datum in listDates])
         else:
             for datum in listDates:
-                dfs.append(self._loadDFTagsDay(datum,listTags,rs,parked,True))
+                dfs.append(self._loadDFTagsDay(datum,listTags,parked,True,rs=='raw'))
         df = pd.concat(dfs,axis=0)
         print("finish loading")
         if not rs=='raw':
+            if applyMethod in ['mean','max','min','median']:df=df.ffill().bfill()
             df = eval('df.resample(rs).apply(np.' + applyMethod + ')')
             rsOffset = str(max(1,int(float(re.findall('\d+',rs)[0])/2)))
             period=re.findall('[a-zA-z]+',rs)[0]
@@ -267,7 +297,7 @@ class ConfigDashRealTime():
     def connectToDB(self):
         return self.utils.connectToPSQLsDataBase(self.connParameters)
 
-    def realtimeDF(self,preSelGraph,rs,rsMethod='mean'):
+    def realtimeDF(self,preSelGraph,rs,rsMethod='nanmean'):
         preSelGraph = self.usefulTags.loc[preSelGraph]
         conn = self.connectToDB()
         df   = self.utils.readSQLdataBase(conn,preSelGraph.Pattern,secs=self.timeWindow)
@@ -275,7 +305,7 @@ class ConfigDashRealTime():
         df = df.sort_values(by=['timestampz','tag'])
         print(df)
         df['timestampz'] = df.timestampz.dt.tz_convert('Europe/Paris')
-        df = self.utils.pivotDataFrame(df,resampleRate=rs,applyMethod='nan'+rsMethod)
+        df = self.utils.pivotDataFrame(df,resampleRate=rs,applyMethod=rsMethod)
         conn.close()
         return df, preSelGraph.Unit
 
@@ -286,6 +316,10 @@ class ConfigDashRealTime():
         return list(self.dfPLC[self.dfPLC[self.descriptCol]==desName][self.tagCol])[0]
 
 class ConfigDashSpark():
+    from pyspark.sql import SparkSession
+    from dorianUtils.sparkUtils.sparkDfUtils import SparkDfUtils
+    import findspark
+
     def __init__(self,sparkData,sparkConfFile,confFile,folderFig=None,folderExport=None,encode='utf-8'):
         if not folderFig : folderFig = os.getenv('HOME') + '/Images/'
         if not folderExport : folderExport = os.getenv('HOME') + '/Documents/'

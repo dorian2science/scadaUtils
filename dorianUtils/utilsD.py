@@ -1,7 +1,5 @@
 import pandas as pd, numpy as np, pickle, re, time, datetime as dt,glob
 from datetime import timezone
-try : import psycopg3 as psycopg
-except : import psycopg2 as psycopg
 import subprocess as sp, os
 from dateutil import parser
 import plotly.graph_objects as go
@@ -131,10 +129,11 @@ class Utils:
     #                           PHYSICS
     # ==========================================================================
     def buildNewUnits(self):
-        self.phyQties['speed'] = self.combineUnits(self.phyQties['distance'],self.phyQties['time'])
-        self.phyQties['mass flow'] = self.combineUnits(self.phyQties['weight'],self.phyQties['time'])
+        self.phyQties['vitesse'] = self.combineUnits(self.phyQties['distance'],self.phyQties['temps'])
+        self.phyQties['mass flow'] = self.combineUnits(self.phyQties['masse'],self.phyQties['temps'])
         tmp = self.combineUnits(['','N'],self.phyQties['volume'],'')
-        self.phyQties['volumetric flow'] = self.combineUnits(tmp,self.phyQties['time'])
+        self.phyQties['volumetric flow'] = self.combineUnits(tmp,self.phyQties['temps'])
+        self.phyQties['conducitivité'] = self.combineUnits(self.phyQties['conductance'],self.combineUnits(self.unitMag,self.phyQties['distance'],''))
 
     def combineUnits(self,units1,units2,oper='/'):
         return [x1 + oper + x2 for x2 in units2 for x1 in units1]
@@ -331,6 +330,29 @@ class Utils:
             if 'line' in d.keys():d['line']['color']=listCols[l]
         return fig
 
+    def optimalGrid(self,n):
+        if n==1:return [1,1]
+        elif n==2:return [2,1]
+        elif n==3:return [3,1]
+        elif n==4:return [2,2]
+        elif n==5:return [3,2]
+        elif n==6:return [3,2]
+        elif n==7:return [4,2]
+        elif n==8:return [4,2]
+        elif n==9:return [3,3]
+        elif n==10:return [5,2]
+
+    def rowsColsFromGrid(self,n,grid):
+        i,rows,cols=0,[],[]
+        idxMin=grid.index(min(grid))
+        while i<n+1:
+            rows.append(i%min(grid)+1)
+            cols.append(i//min(grid)+1)
+            # print(i,rows[i],cols[i])
+            i+=1
+        if idxMin==0:return rows,cols
+        else:return cols,rows
+
     def customLegend(self,fig, nameSwap,breakLine=None):
         if not isinstance(nameSwap,dict):
             print('not a dictionnary, there may be wrong assignment')
@@ -351,6 +373,18 @@ class Utils:
         f=re.sub('[\./]','_','_'.join([f]+toAdd))
         print(f)
         return f
+
+    def figureName(self,params,joinCara=',',egal='='):
+        listParams=[]
+        for k,v in params.items():
+            tmp = ''
+            if isinstance(v,int):tmp = k + egal + '{:d}'.format(v)
+            if isinstance(v,float):tmp=k + egal + '{:1f}'.format(v)
+            if isinstance(v,str):
+                if len(v)>0 : tmp= k + egal +v
+            if not not tmp:listParams.append(tmp)
+        return joinCara.join(listParams)
+
 
     def buildTimeMarks(self,t0,t1,nbMarks=8,fontSize='12px'):
         maxSecs=int((t1-t0).total_seconds())
@@ -449,14 +483,48 @@ class Utils:
         fig.update_layout(height=heightGraph)
         return fig
 
-    def addTiYXlabs(self,fig,title='',ylab='',style=1):
-        if style==1:
-            fig.update_layout(title={'text': title,
-                                    'x':0.5,'xanchor': 'center','yanchor': 'top'},
-            title_font_color="RebeccaPurple",title_font_size=18,
-            yaxis_title = ylab)
+    def quickLayout(self,fig,title='',xlab='',ylab='',style='std'):
+        if style=='std':
+            fig.update_layout(
+                title={'text': title,'x':0.5,'xanchor': 'center','yanchor': 'top'},
+                title_font_color="RebeccaPurple",title_font_size=18),
+
+        if style=='latex':
+            fig.update_layout(
+                font=dict(family="Times New Roman",size=18,color="black"),
+                title={'text': title,'x':0.5,'xanchor': 'center','yanchor': 'top'},
+                title_font_color="RebeccaPurple",title_font_size=22,
+            )
+        fig.update_layout(yaxis_title = ylab,xaxis_title = xlab)
         # fig.show(config=dict({'scrollZoom': True}))
         return fig
+
+    def legendStyle(self,fig,style='big'):
+        if style=='plotlySetup':
+            return fig.update_layout(
+                legend=dict(x=0,y=1,traceorder="reversed",
+                font=dict(family="Courier",size=12,color="black"),
+                    title_font_family="Times New Roman",
+                    bgcolor="LightSteelBlue",bordercolor="Black",borderwidth=2
+                    )
+                )
+        elif style=='big':
+            return fig.update_layout(
+                font=dict(family="Courier",size=16,color="black"),
+                legend=dict(
+                            title_font_family="Times New Roman",
+                            title_font_size=22,
+                            font=dict(family="Courier",size=18,color="black")
+                    )
+                )
+        elif style=='big2':
+            fig.update_layout(
+                title="Plot Title",
+                xaxis_title="X Axis Title",
+                yaxis_title="Y Axis Title",
+                font=dict(family="Courier New, monospace",size=18,color="black")
+    )
+
 
     def prepareDFsforComparison(self,dfs,groups,group1='group1',group2='group2',regexpVar='',rs=None,):
         'dfs:list of pivoted dataframes with a timestamp as index'
@@ -531,3 +599,105 @@ class Utils:
     def showAllTables(self,conn):
         sqlR = 'select * from information_schema.tables'
         self.executeSQLRequest(sqlR)
+
+class EmailSmtp:
+
+    import os
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.base import MIMEBase
+    from email.mime.text import MIMEText
+    from email.utils import COMMASPACE
+    from email import encoders
+
+    host = None
+    port = 25
+    user = None
+    password = None
+    isTls = False
+
+    # Constructor
+    def __init__(self, host='127.0.0.1', port=25, user=None, password=None, isTls=False):
+        self.host = host
+        self.port = port
+        self.user = user
+        self.password = password
+        self.isTls = isTls
+
+    # Send a email with the possibility to attach one or several  files
+    def sendMessage(self, fromAddr, toAddrs, subject, content, files=None):
+        '''
+        Send an email with attachments.
+
+        - Configuring:
+            smtp = EmailSmtp()
+            smtp.host = 'smtp.office365.com'
+            smtp.port = 587
+            smtp.user = "datalab@akka.eu"
+            smtp.password = "xxxxx"
+            smtp.isTls = True
+
+        - Examples of contents:
+            # A pure text content
+            content1 = "An alert level 3 has been created from the system"
+            # Another pure text content
+            content2 = [["An alert level 3 has been created from the system", "text"]]
+            # A pure html content
+            content3 = [["An alert level 3 has been created <br>from the system.<br>", "html"]]
+            # A list of text and html contents
+            content4 = [
+                ["ALERT LEVEL 3!\n", "text"],
+                ["An alert level 3 has been created <br>from the system.<br><br>", "html"],
+                ["ALERT LEVEL 2!\n", "text"],
+                ["An alert level 2 has been also created <br>from the system.<br>", "html"]
+            ]
+
+        - Example of attaching file(s):
+            # Specifying only one file
+            files1 = "./testdata/bank.xlsx"
+            # Specifying several files
+            files2 = ["./testdata/bank.xlsx", "./testdata/OpenWeather.json"]
+
+        - Example of sending a message:
+            # Choose your message and send it
+            smtp.sendMessage(
+                     fromAddr = "ALERTING <data.intelligence@akka.eu>",
+                     toAddrs = ["PhilAtHome <prossblad@gmail.com>", "PhilAtCompany <philippe.rossignol@akka.eu>"],
+                     subject = "WARNING: System issue",
+                     content = content4,
+                     files = files2
+            )
+        '''
+
+        # Prepare the message
+        message = self.MIMEMultipart()
+        message["From"] = fromAddr
+        message["To"] = self.COMMASPACE.join(toAddrs)
+        from email.utils import formatdate
+        message["Date"] = formatdate(localtime=True)
+        message["Subject"] = subject
+
+        # Create the content (text, html or a combination)
+        if (type(content) is not str and type(content) is not list): content = str(content)
+        if (type(content) is str): content = [[content, "plain"]]
+        for msg in content:
+            if (msg[1].strip().lower() != "html"): msg[1] = "plain"
+            message.attach(self.MIMEText(msg[0], msg[1]))
+
+        # Attach the files
+        if (files != None):
+            if (type(files) is str): files = [files]
+            for path in files:
+                part = self.MIMEBase("application", "octet-stream")
+                with open(path, "rb") as file: part.set_payload(file.read())
+                self.encoders.encode_base64(part)
+                part.add_header("Content-Disposition", 'attachment; filename="{}"'.format(self.os.path.basename(path)))
+                message.attach(part)
+
+        # Send the message
+        if (fromAddr == None): fromAddr = user
+        con = self.smtplib.SMTP(self.host, self.port)
+        if (self.isTls): con.starttls()
+        if (self.user != None and self.password != None): con.login(self.user, self.password)
+        con.sendmail(fromAddr, toAddrs, message.as_string())
+        con.quit()

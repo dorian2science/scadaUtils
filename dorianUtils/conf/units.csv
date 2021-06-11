@@ -1,5 +1,6 @@
-power,voltage,current,time,Temperature,pressure,distance,surface,volume,weight,energy,force
-W,V,A,h,K,bar,m,m²,l,g,Wh,N
-CH,,,min,°C,Pa,,,L,,J,kgF
-,,,s,°F,Barg,,,m³,,,
-,,,day,,psi,,,,,,
+puissance,puissance active,puissance reactive,voltage,courant,temps,temperature,pression,distance,surface,volume,masse,energie,force,consigne,conductance,resistance,ratio
+W,VA,VAR,V,A,h,K,bar,m,m²,l,g,Wh,N,pts,S,Ohm,%
+CH,,,V DC,,min,°C,Pa,,,L,,J,kgF,TOR,,,
+W AC,,,,,s,°F,barg,,,m³,,,,,,,
+W DC,,,,,day,,psi,,,,,,,,,,
+Wth,,,,,,,,,,,,,,,,,
