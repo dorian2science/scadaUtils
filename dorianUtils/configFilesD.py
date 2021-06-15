@@ -28,12 +28,6 @@ class ConfigMaster:
     def _getValidFiles(self):
         return sp.check_output('cd ' + '{:s}'.format(self.folderPkl) + ' && ls *' + self.validPattern +'*',shell=True).decode().split('\n')[:-1]
 
-    def convert_csv2pkl(self,folderCSV,filename):
-        self.utils.convert_csv2pkl(folderCSV,self.folderPkl,filename)
-
-    def convert_csv2pkl_all(self,folderCSV,fileNbs=None):
-        self.utils.convert_csv2pkl_all(folderCSV,self.folderPkl)
-
     def loadFile(self,filename,skip=1):
         if '*' in filename :
             filenames=self.utils.get_listFilesPklV2(self.folderPkl,filename)
@@ -69,6 +63,7 @@ class ConfigMaster:
         else :
             for datum in listDates:
                 self.parkDayPKL(datum)
+
 class ConfigDashTagUnitTimestamp(ConfigMaster):
     def __init__(self,folderPkl,confFile,folderFig=None,folderExport=None,encode='utf-8'):
         super().__init__(folderPkl,folderFig=folderFig,folderExport=folderExport)
@@ -128,8 +123,10 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         if not units : units = self.listUnits
         if ds and 'DATASCIENTISM' in self.dfPLC.columns: res=self.dfPLC[self.dfPLC.DATASCIENTISM==True]
         else: res = self.dfPLC.copy()
+
         if 'tag' in onCol.lower():whichCol = self.tagCol
         elif 'des' in onCol.lower():whichCol = self.descriptCol
+
         filter1 = res[whichCol].str.contains(patTag,case=case)
         if isinstance(units,str):units = [units]
         filter2 = res[self.unitCol].isin(units)
@@ -137,7 +134,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         if cols=='tdu' :
             return res.loc[:,[self.tagCol,self.descriptCol,self.unitCol]]
         elif cols=='tag' : return list(res[self.tagCol])
-        elif cols=='print':return self.utils.printDFSpecial(res)
+        elif cols=='all':return res
 
     def getCatsFromUnit(self,unitName,pattern=None):
         if not pattern:pattern = self.listPatterns[0]
@@ -297,15 +294,20 @@ class ConfigDashRealTime():
     def connectToDB(self):
         return self.utils.connectToPSQLsDataBase(self.connParameters)
 
-    def realtimeDF(self,preSelGraph,rs,rsMethod='nanmean'):
+    def realtimeDF(self,preSelGraph,rs='1s',applyMethod='mean'):
         preSelGraph = self.usefulTags.loc[preSelGraph]
         conn = self.connectToDB()
         df   = self.utils.readSQLdataBase(conn,preSelGraph.Pattern,secs=self.timeWindow)
         df['value'] = pd.to_numeric(df['value'],errors='coerce')
         df = df.sort_values(by=['timestampz','tag'])
-        print(df)
         df['timestampz'] = df.timestampz.dt.tz_convert('Europe/Paris')
-        df = self.utils.pivotDataFrame(df,resampleRate=rs,applyMethod=rsMethod)
+        df=df.pivot(index="timestampz", columns="tag", values="value")
+        if applyMethod in ['mean','max','min','median']:df=df.ffill().bfill()
+        df = eval('df.resample(rs).apply(np.' + applyMethod + ')')
+        rsOffset = str(max(1,int(float(re.findall('\d+',rs)[0])/2)))
+        period=re.findall('[a-zA-z]+',rs)[0]
+        df.index=df.index+to_offset(rsOffset +period)
+        df=df.ffill().bfill()
         conn.close()
         return df, preSelGraph.Unit
 
@@ -314,6 +316,24 @@ class ConfigDashRealTime():
 
     def getTagnamefromDescription(self,desName):
         return list(self.dfPLC[self.dfPLC[self.descriptCol]==desName][self.tagCol])[0]
+
+    def getTagsTU(self,patTag,units=None,onCol='tag',case=False,cols='tag',ds=True):
+        if not units : units = self.listUnits
+        if ds and 'DATASCIENTISM' in self.dfPLC.columns: res=self.dfPLC[self.dfPLC.DATASCIENTISM==True]
+        else: res = self.dfPLC.copy()
+
+        if 'tag' in onCol.lower():whichCol = self.tagCol
+        elif 'des' in onCol.lower():whichCol = self.descriptCol
+
+        filter1 = res[whichCol].str.contains(patTag,case=case)
+        if isinstance(units,str):units = [units]
+        filter2 = res[self.unitCol].isin(units)
+        res = res[filter1&filter2]
+        if cols=='tdu' :
+            return res.loc[:,[self.tagCol,self.descriptCol,self.unitCol]]
+        elif cols=='tag' : return list(res[self.tagCol])
+        elif cols=='all':return res
+
 
 class ConfigDashSpark():
     from pyspark.sql import SparkSession

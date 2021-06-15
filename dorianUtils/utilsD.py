@@ -9,6 +9,10 @@ import matplotlib.colors as mtpcl
 import matplotlib.pyplot as plt
 import scipy
 from scipy.optimize import curve_fit
+try :
+    import psycopg3 as psycopg
+except:
+    import psycopg2 as psycopg
 
 class Utils:
     def __init__(self):
@@ -35,7 +39,7 @@ class Utils:
     # ==========================================================================
     #                           SYSTEM
     # ==========================================================================
-    def read_csv_datetimeTZ(self,filename,**kwargs):
+    def read_csv_datetimeTZ(self,filename,overwrite=False,**kwargs):
         start   = time.time()
         print("============================================")
         print('reading of file',filename)
@@ -51,7 +55,13 @@ class Utils:
         return df
 
     def convert_csv2pkl(self,folderCSV,folderPKL):
-        for filename in self.get_listFilesPkl(folderCSV,'.csv'):
+        try :
+            listFiles=self.get_listFilesPkl(folderCSV,'.csv')
+        except:
+            print('no csv files in directory : ',folderCSV)
+        if not overwrite:
+            listFiles = [f for f in listFilesCsv if not f[:-4]+'.pkl' in folderPkl]
+        for filename in listFiles:
             df=self.read_csv_datetimeTZ(folderCSV + filename)
             with open(folderPKL + filename[:-4] + '.pkl' , 'wb') as handle:
                 pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -385,7 +395,6 @@ class Utils:
             if not not tmp:listParams.append(tmp)
         return joinCara.join(listParams)
 
-
     def buildTimeMarks(self,t0,t1,nbMarks=8,fontSize='12px'):
         maxSecs=int((t1-t0).total_seconds())
         listSeconds = [int(t) for t in np.linspace(0,maxSecs,nbMarks)]
@@ -495,7 +504,8 @@ class Utils:
                 title={'text': title,'x':0.5,'xanchor': 'center','yanchor': 'top'},
                 title_font_color="RebeccaPurple",title_font_size=22,
             )
-        fig.update_layout(yaxis_title = ylab,xaxis_title = xlab)
+        if not not xlab:fig.update_layout(yaxis_title = ylab)
+        if not not ylab:fig.update_layout(xaxis_title = xlab)
         # fig.show(config=dict({'scrollZoom': True}))
         return fig
 
@@ -562,7 +572,6 @@ class Utils:
             }
         connReq = ''.join([k + "=" + v + " " for k,v in connParameters.items()])
         conn = psycopg.connect(connReq)
-        # conn = psycopg.connect(connReq,autocommit=True)
         return conn
 
     def connectToDataBase(self,h,p,d,u,w):
