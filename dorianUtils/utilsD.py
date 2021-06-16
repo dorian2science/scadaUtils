@@ -60,7 +60,7 @@ class Utils:
         except:
             print('no csv files in directory : ',folderCSV)
         if not overwrite:
-            listFiles = [f for f in listFiles if not f[:-4]+'.pkl' in folderPkl]
+            listFiles = [f for f in listFiles if not f[:-4]+'.pkl' in folderPKL]
         for filename in listFiles:
             df=self.read_csv_datetimeTZ(folderCSV + filename)
             with open(folderPKL + filename[:-4] + '.pkl' , 'wb') as handle:
