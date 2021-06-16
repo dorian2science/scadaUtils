@@ -54,7 +54,7 @@ class Utils:
         print("============================================")
         return df
 
-    def convert_csv2pkl(self,folderCSV,folderPKL):
+    def convert_csv2pkl(self,folderCSV,folderPKL,overwrite=False):
         try :
             listFiles=self.get_listFilesPkl(folderCSV,'.csv')
         except:
