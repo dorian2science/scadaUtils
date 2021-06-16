@@ -216,16 +216,16 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         df = pd.concat(dfs,axis=0)
         print("finish loading")
         if not rs=='raw':
-            if applyMethod in ['mean','max','min','median']:df=df.ffill().bfill()
-            df = eval('df.resample(rs).apply(np.' + applyMethod + ')')
-            rsOffset = str(max(1,int(float(re.findall('\d+',rs)[0])/2)))
-            period=re.findall('[a-zA-z]+',rs)[0]
-            df.index=df.index+to_offset(rsOffset +period)
-        df = self._DF_cutTimeRange(df,timeRange,timezone)
+            df = self._DF_cutTimeRange(df,timeRange,timezone)
+            df = eval("df.resample('100ms').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
+            # rsOffset = str(max(1,int(float(re.findall('\d+',rs)[0])/2)))
+            # period=re.findall('[a-zA-z]+',rs)[0]
+            # df.index=df.index+to_offset(rsOffset +period)
         if rs=='raw' :
             df['timestamp']=df.index
-            df=df.sort_values(by=['tag','timestamp'])
-            df=df.drop(['timestamp'],axis=1)
+            df = df.sort_values(by=['tag','timestamp'])
+            df = df.drop(['timestamp'],axis=1)
+            df = self._DF_cutTimeRange(df,timeRange,timezone)
         return df
     # ==============================================================================
     #                   functions to compute new variables
@@ -302,12 +302,10 @@ class ConfigDashRealTime():
         df = df.sort_values(by=['timestampz','tag'])
         df['timestampz'] = df.timestampz.dt.tz_convert('Europe/Paris')
         df=df.pivot(index="timestampz", columns="tag", values="value")
-        if applyMethod in ['mean','max','min','median']:df=df.ffill().bfill()
-        df = eval('df.resample(rs).apply(np.' + applyMethod + ')')
-        rsOffset = str(max(1,int(float(re.findall('\d+',rs)[0])/2)))
-        period=re.findall('[a-zA-z]+',rs)[0]
-        df.index=df.index+to_offset(rsOffset +period)
-        df=df.ffill().bfill()
+        # df=df.resample('100ms').ffill().resample(rs).mean()
+        # df=df.resample('100ms').ffill()
+        # .ffill().resample(rs).mean()
+        df = eval("df.resample('100ms').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
         conn.close()
         return df, preSelGraph.Unit
 
