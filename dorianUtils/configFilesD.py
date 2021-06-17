@@ -75,9 +75,6 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         self.unitCol,self.descriptCol,self.tagCol = self._getPLC_ColName()
         self.listUnits    = self._get_UnitsdfPLC()
 
-        self.allPatterns  = self.utils.listPatterns
-        self.listPatterns = self._get_validPatterns()
-
     def __getModelNumber(self):
         modelNb = re.findall('\d{5}-\d{3}',self.confFile)
         if not modelNb: return ''
@@ -93,13 +90,6 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         descriptName = ['descript' in k.lower() for k in l]
         tagName = ['tag' in k.lower() for k in l]
         return [list(v[k][0])[0] for k in [unitCol,descriptName,tagName]]
-
-    def _get_validPatterns(self):
-        model = self.modelAndFile.split('-')[0]
-        if model=='10001' :
-            return [self.allPatterns[k] for k in [6,0]]
-        if model=='10002' :
-            return [self.allPatterns[k] for k in [1,2,3,4,5,0]]
 
     def _get_ValidFiles(self):
         return self.utils.get_listFilesPklV2(self.folderPkl)
@@ -213,19 +203,21 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         else:
             for datum in listDates:
                 dfs.append(self._loadDFTagsDay(datum,listTags,parked,True,rs=='raw'))
-        df = pd.concat(dfs,axis=0)
-        print("finish loading")
-        if not rs=='raw':
-            df = self._DF_cutTimeRange(df,timeRange,timezone)
-            df = eval("df.resample('100ms').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
-            # rsOffset = str(max(1,int(float(re.findall('\d+',rs)[0])/2)))
-            # period=re.findall('[a-zA-z]+',rs)[0]
-            # df.index=df.index+to_offset(rsOffset +period)
-        if rs=='raw' :
-            df['timestamp']=df.index
-            df = df.sort_values(by=['tag','timestamp'])
-            df = df.drop(['timestamp'],axis=1)
-            df = self._DF_cutTimeRange(df,timeRange,timezone)
+        if len(dfs)>0 :
+            df = pd.concat(dfs,axis=0)
+            print("finish loading")
+            if not rs=='raw':
+                df = self._DF_cutTimeRange(df,timeRange,timezone)
+                df = eval("df.resample('100ms').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
+                # rsOffset = str(max(1,int(float(re.findall('\d+',rs)[0])/2)))
+                # period=re.findall('[a-zA-z]+',rs)[0]
+                # df.index=df.index+to_offset(rsOffset +period)
+            if rs=='raw' :
+                df['timestamp']=df.index
+                df = df.sort_values(by=['tag','timestamp'])
+                df = df.drop(['timestamp'],axis=1)
+                df = self._DF_cutTimeRange(df,timeRange,timezone)
+        else : df= pd.DataFrame() 
         return df
     # ==============================================================================
     #                   functions to compute new variables

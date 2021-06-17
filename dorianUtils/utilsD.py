@@ -20,13 +20,6 @@ class Utils:
         self.phyQties = self.df2dict(pd.read_csv(self.confDir+ '/units.csv'))
         self.unitMag = ['u','m','c','d','','da','h','k','M']
         self.buildNewUnits()
-        self.listPatterns = ['.*',
-        '[A-Z0-9]+',
-        '[A-Z0-9]+_[A-Z0-9]+',
-        '[A-Z0-9]+_[A-Z0-9]+_[A-Z0-9]+',
-        '[A-Z0-9]+_[A-Z0-9]+_[A-Z0-9]+_[A-Z0-9]+',
-        '[\w_]+[A-Z]+',
-        '[A-Za-z]+',]
         self.cmapNames = pickle.load(open(self.confDir+"/colormaps.pkl",'rb'))[::3]
 
     # ==========================================================================
@@ -534,7 +527,6 @@ class Utils:
                 yaxis_title="Y Axis Title",
                 font=dict(family="Courier New, monospace",size=18,color="black")
     )
-
 
     def prepareDFsforComparison(self,dfs,groups,group1='group1',group2='group2',regexpVar='',rs=None,):
         'dfs:list of pivoted dataframes with a timestamp as index'

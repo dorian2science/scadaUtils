@@ -6,7 +6,11 @@ import re,datetime as dt, numpy as np
 from dorianUtils.utilsD import Utils
 
 class DccExtended:
-    utils=Utils()
+    def __init__(self):
+        self.utils=Utils()
+        self.graphStyles = ['lines+markers','stairs','markers','lines']
+        self.graphTypes = ['scatter','area','area %']
+
     ''' dropdown with a list or dictionnary. Dictionnary doesn"t work for the moment '''
     def dropDownFromList(self,idName,listdd,pddPhrase = None,defaultIdx=None,labelsPattern=None,**kwargs):
         if not pddPhrase :
@@ -132,3 +136,68 @@ class DccExtended:
         for d in [d1,d2,d3,d4] :
             if not not d : dictOpts.update(d)
         return dictOpts
+
+    def basicComponents(self,cfg,dicWidgets,baseId):
+        widgetLayout,dicLayouts = [],{}
+        for wid_key,wid_val in dicWidgets.items():
+            if 'dd_cmap' in wid_key:
+                widgetObj = self.dropDownFromList(baseId+wid_key,self.utils.cmapNames[0],
+                                                'select the colormap : ',value=wid_val)
+
+            elif 'dd_resampleMethod' in wid_key:
+                widgetObj = self.dropDownFromList(baseId+wid_key,['mean','max','min','median'],
+                'Select the resampling method: ',value=wid_val,multi=False)
+
+            elif 'dd_style' in wid_key:
+                widgetObj = self.dropDownFromList(baseId+wid_key,self.graphStyles,'Select the style : ',value = wid_val)
+
+            elif 'btn_export' in wid_key:
+                widgetObj = [html.Button('export .txt',id=baseId+wid_key, n_clicks=wid_val)]
+
+            elif 'in_timeRes' in wid_key:
+                widgetObj = [html.P('time resolution : '),
+                dcc.Input(id=baseId+wid_key,placeholder='time resolution : ',type='text',value=wid_val)]
+
+            elif 'in_heightGraph' in wid_key:
+                widgetObj = [html.P('heigth of graph: '),
+                            dcc.Input(id=baseId+wid_key,placeholder='change heigth graph : ',type='number',value=wid_val)]
+
+            elif 'pdr_time' in wid_key :
+                t1 = self.utils.findDateInFilename(cfg.listFilesPkl[-1])
+                tmin = self.utils.findDateInFilename(cfg.listFilesPkl[0])
+                # tmax = t1 +dt.timedelta(days=1)
+                tmax = t1 
+                t0 = t1 - dt.timedelta(days=2)
+
+                dcc.DatePickerRange( id = baseId + wid_key + 'Pdr',
+                            min_date_allowed=tmin.date(),max_date_allowed = tmax.date(),
+                            initial_visible_month = t0.date(),
+                            display_format = 'MMM D, YY',minimum_nights=0,
+                            start_date = t0.date(), end_date   = t1.date())
+
+                widgetObj = [
+                html.Div([
+                    dbc.Row([dbc.Col(html.P('select start and end time : ')),
+                        dbc.Col(html.Button(id  = baseId + wid_key + 'Btn',children='update Time'))]),
+
+                    dbc.Row([dbc.Col(dcc.DatePickerRange( id = baseId + wid_key + 'Pdr',
+                                max_date_allowed = tmax, initial_visible_month = t0.date(),
+                                display_format = 'MMM D, YY',minimum_nights=0,
+                                start_date = t0.date(), end_date   = t1.date()))]),
+
+                    dbc.Row([dbc.Col(dcc.Input(id = baseId + wid_key + 'Start',type='text',value = '07:00',size='13',style={'font-size' : 13})),
+                            dbc.Col(dcc.Input(id = baseId + wid_key + 'End',type='text',value = '21:00',size='13',style={'font-size' : 13}))])
+                ])]
+            else :
+                print('component ',wid_key,' is not available')
+                return
+
+            for widObj in widgetObj:widgetLayout.append(widObj)
+        return widgetLayout
+
+    def buildGraphLayout(self,widgetLayout,baseId,widthG=80):
+        graphLayout=[html.Div([dcc.Graph(id=baseId+'graph',style={"width": str(widthG)+"%", "display": "inline-block"})])]
+        return [html.Div(widgetLayout,style={"width": str(100-widthG) + "%", "float": "left"})]+graphLayout
+
+    def createTabs(self,tabs):
+        return [dbc.Tabs([dbc.Tab(t.tabLayout,label=t.tabname) for t in tabs])]

@@ -11,7 +11,6 @@ from dorianUtils.dccExtendedD import DccExtended
 from dorianUtils.utilsD import Utils
 
 class TemplateDashMaster:
-
     def __init__(self,baseNameUrl='/templateDash/',title='tempDash',port=45000,
                     extSheets='bootstrap',cacheRedis=False):
         self.port       = port
@@ -23,8 +22,6 @@ class TemplateDashMaster:
 
         self.formatTime   = '%Y-%m-%d %H:%M'
         self.utils=Utils()
-        self.graphStyles = ['lines+markers','stairs','markers','lines']
-        self.graphTypes = ['scatter','area','area %']
     # ==========================================================================
     #                       BASIC FUNCTIONS
     # ==========================================================================
@@ -46,7 +43,7 @@ class TemplateDashMaster:
     def runServer(self,**kwargs):
         if self.cacheRedis:
             from flask_caching import Cache
-            self.cache      = Cache()
+            self.cache = Cache()
             CACHE_CONFIG = {
             'CACHE_TYPE': 'redis',
             'CACHE_REDIS_URL': os.environ.get('REDIS_URL', 'redis://localhost:6379')}
