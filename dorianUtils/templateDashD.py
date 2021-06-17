@@ -68,6 +68,9 @@ class TemplateDashTagsUnit(TemplateDashMaster):
         super().__init__(baseNameUrl=baseNameUrl,title=title,**kwargs)
         self.cfg = cfg
         self.dccE = DccExtended()
+        self.graphStyles = ['lines+markers','stairs','markers','lines']
+        self.graphTypes = ['scatter','area','area %']
+
 
     # ==========================================================================
     #                       LAYOUT functions
