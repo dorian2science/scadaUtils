@@ -65,12 +65,19 @@ class ConfigMaster:
                 self.parkDayPKL(datum)
 
 class ConfigDashTagUnitTimestamp(ConfigMaster):
-    def __init__(self,folderPkl,confFile,folderFig=None,folderExport=None,encode='utf-8'):
-        super().__init__(folderPkl,folderFig=folderFig,folderExport=folderExport)
-        self.confFile     = confFile
+    def __init__(self,folderPkl,confFolder,folderFig=None,folderExport=None,encode='utf-8'):
+        ConfigMaster.__init__(self,folderPkl,folderFig=folderFig,folderExport=folderExport)
+        self.confFolder     = confFolder
+        self.confFile     = glob.glob(self.confFolder + '*PLC*')[0]
         self.modelAndFile = self.__getModelNumber()
         self.listFilesPkl = self._get_ValidFiles()
-        self.dfPLC        = pd.read_csv(confFile,encoding=encode)
+        self.dfPLC        = pd.read_csv(self.confFile,encoding=encode)
+        try :
+            self.usefulTags = pd.read_csv(self.confFolder+'/predefinedCategories.csv',index_col=0)
+            self.usefulTags.index = self.utils.uniformListStrings(list(self.usefulTags.index))
+        except :
+            self.usefulTags = pd.DataFrame()
+
 
         self.unitCol,self.descriptCol,self.tagCol = self._getPLC_ColName()
         self.listUnits    = self._get_UnitsdfPLC()
@@ -98,6 +105,9 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         listUnits = self.dfPLC[self.unitCol]
         return listUnits[~listUnits.isna()].unique().tolist()
 
+    def getUsefulTags(self,usefulTag):
+        category = self.usefulTags.loc[usefulTag]
+        return self.getTagsTU(category.Pattern,category.Unit)
 # ==============================================================================
 #                   functions filter on configuration file with tags
 # ==============================================================================
@@ -125,6 +135,9 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
             return res.loc[:,[self.tagCol,self.descriptCol,self.unitCol]]
         elif cols=='tag' : return list(res[self.tagCol])
         elif cols=='all':return res
+
+    def getUnitofTag(self,tag):
+        return list(self.dfPLC[self.dfPLC.TAG==tag].UNITE)[0]
 
     def getCatsFromUnit(self,unitName,pattern=None):
         if not pattern:pattern = self.listPatterns[0]
@@ -217,7 +230,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
                 df = df.sort_values(by=['tag','timestamp'])
                 df = df.drop(['timestamp'],axis=1)
                 df = self._DF_cutTimeRange(df,timeRange,timezone)
-        else : df= pd.DataFrame() 
+        else : df= pd.DataFrame()
         return df
     # ==============================================================================
     #                   functions to compute new variables

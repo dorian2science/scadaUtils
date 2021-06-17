@@ -10,6 +10,7 @@ class DccExtended:
         self.utils=Utils()
         self.graphStyles = ['lines+markers','stairs','markers','lines']
         self.graphTypes = ['scatter','area','area %']
+        self.stdStyle = {'fontsize':'20 px','height': '40px','min-height': '1px',}
 
     ''' dropdown with a list or dictionnary. Dictionnary doesn"t work for the moment '''
     def dropDownFromList(self,idName,listdd,pddPhrase = None,defaultIdx=None,labelsPattern=None,**kwargs):
@@ -70,7 +71,7 @@ class DccExtended:
         )
         return rs
 
-    def DoubleRangeSliderLayout(self,baseId='',t0=None,t1=None,formatTime = '%d - %H:%M',styleDBRS='small'):
+    def dDoubleRangeSliderLayout(self,baseId='',t0=None,t1=None,formatTime = '%d - %H:%M',styleDBRS='small'):
         if styleDBRS=='large':
             style2 = {'padding-bottom' : 50,'padding-top' : 50,'border': '13px solid green'}
         elif styleDBRS=='small':
@@ -137,7 +138,7 @@ class DccExtended:
             if not not d : dictOpts.update(d)
         return dictOpts
 
-    def basicComponents(self,cfg,dicWidgets,baseId):
+    def basicComponents(self,dicWidgets,baseId):
         widgetLayout,dicLayouts = [],{}
         for wid_key,wid_val in dicWidgets.items():
             if 'dd_cmap' in wid_key:
@@ -151,6 +152,11 @@ class DccExtended:
             elif 'dd_style' in wid_key:
                 widgetObj = self.dropDownFromList(baseId+wid_key,self.graphStyles,'Select the style : ',value = wid_val)
 
+            elif 'dd_typeGraph' in wid_key:
+                widgetObj = self.dropDownFromList(baseId+wid_key,self.graphTypes,
+                            'Select type graph : ',value=wid_val,
+                            style=self.stdStyle,optionHeight=20)
+
             elif 'btn_export' in wid_key:
                 widgetObj = [html.Button('export .txt',id=baseId+wid_key, n_clicks=wid_val)]
 
@@ -162,11 +168,18 @@ class DccExtended:
                 widgetObj = [html.P('heigth of graph: '),
                             dcc.Input(id=baseId+wid_key,placeholder='change heigth graph : ',type='number',value=wid_val)]
 
+            elif 'interval' in wid_key:
+                widgetObj = [dcc.Interval(id=baseId + wid_key,interval=wid_val*1000,n_intervals=0)]
+
             elif 'pdr_time' in wid_key :
-                t1 = self.utils.findDateInFilename(cfg.listFilesPkl[-1])
-                tmin = self.utils.findDateInFilename(cfg.listFilesPkl[0])
+                if not wid_val :
+                    wid_val['tmax']=dt.datetime.now()
+                    wid_val['tmin']=wid_val['tmax']-dt.timedelta(days=2*30)
+                else :
+                    tmax = self.utils.findDateInFilename(wid_val['tmax'])
+                    tmin = self.utils.findDateInFilename(wid_val['tmin'])
                 # tmax = t1 +dt.timedelta(days=1)
-                tmax = t1 
+                t1= tmax
                 t0 = t1 - dt.timedelta(days=2)
 
                 dcc.DatePickerRange( id = baseId + wid_key + 'Pdr',
