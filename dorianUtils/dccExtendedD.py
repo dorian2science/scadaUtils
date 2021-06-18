@@ -160,6 +160,9 @@ class DccExtended:
             elif 'btn_export' in wid_key:
                 widgetObj = [html.Button('export .txt',id=baseId+wid_key, n_clicks=wid_val)]
 
+            elif 'btn_update' in wid_key:
+                widgetObj = [html.Button('update',id=baseId+wid_key, n_clicks=wid_val)]
+
             elif 'in_timeRes' in wid_key:
                 widgetObj = [html.P('time resolution : '),
                 dcc.Input(id=baseId+wid_key,placeholder='time resolution : ',type='text',value=wid_val)]

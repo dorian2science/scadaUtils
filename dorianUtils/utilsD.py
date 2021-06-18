@@ -436,6 +436,188 @@ class Utils:
         fig.update_layout(dictYaxis)
         return fig
 
+
+    def getAutoAxesMultiUnit(self,dictGroups,colormap='Dark2_r'):
+        dfGroups = pd.DataFrame.from_dict(dictGroups,orient='index',columns=['group'])
+        groups=dfGroups.group.unique()
+
+        listSymbols = ['circle','x','square','diamond','octagon','star','hexagon','cross','hourglass','bowtie',
+        'triangle-up', 'triangle-down','circle-open','triangle-left', 'triangle-right', 'triangle-ne',
+        'pentagon','circle-dot','hexagram','star-triangle-up','star-square','diamond-tall', 'circle-x',
+        'square-cross','diamond-x','cross-thin','cross-thin-open','x-thin','asterisk','hash','arrow'
+        ]
+        listLines=["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"]
+
+        yaxes=['yaxis'] + ['yaxis'+str(k) for k in range(2,len(groups)+1)]
+        xdomain,sides,anchors,positions,overlays=self.getAutoAxes(len(groups))
+        colors=self.getColorHexSeq(len(groups),colormap)
+        dfGroups['color']=colors[0]
+        dfGroups['symbol']='hexagon-dot'
+        dfGroups['line']='solid'
+        dictYaxis={}
+        yscales=['y'] + ['y'+str(k) for k in range(2,len(groups)+1)]
+        for g,c,s,a,p,o,y,ys in zip(groups,colors,sides,anchors,positions,overlays,yaxes,yscales):
+            dfGroups.at[dfGroups.group==g,'color'] = c
+            dfGroups.at[dfGroups.group==g,'yscale'] = ys
+            try :
+                dfGroups.at[dfGroups.group==g,'line']=(2*listLines)[:len(dfGroups[dfGroups.group==g])]
+            except :
+                print("there are more than 12 lines : that's to much amigo")
+            dfGroups.at[dfGroups.group==g,'symbol']=listSymbols[:len(dfGroups[dfGroups.group==g])]
+
+            dictYaxis[y] = dict(
+                title=g,
+                titlefont=dict(color=c),
+                tickfont=dict(color=c),
+                anchor=a,
+                overlaying=o,
+                side=s,
+                position=p,
+                gridcolor=c
+            )
+        return dictYaxis,dfGroups,xdomain
+
+    def multiUnitGraph(self,df,dictGroups):
+        dictYaxis,dfGroups,xdomain=self.getAutoAxesMultiUnit(dictGroups)
+        fig = go.Figure()
+        fig.update_layout(dictYaxis)
+        fig.update_layout(xaxis=dict(domain=xdomain))
+
+        for trace in df.columns:
+            col=dfGroups.loc[trace,'color']
+            fig.add_trace(go.Scatter(
+                x=df.index,y=df[trace],name=trace,
+                mode="lines+markers",
+                yaxis=dfGroups.loc[trace,'yscale'],
+                marker=dict(color = col,size=15,symbol=dfGroups.loc[trace,'symbol']),
+                line=dict(color = col,dash=dfGroups.loc[trace,'line'])
+                ))
+        return fig
+
+    def getSlices(self,n,a=0.05,b=0.95,s=0.02):
+        slicePts = [a+(b-a)/n*k for k in range(n+1)]
+        borderPts = [a]+self.flattenList([[k-s/2,k+s/2] for k in slicePts[1:-1]])+[b]
+        return borderPts
+
+    def getAutoXYAxes(self,n,grid=None,hspace=0.05,**krwargs):
+        from plotly.subplots import make_subplots
+        if not grid:grid=self.optimalGrid(n)
+        fig = make_subplots(rows=grid[0], cols=grid[1],**krwargs)
+        if fig.layout['xaxis'].domain[0]==0:
+            fig.layout['xaxis'].domain=[0.05,fig.layout['xaxis'].domain[1]]
+        if fig.layout['xaxis'].domain[1]==1:
+            fig.layout['xaxis'].domain=[fig.layout['xaxis'].domain[0],0.95]
+        for k in range(2,n+1):
+            if fig.layout['xaxis' + str(k)].domain[0]==0:
+                print('here')
+                fig.layout['xaxis' + str(k)].domain=[0.05,fig.layout['xaxis'+ str(k)].domain[1]]
+            if fig.layout['xaxis' + str(k)].domain[1]==1:
+                fig.layout['xaxis' + str(k)].domain=[fig.layout['xaxis'+ str(k)].domain[0],0.95]
+        return fig.layout
+
+    def getAutoYAxes_v2(self,N,xrange,y1,inc=0.02):
+        # sides =['left','right']*6 # alterne
+        sides =['left','right']*6 # alterne
+        # anchors = ['free']*12
+        positions  = self.flattenList([[xrange[0]-k*inc,xrange[1]+k*inc] for k in range(6)])
+        positions  = self.flattenList([[xrange[0]-k*inc,xrange[1]+k*inc] for k in range(6)])
+        # return sides[:N],anchors[:N],positions[:N]
+        return sides[:N],positions[:N]
+
+    def dictdict2df(self,dictdictGroups):
+        dfGroups=pd.DataFrame.from_dict(dictdictGroups)
+        dfGroups['tag']=dfGroups.index
+        dfGroups=dfGroups.melt(id_vars='tag')
+        dfGroups=dfGroups.dropna().set_index('tag')
+        dfGroups.columns=['group','subgroup']
+        return dfGroups
+
+    def getLayoutMultiUnitSubPlots(self,dictdictGroups,colormap='Dark2_r',inc=0.02,**krwargs):
+        listSymbols = ['circle','x','square','diamond','octagon','star','hexagon','cross','hourglass','bowtie',
+        'triangle-up', 'triangle-down','circle-open','triangle-left', 'triangle-right', 'triangle-ne',
+        'pentagon','circle-dot','hexagram','star-triangle-up','star-square','diamond-tall', 'circle-x',
+        'square-cross','diamond-x','cross-thin','cross-thin-open','x-thin','asterisk','hash','arrow'
+        ]
+        listLines=["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"]
+        dfGroups = self.dictdict2df(dictdictGroups)
+        layout=self.getAutoXYAxes(len(dfGroups.group.unique()),**krwargs)
+
+        dfGroups['xaxis']='x'
+        dfGroups['yaxis']='y'
+        dfGroups['color']='blue'
+        dfGroups['symbol']='hexagon-dot'
+        dfGroups['line']='solid'
+
+        groups=dfGroups.group.unique()
+        # xaxisNames = ['xaxis']+['xaxis' + str(k) for k in range(2,len(groups)+1)]
+        # yaxisNames1 = ['yaxis']+['yaxis' + str(k) for k in range(2,len(groups)+1)]
+        # xscales = ['x']+['x' + str(k) for k in range(2,len(groups)+1)]
+        # yscales1 = ['y']+['y' + str(k) for k in range(2,len(groups)+1)]
+
+        xaxisNames =['xaxis' + str(k) for k in range(1,len(groups)+1)]
+        yaxisNames1 = ['yaxis' + str(k) for k in range(1,len(groups)+1)]
+        xscales = ['x' + str(k) for k in range(1,len(groups)+1)]
+        yscales1 =['y' + str(k) for k in range(1,len(groups)+1)]
+
+        dictYaxis,dictXaxis = {},{}
+        for g,ax,ay1,xs,ys1 in zip(groups,xaxisNames,yaxisNames1,xscales,yscales1):
+            # print(ax,' ------ ',ay1,' ------ ',g)
+            print(' ======== ',g,' ====== ')
+            subgroups=dfGroups[dfGroups.group==g].subgroup.unique()
+            colors=self.getColorHexSeq(len(subgroups),colormap)
+            # yaxisNames = [ay1]+[ay1 + str(k) for k in range(2,len(subgroups)+1)]
+            # yscales = [ys1] + [ys1 + str(k) for k in range(2,len(subgroups)+1)]
+            yaxisNames = [ay1 + str(k) for k in range(1,len(subgroups)+1)]
+            yscales = [ys1 + str(k) for k in range(1,len(subgroups)+1)]
+            sides,positions = self.getAutoYAxes_v2(len(subgroups),layout[ax].domain,ay1,inc=0.02)
+            dictXaxis[ax] = dict(
+            anchor=ys1+str(1),
+            domain=layout[ax].domain,
+            )
+            print(colors,sides,positions,subgroups,yscales)
+            for sg,c,s,p,ys,ay in zip(subgroups,colors,sides,positions,yscales,yaxisNames):
+                # print(sg,' ------ ',c,' ------ ',ys)
+                dfGroups.at[(dfGroups.group==g)&(dfGroups.subgroup==sg),'color'] = c
+                dfGroups.at[(dfGroups.group==g)&(dfGroups.subgroup==sg),'yaxis'] = ys
+                dfGroups.at[(dfGroups.group==g)&(dfGroups.subgroup==sg),'xaxis'] = xs
+                # print(ax,' ------ ',ay1,' ------ ',g)
+                try :
+                    dfGroups.at[dfGroups.group==sg,'line']=(2*listLines)[:len(dfGroups[dfGroups.group==sg])]
+                except :
+                    print("there are more than 12 lines : that's too much amigo")
+                dfGroups.at[dfGroups.group==sg,'symbol']=listSymbols[:len(dfGroups[dfGroups.group==sg])]
+
+                dictYaxis[ay] = dict(
+                    title=sg,
+                    color=c,
+                    anchor='free',
+                    domain=layout[ay1].domain,
+                    overlaying=ys,
+                    side=s,
+                    position=p,
+                )
+
+        fig = go.Figure()
+        fig.update_layout(dictXaxis)
+        fig.update_layout(dictYaxis)
+        return fig,dfGroups
+        # return dictXaxis,dictYaxis,dfGroups
+
+    def multiUnitGraphSubPlots(self,df,dictdictGroups):
+        fig,dfGroups=self.getLayoutMultiUnitSubPlots(dictdictGroups)
+
+        for trace in df.columns:
+            col=dfGroups.loc[trace,'color']
+            fig.add_trace(go.Scatter(
+                x=df.index,y=df[trace],name=trace,
+                xaxis=dfGroups.loc[trace,'xaxis'],
+                yaxis=dfGroups.loc[trace,'yaxis'],
+                mode="lines+markers",
+                marker=dict(color = col,size=15,symbol=dfGroups.loc[trace,'symbol']),
+                line=dict(color = col,dash=dfGroups.loc[trace,'line'])
+                ))
+        return fig
+
     def printDFSpecial(self,df,allRows=True):
         # pd.describe_option('col',True)
         colWidthOri = pd.get_option('display.max_colwidth')

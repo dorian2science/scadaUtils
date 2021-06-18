@@ -273,20 +273,12 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         res  = pd.DataFrame(res,index = ['a','b','c','tau(s)','T0'])
         return res
 
-class ConfigDashRealTime():
-    def __init__(self,confFolder,connParameters,timeWindow=2*60*60,
-                    folderFig=None,folderExport=None,encode='utf-8'):
+class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
+    def __init__(self,confFolder,connParameters,timeWindow=2*60*60):
         import glob
-        self.confFile   = glob.glob(confFolder+'*PLC*')[0]
-        self.dfPLC      = pd.read_csv(self.confFile,encoding=encode)
-        self.usefulTags = pd.read_csv(glob.glob(confFolder+'*predefinedCategories*')[0] + '',index_col=0)
+        super().__init__(folderPkl=None,confFolder=confFolder)
         self.timeWindow = timeWindow #seconds
-        self.utils      = Utils()
         self.connParameters = connParameters
-        # self.modelAndFile = self.__getModelNumber()
-        # self.unitCol,self.descriptCol,self.tagCol = self._getPLC_ColName()
-        # self.listUnits    = self._get_UnitsdfPLC()
-        self.unitCol,self.descriptCol,self.tagCol = self._getPLC_ColName()
 
     def _getPLC_ColName(self):
         l = self.dfPLC.columns
@@ -336,7 +328,6 @@ class ConfigDashRealTime():
             return res.loc[:,[self.tagCol,self.descriptCol,self.unitCol]]
         elif cols=='tag' : return list(res[self.tagCol])
         elif cols=='all':return res
-
 
 class ConfigDashSpark():
     from pyspark.sql import SparkSession
