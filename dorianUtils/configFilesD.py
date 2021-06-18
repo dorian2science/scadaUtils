@@ -304,7 +304,7 @@ class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
         # .ffill().resample(rs).mean()
         df = eval("df.resample('100ms').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
         conn.close()
-        return df, preSelGraph.Unit
+        return df
 
     def getDescriptionFromTagname(self,tagName):
         return list(self.dfPLC[self.dfPLC[self.tagCol]==tagName][self.descriptCol])[0]

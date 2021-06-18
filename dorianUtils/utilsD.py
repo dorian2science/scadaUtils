@@ -264,6 +264,13 @@ class Utils:
         # dfOut=dfOut.fillna(method='ffill')
         return dfOut
 
+    def dictdict2df(self,dictdictGroups):
+        dfGroups=pd.DataFrame.from_dict(dictdictGroups)
+        dfGroups['tag']=dfGroups.index
+        dfGroups=dfGroups.melt(id_vars='tag')
+        dfGroups=dfGroups.dropna().set_index('tag')
+        dfGroups.columns=['group','subgroup']
+        return dfGroups
     # ==========================================================================
     #                           FITTING FUNCTIONS
     # ==========================================================================
@@ -436,7 +443,6 @@ class Utils:
         fig.update_layout(dictYaxis)
         return fig
 
-
     def getAutoAxesMultiUnit(self,dictGroups,colormap='Dark2_r'):
         dfGroups = pd.DataFrame.from_dict(dictGroups,orient='index',columns=['group'])
         groups=dfGroups.group.unique()
@@ -499,10 +505,10 @@ class Utils:
         borderPts = [a]+self.flattenList([[k-s/2,k+s/2] for k in slicePts[1:-1]])+[b]
         return borderPts
 
-    def getAutoXYAxes(self,n,grid=None,hspace=0.05,**krwargs):
+    def getAutoXYAxes(self,n,grid=None,hspace=0.05,**kwargs):
         from plotly.subplots import make_subplots
         if not grid:grid=self.optimalGrid(n)
-        fig = make_subplots(rows=grid[0], cols=grid[1],**krwargs)
+        fig = make_subplots(rows=grid[0], cols=grid[1],**kwargs)
         if fig.layout['xaxis'].domain[0]==0:
             fig.layout['xaxis'].domain=[0.05,fig.layout['xaxis'].domain[1]]
         if fig.layout['xaxis'].domain[1]==1:
@@ -524,15 +530,7 @@ class Utils:
         # return sides[:N],anchors[:N],positions[:N]
         return sides[:N],positions[:N]
 
-    def dictdict2df(self,dictdictGroups):
-        dfGroups=pd.DataFrame.from_dict(dictdictGroups)
-        dfGroups['tag']=dfGroups.index
-        dfGroups=dfGroups.melt(id_vars='tag')
-        dfGroups=dfGroups.dropna().set_index('tag')
-        dfGroups.columns=['group','subgroup']
-        return dfGroups
-
-    def getLayoutMultiUnitSubPlots(self,dictdictGroups,colormap='Dark2_r',inc=0.02,**krwargs):
+    def getLayoutMultiUnitSubPlots(self,dictdictGroups,colormap='Dark2_r',inc=0.02,**kwargs):
         listSymbols = ['circle','x','square','diamond','octagon','star','hexagon','cross','hourglass','bowtie',
         'triangle-up', 'triangle-down','circle-open','triangle-left', 'triangle-right', 'triangle-ne',
         'pentagon','circle-dot','hexagram','star-triangle-up','star-square','diamond-tall', 'circle-x',
@@ -540,7 +538,7 @@ class Utils:
         ]
         listLines=["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"]
         dfGroups = self.dictdict2df(dictdictGroups)
-        layout=self.getAutoXYAxes(len(dfGroups.group.unique()),**krwargs)
+        layout=self.getAutoXYAxes(len(dfGroups.group.unique()),**kwargs)
 
         dfGroups['xaxis']='x'
         dfGroups['yaxis']='y'
@@ -569,7 +567,7 @@ class Utils:
             # yscales = [ys1] + [ys1 + str(k) for k in range(2,len(subgroups)+1)]
             yaxisNames = [ay1 + str(k) for k in range(1,len(subgroups)+1)]
             yscales = [ys1 + str(k) for k in range(1,len(subgroups)+1)]
-            sides,positions = self.getAutoYAxes_v2(len(subgroups),layout[ax].domain,ay1,inc=0.02)
+            sides,positions = self.getAutoYAxes_v2(len(subgroups),layout[ax].domain,ay1,inc=inc)
             dictXaxis[ax] = dict(
             anchor=ys1+str(1),
             domain=layout[ax].domain,
@@ -600,11 +598,11 @@ class Utils:
         fig = go.Figure()
         fig.update_layout(dictXaxis)
         fig.update_layout(dictYaxis)
-        return fig,dfGroups
         # return dictXaxis,dictYaxis,dfGroups
+        return fig,dfGroups
 
-    def multiUnitGraphSubPlots(self,df,dictdictGroups):
-        fig,dfGroups=self.getLayoutMultiUnitSubPlots(dictdictGroups)
+    def multiUnitGraphSubPlots(self,df,dictdictGroups,axisSpace=0.03):
+        fig,dfGroups=self.getLayoutMultiUnitSubPlots(dictdictGroups,inc=axisSpace)
 
         for trace in df.columns:
             col=dfGroups.loc[trace,'color']
