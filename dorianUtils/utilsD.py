@@ -568,10 +568,8 @@ class Utils:
             yaxisNames = [ay1 + str(k) for k in range(1,len(subgroups)+1)]
             yscales = [ys1 + str(k) for k in range(1,len(subgroups)+1)]
             sides,positions = self.getAutoYAxes_v2(len(subgroups),layout[ax].domain,ay1,inc=inc)
-            dictXaxis[ax] = dict(
-            anchor=ys1+str(1),
-            domain=layout[ax].domain,
-            )
+
+            dictXaxis['xaxis1'] = dict(anchor=ys1+str(1),domain=layout[ax].domain)
             print(colors,sides,positions,subgroups,yscales)
             for sg,c,s,p,ys,ay in zip(subgroups,colors,sides,positions,yscales,yaxisNames):
                 # print(sg,' ------ ',c,' ------ ',ys)
@@ -590,7 +588,7 @@ class Utils:
                     color=c,
                     anchor='free',
                     domain=layout[ay1].domain,
-                    overlaying=ys,
+                    overlaying='y',
                     side=s,
                     position=p,
                 )
@@ -608,8 +606,10 @@ class Utils:
             col=dfGroups.loc[trace,'color']
             fig.add_trace(go.Scatter(
                 x=df.index,y=df[trace],name=trace,
-                xaxis=dfGroups.loc[trace,'xaxis'],
+                # xaxis=dfGroups.loc[trace,'xaxis'],
                 yaxis=dfGroups.loc[trace,'yaxis'],
+                xaxis='x1',
+                # yaxis='y11',
                 mode="lines+markers",
                 marker=dict(color = col,size=15,symbol=dfGroups.loc[trace,'symbol']),
                 line=dict(color = col,dash=dfGroups.loc[trace,'line'])

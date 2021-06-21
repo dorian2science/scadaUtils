@@ -181,7 +181,7 @@ class DccExtended:
                 else :
                     tmax = self.utils.findDateInFilename(wid_val['tmax'])
                     tmin = self.utils.findDateInFilename(wid_val['tmin'])
-                # tmax = t1 +dt.timedelta(days=1)
+                tmax = t1 -dt.timedelta(days=1)
                 t1= tmax
                 t0 = t1 - dt.timedelta(days=2)
 
