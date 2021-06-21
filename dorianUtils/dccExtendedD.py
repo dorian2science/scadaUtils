@@ -10,7 +10,7 @@ class DccExtended:
         self.utils=Utils()
         self.graphStyles = ['lines+markers','stairs','markers','lines']
         self.graphTypes = ['scatter','area','area %']
-        self.stdStyle = {'fontsize':'20 px','height': '40px','min-height': '1px',}
+        self.stdStyle = {'fontsize':'12 px','width':'120px','height': '40px','min-height': '1px',}
 
     ''' dropdown with a list or dictionnary. Dictionnary doesn"t work for the moment '''
     def dropDownFromList(self,idName,listdd,pddPhrase = None,defaultIdx=None,labelsPattern=None,**kwargs):
@@ -138,6 +138,17 @@ class DccExtended:
             if not not d : dictOpts.update(d)
         return dictOpts
 
+    def build_dbcBasicBlock(self,widgets,rows,cols):
+        dbc_rows,k = [],0
+        for r in range(rows):
+            curRow=[]
+            for c in range(cols) :
+                # print(k,'******',widgets[k])
+                curRow.append(dbc.Col(widgets[k]))
+                k+=1
+            dbc_rows.append(curRow)
+        return html.Div([dbc.Row(r) for r in dbc_rows])
+
     def basicComponents(self,dicWidgets,baseId):
         widgetLayout,dicLayouts = [],{}
         for wid_key,wid_val in dicWidgets.items():
@@ -163,13 +174,32 @@ class DccExtended:
             elif 'btn_update' in wid_key:
                 widgetObj = [html.Button('update',id=baseId+wid_key, n_clicks=wid_val)]
 
+            elif 'check_button' in wid_key:
+                widgetObj = [dcc.Checklist(id=baseId+wid_key,options=[{'label': wid_val, 'value': wid_val}])]
+
             elif 'in_timeRes' in wid_key:
                 widgetObj = [html.P('time resolution : '),
                 dcc.Input(id=baseId+wid_key,placeholder='time resolution : ',type='text',value=wid_val)]
 
             elif 'in_heightGraph' in wid_key:
                 widgetObj = [html.P('heigth of graph: '),
-                            dcc.Input(id=baseId+wid_key,placeholder='change heigth graph : ',type='number',value=wid_val)]
+                dcc.Input(id=baseId+wid_key,type='number',value=wid_val,max=3000,min=400,step=5,style=self.stdStyle)]
+                widgetObj = [self.build_dbcBasicBlock(widgetObj,2,1)]
+
+            elif 'in_axisSp' in wid_key :
+                widgetObj = [html.P('space between axis: '),
+                dcc.Input(id=baseId+wid_key,type='number',value=wid_val,max=1,min=0,step=0.01,style=self.stdStyle)]
+                widgetObj = [self.build_dbcBasicBlock(widgetObj,2,1)]
+
+            elif 'in_hspace' in wid_key :
+                widgetObj = [html.P('horizontal space: '),
+                dcc.Input(id=baseId+wid_key,type='number',value=wid_val,max=1,min=0,step=0.01,style=self.stdStyle)]
+                widgetObj = [self.build_dbcBasicBlock(widgetObj,2,1)]
+
+            elif 'in_vspace' in wid_key :
+                widgetObj = [html.P('vertical space: '),
+                dcc.Input(id=baseId+wid_key,type='number',value=wid_val,max=1,min=0,step=0.01,style=self.stdStyle)]
+                widgetObj = [self.build_dbcBasicBlock(widgetObj,2,1)]
 
             elif 'interval' in wid_key:
                 widgetObj = [dcc.Interval(id=baseId + wid_key,interval=wid_val*1000,n_intervals=0)]
@@ -183,13 +213,6 @@ class DccExtended:
                     tmin = self.utils.findDateInFilename(wid_val['tmin'])
                 t1= tmax
                 t0 = t1 - dt.timedelta(days=2)
-
-                dcc.DatePickerRange( id = baseId + wid_key + 'Pdr',
-                            min_date_allowed=tmin.date(),max_date_allowed = t1.date(),
-                            initial_visible_month = t0.date(),
-                            display_format = 'MMM D, YY',minimum_nights=0,
-                            start_date = t0.date(), end_date   = t1.date())
-
                 widgetObj = [
                 html.Div([
                     dbc.Row([dbc.Col(html.P('select start and end time : ')),
@@ -203,6 +226,17 @@ class DccExtended:
                     dbc.Row([dbc.Col(dcc.Input(id = baseId + wid_key + 'Start',type='text',value = '07:00',size='13',style={'font-size' : 13})),
                             dbc.Col(dcc.Input(id = baseId + wid_key + 'End',type='text',value = '21:00',size='13',style={'font-size' : 13}))])
                 ])]
+
+            elif 'block_multiAxisSettings' in wid_key:
+                blockSettings = self.basicComponents({
+                                            'in_heightGraph':900,
+                                            'in_axisSp':0.02,
+                                            'in_hspace':0.05,
+                                            'in_vspace':0.05,
+                                            },baseId)
+                widgetObj = [self.build_dbcBasicBlock(blockSettings,2,2)]
+
+
             else :
                 print('component ',wid_key,' is not available')
                 return
@@ -210,7 +244,7 @@ class DccExtended:
             for widObj in widgetObj:widgetLayout.append(widObj)
         return widgetLayout
 
-    def buildGraphLayout(self,widgetLayout,baseId,widthG=80):
+    def buildGraphLayout(self,widgetLayout,baseId,widthG=85):
         graphLayout=[html.Div([dcc.Graph(id=baseId+'graph',style={"width": str(widthG)+"%", "display": "inline-block"})])]
         return [html.Div(widgetLayout,style={"width": str(100-widthG) + "%", "float": "left"})]+graphLayout
 

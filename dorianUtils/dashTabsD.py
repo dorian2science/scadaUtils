@@ -20,9 +20,8 @@ class TabMaster():
         self.dccE = DccExtended()
 
 class TabDataTags(TabMaster):
-    def __init__(self,folderPkl,confFolder,app,baseId):
+    def __init__(self,folderPkl,cfg,app,baseId):
         super().__init__(app,baseId)
-        self.cfg = cfd.ConfigDashTagUnitTimestamp(folderPkl,confFolder)
         self.tabLayout = self._buildLayout()
         self.tabname = 'select tags'
         self._define_callbacks()
@@ -34,10 +33,10 @@ class TabDataTags(TabMaster):
                 widgetObj = self.dccE.dropDownFromList(baseId+wid_key,self.cfg.listFilesPkl,
                     'Select your File : ',labelsPattern='\d{4}-\d{2}-\d{2}-\d{2}',defaultIdx=wid_val)
 
+
             elif 'dd_tag' in wid_key:
                 widgetObj = self.dccE.dropDownFromList(baseId+wid_key,self.cfg.getTagsTU(''),
-                    'Select the tags : ',value=wid_val,multi=True,
-                    style=self.dccE.stdStyle,optionHeight=20)
+                    'Select the tags : ',value=wid_val,multi=True,optionHeight=20)
 
             elif 'dd_Units' in wid_key :
                 widgetObj = self.dccE.dropDownFromList(baseId+wid_key,self.cfg.listUnits,'Select units graph : ',value=wid_val)
@@ -105,8 +104,8 @@ class TabDataTags(TabMaster):
             if typeGraph == 'area %' :return px.area(df,groupnorm='percent')
 
 class TabUnitSelector(TabDataTags):
-    def __init__(self,folderPkl,confFile,app,baseId='tu0_'):
-        TabDataTags.__init__(self,folderPkl,confFile,app,baseId)
+    def __init__(self,folderPkl,cfg,app,baseId='tu0_'):
+        TabDataTags.__init__(self,folderPkl,cfg,app,baseId)
         self.tabname = 'select units'
 
     def _buildLayout(self,widthG=80):
@@ -254,8 +253,8 @@ class TabSelectedTags(TabDataTags):
             return 'export Data'
 
 class TabMultiUnits(TabDataTags):
-    def __init__(self,folderPkl,confFolder,app,baseId='tmu0_'):
-        super().__init__(folderPkl,confFolder,app,baseId)
+    def __init__(self,folderPkl,cfg,app,baseId='tmu0_'):
+        super().__init__(folderPkl,cfg,app,baseId)
         self.tabname = 'multi Units'
 
     def _buildLayout(self,widthG=80):
@@ -264,7 +263,7 @@ class TabMultiUnits(TabDataTags):
                         'dd_style':'lines+markers','dd_typeGraph':'scatter',
                         'dd_cmap':'jet','btn_export':0}
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
-        specialWidgets = self.addWidgets({'dd_tag':'SEH1.STB_STK_01.JT_01.HE10','btn_legend':0,'in_axisSp':0.05},self.baseId)
+        specialWidgets = self.addWidgets({'dd_tag':None,'btn_legend':0,'in_axisSp':0.05},self.baseId)
         # reodrer widgets
         widgetLayout = basicWidgets + specialWidgets
         return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
@@ -301,14 +300,11 @@ class TabMultiUnits(TabDataTags):
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
             # to ensure that action on graphs only without computation do not
             # trigger computing the dataframe again
-            if not timeBtn or trigId in [self.baseId+k for k in ['dd_tag','pdr_timeBtn','dd_resampleMethod','in_axisSp']] :
-                if not timeBtn : timeBtn=1 # to initialize the first graph
+            triggerList=['dd_tag','pdr_timeBtn','dd_resampleMethod','in_axisSp']
+            if not timeBtn or trigId in [self.baseId+k for k in triggerList] :
                 timeRange = [date0+' '+t0,date1+' '+t1]
-                df      = self.cfg.DF_loadTimeRangeTags(timeRange,tags,rs=rs,applyMethod=rsMethod)
-                names   = self.cfg.getUnitsOfpivotedDF(df,True)
-                fig     = self.utils.multiYAxis(df,mapName=cmapName,inc=axSP,names=names)
+                fig  = self.cfg.plotMultiUnitGraph(timeRange,listTags=tags,rs=rs,applyMethod=rsMethod)
             else :fig = go.Figure(fig)
-            fig = self.utils.updateStyleGraph(fig,style,cmapName)
             fig = self.updateLegend(fig,lgd)
             return fig,timeBtn
 

@@ -67,7 +67,7 @@ class ConfigMaster:
 class ConfigDashTagUnitTimestamp(ConfigMaster):
     def __init__(self,folderPkl,confFolder,folderFig=None,folderExport=None,encode='utf-8'):
         ConfigMaster.__init__(self,folderPkl,folderFig=folderFig,folderExport=folderExport)
-        self.confFolder     = confFolder
+        self.confFolder   = confFolder
         self.confFile     = glob.glob(self.confFolder + '*PLC*')[0]
         self.modelAndFile = self.__getModelNumber()
         self.listFilesPkl = self._get_ValidFiles()
