@@ -588,7 +588,7 @@ class Utils:
                     color=c,
                     anchor='free',
                     domain=layout[ay1].domain,
-                    overlaying='y',
+                    overlaying=ys,
                     side=s,
                     position=p,
                 )
@@ -602,14 +602,14 @@ class Utils:
     def multiUnitGraphSubPlots(self,df,dictdictGroups,axisSpace=0.03):
         fig,dfGroups=self.getLayoutMultiUnitSubPlots(dictdictGroups,inc=axisSpace)
 
-        for trace in df.columns:
+        for trace in df.columns[:5]:
             col=dfGroups.loc[trace,'color']
             fig.add_trace(go.Scatter(
                 x=df.index,y=df[trace],name=trace,
-                # xaxis=dfGroups.loc[trace,'xaxis'],
-                yaxis=dfGroups.loc[trace,'yaxis'],
-                xaxis='x1',
-                # yaxis='y11',
+                xaxis=dfGroups.loc[trace,'xaxis'],
+                # yaxis=dfGroups.loc[trace,'yaxis'],
+                # xaxis='x1',
+                yaxis='y11',
                 mode="lines+markers",
                 marker=dict(color = col,size=15,symbol=dfGroups.loc[trace,'symbol']),
                 line=dict(color = col,dash=dfGroups.loc[trace,'line'])

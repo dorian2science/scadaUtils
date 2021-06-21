@@ -179,14 +179,13 @@ class DccExtended:
                     wid_val['tmax']=dt.datetime.now()
                     wid_val['tmin']=wid_val['tmax']-dt.timedelta(days=2*30)
                 else :
-                    tmax = self.utils.findDateInFilename(wid_val['tmax'])
+                    tmax = self.utils.findDateInFilename(wid_val['tmax'])-dt.timedelta(days=1)
                     tmin = self.utils.findDateInFilename(wid_val['tmin'])
-                tmax = t1 -dt.timedelta(days=1)
                 t1= tmax
                 t0 = t1 - dt.timedelta(days=2)
 
                 dcc.DatePickerRange( id = baseId + wid_key + 'Pdr',
-                            min_date_allowed=tmin.date(),max_date_allowed = tmax.date(),
+                            min_date_allowed=tmin.date(),max_date_allowed = t1.date(),
                             initial_visible_month = t0.date(),
                             display_format = 'MMM D, YY',minimum_nights=0,
                             start_date = t0.date(), end_date   = t1.date())
