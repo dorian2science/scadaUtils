@@ -203,7 +203,6 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         if raw:df  = pd.concat(dfs,axis=0)
         else :
             df = pd.concat(dfs,axis=1)
-            tmp = list(df.columns);tmp.sort();df=df[tmp]
         return df
 
     def DF_loadTimeRangeTags(self,timeRange,listTags,rs='auto',applyMethod='mean',
@@ -224,9 +223,8 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
             if not rs=='raw':
                 df = self._DF_cutTimeRange(df,timeRange,timezone)
                 df = eval("df.resample('100ms').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
-                # rsOffset = str(max(1,int(float(re.findall('\d+',rs)[0])/2)))
-                # period=re.findall('[a-zA-z]+',rs)[0]
-                # df.index=df.index+to_offset(rsOffset +period)
+                df = df.loc[:,~df.columns.duplicated()]
+                df = df.reindex(sorted(df.columns),axis=1)
             if rs=='raw' :
                 df['timestamp']=df.index
                 df = df.sort_values(by=['tag','timestamp'])
@@ -278,7 +276,9 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
 class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
     def __init__(self,confFolder,connParameters,timeWindow=2*60*60):
         import glob
+        from dorianUtils.utilsD import DataBase
         super().__init__(folderPkl=None,confFolder=confFolder)
+        self.dataBaseUtils=DataBase()
         self.timeWindow = timeWindow #seconds
         self.connParameters = connParameters
 
@@ -291,12 +291,12 @@ class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
         return [list(v[k][0])[0] for k in [unitCol,descriptName,tagName]]
 
     def connectToDB(self):
-        return self.utils.connectToPSQLsDataBase(self.connParameters)
+        return self.dataBaseUtils.connectToPSQLsDataBase(self.connParameters)
 
     def realtimeDF(self,preSelGraph,rs='1s',applyMethod='mean'):
         preSelGraph = self.usefulTags.loc[preSelGraph]
         conn = self.connectToDB()
-        df   = self.utils.readSQLdataBase(conn,preSelGraph.Pattern,secs=self.timeWindow)
+        df   = self.dataBaseUtils.readSQLdataBase(conn,preSelGraph.Pattern,secs=self.timeWindow)
         df['value'] = pd.to_numeric(df['value'],errors='coerce')
         df = df.sort_values(by=['timestampz','tag'])
         df['timestampz'] = df.timestampz.dt.tz_convert('Europe/Paris')
@@ -308,278 +308,222 @@ class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
         conn.close()
         return df
 
-    def getDescriptionFromTagname(self,tagName):
-        return list(self.dfPLC[self.dfPLC[self.tagCol]==tagName][self.descriptCol])[0]
+class ConfigDashSpark(ConfigDashTagUnitTimestamp):
+    try :
+        from pyspark.sql import SparkSession
+        from dorianUtils.sparkUtils.sparkDfUtils import SparkDfUtils
+        import findspark
 
-    def getTagnamefromDescription(self,desName):
-        return list(self.dfPLC[self.dfPLC[self.descriptCol]==desName][self.tagCol])[0]
+        def __init__(self,sparkData,sparkConfFile,confFolder,**kwargs):
+            ConfigDashTagUnitTimestamp.__init(self,folderPkl=None,confFolder=confFolder,**kwargs)
 
-    def getTagsTU(self,patTag,units=None,onCol='tag',case=False,cols='tag',ds=True):
-        if not units : units = self.listUnits
-        if ds and 'DATASCIENTISM' in self.dfPLC.columns: res=self.dfPLC[self.dfPLC.DATASCIENTISM==True]
-        else: res = self.dfPLC.copy()
+            self.cfgSys     = self._getSysConf(sparkConfFile)
+            self.spark      = self.__createSparkSession()
+            self.sparkConf  = self.spark.sparkContext.getConf().getAll()
 
-        if 'tag' in onCol.lower():whichCol = self.tagCol
-        elif 'des' in onCol.lower():whichCol = self.descriptCol
+            self.sparkData  = sparkData
 
-        filter1 = res[whichCol].str.contains(patTag,case=case)
-        if isinstance(units,str):units = [units]
-        filter2 = res[self.unitCol].isin(units)
-        res = res[filter1&filter2]
-        if cols=='tdu' :
-            return res.loc[:,[self.tagCol,self.descriptCol,self.unitCol]]
-        elif cols=='tag' : return list(res[self.tagCol])
-        elif cols=='all':return res
+            self.sdu   = SparkDfUtils(self.spark)
+        # ======================================================================
+        #                         private functions
+        # ======================================================================
+        def _getSysConf(self,scriptFile):
+            def toString(b):
+                s = str(b).strip()
+                if (s.startswith("b'")): s = s[2:].strip()
+                if (s.endswith("'")): s = s[:-1].strip()
+                return s
+            import subprocess
+            conf = None
+            process = subprocess.Popen(scriptFile.split(),
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE,
+                                    shell=True,
+                                    executable="/bin/bash")
+            stdout, stderr = process.communicate()
+            stderr = toString(stderr)
+            if (len(stderr) < 3):
+                conf = {}
+                stdout = toString(stdout)
+                stdout = stdout.replace("\\n", '\n')
+                stdout = stdout.split('\n')
+                for kv in stdout:
+                    kv = kv.split('=', 1)
+                    if (len(kv)==2 and not ' ' in kv[0] and kv[0] != '_'):
+                        kv[0] = kv[0].strip()
+                        conf.update({kv[0]: kv[1]})
+            return conf
 
-class ConfigDashSpark():
-    from pyspark.sql import SparkSession
-    from dorianUtils.sparkUtils.sparkDfUtils import SparkDfUtils
-    import findspark
+        def _getSparkParams(self):
+            def clean(line, sep, index):
+                value = line.split(sep, 1)[index]
+                value = value.strip()
+                if (value.startswith('"') or value.startswith("'")): value = value[1:]
+                if (value.endswith('"') or value.endswith("'")): value = value[:-1]
+                return value
+            sparkCmd = self.cfgSys.get("SPARK_CMD")
+            if (sparkCmd == None):
+                print("")
+                print("ERROR: 'SPARK_CMD' environment variable is missing !")
+                print("")
+                sys.exit(0)
+            lines = sparkCmd.split("--")
+            params = []
+            for line in lines:
+                line = line.strip()
+                # name
+                if (line.startswith("name ")):
+                    params.append({ "type": "name", "key": "name", "value": clean(line, ' ', 1) })
+                # master
+                elif (line.startswith("master ")):
+                    params.append({ "type": "master", "key": "master", "value": clean(line, ' ', 1) })
+                # deploy-mode
+                elif (line.startswith("deploy-mode ")):
+                    params.append({ "type": "conf", "key": "spark.submit.deployMode", "value": clean(line, ' ', 1) })
+                # conf
+                elif (line.startswith("conf ")):
+                    kvpair = line.split(' ', 1)[1]
+                    params.append({ "type": "conf", "key": clean(kvpair, '=', 0), "value": clean(kvpair, '=', 1) })
+                # packages
+                elif (line.startswith("packages ")):
+                    libs = [lib.strip() for lib in line[8:].split(',')]
+                    libs = ','.join(libs)
+                    params.append({ "type": "packages", "key": "spark.jars.packages", "value": libs })
+                # jars
+                elif (line.startswith("jars ")):
+                    libs = [lib.strip() for lib in line[4:].split(',')]
+                    libs = ','.join(libs)
+                    params.append({ "type": "jars", "key": "spark.jars", "value": libs })
+                # driver-class-path
+                elif (line.startswith("driver-class-path ")):
+                    libs = [lib.strip() for lib in line[17:].split(',')]
+                    libs = ','.join(libs)
+                    params.append({ "type": "driver-class-path", "key": "spark.driver.extraClassPath", "value": libs })
+            return params
 
-    def __init__(self,sparkData,sparkConfFile,confFile,folderFig=None,folderExport=None,encode='utf-8'):
-        if not folderFig : folderFig = os.getenv('HOME') + '/Images/'
-        if not folderExport : folderExport = os.getenv('HOME') + '/Documents/'
+        def __createSparkSession(self):
+            params = self._getSparkParams()
+            # Get the builder
+            builder = SparkSession.builder
+            # Set name
+            for param in params:
+                if (param.get("type")=="name"):
+                    builder = builder.appName(param.get("value"))
+                    break
+            # Set master
+            for param in params:
+                if (param.get("type")=="master"):
+                    builder = builder.master(param.get("value"))
+                    break
+            # Set conf params - Include "spark.submit.deployMode" (--deploy-mode) and "spark.jars.packages" (--packages)
+            for param in params:
+                if (param.get("type")=="conf"):
+                    builder = builder.config(param.get("key"), param.get("value"))
+            # Set packages
+            for param in params:
+                if (param.get("type")=="packages"):
+                    builder = builder.config(param.get("key"), param.get("value"))
+            # Set jars libs
+            for param in params:
+                if (param.get("type")=="jars"):
+                    builder = builder.config(param.get("key"), param.get("value"))
+            # Set driver-class-path libs
+            for param in params:
+                if (param.get("type")=="driver-class-path"):
+                    builder = builder.config(param.get("key"), param.get("value"))
+            # Enable HIVE support
+            ehs = self.cfgSys.get("ENABLE_HIVE_SUPPORT")
+            if (ehs != None):
+                ehs = ehs.strip().lower()
+                if (ehs == "true"):
+                    builder = builder.enableHiveSupport()
+                    print(" - Spark HIVE support enabled")
+            # Create the Spark session
+            spark = builder.getOrCreate()
+            spark.conf.set("spark.sql.execution.arrow.pyspark.enabled", "true")
+            return spark
+        # ======================================================================
+        #                         function on dataframe
+        # ======================================================================
 
-        self.folderExport   = folderExport
-        self.folderFig      = folderFig
-        self.filePLC        = confFile
-        self.dfPLC          = pd.read_csv(self.filePLC)
-        self.unitCol,self.descriptCol,self.tagCol = self._getPLC_ColName()
-        self.listUnits      = self._get_UnitsdfPLC()
+        def getPartitions(self,timeRange):
+            from dateutil import parser
 
-        self.cfgSys     = self._getSysConf(sparkConfFile)
-        self.spark      = self.__createSparkSession()
-        self.sparkConf  = self.spark.sparkContext.getConf().getAll()
+            def createSinglePartition(curDay,hours):
+                vars = ['year','month','day']
+                # partoch=[l.upper() + "=" + str(eval('curDay.'+ l)) for l in vars] # doesn't work !!
+                partoch = []
+                for k in vars:partoch.append(k.upper() + "=" + str(eval('curDay.'+k)))
+                tmp = '{' + ','.join([str(k) for k in range(hours[0],hours[1])]) + '}'
+                partoch.append('HOUR=' + tmp)
+                partoch = '/'.join(partoch)
+                return partoch
 
-        self.sparkData  = sparkData
+            t0,t1     = [parser.parse(k) for k in timeRange]
+            lastDay=(t1-t0).days
+            if lastDay==0:
+                curDay=t0
+                partitions = [createSinglePartition(t0,[t0.hour,t1.hour])]
+            else :
+                curDay=t0
+                partitions = [createSinglePartition(t0,[t0.hour,24])]
+                for k in range(1,lastDay):
+                    curDay=t0+dt.timedelta(days=k)
+                    curDay=curDay-dt.timedelta(hours=curDay.hour,minutes=curDay.minute)
+                    partitions.append(createSinglePartition(curDay,[0,24]))
+                curDay=t1
+                partitions.append(createSinglePartition(t1,[0,t1.hour]))
+            return partitions
 
-        self.sdu   = SparkDfUtils(self.spark)
-        self.utils = Utils()
-    # ==========================================================================
-    #                         private functions
-    # ==========================================================================
+        def getPartitions_v0(self,timeRange):
+            t0,t1 = [parser.parse(k) for k in timeRange]
+            yearRange = str(t0.year)
+            monthRange="{" + str(t0.month) + "," + str(t1.month) + "}"
+            dayRange="{" + str(t0.day) + "," + str(t1.day) + "}"
+            hourRange="[" + str(t0.hour) + "," + str(t1.hour) + "]"
+            # hourRange="{" + str(t0.hour) + "," + str(t1.hour) + "}"
+            partitions = {
+                        "YEAR" : yearRange,
+                        "MONTH" : monthRange,
+                        "DAY" : dayRange,
+                        "HOUR" : hourRange,
+            }
+            partitions = [k + "=" + v for k,v in partitions.items()]
+            return '/'.join(partitions)
 
-    def _getPLC_ColName(self):
-        l = self.dfPLC.columns
-        v = l.to_frame()
-        unitCol = ['unit' in k.lower() for k in l]
-        descriptName = ['descript' in k.lower() for k in l]
-        tagName = ['tag' in k.lower() for k in l]
-        return [list(v[k][0])[0] for k in [unitCol,descriptName,tagName]]
+        def loadSparkTimeDF(self,timeRange,typeData="EncodedData"):
+            ''' typeData = {
+            encoded data : "EncodedData"
+            aggregated data : "AggregatedData`"
+            populated data :"PopulatedData"
+            }
+            '''
+            df = self.sdu.loadParquet(inputDir=self.sparkData+typeData+"/",partitions=self.getPartitions(timeRange))
+            df = self.sdu.organizeColumns(df, columns=["YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND"], atStart=True)
+            timeSQL = "TIMESTAMP_UTC" + " BETWEEN '" + timeRange[0] +"' AND '" + timeRange[1] +"'"
+            return df.where(timeSQL)
 
-    def _get_UnitsdfPLC(self):
-        listUnits = self.dfPLC[self.unitCol]
-        return listUnits[~listUnits.isna()].unique().tolist()
+        def getSparkTU(self,df,listTags):
+            dfs=[]
+            if not isinstance(listTags,list):listTags=[listTags]
+            for tag in listTags:
+                print(tag)
+                df2 = df.where("TAG == "+ "'" + tag + "'")
+                df3 = df2.select('TAG','VALUE','TIMESTAMP_UTC')
+                dfs.append(df3.toPandas())
+            pdf = pd.concat(dfs).sort_values(by=['TIMESTAMP_UTC','TAG'])
+            return pdf
 
-    def _getSysConf(self,scriptFile):
-        def toString(b):
-            s = str(b).strip()
-            if (s.startswith("b'")): s = s[2:].strip()
-            if (s.endswith("'")): s = s[:-1].strip()
-            return s
-        import subprocess
-        conf = None
-        process = subprocess.Popen(scriptFile.split(),
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                shell=True,
-                                executable="/bin/bash")
-        stdout, stderr = process.communicate()
-        stderr = toString(stderr)
-        if (len(stderr) < 3):
-            conf = {}
-            stdout = toString(stdout)
-            stdout = stdout.replace("\\n", '\n')
-            stdout = stdout.split('\n')
-            for kv in stdout:
-                kv = kv.split('=', 1)
-                if (len(kv)==2 and not ' ' in kv[0] and kv[0] != '_'):
-                    kv[0] = kv[0].strip()
-                    conf.update({kv[0]: kv[1]})
-        return conf
+        def getSparkTU_v2(self,df,listTags):
+            dfs=self.sdu.createDataFrame(schema=[["TAG","string"],["VALUE","double"],["TIMESTAMP_UTC","timestamp"]])
 
-    def _getSparkParams(self):
-        def clean(line, sep, index):
-            value = line.split(sep, 1)[index]
-            value = value.strip()
-            if (value.startswith('"') or value.startswith("'")): value = value[1:]
-            if (value.endswith('"') or value.endswith("'")): value = value[:-1]
-            return value
-        sparkCmd = self.cfgSys.get("SPARK_CMD")
-        if (sparkCmd == None):
-            print("")
-            print("ERROR: 'SPARK_CMD' environment variable is missing !")
-            print("")
-            sys.exit(0)
-        lines = sparkCmd.split("--")
-        params = []
-        for line in lines:
-            line = line.strip()
-            # name
-            if (line.startswith("name ")):
-                params.append({ "type": "name", "key": "name", "value": clean(line, ' ', 1) })
-            # master
-            elif (line.startswith("master ")):
-                params.append({ "type": "master", "key": "master", "value": clean(line, ' ', 1) })
-            # deploy-mode
-            elif (line.startswith("deploy-mode ")):
-                params.append({ "type": "conf", "key": "spark.submit.deployMode", "value": clean(line, ' ', 1) })
-            # conf
-            elif (line.startswith("conf ")):
-                kvpair = line.split(' ', 1)[1]
-                params.append({ "type": "conf", "key": clean(kvpair, '=', 0), "value": clean(kvpair, '=', 1) })
-            # packages
-            elif (line.startswith("packages ")):
-                libs = [lib.strip() for lib in line[8:].split(',')]
-                libs = ','.join(libs)
-                params.append({ "type": "packages", "key": "spark.jars.packages", "value": libs })
-            # jars
-            elif (line.startswith("jars ")):
-                libs = [lib.strip() for lib in line[4:].split(',')]
-                libs = ','.join(libs)
-                params.append({ "type": "jars", "key": "spark.jars", "value": libs })
-            # driver-class-path
-            elif (line.startswith("driver-class-path ")):
-                libs = [lib.strip() for lib in line[17:].split(',')]
-                libs = ','.join(libs)
-                params.append({ "type": "driver-class-path", "key": "spark.driver.extraClassPath", "value": libs })
-        return params
-
-    def __createSparkSession(self):
-        params = self._getSparkParams()
-        # Get the builder
-        builder = SparkSession.builder
-        # Set name
-        for param in params:
-            if (param.get("type")=="name"):
-                builder = builder.appName(param.get("value"))
-                break
-        # Set master
-        for param in params:
-            if (param.get("type")=="master"):
-                builder = builder.master(param.get("value"))
-                break
-        # Set conf params - Include "spark.submit.deployMode" (--deploy-mode) and "spark.jars.packages" (--packages)
-        for param in params:
-            if (param.get("type")=="conf"):
-                builder = builder.config(param.get("key"), param.get("value"))
-        # Set packages
-        for param in params:
-            if (param.get("type")=="packages"):
-                builder = builder.config(param.get("key"), param.get("value"))
-        # Set jars libs
-        for param in params:
-            if (param.get("type")=="jars"):
-                builder = builder.config(param.get("key"), param.get("value"))
-        # Set driver-class-path libs
-        for param in params:
-            if (param.get("type")=="driver-class-path"):
-                builder = builder.config(param.get("key"), param.get("value"))
-        # Enable HIVE support
-        ehs = self.cfgSys.get("ENABLE_HIVE_SUPPORT")
-        if (ehs != None):
-            ehs = ehs.strip().lower()
-            if (ehs == "true"):
-                builder = builder.enableHiveSupport()
-                print(" - Spark HIVE support enabled")
-        # Create the Spark session
-        spark = builder.getOrCreate()
-        spark.conf.set("spark.sql.execution.arrow.pyspark.enabled", "true")
-        return spark
-
-    # ==========================================================================
-    #                         functions on dataframe
-    # ==========================================================================
-    def getTagsTU(self,patTag,units=None,onCol='tag',case=False,cols='tag'):
-        if not units : units = self.listUnits
-        res = self.dfPLC.copy()
-        if 'tag' in onCol.lower():whichCol = self.tagCol
-        elif 'des' in onCol.lower():whichCol = self.descriptCol
-        filter1 = res[whichCol].str.contains(patTag,case=case)
-        if isinstance(units,str):units = [units]
-        filter2 = res[self.unitCol].isin(units)
-        res = res[filter1&filter2]
-        if cols=='tdu' :
-            return res.loc[:,[self.tagCol,self.descriptCol,self.unitCol]]
-        elif cols=='tag' : return list(res[self.tagCol])
-        elif cols=='print':return self.utils.printDFSpecial(res)
-
-    def getPartitions(self,timeRange):
-        from dateutil import parser
-
-        def createSinglePartition(curDay,hours):
-            vars = ['year','month','day']
-            # partoch=[l.upper() + "=" + str(eval('curDay.'+ l)) for l in vars] # doesn't work !!
-            partoch = []
-            for k in vars:partoch.append(k.upper() + "=" + str(eval('curDay.'+k)))
-            tmp = '{' + ','.join([str(k) for k in range(hours[0],hours[1])]) + '}'
-            partoch.append('HOUR=' + tmp)
-            partoch = '/'.join(partoch)
-            return partoch
-
-        t0,t1     = [parser.parse(k) for k in timeRange]
-        lastDay=(t1-t0).days
-        if lastDay==0:
-            curDay=t0
-            partitions = [createSinglePartition(t0,[t0.hour,t1.hour])]
-        else :
-            curDay=t0
-            partitions = [createSinglePartition(t0,[t0.hour,24])]
-            for k in range(1,lastDay):
-                curDay=t0+dt.timedelta(days=k)
-                curDay=curDay-dt.timedelta(hours=curDay.hour,minutes=curDay.minute)
-                partitions.append(createSinglePartition(curDay,[0,24]))
-            curDay=t1
-            partitions.append(createSinglePartition(t1,[0,t1.hour]))
-        return partitions
-
-    def getPartitions_v0(self,timeRange):
-        t0,t1 = [parser.parse(k) for k in timeRange]
-        yearRange = str(t0.year)
-        monthRange="{" + str(t0.month) + "," + str(t1.month) + "}"
-        dayRange="{" + str(t0.day) + "," + str(t1.day) + "}"
-        hourRange="[" + str(t0.hour) + "," + str(t1.hour) + "]"
-        # hourRange="{" + str(t0.hour) + "," + str(t1.hour) + "}"
-        partitions = {
-                    "YEAR" : yearRange,
-                    "MONTH" : monthRange,
-                    "DAY" : dayRange,
-                    "HOUR" : hourRange,
-        }
-        partitions = [k + "=" + v for k,v in partitions.items()]
-        return '/'.join(partitions)
-
-    def loadSparkTimeDF(self,timeRange,typeData="EncodedData"):
-        ''' typeData = {
-        encoded data : "EncodedData"
-        aggregated data : "AggregatedData`"
-        populated data :"PopulatedData"
-        }
-        '''
-        df = self.sdu.loadParquet(inputDir=self.sparkData+typeData+"/",partitions=self.getPartitions(timeRange))
-        df = self.sdu.organizeColumns(df, columns=["YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND"], atStart=True)
-        timeSQL = "TIMESTAMP_UTC" + " BETWEEN '" + timeRange[0] +"' AND '" + timeRange[1] +"'"
-        return df.where(timeSQL)
-
-    def getSparkTU(self,df,listTags):
-        dfs=[]
-        if not isinstance(listTags,list):listTags=[listTags]
-        for tag in listTags:
-            print(tag)
-            df2 = df.where("TAG == "+ "'" + tag + "'")
-            df3 = df2.select('TAG','VALUE','TIMESTAMP_UTC')
-            dfs.append(df3.toPandas())
-        pdf = pd.concat(dfs).sort_values(by=['TIMESTAMP_UTC','TAG'])
-        return pdf
-
-    def getSparkTU_v2(self,df,listTags):
-        dfs=self.sdu.createDataFrame(schema=[["TAG","string"],["VALUE","double"],["TIMESTAMP_UTC","timestamp"]])
-
-        if not isinstance(listTags,list):listTags=[listTags]
-        for tag in listTags:
-            print(tag)
-            df2 = df.where("TAG == "+ "'" + tag + "'").select('TAG','VALUE','TIMESTAMP_UTC')
-            dfs=dfs.unionByName(df2)
-        pdf = dfs.toPandas().sort_values(by=['TIMESTAMP_UTC','TAG'])
-        return pdf
-        # return dfs
+            if not isinstance(listTags,list):listTags=[listTags]
+            for tag in listTags:
+                print(tag)
+                df2 = df.where("TAG == "+ "'" + tag + "'").select('TAG','VALUE','TIMESTAMP_UTC')
+                dfs=dfs.unionByName(df2)
+            pdf = dfs.toPandas().sort_values(by=['TIMESTAMP_UTC','TAG'])
+            return pdf
+            # return dfs
+    except:
+        print('not possible to load : module pyspark ')

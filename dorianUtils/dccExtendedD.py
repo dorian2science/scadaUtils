@@ -206,8 +206,9 @@ class DccExtended:
 
             elif 'pdr_time' in wid_key :
                 if not wid_val :
-                    wid_val['tmax']=dt.datetime.now()
-                    wid_val['tmin']=wid_val['tmax']-dt.timedelta(days=2*30)
+                    wid_val={}
+                    tmax=dt.datetime.now()
+                    tmin=tmax-dt.timedelta(days=2*30)
                 else :
                     tmax = self.utils.findDateInFilename(wid_val['tmax'])-dt.timedelta(days=1)
                     tmin = self.utils.findDateInFilename(wid_val['tmin'])
@@ -216,7 +217,7 @@ class DccExtended:
                 widgetObj = [
                 html.Div([
                     dbc.Row([dbc.Col(html.P('select start and end time : ')),
-                        dbc.Col(html.Button(id  = baseId + wid_key + 'Btn',children='update Time'))]),
+                        dbc.Col(html.Button(id  = baseId + wid_key + 'Btn',children='update'))]),
 
                     dbc.Row([dbc.Col(dcc.DatePickerRange( id = baseId + wid_key + 'Pdr',
                                 max_date_allowed = tmax, initial_visible_month = t0.date(),

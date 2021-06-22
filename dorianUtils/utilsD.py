@@ -9,10 +9,7 @@ import matplotlib.colors as mtpcl
 import matplotlib.pyplot as plt
 import scipy
 from scipy.optimize import curve_fit
-try :
-    import psycopg3 as psycopg
-except:
-    import psycopg2 as psycopg
+
 
 class Utils:
     def __init__(self):
@@ -28,6 +25,11 @@ class Utils:
 
     def printCTime(self,start,entete='time laps' ):
         print(entete + ' : {:.2f} seconds'.format(time.time()-start))
+
+    def printListArgs(self,*args):
+        for a in args :
+            print(' ------- ')
+            print(a)
 
     # ==========================================================================
     #                           SYSTEM
@@ -403,47 +405,13 @@ class Utils:
                                 } for k in listSeconds}
         return dictTimeMarks,maxSecs
 
-    def getAutoAxes(self,N,inc=0.05):
-        allSides =['left','right']*6
-        allAnch = ['free']*12
+    def getAutoYAxes(self,N,xrange,inc):
+        sides =['left','right']*6 # alterne
+        # print(xrange)
+        positions  = self.flattenList([[xrange[0]-k*inc,xrange[1]+k*inc] for k in range(6)])
+        return sides[:N],positions[:N]
 
-        t=round((N-2)/2)+1
-        graphLims = [0+t*inc,1-t*inc]
-        tmp     = [[graphLims[0]-k,graphLims[1]+k] for k in np.arange(0,0.3,inc)]
-        positions  = [it for sub in tmp for it in sub][:N]
-
-        sides       = allSides[:N]
-        anchors     = allAnch[:N]
-        overlays    = [None] + ['y']*(N-1)
-        return [graphLims,sides,anchors,positions,overlays]
-
-    def multiYAxis(self,df,mapName='jet',names=None,inc=0.05):
-        yList = df.columns
-        cols = self.getColorHexSeq(len(yList),mapName)
-        yNum=[str(k) for k in range(1,len(yList)+1)]
-        graphLims,sides,anchors,positions,overlays = self.getAutoAxes(len(yList),inc=inc)
-        fig = go.Figure()
-        dictYaxis={}
-        if not names :
-            names = yList
-        for y,name,side,anc,pos,col,k,overlay in zip(yList,names,sides,anchors,positions,cols,yNum,overlays):
-            fig.add_trace(go.Scatter(x=df.index,y=df[y],name=y,yaxis='y'+k,
-                                    marker=dict(color = col,size=10)))
-
-            dictYaxis['yaxis'+k] = dict(
-            title=name,
-            titlefont=dict(color=col),
-            tickfont=dict(color=col),
-            anchor=anc,
-            overlaying=overlay,
-            side=side,
-            position=pos
-            )
-        fig.update_layout(xaxis=dict(domain=graphLims))
-        fig.update_layout(dictYaxis)
-        return fig
-
-    def getAutoAxesMultiUnit(self,dictGroups,colormap='Dark2_r'):
+    def getLayoutMultiUnit(self,dictGroups,colormap='Dark2_r',axisSpace=0.05):
         dfGroups = pd.DataFrame.from_dict(dictGroups,orient='index',columns=['group'])
         groups=dfGroups.group.unique()
 
@@ -455,39 +423,43 @@ class Utils:
         listLines=["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"]
 
         yaxes=['yaxis'] + ['yaxis'+str(k) for k in range(2,len(groups)+1)]
-        xdomain,sides,anchors,positions,overlays=self.getAutoAxes(len(groups))
+        minx = (len(groups)-1)//2*axisSpace
+        xdomain =[minx,1-minx]
+        sides,positions = self.getAutoYAxes(len(groups),xdomain,inc=axisSpace)
         colors=self.getColorHexSeq(len(groups),colormap)
         dfGroups['color']=colors[0]
         dfGroups['symbol']='hexagon-dot'
         dfGroups['line']='solid'
         dictYaxis={}
         yscales=['y'] + ['y'+str(k) for k in range(2,len(groups)+1)]
-        for g,c,s,a,p,o,y,ys in zip(groups,colors,sides,anchors,positions,overlays,yaxes,yscales):
+        for g,c,s,p,y,ys in zip(groups,colors,sides,positions,yaxes,yscales):
             dfGroups.at[dfGroups.group==g,'color'] = c
             dfGroups.at[dfGroups.group==g,'yscale'] = ys
             try :
-                dfGroups.at[dfGroups.group==g,'line']=(2*listLines)[:len(dfGroups[dfGroups.group==g])]
+                dfGroups.at[dfGroups.group==g,'line']=(4*listLines)[:len(dfGroups[dfGroups.group==g])]
             except :
-                print("there are more than 12 lines : that's to much amigo")
+                print("there are more than 24 lines : that's to much amigo")
             dfGroups.at[dfGroups.group==g,'symbol']=listSymbols[:len(dfGroups[dfGroups.group==g])]
-
+            if ys=='y' : ov = None
+            else : ov = 'y'
             dictYaxis[y] = dict(
                 title=g,
                 titlefont=dict(color=c),
                 tickfont=dict(color=c),
-                anchor=a,
-                overlaying=o,
+                anchor='free',
+                overlaying=ov,
                 side=s,
                 position=p,
                 gridcolor=c
             )
-        return dictYaxis,dfGroups,xdomain
-
-    def multiUnitGraph(self,df,dictGroups):
-        dictYaxis,dfGroups,xdomain=self.getAutoAxesMultiUnit(dictGroups)
         fig = go.Figure()
         fig.update_layout(dictYaxis)
         fig.update_layout(xaxis=dict(domain=xdomain))
+        return fig,dfGroups
+
+    def multiUnitGraph(self,df,dictGroups=None):
+        if not dictGroups : dictGroups={t:t for t in df.columns}
+        fig,dfGroups=self.getLayoutMultiUnit(dictGroups)
 
         for trace in df.columns:
             col=dfGroups.loc[trace,'color']
@@ -517,15 +489,6 @@ class Utils:
                 fig.layout['xaxis' + str(k)].domain=[fig.layout['xaxis'+ str(k)].domain[0],maxx]
         return fig
 
-    def getAutoYAxes_v2(self,N,xrange,y1,inc=0.02):
-        # sides =['left','right']*6 # alterne
-        sides =['left','right']*6 # alterne
-        # anchors = ['free']*12
-        positions  = self.flattenList([[xrange[0]-k*inc,xrange[1]+k*inc] for k in range(6)])
-        positions  = self.flattenList([[xrange[0]-k*inc,xrange[1]+k*inc] for k in range(6)])
-        # return sides[:N],anchors[:N],positions[:N]
-        return sides[:N],positions[:N]
-
     def getLayoutMultiUnitSubPlots(self,dictdictGroups,colormap='Dark2_r',axisSpace=0.02,**kwargs):
         listSymbols = ['circle','x','square','diamond','octagon','star','hexagon','cross','hourglass','bowtie',
         'triangle-up', 'triangle-down','circle-open','triangle-left', 'triangle-right', 'triangle-ne',
@@ -536,8 +499,8 @@ class Utils:
         dfGroups = self.dictdict2df(dictdictGroups)
         groups = dfGroups.group.unique()
         maxgroups = max([len(dfGroups.groupby('group').get_group(g).subgroup.unique()) for g in groups])
-        minx=(maxgroups-1)//2*axisSpace
-        print('minx : ',minx,'===========','maxgroups : ',maxgroups)
+        minx = (maxgroups-1)//2*axisSpace
+        # print('minx : ',minx,'===========','maxgroups : ',maxgroups)
         fig=self.getAutoXYAxes(len(groups),minx=minx,**kwargs)
 
         dfGroups['xaxis']='x'
@@ -545,8 +508,6 @@ class Utils:
         dfGroups['color']='blue'
         dfGroups['symbol']='hexagon-dot'
         dfGroups['line']='solid'
-
-        groups=dfGroups.group.unique()
 
         xaxisNames =['xaxis' + str(k) for k in range(1,len(groups)+1)]
         yaxisNames1 = ['yaxis' + str(k) for k in range(1,len(groups)+1)]
@@ -560,20 +521,22 @@ class Utils:
             colors=self.getColorHexSeq(len(subgroups),colormap)
             yaxisNames = [ay1 + str(k) for k in range(1,len(subgroups)+1)]
             yscales = [ys1 + str(k) for k in range(1,len(subgroups)+1)]
-            sides,positions = self.getAutoYAxes_v2(len(subgroups),fig.layout[ax].domain,ay1,inc=axisSpace)
+            sides,positions = self.getAutoYAxes(len(subgroups),fig.layout[ax].domain,inc=axisSpace)
 
             dictXaxis[ax] = dict(anchor=ys1+str(1),domain=fig.layout[ax].domain)
             for sg,c,s,p,ys,ay in zip(subgroups,colors,sides,positions,yscales,yaxisNames):
-                print(sg,' ------ ',c,' ------ ',ys)
-                dfGroups.at[(dfGroups.group==g)&(dfGroups.subgroup==sg),'color'] = c
-                dfGroups.at[(dfGroups.group==g)&(dfGroups.subgroup==sg),'yaxis'] = ys
-                dfGroups.at[(dfGroups.group==g)&(dfGroups.subgroup==sg),'xaxis'] = xs
+                # print(sg,' ------ ',c,' ------ ',ys)
+                # print(dfGroups[(dfGroups.group==g)&(dfGroups.subgroup==sg),'color'])
+                filter=(dfGroups.group==g)&(dfGroups.subgroup==sg)
+                dfGroups.loc[filter,'color'] = c
+                dfGroups.loc[filter,'yaxis'] = ys
+                dfGroups.loc[filter,'xaxis'] = xs
                 # print(ax,' ------ ',ay1,' ------ ',g)
                 try :
-                    dfGroups.at[dfGroups.subgroup==sg,'line']=(2*listLines)[:len(dfGroups[dfGroups.subgroup==sg])]
+                    dfGroups.loc[dfGroups.subgroup==sg,'line']=(4*listLines)[:len(dfGroups[dfGroups.subgroup==sg])]
                 except :
-                    print("there are more than 12 lines : that's too much amigo")
-                dfGroups.at[dfGroups.subgroup==sg,'symbol']=listSymbols[:len(dfGroups[dfGroups.subgroup==sg])]
+                    print("there are more than 24 lines : that's too much amigo")
+                dfGroups.loc[dfGroups.subgroup==sg,'symbol']=listSymbols[:len(dfGroups[dfGroups.subgroup==sg])]
                 if ys==ys1+'1' : ov = None
                 else : ov = ys1+'1'
                 dictYaxis[ay] = dict(
@@ -592,17 +555,17 @@ class Utils:
 
     def multiUnitGraphSubPlots(self,df,dictdictGroups,**kwargs):
         fig,dfGroups=self.getLayoutMultiUnitSubPlots(dictdictGroups,**kwargs)
-
-        for trace in df.columns:
-            col=dfGroups.loc[trace,'color']
+        print(dfGroups)
+        for trace,g in zip(dfGroups.index,dfGroups.group):
+            curTrace =dfGroups[dfGroups.group==g].loc[trace,:]
+            col,xa,ya,symbol,line = [curTrace[k] for k in ['color','xaxis','yaxis','symbol','line']]
+            # print(col,'-----',xa,'-----',ya,'-----',symbol,'-----',line)
             fig.add_trace(go.Scatter(
                 x=df.index,y=df[trace],name=trace,
-                xaxis=dfGroups.loc[trace,'xaxis'],
-                yaxis=dfGroups.loc[trace,'yaxis'],
-                mode="lines+markers",
-                marker=dict(color = col,size=10,symbol=dfGroups.loc[trace,'symbol']),
-                line=dict(color = col,dash=dfGroups.loc[trace,'line'])
-                ))
+                mode="lines+markers",xaxis=xa,yaxis=ya,
+                marker=dict(color = col,size=10,symbol=symbol),
+                line=dict(color = col,dash=line))
+            )
         return fig
 
     def printDFSpecial(self,df,allRows=True):
@@ -702,7 +665,7 @@ class Utils:
         dfsOut=[]
         for df,groupy in zip(dfs,groups):
             if not not rs:
-                print(rs)
+                # print(rs)
                 df=df.resample(rs).apply(np.mean)
             df['timestamp']= df.index
             df[group1]  = groupy
@@ -718,21 +681,25 @@ class Utils:
         fig.update_traces(mode='lines+markers',line=dict(width=2))
         fig = self.addTiYXlabs(fig,title='comparaison of ' + title,ylab=ylab,style=1)
         return fig
-    # ==========================================================================
-    #                           SQL
-    # ==========================================================================
+
+class DataBase():
+    def __init__(self):
+        try :
+            import psycopg3 as psycopg
+        except:
+            import psycopg2 as psycopg
+        self.defautConnParameters = {
+                        'host'     : "192.168.1.222",
+                        'port'     : "5434",
+                        'dbname'   : "Jules",
+                        'user'     : "postgres",
+                        'password' : "SylfenBDD"
+                    }
 
     def connectToPSQLsDataBase(self,connParameters=None):
         if not connParameters :
-            connParameters ={
-                'host'     : "192.168.1.222",
-                'port'     : "5434",
-                'dbname'   : "Jules",
-                'user'     : "postgres",
-                'password' : "SylfenBDD"
-            }
-        connReq = ''.join([k + "=" + v + " " for k,v in connParameters.items()])
-        conn = psycopg.connect(connReq)
+            connReq = ''.join([k + "=" + v + " " for k,v in connParameters.items()])
+            conn = self.psycopg.connect(connReq)
         return conn
 
     def connectToDataBase(self,h,p,d,u,w):
