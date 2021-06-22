@@ -22,6 +22,7 @@ class TabMaster():
 class TabDataTags(TabMaster):
     def __init__(self,folderPkl,cfg,app,baseId):
         super().__init__(app,baseId)
+        self.cfg = cfg
         self.tabLayout = self._buildLayout()
         self.tabname = 'select tags'
         self._define_callbacks()
@@ -43,8 +44,7 @@ class TabDataTags(TabMaster):
 
             elif 'dd_typeTags' in wid_key:
                 widgetObj = self.dccE.dropDownFromList(baseId+wid_key,list(self.cfg.usefulTags.index),
-                            'Select categorie : ',value=wid_val,
-                            style=self.dccE.stdStyle,optionHeight=20)
+                            'Select categorie : ',value=wid_val,optionHeight=20)
 
             elif 'btn_legend' in wid_key:
                 widgetObj = [html.Button('tag',id=baseId+wid_key, n_clicks=wid_val)]
@@ -177,13 +177,13 @@ class TabUnitSelector(TabDataTags):
             return 'export Data'
 
 class TabSelectedTags(TabDataTags):
-    def __init__(self,folderPkl,confFolder,app,baseId='ts0_'):
-        super().__init__(folderPkl,confFolder,app,baseId)
+    def __init__(self,folderPkl,cfg,app,baseId='ts0_'):
+        super().__init__(folderPkl,cfg,app,baseId)
         self.tabname = 'select tags'
 
     def _buildLayout(self,widthG=80):
         dicWidgets = {'pdr_time' : {'tmin':self.cfg.listFilesPkl[0],'tmax':self.cfg.listFilesPkl[-1]},
-                        'in_timeRes':str(60*10)+'s','dd_resampleMethod' : 'mean',
+                        'in_timeRes':'auto','dd_resampleMethod' : 'mean',
                         'dd_style':'lines+markers','dd_typeGraph':'scatter',
                         'dd_cmap':'jet','btn_export':0}
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)

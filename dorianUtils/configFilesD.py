@@ -107,6 +107,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
 
     def getUsefulTags(self,usefulTag):
         category = self.usefulTags.loc[usefulTag]
+        print(category)
         return self.getTagsTU(category.Pattern,category.Unit)
 # ==============================================================================
 #                   functions filter on configuration file with tags
@@ -208,7 +209,8 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
     def DF_loadTimeRangeTags(self,timeRange,listTags,rs='auto',applyMethod='mean',
                                 parked=True,timezone='Europe/Paris',pool=True):
         listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=0)
-        if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()/6400)) + 's'
+        # if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()/6400)) + 's'
+        if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()/1000)) + 's'
         dfs=[]
         if pool:
             with Pool() as p:
