@@ -236,7 +236,6 @@ class DccExtended:
                             dbc.Col(dcc.Input(id = baseId + wid_key + 'End',type='text',value = '21:00',size='13',style={'font-size' : 13}))])
                 ])]
 
-
             elif 'block_refresh' in wid_key:
                 interval = dcc.Interval(id=baseId + 'interval',interval=wid_val['val_refresh']*1000,n_intervals=0)
 

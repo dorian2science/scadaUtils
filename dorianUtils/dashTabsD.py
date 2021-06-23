@@ -25,7 +25,6 @@ class TabDataTags(TabMaster):
         self.cfg = cfg
         self.tabLayout = self._buildLayout()
         self.tabname = 'select tags'
-        self._define_callbacks()
 
     def addWidgets(self,dicWidgets,baseId):
         widgetLayout,dicLayouts = [],{}
