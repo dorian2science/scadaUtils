@@ -30,6 +30,7 @@ class Utils:
         for a in args :
             print(' ------- ')
             print(a)
+        print('============ args finished =================')
 
     # ==========================================================================
     #                           SYSTEM
@@ -682,24 +683,28 @@ class Utils:
         fig = self.addTiYXlabs(fig,title='comparaison of ' + title,ylab=ylab,style=1)
         return fig
 
+    def plotGraphType(self,df,typeGraph='scatter',**kwargs):
+        if 'tag' in df.columns:
+            if typeGraph == 'scatter' :fig = px.scatter(df,x=df.index, y='value', color='tag',**kwargs)
+            if typeGraph == 'area' :fig = px.area(df,x=df.index, y='value', color='tag',**kwargs)
+            if typeGraph == 'area %' :fig = px.area(df,x=df.index, y='value', color='tag',groupnorm='percent',**kwargs)
+        else :
+            if typeGraph == 'scatter' :fig = px.scatter(df)
+            if typeGraph == 'area' :fig = px.area(df)
+            if typeGraph == 'area %' :fig = px.area(df,groupnorm='percent')
+        return fig
+
 class DataBase():
     def __init__(self):
         try :
             import psycopg3 as psycopg
         except:
             import psycopg2 as psycopg
-        self.defautConnParameters = {
-                        'host'     : "192.168.1.222",
-                        'port'     : "5434",
-                        'dbname'   : "Jules",
-                        'user'     : "postgres",
-                        'password' : "SylfenBDD"
-                    }
+        self.psycopg=psycopg
 
-    def connectToPSQLsDataBase(self,connParameters=None):
-        if not connParameters :
-            connReq = ''.join([k + "=" + v + " " for k,v in connParameters.items()])
-            conn = self.psycopg.connect(connReq)
+    def connectToPSQLsDataBase(self,connParameters):
+        connReq = ''.join([k + "=" + v + " " for k,v in connParameters.items()])
+        conn = self.psycopg.connect(connReq)
         return conn
 
     def connectToDataBase(self,h,p,d,u,w):
@@ -716,14 +721,12 @@ class DataBase():
 
     def readSQLdataBase(self,conn,patSql,secs=60*2,tagCol="tag",tsCol="timestampz"):
         t0,t1 = self.gettimeSQL(secs=secs)
-        start = time.time()
         timeSQL = tsCol + " BETWEEN '" + t0 +"' AND '" + t1 +"'"
         # tagSQL = tagCol + " like '" + patSql + "'"
         tagSQL = tagCol + " ~ '" + patSql + "'"
         sqlQ = "select * from realtimedata where " + timeSQL + " and  " + tagSQL + ";"
         print(sqlQ)
         df = pd.read_sql_query(sqlQ,conn,parse_dates=[tsCol])
-        self.printCTime(start)
         return df
 
     def executeSQLRequest(self,conn,sqlR):

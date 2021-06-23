@@ -92,16 +92,12 @@ class TabDataTags(TabMaster):
                 fig         = self.utils.customLegend(fig,dictNames)
         return fig
 
-    def drawGraph(self,df,typeGraph='scatter',**kwargs):
-        if 'tag' in df.columns:
-            if typeGraph == 'scatter' :return px.scatter(df,x=df.index, y='value', color='tag',**kwargs)
-            if typeGraph == 'area' :return px.area(df,x=df.index, y='value', color='tag',**kwargs)
-            if typeGraph == 'area %' :return px.area(df,x=df.index, y='value', color='tag',groupnorm='percent',**kwargs)
-            # return eval("px."+typeGraph +"(df, )")
-        else :
-            if typeGraph == 'scatter' :return px.scatter(df)
-            if typeGraph == 'area' :return px.area(df)
-            if typeGraph == 'area %' :return px.area(df,groupnorm='percent')
+    def drawGraph(self,typeGraph,**kwargs):
+        unit = self.cfg.getUnitofTag(df.columns[0])
+        nameGrandeur = self.utils.detectUnit(unit)
+        fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
+        # return fig
+        return self.utils.plotGraphType(df,typeGraph,**kwargs)
 
 class TabUnitSelector(TabDataTags):
     def __init__(self,folderPkl,cfg,app,baseId='tu0_'):
@@ -158,7 +154,7 @@ class TabUnitSelector(TabDataTags):
                 listTags  = self.cfg.getTagsTU(tagPat,unit)
                 df        = self.cfg.DF_loadTimeRangeTags(timeRange,listTags,rs=rs,applyMethod=rsMethod)
                 # names     = self.cfg.getUnitsOfpivotedDF(df,True)
-                fig     = self.drawGraph(df,typeGraph)
+                fig     = self.utils.plotGraphType(df,typeGraph)
                 nameGrandeur = self.utils.detectUnit(unit)
                 fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
             else :fig = go.Figure(fig)
@@ -232,7 +228,7 @@ class TabSelectedTags(TabDataTags):
                 df          = self.cfg.DF_loadTimeRangeTags(timeRange,listTags,rs=rs,applyMethod=rsMethod)
                 names       = self.cfg.getUnitsOfpivotedDF(df,True)
                 self.utils.printCTime(start)
-                fig     = self.drawGraph(df,typeGraph)
+                fig     = self.utils.plotGraphType(df,typeGraph)
                 unit = self.cfg.getUnitofTag(df.columns[0])
                 nameGrandeur = self.cfg.utils.detectUnit(unit)
                 fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
