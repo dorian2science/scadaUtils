@@ -11,6 +11,11 @@ class DccExtended:
         self.graphStyles = ['lines+markers','stairs','markers','lines']
         self.graphTypes = ['scatter','area','area %']
         self.stdStyle = {'fontsize':'12 px','width':'120px','height': '40px','min-height': '1px',}
+        self.smallStyle = {'fontsize':'12 px','width':'120px','height': '40px','min-height': '1px',}
+        self.verysmallStyle = {'fontsize':'12 px','width':'60px','height': '40px','min-height': '1px',}
+        self.blockStyle1 = {"border":"4px green double"}
+        self.blockStyle2 = {"border":"3px red solid"}
+        self.blockStyle3 = {"border":"3px blue groove"}
 
     ''' dropdown with a list or dictionnary. Dictionnary doesn"t work for the moment '''
     def dropDownFromList(self,idName,listdd,pddPhrase = None,defaultIdx=None,labelsPattern=None,**kwargs):
@@ -138,13 +143,15 @@ class DccExtended:
             if not not d : dictOpts.update(d)
         return dictOpts
 
-    def build_dbcBasicBlock(self,widgets,rows,cols):
+    def build_dbcBasicBlock(self,widgets,rows,cols,ws=None):
         dbc_rows,k = [],0
+        print(cols)
+        if not ws : ws = [12/cols]*cols
         for r in range(rows):
             curRow=[]
-            for c in range(cols) :
+            for c,w in zip(range(cols),ws) :
                 # print(k,'******',widgets[k])
-                curRow.append(dbc.Col(widgets[k]))
+                curRow.append(dbc.Col(widgets[k],width=w))
                 k+=1
             dbc_rows.append(curRow)
         return html.Div([dbc.Row(r) for r in dbc_rows])
@@ -154,18 +161,18 @@ class DccExtended:
         for wid_key,wid_val in dicWidgets.items():
             if 'dd_cmap' in wid_key:
                 widgetObj = self.dropDownFromList(baseId+wid_key,self.utils.cmapNames[0],
-                                                'select the colormap : ',value=wid_val)
+                                                'colormap : ',value=wid_val)
 
             elif 'dd_resampleMethod' in wid_key:
                 widgetObj = self.dropDownFromList(baseId+wid_key,['mean','max','min','median'],
-                'Select the resampling method: ',value=wid_val,multi=False)
+                'resampling method: ',value=wid_val,multi=False)
 
             elif 'dd_style' in wid_key:
-                widgetObj = self.dropDownFromList(baseId+wid_key,self.graphStyles,'Select the style : ',value = wid_val)
+                widgetObj = self.dropDownFromList(baseId+wid_key,self.graphStyles,'style : ',value = wid_val)
 
             elif 'dd_typeGraph' in wid_key:
                 widgetObj = self.dropDownFromList(baseId+wid_key,self.graphTypes,
-                            'Select type graph : ',value=wid_val,
+                            'type graph : ',value=wid_val,
                             style=self.stdStyle,optionHeight=20)
 
             elif 'btn_export' in wid_key:
@@ -180,6 +187,7 @@ class DccExtended:
             elif 'in_timeRes' in wid_key:
                 widgetObj = [html.P('time resolution : '),
                 dcc.Input(id=baseId+wid_key,placeholder='time resolution : ',type='text',value=wid_val)]
+                widgetObj = [self.build_dbcBasicBlock(widgetObj,2,1)]
 
             elif 'in_heightGraph' in wid_key:
                 widgetObj = [html.P('heigth of graph: '),
@@ -201,7 +209,7 @@ class DccExtended:
                 dcc.Input(id=baseId+wid_key,type='number',value=wid_val,max=1,min=0,step=0.01,style=self.stdStyle)]
                 widgetObj = [self.build_dbcBasicBlock(widgetObj,2,1)]
 
-            elif 'interval' in wid_key:
+            elif wid_key=='interval' :
                 widgetObj = [dcc.Interval(id=baseId + wid_key,interval=wid_val*1000,n_intervals=0)]
 
             elif 'pdr_time' in wid_key :
@@ -228,7 +236,48 @@ class DccExtended:
                             dbc.Col(dcc.Input(id = baseId + wid_key + 'End',type='text',value = '21:00',size='13',style={'font-size' : 13}))])
                 ])]
 
-            elif 'block_multiAxisSettings' in wid_key:
+
+            elif 'block_refresh' in wid_key:
+                interval = dcc.Interval(id=baseId + 'interval',interval=wid_val['val_refresh']*1000,n_intervals=0)
+
+                timeWindow=[html.P('time window (in min): ',style=self.smallStyle),
+                        dcc.Input(id=baseId+'in_timeWindow',placeholder='refresh Time in seconds: ',type='number',
+                            max=24*60,min=wid_val['min_window'],step=1,value=wid_val['val_window'],style=self.smallStyle)]
+                timeWindow = [self.build_dbcBasicBlock(timeWindow,1,2,ws=[6,6])]
+
+                refreshTime = [html.P('refresh time (in s): ',style=self.smallStyle),
+                        dcc.Input(id=baseId+'in_refreshTime',placeholder='refresh Time in seconds: ',type='number',
+                            max=1500,min=wid_val['min_refresh'],step=1,value=wid_val['val_refresh'],style=self.smallStyle)]
+                refreshTime = [self.build_dbcBasicBlock(refreshTime,1,2,ws=[6,6])]
+                timeBlock = html.Div([
+                                    html.H5(''),
+                                    self.build_dbcBasicBlock([refreshTime,timeWindow],2,1)],
+                                                style=self.blockStyle1)
+                widgetObj = [interval,timeBlock]
+
+            elif wid_key=='block_graphSettings':
+                blockSettings = self.basicComponents({
+                                            'dd_cmap':wid_val['colmap'],
+                                            'dd_style':wid_val['style'],
+                                            'dd_typeGraph':wid_val['type'],
+                                            },baseId)
+                print('blockSettings : ',blockSettings)
+                widgetObj = [html.Div([self.build_dbcBasicBlock(blockSettings,3,2)],style=self.blockStyle2)]
+
+            elif wid_key=='block_resample':
+                timeRes = [html.P('time resolution: ',style=self.smallStyle),
+                dcc.Input(id=baseId+'in_timeRes',placeholder='time resolution : ',type='text',value=wid_val['val_res'],style=self.smallStyle)]
+                timeRes = [self.build_dbcBasicBlock(timeRes,1,2)]
+
+                listdd=['mean','max','min','median']
+                resampleMethod = [
+                                html.P('resampling method: ',style=self.smallStyle),
+                                dcc.Dropdown(id=baseId+'dd_resampleMethod',options=[{'value':t,'label':t} for t in listdd],
+                                                value=wid_val['val_method'],clearable=False,style=self.smallStyle)]
+                resampleMethod = [self.build_dbcBasicBlock(resampleMethod,1,2)]
+                widgetObj = [html.Div(self.build_dbcBasicBlock([timeRes,resampleMethod],2,1),style=self.blockStyle3)]
+
+            elif wid_key=='block_multiAxisSettings':
                 blockSettings = self.basicComponents({
                                             'in_heightGraph':900,
                                             'in_axisSp':0.02,
@@ -236,7 +285,6 @@ class DccExtended:
                                             'in_vspace':0.05,
                                             },baseId)
                 widgetObj = [self.build_dbcBasicBlock(blockSettings,2,2)]
-
 
             else :
                 print('component ',wid_key,' is not available')

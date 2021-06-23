@@ -109,6 +109,16 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         category = self.usefulTags.loc[usefulTag]
         print(category)
         return self.getTagsTU(category.Pattern,category.Unit)
+
+    def checkDiffbetweenPLCandDF(self,df):
+        '''difference between tags in df and dfPLC'''
+        listTagsDf = pd.DataFrame(df.tag.unique(),columns=['tag'])
+        listTagsDf = listTagsDf.sort_values(by='tag')
+        dfplc = pd.DataFrame(self.dfPLC.TAG.sort_values())
+        dfplc['id']='dfplc'
+        listTagsDf['id']='listTagsDf'
+        listTagsDf.columns=['TAG','id']
+        return pd.concat([dfplc,listTagsDf],axis=0).drop_duplicates(subset='TAG',keep=False)
 # ==============================================================================
 #                   functions filter on configuration file with tags
 # ==============================================================================
@@ -209,7 +219,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
                                 parked=True,timezone='Europe/Paris',pool=True):
         listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=0)
         # if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()/6400)) + 's'
-        if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()/1000)) + 's'
+        if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()//1000)) + 's'
         dfs=[]
         if pool:
             with Pool() as p:
@@ -274,12 +284,11 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         return res
 
 class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
-    def __init__(self,confFolder,connParameters,timeWindow=2*60*60):
+    def __init__(self,confFolder,connParameters):
         import glob
         from dorianUtils.utilsD import DataBase
         super().__init__(folderPkl=None,confFolder=confFolder)
         self.dataBaseUtils=DataBase()
-        self.timeWindow = timeWindow #seconds
         self.connParameters = connParameters
 
     def _getPLC_ColName(self):
@@ -293,10 +302,11 @@ class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
     def connectToDB(self):
         return self.dataBaseUtils.connectToPSQLsDataBase(self.connParameters)
 
-    def realtimeDF(self,preSelGraph,rs='1s',applyMethod='mean'):
+    def realtimeDF(self,preSelGraph,rs='1s',applyMethod='mean',timeWindow=60*60*2):
+        if rs=='auto':rs = '{:.0f}'.format(max(1,timeWindow//1000)) + 's'
         preSelGraph = self.usefulTags.loc[preSelGraph]
         conn = self.connectToDB()
-        df   = self.dataBaseUtils.readSQLdataBase(conn,preSelGraph.Pattern,secs=self.timeWindow)
+        df   = self.dataBaseUtils.readSQLdataBase(conn,preSelGraph.Pattern,secs=timeWindow)
         df['value'] = pd.to_numeric(df['value'],errors='coerce')
         df = df.sort_values(by=['timestampz','tag'])
         df['timestampz'] = df.timestampz.dt.tz_convert('Europe/Paris')
