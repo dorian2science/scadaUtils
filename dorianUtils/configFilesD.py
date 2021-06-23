@@ -119,6 +119,13 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         listTagsDf['id']='listTagsDf'
         listTagsDf.columns=['TAG','id']
         return pd.concat([dfplc,listTagsDf],axis=0).drop_duplicates(subset='TAG',keep=False)
+
+    def checkDFvsPLCTags(self,df):
+        df2=df.tag.unique()
+        df2.columns='TAG'
+        dupl = pd.concat([df2,self.dfPLC.TAG]).duplicated(subset=['TAG'])
+        return dupl
+
 # ==============================================================================
 #                   functions filter on configuration file with tags
 # ==============================================================================
