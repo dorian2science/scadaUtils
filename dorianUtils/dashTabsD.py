@@ -102,13 +102,13 @@ class TabUnitSelector(TabDataTags):
         TabDataTags.__init__(self,folderPkl,cfg,app,baseId)
         self.tabname = 'select units'
 
-    def _buildLayout(self,widthG=85):
+    def _buildLayout(self,widthG=85,unitInit=None,patTagInit=''):
         dicWidgets = {'pdr_time' : {'tmin':self.cfg.listFilesPkl[0],'tmax':self.cfg.listFilesPkl[-1]},
                         'in_timeRes':'auto','dd_resampleMethod' : 'mean',
                         'dd_style':'lines+markers','dd_typeGraph':'scatter',
                         'dd_cmap':'jet','btn_export':0}
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
-        specialWidgets = self.addWidgets({'dd_Units':'W AC','in_patternTag':'','btn_legend':0},self.baseId)
+        specialWidgets = self.addWidgets({'dd_Units':unitInit,'in_patternTag':patTagInit,'btn_legend':0},self.baseId)
         # reodrer widgets
         widgetLayout = basicWidgets + specialWidgets
         return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
@@ -175,13 +175,13 @@ class TabSelectedTags(TabDataTags):
         super().__init__(folderPkl,cfg,app,baseId)
         self.tabname = 'select tags'
 
-    def _buildLayout(self,widthG=80):
+    def _buildLayout(self,widthG=80,tagCatDefault=None):
         dicWidgets = {'pdr_time' : {'tmin':self.cfg.listFilesPkl[0],'tmax':self.cfg.listFilesPkl[-1]},
                         'in_timeRes':'auto','dd_resampleMethod' : 'mean',
                         'dd_style':'lines+markers','dd_typeGraph':'scatter',
                         'dd_cmap':'jet','btn_export':0}
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
-        specialWidgets = self.addWidgets({'dd_typeTags':'Temperatures du gv1a','btn_legend':0},self.baseId)
+        specialWidgets = self.addWidgets({'dd_typeTags':tagCatDefault,'btn_legend':0},self.baseId)
         # reodrer widgets
         widgetLayout = basicWidgets + specialWidgets
         return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
@@ -251,13 +251,13 @@ class TabMultiUnits(TabDataTags):
         super().__init__(folderPkl,cfg,app,baseId)
         self.tabname = 'multi Units'
 
-    def _buildLayout(self,widthG=80):
+    def _buildLayout(self,widthG=80,initialTags=None):
         dicWidgets = {'pdr_time' : {'tmin':self.cfg.listFilesPkl[0],'tmax':self.cfg.listFilesPkl[-1]},
-                        'in_timeRes':str(60*10)+'s','dd_resampleMethod' : 'mean',
+                        'in_timeRes':'auto','dd_resampleMethod' : 'mean',
                         'dd_style':'lines+markers','dd_typeGraph':'scatter',
                         'dd_cmap':'jet','btn_export':0}
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
-        specialWidgets = self.addWidgets({'dd_tag':None,'btn_legend':0,'in_axisSp':0.05},self.baseId)
+        specialWidgets = self.addWidgets({'dd_tag':initialTags,'btn_legend':0,'in_axisSp':0.05},self.baseId)
         # reodrer widgets
         widgetLayout = basicWidgets + specialWidgets
         return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
