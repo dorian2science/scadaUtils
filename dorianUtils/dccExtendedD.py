@@ -50,7 +50,7 @@ class DccExtended:
             dd = dcc.Dropdown(id=idName,options=ddOpt,clearable=False,**kwargs)
         elif valIdx:
             valSel = [list(listdd.values())[k] for k in valIdx]
-            print(valSel)
+            # print(valSel)
             dd = dcc.Dropdown(id=idName,options=ddOpt,value=valSel,clearable=False,**kwargs)
         else :
             print('here')
@@ -145,7 +145,6 @@ class DccExtended:
 
     def build_dbcBasicBlock(self,widgets,rows,cols,ws=None):
         dbc_rows,k = [],0
-        print(cols)
         if not ws : ws = [12/cols]*cols
         for r in range(rows):
             curRow=[]
@@ -215,12 +214,12 @@ class DccExtended:
             elif 'pdr_time' in wid_key :
                 if not wid_val :
                     wid_val={}
-                    tmax=dt.datetime.now()
-                    tmin=tmax-dt.timedelta(days=2*30)
+                    tmax = dt.datetime.now()
+                    tmin = tmax-dt.timedelta(days=2*30)
                 else :
                     tmax = self.utils.findDateInFilename(wid_val['tmax'])-dt.timedelta(days=1)
                     tmin = self.utils.findDateInFilename(wid_val['tmin'])
-                t1= tmax
+                t1 = tmax
                 t0 = t1 - dt.timedelta(days=2)
                 widgetObj = [
                 html.Div([
@@ -260,7 +259,6 @@ class DccExtended:
                                             'dd_style':wid_val['style'],
                                             'dd_typeGraph':wid_val['type'],
                                             },baseId)
-                print('blockSettings : ',blockSettings)
                 widgetObj = [html.Div([self.build_dbcBasicBlock(blockSettings,3,2)],style=self.blockStyle2)]
 
             elif wid_key=='block_resample':

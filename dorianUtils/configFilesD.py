@@ -237,16 +237,18 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         if len(dfs)>0 :
             df = pd.concat(dfs,axis=0)
             print("finish loading")
-            if not rs=='raw':
-                df = self._DF_cutTimeRange(df,timeRange,timezone)
-                df = eval("df.resample('100ms').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
-                df = df.loc[:,~df.columns.duplicated()]
-                df = df.reindex(sorted(df.columns),axis=1)
-            if rs=='raw' :
-                df['timestamp']=df.index
-                df = df.sort_values(by=['tag','timestamp'])
-                df = df.drop(['timestamp'],axis=1)
-                df = self._DF_cutTimeRange(df,timeRange,timezone)
+            if not df.empty:
+                if not rs=='raw':
+                    df = self._DF_cutTimeRange(df,timeRange,timezone)
+                    df = eval("df.resample('100ms').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
+                    df = df.loc[:,~df.columns.duplicated()]
+                    df = df.reindex(sorted(df.columns),axis=1)
+                else:
+                    df['timestamp']=df.index
+                    df = df.sort_values(by=['tag','timestamp'])
+                    df = df.drop(['timestamp'],axis=1)
+                    df = self._DF_cutTimeRange(df,timeRange,timezone)
+            else : df= pd.DataFrame()
         else : df= pd.DataFrame()
         return df
     # ==============================================================================

@@ -17,7 +17,8 @@ class Utils:
         self.phyQties = self.df2dict(pd.read_csv(self.confDir+ '/units.csv'))
         self.unitMag = ['u','m','c','d','','da','h','k','M']
         self.buildNewUnits()
-        self.cmapNames = pickle.load(open(self.confDir+"/colormaps.pkl",'rb'))[::3]
+        # self.cmapNames = pickle.load(open(self.confDir+"/colormaps.pkl",'rb'))[::3]
+        self.cmapNames = [['viridis','tab20','jet','prism','gist_ncar']]
 
     # ==========================================================================
     #                           DEBUG

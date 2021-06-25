@@ -91,11 +91,10 @@ class TabDataTags(TabMaster):
                 fig         = self.utils.customLegend(fig,dictNames)
         return fig
 
-    def drawGraph(self,typeGraph,**kwargs):
+    def drawGraph(self,df,typeGraph,**kwargs):
         unit = self.cfg.getUnitofTag(df.columns[0])
         nameGrandeur = self.utils.detectUnit(unit)
         fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
-        # return fig
         return self.utils.plotGraphType(df,typeGraph,**kwargs)
 
 class TabUnitSelector(TabDataTags):
