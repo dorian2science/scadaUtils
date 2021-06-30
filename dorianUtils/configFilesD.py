@@ -316,13 +316,13 @@ class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
         preSelGraph = self.usefulTags.loc[preSelGraph]
         conn = self.connectToDB()
         df   = self.dataBaseUtils.readSQLdataBase(conn,preSelGraph.Pattern,secs=timeWindow)
+        if df.duplicated().any():
+            df = df.drop_duplicates()
+            print("attention il y a des doublons dans la base de donnees Jules")
         df['value'] = pd.to_numeric(df['value'],errors='coerce')
         df = df.sort_values(by=['timestampz','tag'])
         df['timestampz'] = df.timestampz.dt.tz_convert('Europe/Paris')
-        df=df.pivot(index="timestampz", columns="tag", values="value")
-        # df=df.resample('100ms').ffill().resample(rs).mean()
-        # df=df.resample('100ms').ffill()
-        # .ffill().resample(rs).mean()
+        df = df.pivot(index="timestampz", columns="tag", values="value")
         df = eval("df.resample('100ms').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
         conn.close()
         return df

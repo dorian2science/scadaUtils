@@ -162,6 +162,7 @@ class DccExtended:
                 widgetObj = self.dropDownFromList(baseId+wid_key,self.utils.cmapNames[0],
                                                 'colormap : ',value=wid_val)
 
+
             elif 'dd_resampleMethod' in wid_key:
                 widgetObj = self.dropDownFromList(baseId+wid_key,['mean','max','min','median'],
                 'resampling method: ',value=wid_val,multi=False)
@@ -208,7 +209,7 @@ class DccExtended:
                 dcc.Input(id=baseId+wid_key,type='number',value=wid_val,max=1,min=0,step=0.01,style=self.stdStyle)]
                 widgetObj = [self.build_dbcBasicBlock(widgetObj,2,1)]
 
-            elif wid_key=='interval' :
+            elif wid_key == 'interval' :
                 widgetObj = [dcc.Interval(id=baseId + wid_key,interval=wid_val*1000,n_intervals=0)]
 
             elif 'pdr_time' in wid_key :
