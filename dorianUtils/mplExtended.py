@@ -20,7 +20,6 @@ def plotmtpaxis(x,y,sc=0.2,rm=0.65,lm=1,xlab='xlab',ylabs=[],markers=[],figSize=
     y are list of lists'''
     fig, host = plt.subplots()
     fig.subplots_adjust(right=rm)
-    # fig.subplots_adjust(left=0.95)
     fig.set_size_inches(figSize[0],figSize[1])
     palette = plt.get_cmap('jet',len(y))
     tkw = dict(size=6, width=1.5)

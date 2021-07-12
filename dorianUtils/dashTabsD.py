@@ -224,12 +224,16 @@ class TabSelectedTags(TabDataTags):
                 timeRange   = [date0+' '+t0,date1+' '+t1]
                 listTags    = self.cfg.getUsefulTags(preSelGraph)
                 df          = self.cfg.DF_loadTimeRangeTags(timeRange,listTags,rs=rs,applyMethod=rsMethod)
-                names       = self.cfg.getUnitsOfpivotedDF(df,True)
                 self.utils.printCTime(start)
-                fig     = self.utils.plotGraphType(df,typeGraph)
-                unit = self.cfg.getUnitofTag(df.columns[0])
-                nameGrandeur = self.cfg.utils.detectUnit(unit)
-                fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
+                if not df.empty:
+                    fig  = self.utils.plotGraphType(df,typeGraph)
+                    unit = self.cfg.getUnitofTag(df.columns[0])
+                    nameGrandeur = self.cfg.utils.detectUnit(unit)
+                    fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
+                    fig.update_layout(title = preSelGraph)
+                else :
+                    fig = go.Figure(fig)
+                    fig.update_layout(title = 'NO DATA FOR THIS LIST OF TAGS AND DATE RANGE')
             else :fig = go.Figure(fig)
             fig = self.utils.updateStyleGraph(fig,style,colmap)
             fig = self.updateLegend(fig,lgd)
@@ -315,3 +319,155 @@ class TabMultiUnits(TabDataTags):
             if btn>1:
                 self.utils.exportDataOnClick(fig)
             return 'export Data'
+
+class RealTimeTagSelectorTab(TabSelectedTags):
+    def __init__(self,app,connParameters,cfg,baseId='ts0_'):
+        TabSelectedTags.__init__(self,None,cfg,app,baseId)
+        self.tabname   = 'tag selector'
+        self.cfg = cfg
+        self.tabLayout = self._buildLayout()
+        self._define_callbacks()
+
+    def _buildLayout(self,widthG=85,defaultCat='',val_window=60*2,val_refresh=20,min_refresh=5,min_window=1):
+        dicWidgets = {
+                        'block_refresh':{'val_window':val_window,'val_refresh':val_refresh,
+                                            'min_refresh':min_refresh,'min_window':min_window},
+                        'btn_update':0,
+                        'block_resample':{'val_res':'auto','val_method' : 'mean'},
+                        'block_graphSettings':{'style':'lines+markers','type':'scatter','colmap':'jet'}
+                        }
+        basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
+        specialWidgets = self.addWidgets({'dd_typeTags':defaultCat,'btn_legend':0},self.baseId)
+        # reodrer widgets
+        widgetLayout = basicWidgets + specialWidgets
+        return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
+
+    def _define_callbacks(self):
+
+        @self.app.callback(Output(self.baseId + 'interval', 'interval'),
+                            Input(self.baseId + 'in_refreshTime','value'))
+        def updateRefreshTime(refreshTime):return refreshTime*1000
+
+        @self.app.callback(Output(self.baseId + 'btn_legend', 'children'),
+                            Input(self.baseId + 'btn_legend','n_clicks'))
+        def updateLgdBtn(legendType):return self.updateLegendBtnState(legendType)
+
+        listInputsGraph = {
+                        'interval':'n_intervals',
+                        'btn_update':'n_clicks',
+                        'dd_typeTags':'value',
+                        'dd_resampleMethod':'value',
+                        'dd_typeGraph':'value',
+                        'dd_cmap':'value',
+                        'btn_legend':'children',
+                        'dd_style':'value',
+                        }
+        listStatesGraph = {
+                            'graph':'figure',
+                            'in_timeWindow':'value',
+                            'in_timeRes':'value'
+                            }
+        @self.app.callback(
+        Output(self.baseId + 'graph', 'figure'),
+        Output(self.baseId + 'btn_update', 'n_clicks'),
+        [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
+        [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
+        )
+        def updateGraph(n,updateBtn,preSelGraph,rsMethod,typeGraph,colmap,lgd,style,fig,tw,rs):
+            self.utils.printListArgs(n,updateBtn,preSelGraph,rsMethod,typeGraph,colmap,lgd,style,rs)
+            ctx = dash.callback_context
+            trigId = ctx.triggered[0]['prop_id'].split('.')[0]
+            # to ensure that action on graphs only without computation do not
+            # trigger computing the dataframe again
+            # ==============================================================
+            #               CHANGE HERE YOUR CODE
+            #           better to use decorators in the parent class
+            # ==============================================================
+            triggerList = [self.baseId+k for k in ['interval','dd_typeTags','btn_update','dd_resampleMethod','dd_typeGraph']]
+            # print(trigId)
+            if not updateBtn or trigId in triggerList :
+                start = time.time()
+                df    = self.cfg.realtimeDF(preSelGraph,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
+                # print(df)
+                self.utils.printCTime(start)
+                fig = self.utils.plotGraphType(df,typeGraph)
+                unit = self.cfg.getUnitofTag(df.columns[0])
+                nameGrandeur = self.cfg.utils.detectUnit(unit)
+                fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
+            else :fig = go.Figure(fig)
+            fig = self.utils.updateStyleGraph(fig,style,colmap)
+            fig = self.updateLegend(fig,lgd)
+            return fig,updateBtn
+
+# class TabExploreDF(TabMaster):
+#     def __init__(self,df,app,baseId='tu0_'):
+#         TabMaster.__init__(self,folderPkl,cfg,app,baseId)
+#         self.tabname = 'explore df'
+#
+#     def _buildLayout(self,widthG=85,unitInit=None,patTagInit=''):
+#         dicWidgets = {
+#                         'in_pts':1000,'dd_resampleMethod' : 'mean',
+#                         'dd_style':'lines+markers','dd_typeGraph':'scatter',
+#                         'dd_cmap':'jet','btn_export':0}
+#         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
+#         specialWidgets = self.addWidgets({'dd_Units':unitInit,'in_patternTag':patTagInit,'btn_legend':0},self.baseId)
+#         # reodrer widgets
+#         widgetLayout = basicWidgets + specialWidgets
+#         return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
+#
+#     def _define_callbacks(self):
+#
+#         @self.app.callback(Output(self.baseId + 'btn_legend', 'children'),
+#                             Input(self.baseId + 'btn_legend','n_clicks'))
+#         def updateLgdBtn(legendType):return self.updateLegendBtnState(legendType)
+#
+#         listInputsGraph = {
+#                         'dd_Units':'value',
+#                         'in_patternTag':'value',
+#                         'pdr_timeBtn':'n_clicks',
+#                         'dd_resampleMethod':'value',
+#                         'dd_typeGraph':'value',
+#                         'dd_cmap':'value',
+#                         'btn_legend':'children',
+#                         'dd_style':'value'
+#                         }
+#         listStatesGraph = {
+#                             'graph':'figure',
+#                             'in_timeRes' : 'value',
+#                             'pdr_timeStart' : 'value',
+#                             'pdr_timeEnd':'value',
+#                             'pdr_timePdr':'start_date',
+#                             }
+#         @self.app.callback(
+#         Output(self.baseId + 'graph', 'figure'),
+#         Output(self.baseId + 'pdr_timeBtn', 'n_clicks'),
+#         [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
+#         [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
+#         State(self.baseId+'pdr_timePdr','end_date'))
+#         def updateGraph(unit,tagPat,timeBtn,rsMethod,typeGraph,cmap,lgd,style,fig,rs,date0,date1,t0,t1):
+#             ctx = dash.callback_context
+#             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
+#             # to ensure that action on graphs only without computation do not
+#             # trigger computing the dataframe again
+#             if not timeBtn or trigId in [self.baseId+k for k in ['pdr_timeBtn']] :
+#                 timeRange = [date0+' '+t0,date1+' '+t1]
+#                 listTags  = self.cfg.getTagsTU(tagPat,unit)
+#                 df        = self.cfg.DF_loadTimeRangeTags(timeRange,listTags,rs=rs,applyMethod=rsMethod)
+#                 # names     = self.cfg.getUnitsOfpivotedDF(df,True)
+#                 fig     = self.utils.plotGraphType(df,typeGraph)
+#                 nameGrandeur = self.utils.detectUnit(unit)
+#                 fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
+#             else :fig = go.Figure(fig)
+#             fig = self.utils.updateStyleGraph(fig,style,cmap)
+#             fig = self.updateLegend(fig,lgd)
+#             return fig,timeBtn
+#
+#         @self.app.callback(
+#                 Output(self.baseId + 'btn_export','children'),
+#                 Input(self.baseId + 'btn_export', 'n_clicks'),
+#                 State(self.baseId + 'graph','figure')
+#                 )
+#         def exportClick(btn,fig):
+#             if btn>1:
+#                 self.utils.exportDataOnClick(fig)
+#             return 'export Data'

@@ -21,6 +21,7 @@ class ConfigMaster:
         if not folderExport :
             folderExport = os.getenv('HOME') + '/Documents/'
         self.folderExport  = folderExport
+        self.listFiles = self.utils.get_listFilesPklV2(folderPkl)
 # ==============================================================================
 #                                 functions
 # ==============================================================================
@@ -37,14 +38,15 @@ class ConfigMaster:
         return df[::skip]
 
     def _parkTag(self,df,tag,folder):
-        # print(tag)
+        print(tag)
+        # colTag = [k for k in df.columns if k.lower()=='tag']
         dfTag=df[df.tag==tag]
         with open(folder + tag + '.pkl' , 'wb') as handle:
             pickle.dump(dfTag, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def parkDayPKL(self,datum,pool=False):
+    def parkDayPKL(self,datum,offset=1,pool=False):
         print(datum)
-        realDatum=parser.parse(datum)+dt.timedelta(days=1)
+        realDatum=parser.parse(datum)+dt.timedelta(days=offset)
         df = self.loadFile('*'+ realDatum.strftime('%Y-%m-%d') + '*')
         if not df.empty:
             folder=self.folderPkl+'parkedData/'+ datum + '/'
@@ -55,11 +57,12 @@ class ConfigMaster:
             else:
                 for tag in listTags:
                     self._parkTag(df,tag,folder)
+        else : print('no data loaded')
 
-    def parkDates(self,listDates,nCores=4):
+    def parkDates(self,listDates,nCores=4,offset=0):
         if nCores>1:
             with Pool(nCores) as p:
-                p.starmap(self.parkDayPKL,[(datum,False) for datum in listDates])
+                p.starmap(self.parkDayPKL,[(datum,offset,False) for datum in listDates])
         else :
             for datum in listDates:
                 self.parkDayPKL(datum)
@@ -126,9 +129,31 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         dupl = pd.concat([df2,self.dfPLC.TAG]).duplicated(subset=['TAG'])
         return dupl
 
+    def renameColsPkl(self):
+        import pickle
+        for f in self.listFilesPkl:
+            print(f)
+            df=self.loadFile(f)
+            df.columns=['tag','value','timestampUTC']
+            with open(f, 'wb') as handle:
+                pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 # ==============================================================================
 #                   functions filter on configuration file with tags
 # ==============================================================================
+    def DF_standardProcessing(self,df,rs='auto',applyMethod='mean',timezone='Europe/Paris'):
+        if df.duplicated().any():
+            df = df.drop_duplicates()
+            print("attention il y a des doublons dans la base de donnees Jules")
+        df['timestampz'] = df.timestampz.dt.tz_convert('Europe/Paris')
+        df = df.pivot(index="timestampz", columns="tag", values="value")
+        deltaT=(df.index[-1]-df.index[0]).total_seconds()
+        if rs=='auto':rs = '{:.0f}'.format(max(1,deltaT//1000)) + 's'
+        df['value'] = pd.to_numeric(df['value'],errors='coerce')
+        df = df.sort_values(by=['timestampz','tag'])
+        df = eval("df.resample('100ms').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
+        return df
+
     def getUnitsOfpivotedDF(self,df,asList=True):
         dfP,listTags,tagsWithUnits=self.dfPLC,df.columns,[]
         for tagName in listTags :

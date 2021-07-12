@@ -21,7 +21,7 @@ class Utils:
         self.cmapNames = [['viridis','tab20','jet','prism','gist_ncar']]
 
     # ==========================================================================
-    #                           DEBUG
+    #                               DEBUG
     # ==========================================================================
 
     def printCTime(self,start,entete='time laps' ):
@@ -34,7 +34,7 @@ class Utils:
         print('============ args finished =================')
 
     # ==========================================================================
-    #                           SYSTEM
+    #                               SYSTEM
     # ==========================================================================
     def read_csv_datetimeTZ(self,filename,overwrite=False,**kwargs):
         start   = time.time()

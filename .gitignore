@@ -2,3 +2,5 @@ __pycache__
 dorianUtils.egg-info/**
 build/
 dist/
+utilsDorian/
+dorianUtilsModulaire.egg-info/
