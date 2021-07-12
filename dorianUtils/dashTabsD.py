@@ -1,5 +1,5 @@
 import datetime as dt, pickle, time
-import os,re,pandas as pd
+import os,re,pandas as pd,numpy as np
 import dash, dash_core_components as dcc, dash_html_components as html, dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
@@ -399,75 +399,82 @@ class RealTimeTagSelectorTab(TabSelectedTags):
             fig = self.updateLegend(fig,lgd)
             return fig,updateBtn
 
-# class TabExploreDF(TabMaster):
-#     def __init__(self,df,app,baseId='tu0_'):
-#         TabMaster.__init__(self,folderPkl,cfg,app,baseId)
-#         self.tabname = 'explore df'
-#
-#     def _buildLayout(self,widthG=85,unitInit=None,patTagInit=''):
-#         dicWidgets = {
-#                         'in_pts':1000,'dd_resampleMethod' : 'mean',
-#                         'dd_style':'lines+markers','dd_typeGraph':'scatter',
-#                         'dd_cmap':'jet','btn_export':0}
-#         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
-#         specialWidgets = self.addWidgets({'dd_Units':unitInit,'in_patternTag':patTagInit,'btn_legend':0},self.baseId)
-#         # reodrer widgets
-#         widgetLayout = basicWidgets + specialWidgets
-#         return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
-#
-#     def _define_callbacks(self):
-#
-#         @self.app.callback(Output(self.baseId + 'btn_legend', 'children'),
-#                             Input(self.baseId + 'btn_legend','n_clicks'))
-#         def updateLgdBtn(legendType):return self.updateLegendBtnState(legendType)
-#
-#         listInputsGraph = {
-#                         'dd_Units':'value',
-#                         'in_patternTag':'value',
-#                         'pdr_timeBtn':'n_clicks',
-#                         'dd_resampleMethod':'value',
-#                         'dd_typeGraph':'value',
-#                         'dd_cmap':'value',
-#                         'btn_legend':'children',
-#                         'dd_style':'value'
-#                         }
-#         listStatesGraph = {
-#                             'graph':'figure',
-#                             'in_timeRes' : 'value',
-#                             'pdr_timeStart' : 'value',
-#                             'pdr_timeEnd':'value',
-#                             'pdr_timePdr':'start_date',
-#                             }
-#         @self.app.callback(
-#         Output(self.baseId + 'graph', 'figure'),
-#         Output(self.baseId + 'pdr_timeBtn', 'n_clicks'),
-#         [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
-#         [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
-#         State(self.baseId+'pdr_timePdr','end_date'))
-#         def updateGraph(unit,tagPat,timeBtn,rsMethod,typeGraph,cmap,lgd,style,fig,rs,date0,date1,t0,t1):
-#             ctx = dash.callback_context
-#             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
-#             # to ensure that action on graphs only without computation do not
-#             # trigger computing the dataframe again
-#             if not timeBtn or trigId in [self.baseId+k for k in ['pdr_timeBtn']] :
-#                 timeRange = [date0+' '+t0,date1+' '+t1]
-#                 listTags  = self.cfg.getTagsTU(tagPat,unit)
-#                 df        = self.cfg.DF_loadTimeRangeTags(timeRange,listTags,rs=rs,applyMethod=rsMethod)
-#                 # names     = self.cfg.getUnitsOfpivotedDF(df,True)
-#                 fig     = self.utils.plotGraphType(df,typeGraph)
-#                 nameGrandeur = self.utils.detectUnit(unit)
-#                 fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
-#             else :fig = go.Figure(fig)
-#             fig = self.utils.updateStyleGraph(fig,style,cmap)
-#             fig = self.updateLegend(fig,lgd)
-#             return fig,timeBtn
-#
-#         @self.app.callback(
-#                 Output(self.baseId + 'btn_export','children'),
-#                 Input(self.baseId + 'btn_export', 'n_clicks'),
-#                 State(self.baseId + 'graph','figure')
-#                 )
-#         def exportClick(btn,fig):
-#             if btn>1:
-#                 self.utils.exportDataOnClick(fig)
-#             return 'export Data'
+class TabExploreDF(TabMaster):
+    def __init__(self,app,df,baseId='ted0_'):
+        TabMaster.__init__(self,app,baseId)
+        self.tabname = 'explore df'
+        self.df = df
+        self.tabLayout = self._buildLayout()
+        self._define_callbacks()
+
+    def _buildLayout(self,widthG=85):
+        dicWidgets = {  'btn_update':0,
+                        'dd_resampleMethod' : 'mean',
+                        'dd_style':'lines+markers','dd_typeGraph':'scatter',
+                        'dd_cmap':'jet'}
+        basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
+        listCols = list(self.df.columns)
+        specialWidgets = self.dccE.dropDownFromList(self.baseId + 'dd_x',listCols,'x : ',defaultIdx=1)
+        specialWidgets = specialWidgets + self.dccE.dropDownFromList(self.baseId + 'dd_y',listCols,'y : ',defaultIdx=2,multi=True)
+        specialWidgets = specialWidgets + [html.P('nb pts :'),dcc.Input(self.baseId + 'in_pts',type='number',step=1,min=0,value=1000)]
+        specialWidgets = specialWidgets + [html.P('slider x :'),dcc.RangeSlider(self.baseId + 'rs_x')]
+        # reodrer widgets
+        widgetLayout = specialWidgets + basicWidgets
+        return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
+
+    def _define_callbacks(self):
+        @self.app.callback(
+        Output(self.baseId + 'rs_x', 'marks'),
+        Output(self.baseId + 'rs_x', 'value'),
+        Output(self.baseId + 'rs_x', 'max'),
+        Output(self.baseId + 'rs_x', 'min'),
+        Input(self.baseId +'dd_x','value'))
+        def update_slider(x):
+            x = self.df[x].sort_values()
+            # print(x)
+            min,max = x[0],x[-1]
+            listx = [int(np.floor(k)) for k in np.linspace(0,len(x)-1,5)]
+            marks = {k:{'label':str(k),'style': {'color': '#77b0b1'}} for k in x[listx]}
+            print(marks)
+            return marks,[min,max],max,min
+
+        listInputsGraph = {
+                        'dd_x':'value',
+                        'dd_y':'value',
+                        'btn_update':'n_clicks',
+                        'dd_resampleMethod':'value',
+                        'dd_typeGraph':'value',
+                        'dd_cmap':'value',
+                        'dd_style':'value'
+                        }
+        listStatesGraph = {
+                            'graph':'figure',
+                            'in_pts':'value',
+                            'rs_x': 'value',
+                            }
+        @self.app.callback(
+        Output(self.baseId + 'graph', 'figure'),
+        [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
+        [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
+        )
+        def updateGraph(x,y,upBtn,rsMethod,typeGraph,cmap,style,fig,pts,rsx):
+            ctx = dash.callback_context
+            trigId = ctx.triggered[0]['prop_id'].split('.')[0]
+            if not upBtn or trigId in [self.baseId+k for k in ['btn_update','dd_x','dd_y']]:
+                df = self.df.set_index(x)
+                if not isinstance(y,list):y=[y]
+                if x in y : df[x]=df.index
+                # print(df)
+                df = df[df.index>rsx[0]]
+                df = df[df.index<rsx[1]]
+                if pts==0 : inc=1
+                else :
+                    l = np.linspace(0,len(df),pts)
+                    inc = np.median(np.diff(l))
+                df = df[::int(np.ceil(inc))]
+                df  = df.loc[:,y]
+                fig = self.utils.multiUnitGraph(df)
+            else :fig = go.Figure(fig)
+            fig.update_yaxes(showgrid=False)
+            fig = self.utils.updateStyleGraph(fig,style,cmap,heightGraph=800)
+            return fig
