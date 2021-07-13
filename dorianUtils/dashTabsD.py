@@ -414,8 +414,8 @@ class TabExploreDF(TabMaster):
                         'dd_cmap':'jet'}
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
         listCols = list(self.df.columns)
-        specialWidgets = self.dccE.dropDownFromList(self.baseId + 'dd_x',listCols,'x : ',defaultIdx=1)
-        specialWidgets = specialWidgets + self.dccE.dropDownFromList(self.baseId + 'dd_y',listCols,'y : ',defaultIdx=2,multi=True)
+        specialWidgets = self.dccE.dropDownFromList(self.baseId + 'dd_x',listCols,'x : ',defaultIdx=0)
+        specialWidgets = specialWidgets + self.dccE.dropDownFromList(self.baseId + 'dd_y',listCols,'y : ',defaultIdx=1,multi=True)
         specialWidgets = specialWidgets + [html.P('nb pts :'),dcc.Input(self.baseId + 'in_pts',type='number',step=1,min=0,value=1000)]
         specialWidgets = specialWidgets + [html.P('slider x :'),dcc.RangeSlider(self.baseId + 'rs_x')]
         # reodrer widgets
@@ -431,8 +431,7 @@ class TabExploreDF(TabMaster):
         Input(self.baseId +'dd_x','value'))
         def update_slider(x):
             x = self.df[x].sort_values()
-            # print(x)
-            min,max = x[0],x[-1]
+            min,max = x.iloc[0],x.iloc[-1]
             listx = [int(np.floor(k)) for k in np.linspace(0,len(x)-1,5)]
             marks = {k:{'label':str(k),'style': {'color': '#77b0b1'}} for k in x[listx]}
             print(marks)
@@ -476,5 +475,7 @@ class TabExploreDF(TabMaster):
                 fig = self.utils.multiUnitGraph(df)
             else :fig = go.Figure(fig)
             fig.update_yaxes(showgrid=False)
-            fig = self.utils.updateStyleGraph(fig,style,cmap,heightGraph=800)
+            fig.update_xaxes(title=x)
+            fig = self.utils.quickLayout(fig,title='',xlab='',ylab='',style='latex')
+            fig = self.utils.updateStyleGraph(fig,style,cmap)
             return fig

@@ -630,6 +630,7 @@ class Utils:
                 font=dict(family="Times New Roman",size=18,color="black"),
                 title={'text': title,'x':0.5,'xanchor': 'center','yanchor': 'top'},
                 title_font_color="RebeccaPurple",title_font_size=22,
+                height=800,width=1200
             )
         if not not xlab:fig.update_layout(yaxis_title = ylab)
         if not not ylab:fig.update_layout(xaxis_title = xlab)
