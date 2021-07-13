@@ -81,7 +81,6 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         except :
             self.usefulTags = pd.DataFrame()
 
-
         self.unitCol,self.descriptCol,self.tagCol = self._getPLC_ColName()
         self.listUnits    = self._get_UnitsdfPLC()
 
@@ -110,7 +109,6 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
 
     def getUsefulTags(self,usefulTag):
         category = self.usefulTags.loc[usefulTag]
-        print(category)
         return self.getTagsTU(category.Pattern,category.Unit)
 
     def checkDiffbetweenPLCandDF(self,df):
