@@ -263,6 +263,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
             if not df.empty:
                 if not rs=='raw':
                     df = self._DF_cutTimeRange(df,timeRange,timezone)
+                    df = df[~df.index.duplicated()]
                     df = eval("df.resample('100ms').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
                     df = df.loc[:,~df.columns.duplicated()]
                     df = df.reindex(sorted(df.columns),axis=1)
