@@ -155,6 +155,25 @@ class DccExtended:
             dbc_rows.append(curRow)
         return html.Div([dbc.Row(r) for r in dbc_rows])
 
+    def buildModalLog(self,titleBtn,mdFile):
+        f = open(mdFile)
+        t = dcc.Markdown(f.readlines())
+        f.close()
+        logModal = html.Div([
+                dbc.Button(titleBtn, id="btn_log", n_clicks=0),
+                dbc.Modal([
+                    dbc.ModalHeader("Log versionning"),
+                    dbc.ModalBody(t),
+                    dbc.ModalFooter(dbc.Button("Close", id="close", className="ml-auto", n_clicks=0)),
+                    ],
+                    id="log_modal",
+                    is_open=False,
+                    size='xl',
+                ),
+            ]
+        )
+        return logModal
+
     def basicComponents(self,dicWidgets,baseId):
         widgetLayout,dicLayouts = [],{}
         for wid_key,wid_val in dicWidgets.items():
