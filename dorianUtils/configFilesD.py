@@ -342,6 +342,17 @@ class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
     def connectToDB(self):
         return self.dataBaseUtils.connectToPSQLsDataBase(self.connParameters)
 
+    def processRawData(self,df,rs='1s',applyMethod='mean'):
+        if df.duplicated().any():
+            df = df.drop_duplicates()
+            print("attention il y a des doublons dans la base de donnees Jules")
+        df['value'] = pd.to_numeric(df['value'],errors='coerce')
+        df = df.sort_values(by=['timestampz','tag'])
+        df['timestampz'] = df.timestampz.dt.tz_convert('Europe/Paris')
+        df = df.pivot(index="timestampz", columns="tag", values="value")
+        df = eval("df.resample('100ms').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
+        return df
+
     def realtimeDF(self,preSelGraph,rs='1s',applyMethod='mean',timeWindow=60*60*2):
         if rs=='auto':rs = '{:.0f}'.format(max(1,timeWindow//1000)) + 's'
         preSelGraph = self.usefulTags.loc[preSelGraph]
@@ -357,6 +368,12 @@ class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
         df = eval("df.resample('100ms').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
         conn.close()
         return df
+
+    def realtimeTagsDF(self,tags,timeWindow=60*60*2,rs='1s',applyMethod='mean'):
+        if rs=='auto':rs = '{:.0f}'.format(max(1,timeWindow//1000)) + 's'
+        conn = self.connectToDB()
+        df   = self.dataBaseUtils.readSeveralTagsSQL(conn,tags,secs=timeWindow)
+        return self.processRawData(df,rs=rs,applyMethod=applyMethod)
 
 class ConfigDashSpark(ConfigDashTagUnitTimestamp):
     try :
