@@ -126,9 +126,9 @@ class Utils:
 
     def findDateInFilename(self,filename,formatDate='\d{4}-\d{2}-\d{2}'):
         if '/' in filename:filename = filename.split('/')[-1]
-        print('filename:',filename)
+        # print('filename:',filename)
         tmax = re.findall(formatDate,filename)[0].split('-')# read the date of the last file in the folder
-        print('tmax:',tmax)
+        # print('tmax:',tmax)
         tmax = dt.datetime(int(tmax[0]),int(tmax[1]),int(tmax[2]))
         return tmax
 

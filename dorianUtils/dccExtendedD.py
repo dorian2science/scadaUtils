@@ -218,19 +218,21 @@ class DccExtended:
                     tmax = dt.datetime.now()
                     tmin = tmax-dt.timedelta(days=2*30)
                 else :
-                    tmax = self.utils.findDateInFilename(wid_val['tmax'])-dt.timedelta(days=1)
+                    tmax = self.utils.findDateInFilename(wid_val['tmax'])-dt.timedelta(seconds=1)
                     tmin = self.utils.findDateInFilename(wid_val['tmin'])
                 t1 = tmax
-                t0 = t1 - dt.timedelta(days=2)
+                t0 = t1 - dt.timedelta(days=1)
+                timeFormat='%Y-%m-%d'
                 widgetObj = [
                 html.Div([
                     dbc.Row([dbc.Col(html.P('select start and end time : ')),
                         dbc.Col(html.Button(id  = baseId + wid_key + 'Btn',children='update'))]),
 
-                    dbc.Row([dbc.Col(dcc.DatePickerRange( id = baseId + wid_key + 'Pdr',
-                                max_date_allowed = tmax, initial_visible_month = t0.date(),
-                                display_format = 'MMM D, YY',minimum_nights=0,
-                                start_date = t0.date(), end_date   = t1.date()))]),
+                    dbc.Row([dbc.Col(dcc.DatePickerRange(id = baseId + wid_key + 'Pdr',
+                                max_date_allowed = t1,
+                                initial_visible_month = t0,
+                                display_format = 'D-MMM-YY',minimum_nights=0,persistence=False,
+                                start_date = t0, end_date = t1))]),
 
                     dbc.Row([dbc.Col(dcc.Input(id = baseId + wid_key + 'Start',type='text',value = '07:00',size='13',style={'font-size' : 13})),
                             dbc.Col(dcc.Input(id = baseId + wid_key + 'End',type='text',value = '21:00',size='13',style={'font-size' : 13}))])
