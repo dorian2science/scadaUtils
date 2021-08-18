@@ -275,6 +275,13 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
             else : df= pd.DataFrame()
         else : df= pd.DataFrame()
         return df
+
+    def plotMultiUnitGraph(self,timeRange,listTags=[],**kwargs):
+        if not listTags : listTags=self.get_randomListTags()
+        tagMapping = {t:self.getUnitofTag(t) for t in listTags}
+        df  = self.DF_loadTimeRangeTags(timeRange,listTags,**kwargs)
+        return self.utils.multiUnitGraph(df,tagMapping)
+
     # ==============================================================================
     #                   functions to compute new variables
     # ==============================================================================

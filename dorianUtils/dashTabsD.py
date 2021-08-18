@@ -259,9 +259,16 @@ class TabMultiUnits(TabDataTags):
         super().__init__(folderPkl,cfg,app,baseId)
         self.tabname = 'multi Units'
 
+    def updateLayoutMultiUnitGraph(self,fig,sizeDots=10):
+        fig.update_yaxes(showgrid=False)
+        fig.update_traces(marker=dict(size=sizeDots))
+        fig.update_layout(height=900)
+        fig.update_traces(hovertemplate='<b>%{y:.1f}')
+        return fig
+
     def _buildLayout(self,widthG=80,initialTags=None):
         dicWidgets = {'pdr_time' : {'tmin':self.cfg.listFilesPkl[0],'tmax':self.cfg.listFilesPkl[-1]},
-                        'in_timeRes':'auto','dd_resampleMethod' : 'mean',
+                        'in_timeRes':'600s','dd_resampleMethod' : 'mean',
                         'dd_style':'lines+markers','dd_typeGraph':'scatter',
                         'dd_cmap':'jet','btn_export':0}
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
@@ -305,12 +312,11 @@ class TabMultiUnits(TabDataTags):
             triggerList=['dd_tag','pdr_timeBtn','dd_resampleMethod']
             if not timeBtn or trigId in [self.baseId+k for k in triggerList] :
                 timeRange = [date0+' '+t0,date1+' '+t1]
-                print('================== here ==========================')
                 fig  = self.cfg.plotMultiUnitGraph(timeRange,listTags=tags,rs=rs,applyMethod=rsMethod)
             else :fig = go.Figure(fig)
             tagMapping = {t:self.cfg.getUnitofTag(t) for t in tags}
             fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
-            fig = self.cfg.updateLayoutMultiUnitGraph(fig)
+            fig = self.updateLayoutMultiUnitGraph(fig)
             fig = self.updateLegend(fig,lgd)
             return fig,timeBtn
 
