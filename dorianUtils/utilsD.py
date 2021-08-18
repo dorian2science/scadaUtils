@@ -583,7 +583,8 @@ class Utils:
 
     def exportDataOnClick(self,fig,folder=None,baseName=None):
         dfs = []
-        for trace in fig.data :
+        gofig=go.Figure(fig)
+        for trace in gofig.data :
             tmp = pd.DataFrame([trace['x'],trace['y']])
             tmp = tmp.transpose()
             tmp = tmp.set_index(0)
@@ -591,7 +592,7 @@ class Utils:
             dfs.append(tmp)
         df = pd.concat(dfs,axis=1)
 
-        xlims=fig['layout']['xaxis']['range']
+        xlims=gofig['layout']['xaxis']['range']
         trange=[parser.parse(k) for k in xlims]
         df.index = [parser.parse(k) for k in df.index]
         df = df[(df.index>xlims[0]) & (df.index<xlims[1])]
