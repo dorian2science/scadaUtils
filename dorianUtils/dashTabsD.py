@@ -165,10 +165,15 @@ class TabUnitSelector(TabDataTags):
                 Input(self.baseId + 'btn_export', 'n_clicks'),
                 State(self.baseId + 'graph','figure')
                 )
+        @self.app.callback(
+                Output(self.baseId + 'dl','data'),
+                Input(self.baseId + 'btn_export', 'n_clicks'),
+                State(self.baseId + 'graph','figure'),
+                prevent_initial_call=True
+                )
         def exportClick(btn,fig):
-            if btn>1:
-                self.utils.exportDataOnClick(fig)
-            return 'export Data'
+            df,filename =  self.utils.exportDataOnClick(fig)
+            return dcc.send_data_frame(df.to_csv, filename+'.csv')
 
 class TabSelectedTags(TabDataTags):
     def __init__(self,folderPkl,cfg,app,baseId='ts0_'):
@@ -183,7 +188,7 @@ class TabSelectedTags(TabDataTags):
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
         specialWidgets = self.addWidgets({'dd_typeTags':tagCatDefault,'btn_legend':0},self.baseId)
         # reodrer widgets
-        widgetLayout = basicWidgets + specialWidgets
+        widgetLayout = basicWidgets + specialWidgets+[dl]
         return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
 
     def _define_callbacks(self):
@@ -239,16 +244,15 @@ class TabSelectedTags(TabDataTags):
             fig = self.updateLegend(fig,lgd)
             return fig,timeBtn
 
-
         @self.app.callback(
-                Output(self.baseId + 'btn_export','children'),
+                Output(self.baseId + 'dl','data'),
                 Input(self.baseId + 'btn_export', 'n_clicks'),
-                State(self.baseId + 'graph','figure')
+                State(self.baseId + 'graph','figure'),
+                prevent_initial_call=True
                 )
         def exportClick(btn,fig):
-            if btn>1:
-                self.utils.exportDataOnClick(fig)
-            return 'export Data'
+            df,filename =  self.utils.exportDataOnClick(fig)
+            return dcc.send_data_frame(df.to_csv, filename+'.csv')
 
 class TabMultiUnits(TabDataTags):
     def __init__(self,folderPkl,cfg,app,baseId='tmu0_'):
@@ -315,10 +319,15 @@ class TabMultiUnits(TabDataTags):
                 Input(self.baseId + 'btn_export', 'n_clicks'),
                 State(self.baseId + 'graph','figure')
                 )
+        @self.app.callback(
+                Output(self.baseId + 'dl','data'),
+                Input(self.baseId + 'btn_export', 'n_clicks'),
+                State(self.baseId + 'graph','figure'),
+                prevent_initial_call=True
+                )
         def exportClick(btn,fig):
-            if btn>1:
-                self.utils.exportDataOnClick(fig)
-            return 'export Data'
+            df,filename =  self.utils.exportDataOnClick(fig)
+            return dcc.send_data_frame(df.to_csv, filename+'.csv')
 
 class RealTimeTagSelectorTab(TabSelectedTags):
     def __init__(self,app,connParameters,cfg,baseId='ts0_'):

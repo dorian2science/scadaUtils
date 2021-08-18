@@ -176,7 +176,8 @@ class DccExtended:
                             style=self.stdStyle,optionHeight=20)
 
             elif 'btn_export' in wid_key:
-                widgetObj = [html.Button('export .txt',id=baseId+wid_key, n_clicks=wid_val)]
+                widgetObj = [html.Button('export .csv',id=baseId+wid_key, n_clicks=wid_val),
+                            dcc.Download(id=baseId + "dl")]
 
             elif 'btn_update' in wid_key:
                 widgetObj = [html.Button('update',id=baseId+wid_key, n_clicks=wid_val)]

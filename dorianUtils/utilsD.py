@@ -581,7 +581,7 @@ class Utils:
         pd.set_option('display.max_colwidth',colWidthOri)
         pd.set_option('display.max_rows',rowNbOri)
 
-    def exportDataOnClick(self,fig,folder=None,baseName=None):
+    def exportDataOnClick(self,fig,baseName=None):
         dfs = []
         gofig=go.Figure(fig)
         for trace in gofig.data :
@@ -598,13 +598,10 @@ class Utils:
         df = df[(df.index>xlims[0]) & (df.index<xlims[1])]
 
         dateF=[k.strftime('%Y-%m-%d %H_%M') for k in trange]
-
         if not baseName :baseName = ''
         filename = baseName +  '_' + dateF[0]+ '_' + dateF[1]
-        if not folder:folder=os.getenv('HOME')+'/Pictures/'
         filename = self.slugify(filename)
-        df.to_csv(folder + filename + '.csv')
-        return df
+        return df,filename
 
     def updateStyleGraph(self,fig,style='lines+markers',colmap='jet',heightGraph=700):
         '''style = {'lines+markers','markers','stairs','lines'}'''
