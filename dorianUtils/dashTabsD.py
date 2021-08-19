@@ -141,11 +141,10 @@ class TabUnitSelector(TabDataTags):
                             }
         @self.app.callback(
         Output(self.baseId + 'graph', 'figure'),
-        Output(self.baseId + 'pdr_timeBtn', 'n_clicks'),
         [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
         [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
         State(self.baseId+'pdr_timePdr','end_date'))
-        def updateGraph(unit,tagPat,timeBtn,rsMethod,typeGraph,cmap,lgd,style,fig,rs,date0,date1,t0,t1):
+        def updateGraph(unit,tagPat,timeBtn,rsMethod,typeGraph,cmap,lgd,style,previousFig,rs,date0,date1,t0,t1):
             ctx = dash.callback_context
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
             # to ensure that action on graphs only without computation do not
@@ -158,16 +157,12 @@ class TabUnitSelector(TabDataTags):
                 fig     = self.utils.plotGraphType(df,typeGraph)
                 nameGrandeur = self.utils.detectUnit(unit)
                 fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
-            else :fig = go.Figure(fig)
+            else :fig = go.Figure(previousFig)
             fig = self.utils.updateStyleGraph(fig,style,cmap)
+            fig = self.utils.legendPersistant(previousFig,fig)
             fig = self.updateLegend(fig,lgd)
-            return fig,timeBtn
+            return fig
 
-        @self.app.callback(
-                Output(self.baseId + 'btn_export','children'),
-                Input(self.baseId + 'btn_export', 'n_clicks'),
-                State(self.baseId + 'graph','figure')
-                )
         @self.app.callback(
                 Output(self.baseId + 'dl','data'),
                 Input(self.baseId + 'btn_export', 'n_clicks'),
@@ -191,7 +186,7 @@ class TabSelectedTags(TabDataTags):
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
         specialWidgets = self.addWidgets({'dd_typeTags':tagCatDefault,'btn_legend':0},self.baseId)
         # reodrer widgets
-        widgetLayout = basicWidgets + specialWidgets+[dl]
+        widgetLayout = basicWidgets + specialWidgets
         return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
 
     def _define_callbacks(self):
@@ -218,16 +213,17 @@ class TabSelectedTags(TabDataTags):
                             }
         @self.app.callback(
         Output(self.baseId + 'graph', 'figure'),
-        Output(self.baseId + 'pdr_timeBtn', 'n_clicks'),
         [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
         [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
-        State(self.baseId+'pdr_timePdr','end_date'))
-        def updateGraph(preSelGraph,timeBtn,rsMethod,typeGraph,colmap,lgd,style,fig,rs,date0,date1,t0,t1):
+        State(self.baseId+'pdr_timePdr','end_date'),
+        )
+        def updateGraph(preSelGraph,timeBtn,rsMethod,typeGraph,colmap,lgd,style,previousFig,rs,date0,date1,t0,t1):
             ctx = dash.callback_context
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
             # to ensure that action on graphs only without computation do not
             # trigger computing the dataframe again
-            if not timeBtn or trigId in [self.baseId+k for k in ['dd_typeTags','pdr_timeBtn','dd_resampleMethod','dd_typeGraph']] :
+            listTrigs = ['dd_typeTags','pdr_timeBtn','dd_resampleMethod','dd_typeGraph']
+            if not timeBtn or trigId in [self.baseId+k for k in listTrigs] :
                 start       = time.time()
                 timeRange   = [date0+' '+t0,date1+' '+t1]
                 listTags    = self.cfg.getUsefulTags(preSelGraph)
@@ -240,12 +236,13 @@ class TabSelectedTags(TabDataTags):
                     fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
                     fig.update_layout(title = preSelGraph)
                 else :
-                    fig = go.Figure(fig)
+                    fig = go.Figure(previousFig)
                     fig.update_layout(title = 'NO DATA FOR THIS LIST OF TAGS AND DATE RANGE')
-            else :fig = go.Figure(fig)
+            else :fig = go.Figure(previousFig)
             fig = self.utils.updateStyleGraph(fig,style,colmap)
+            fig = self.utils.legendPersistant(previousFig,fig)
             fig = self.updateLegend(fig,lgd)
-            return fig,timeBtn
+            return fig
 
         @self.app.callback(
                 Output(self.baseId + 'dl','data'),
@@ -303,11 +300,10 @@ class TabMultiUnits(TabDataTags):
 
         @self.app.callback(
             Output(self.baseId + 'graph', 'figure'),
-            Output(self.baseId + 'pdr_timeBtn', 'n_clicks'),
             [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
             [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
             State(self.baseId+'pdr_timePdr','end_date'))
-        def updateMUGGraph(tags,timeBtn,rsMethod,cmapName,lgd,style,axSP,fig,rs,date0,date1,t0,t1):
+        def updateMUGGraph(tags,timeBtn,rsMethod,cmapName,lgd,style,axSP,previousFig,rs,date0,date1,t0,t1):
             ctx = dash.callback_context
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
             # to ensure that action on graphs only without computation do not
@@ -316,12 +312,13 @@ class TabMultiUnits(TabDataTags):
             if not timeBtn or trigId in [self.baseId+k for k in triggerList] :
                 timeRange = [date0+' '+t0,date1+' '+t1]
                 fig  = self.cfg.plotMultiUnitGraph(timeRange,listTags=tags,rs=rs,applyMethod=rsMethod)
-            else :fig = go.Figure(fig)
+            else :fig = go.Figure(previousFig)
             tagMapping = {t:self.cfg.getUnitofTag(t) for t in tags}
             fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
             fig = self.updateLayoutMultiUnitGraph(fig)
+            fig = self.utils.legendPersistant(previousFig,fig)
             fig = self.updateLegend(fig,lgd)
-            return fig,timeBtn
+            return fig
 
         @self.app.callback(
                 Output(self.baseId + 'dl','data'),
@@ -333,6 +330,9 @@ class TabMultiUnits(TabDataTags):
             df,filename =  self.utils.exportDataOnClick(fig)
             return dcc.send_data_frame(df.to_csv, filename+'.csv')
 
+# ==============================================================================
+#                              REAL TIME
+# ==============================================================================
 class RealTimeTagSelectorTab(TabSelectedTags):
     def __init__(self,app,connParameters,cfg,baseId='rts0_'):
         TabSelectedTags.__init__(self,None,cfg,app,baseId)
@@ -382,12 +382,11 @@ class RealTimeTagSelectorTab(TabSelectedTags):
                             }
         @self.app.callback(
         Output(self.baseId + 'graph', 'figure'),
-        Output(self.baseId + 'btn_update', 'n_clicks'),
         [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
         [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
         )
-        def updateGraph(n,updateBtn,preSelGraph,rsMethod,typeGraph,colmap,lgd,style,fig,tw,rs):
-            self.utils.printListArgs(n,updateBtn,preSelGraph,rsMethod,typeGraph,colmap,lgd,style,rs)
+        def updateGraph(n,updateBtn,preSelGraph,rsMethod,typeGraph,colmap,lgd,style,previousFig,tw,rs):
+            # self.utils.printListArgs(n,updateBtn,preSelGraph,rsMethod,typeGraph,colmap,lgd,style,rs)
             ctx = dash.callback_context
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
             # to ensure that action on graphs only without computation do not
@@ -406,10 +405,11 @@ class RealTimeTagSelectorTab(TabSelectedTags):
                 unit = self.cfg.getUnitofTag(df.columns[0])
                 nameGrandeur = self.cfg.utils.detectUnit(unit)
                 fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
-            else :fig = go.Figure(fig)
+            else :fig = go.Figure(previousFig)
             fig = self.utils.updateStyleGraph(fig,style,colmap)
+            fig = self.utils.legendPersistant(previousFig,fig)
             fig = self.updateLegend(fig,lgd)
-            return fig,updateBtn
+            return fig
 
 class RealTimeTagMultiUnit(TabMultiUnits):
     def __init__(self,app,connParameters,cfg,baseId='rtmu0_'):
@@ -464,7 +464,7 @@ class RealTimeTagMultiUnit(TabMultiUnits):
         [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
         [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
         )
-        def updateGraphRT_MUG(n,updateBtn,tags,rsMethod,typeGraph,colmap,lgd,style,axSP,fig,tw,rs):
+        def updateGraphRT_MUG(n,updateBtn,tags,rsMethod,typeGraph,colmap,lgd,style,axSP,previousFig,tw,rs):
             # self.utils.printListArgs(n,updateBtn,tags,rsMethod,typeGraph,colmap,lgd,style,axSP,fig,tw,rs)
             ctx = dash.callback_context
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
@@ -476,9 +476,10 @@ class RealTimeTagMultiUnit(TabMultiUnits):
                 self.utils.printCTime(start)
                 tagMapping = {t:self.cfg.getUnitofTag(t) for t in tags}
                 fig = self.utils.multiUnitGraph(df,tagMapping)
-            else : fig = go.Figure(fig)
+            else : fig = go.Figure(previousFig)
             fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
             fig = self.updateLayoutMultiUnitGraph(fig)
+            fig = self.utils.legendPersistant(previousFig,fig)
             fig = self.updateLegend(fig,lgd)
             return fig
 

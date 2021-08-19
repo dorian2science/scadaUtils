@@ -694,6 +694,16 @@ class Utils:
             if typeGraph == 'area %' :fig = px.area(df,groupnorm='percent')
         return fig
 
+    def legendPersistant(self,previousFig,newFig):
+        if previousFig:
+            visible_state = {}
+            for i in previousFig['data']:
+                visible = i['visible'] if 'visible' in i.keys() else True
+                visible_state[i['name']] = visible
+            for j in newFig['data']:
+                j['visible'] = visible_state[j['name']]
+        return newFig
+
 class DataBase():
     def __init__(self):
         try :
