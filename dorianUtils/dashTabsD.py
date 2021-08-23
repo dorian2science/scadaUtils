@@ -159,7 +159,9 @@ class TabUnitSelector(TabDataTags):
                 fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
             else :fig = go.Figure(previousFig)
             fig = self.utils.updateStyleGraph(fig,style,cmap)
-            fig = self.utils.legendPersistant(previousFig,fig)
+            try :
+                fig = self.utils.legendPersistant(previousFig,fig)
+            except:print('skip and update for next graph')
             fig = self.updateLegend(fig,lgd)
             return fig
 
@@ -240,7 +242,9 @@ class TabSelectedTags(TabDataTags):
                     fig.update_layout(title = 'NO DATA FOR THIS LIST OF TAGS AND DATE RANGE')
             else :fig = go.Figure(previousFig)
             fig = self.utils.updateStyleGraph(fig,style,colmap)
-            fig = self.utils.legendPersistant(previousFig,fig)
+            try :
+                fig = self.utils.legendPersistant(previousFig,fig)
+            except:print('skip and update for next graph')
             fig = self.updateLegend(fig,lgd)
             return fig
 
@@ -316,7 +320,9 @@ class TabMultiUnits(TabDataTags):
             tagMapping = {t:self.cfg.getUnitofTag(t) for t in tags}
             fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
             fig = self.updateLayoutMultiUnitGraph(fig)
-            fig = self.utils.legendPersistant(previousFig,fig)
+            try :
+                fig = self.utils.legendPersistant(previousFig,fig)
+            except:print('skip and update for next graph')
             fig = self.updateLegend(fig,lgd)
             return fig
 
@@ -407,7 +413,9 @@ class RealTimeTagSelectorTab(TabSelectedTags):
                 fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
             else :fig = go.Figure(previousFig)
             fig = self.utils.updateStyleGraph(fig,style,colmap)
-            fig = self.utils.legendPersistant(previousFig,fig)
+            try :
+                fig = self.utils.legendPersistant(previousFig,fig)
+            except:print('skip and update for next graph')
             fig = self.updateLegend(fig,lgd)
             return fig
 
@@ -479,7 +487,9 @@ class RealTimeTagMultiUnit(TabMultiUnits):
             else : fig = go.Figure(previousFig)
             fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
             fig = self.updateLayoutMultiUnitGraph(fig)
-            fig = self.utils.legendPersistant(previousFig,fig)
+            try :
+                fig = self.utils.legendPersistant(previousFig,fig)
+            except:print('skip and update for next graph')
             fig = self.updateLegend(fig,lgd)
             return fig
 
