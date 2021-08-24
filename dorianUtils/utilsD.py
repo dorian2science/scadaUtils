@@ -459,7 +459,7 @@ class Utils:
         fig.update_layout(xaxis=dict(domain=xdomain))
         return fig,dfGroups
 
-    def multiUnitGraph(self,df,dictGroups=None):
+    def multiUnitGraph(self,df,dictGroups=None,sizeDots=15):
         if not dictGroups : dictGroups={t:t for t in df.columns}
         fig,dfGroups=self.getLayoutMultiUnit(dictGroups)
 
@@ -469,7 +469,7 @@ class Utils:
                 x=df.index,y=df[trace],name=trace,
                 mode="lines+markers",
                 yaxis=dfGroups.loc[trace,'yscale'],
-                marker=dict(color = col,size=15,symbol=dfGroups.loc[trace,'symbol']),
+                marker=dict(color = col,size=sizeDots,symbol=dfGroups.loc[trace,'symbol']),
                 line=dict(color = col,dash=dfGroups.loc[trace,'line'])
                 ))
         return fig

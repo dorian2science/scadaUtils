@@ -417,6 +417,7 @@ class RealTimeTagSelectorTab(TabSelectedTags):
                 fig = self.utils.legendPersistant(previousFig,fig)
             except:print('skip and update for next graph')
             fig = self.updateLegend(fig,lgd)
+            fig.update_layout(font_size=20)
             return fig
 
 class RealTimeTagMultiUnit(TabMultiUnits):
