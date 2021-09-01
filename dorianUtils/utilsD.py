@@ -328,6 +328,17 @@ class Utils:
         for i in range(cmap.N):colorList.append(mtpcl.rgb2hex(cmap(i)))
         return colorList
 
+    def showdf_as_table(self,df):
+        fig = go.Figure(data=[go.Table(
+                        header=dict(values=list(df.columns),
+                                    fill_color='paleturquoise',
+                                    align='left'),
+                        cells=dict(values=[df[k] for k in df.columns],
+                                   fill_color='lavender',
+                                   align='left'))
+                    ])
+        return fig
+
     def updateColorMap(self,fig,colmap=None):
         listCols = self.getColorHexSeq(len(fig.data)+1,colmap=colmap)
         k,l=0,0
@@ -388,14 +399,15 @@ class Utils:
         print(f)
         return f
 
-    def figureName(self,params,joinCara=',',egal='='):
+    def figureName(self,params,joinCara=',',egal='=',patAfterList=None):
         listParams=[]
-        for k,v in params.items():
+        if not patAfterList : patAfterList=['']*len(params)
+        for (k,v),u in zip(params.items(),patAfterList):
             tmp = ''
-            if isinstance(v,int):tmp = k + egal + '{:d}'.format(v)
-            if isinstance(v,float):tmp=k + egal + '{:1f}'.format(v)
+            if isinstance(v,int):tmp = k + egal + '{:d}'.format(v) + ' ' +u
+            if isinstance(v,float):tmp=k + egal + '{:1f}'.format(v) + ' ' +u
             if isinstance(v,str):
-                if len(v)>0 : tmp= k + egal +v
+                if len(v)>0 : tmp= k + egal + v + ' ' +u
             if not not tmp:listParams.append(tmp)
         return joinCara.join(listParams)
 
@@ -704,6 +716,19 @@ class Utils:
                 j['visible'] = visible_state[j['name']]
         return newFig
 
+    def add_drawShapeToolbar(self,fig):
+        fig.update_layout(
+            dragmode='drawopenpath',
+            newshape_line_color='cyan',
+            title_text='Draw a path to separate versicolor and virginica',
+            modebar_add=['drawline',
+                'drawopenpath',
+                'drawclosedpath',
+                'drawcircle',
+                'drawrect',
+                'eraseshape'
+               ])
+
 class DataBase():
     def __init__(self):
         try :
@@ -860,3 +885,40 @@ class EmailSmtp:
         if (self.user != None and self.password != None): con.login(self.user, self.password)
         con.sendmail(fromAddr, toAddrs, message.as_string())
         con.quit()
+
+class Callback():
+    import base64
+    import io
+
+    def __init__(self,):
+        self.utils = Utils()
+
+    def parse_contents(self,contents, filename):
+        content_type, content_string = contents.split(',')
+        decoded = self.base64.b64decode(content_string)
+        if 'csv' in filename:
+            # Assume that the user uploaded a CSV file
+            return pd.read_csv(
+                self.io.StringIO(decoded.decode('utf-8')),index_col=0)
+        elif 'xls' in filename:
+            # Assume that the user uploaded an excel file
+            return pd.read_excel(self.io.BytesIO(decoded))
+
+    def df_toTable(self,df):
+        rows = df.to_dict('records')
+        cols=[{"name": i, "id": i,'renamable': True, 'deletable': True}
+                            for i in df.columns]
+        return rows,cols
+
+    def exportDataOnClick(self,fig,baseName=None):
+        dfs = []
+        gofig=go.Figure(fig)
+        for trace in gofig.data :
+            tmp = pd.DataFrame([trace['x'],trace['y']])
+            tmp = tmp.transpose()
+            tmp = tmp.set_index(0)
+            tmp.columns=[trace.name]
+            dfs.append(tmp)
+        df = pd.concat(dfs,axis=1)
+        filename = 'exportedData'
+        return df,filename

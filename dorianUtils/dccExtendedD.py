@@ -314,7 +314,11 @@ class DccExtended:
         return widgetLayout
 
     def buildGraphLayout(self,widgetLayout,baseId,widthG=85):
-        graphLayout=[html.Div([dcc.Graph(id=baseId+'graph',style={"width": str(widthG)+"%", "display": "inline-block"})])]
+        graphObj = dcc.Graph(id=baseId+'graph',
+                    config = {
+                            'displaylogo': False
+                            })
+        graphLayout=[html.Div(graphObj,style={"width": str(widthG)+"%", "display": "inline-block"})]
         return [html.Div(widgetLayout,style={"width": str(100-widthG) + "%", "float": "left"})]+graphLayout
 
     def createTabs(self,tabs):
