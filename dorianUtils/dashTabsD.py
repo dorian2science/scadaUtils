@@ -406,6 +406,7 @@ class RealTimeTagSelectorTab(TabSelectedTags):
             if not updateBtn or trigId in triggerList :
                 start = time.time()
                 df    = self.cfg.realtimeDF(preSelGraph,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
+                # df = self.cfg.readTagsRealTime(tags=listTags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
                 self.utils.printCTime(start)
                 fig = self.utils.plotGraphType(df,typeGraph)
                 unit = self.cfg.getUnitofTag(df.columns[0])

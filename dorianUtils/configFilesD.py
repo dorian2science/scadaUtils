@@ -15,16 +15,18 @@ class ConfigMaster:
     def __init__(self,folderPkl,folderFig=None,folderExport=None):
         self.utils      = Utils()
         self.folderPkl = folderPkl
-        if not folderFig :
-            folderFig = os.getenv('HOME') + '/Images/'
+        if not folderFig:folderFig = os.getenv('HOME') + '/Images/'
         self.folderFig  = folderFig
-        if not folderExport :
-            folderExport = os.getenv('HOME') + '/Documents/'
+        if not folderExport:folderExport = os.getenv('HOME') + '/Documents/'
         self.folderExport  = folderExport
         self.listFiles = self.utils.get_listFilesPklV2(folderPkl)
+        self.dfPLC = self._loadDF_PLC()
 # ==============================================================================
 #                                 functions
 # ==============================================================================
+    def _loadDF_PLC(self):
+        df = self.loadFile(self.listFiles[0])
+        return pd.DataFrame(df.tag.unique(),columns=['TAG'])
 
     def _getValidFiles(self):
         return sp.check_output('cd ' + '{:s}'.format(self.folderPkl) + ' && ls *' + self.validPattern +'*',shell=True).decode().split('\n')[:-1]
@@ -143,7 +145,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         if df.duplicated().any():
             df = df.drop_duplicates()
             print("attention il y a des doublons dans la base de donnees Jules")
-        df['timestampz'] = df.timestampz.dt.tz_convert('Europe/Paris')
+        df['timestampz'] = df.timestampz.dt.tz_convert(timezone)
         df = df.pivot(index="timestampz", columns="tag", values="value")
         deltaT=(df.index[-1]-df.index[0]).total_seconds()
         if rs=='auto':rs = '{:.0f}'.format(max(1,deltaT//1000)) + 's'
@@ -190,6 +192,12 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
 
     def getTagnamefromDescription(self,desName):
         return list(self.dfPLC[self.dfPLC[self.descriptCol]==desName][self.tagCol])[0]
+
+    def get_randomListTags(self,n=5):
+        import random
+        allTags = self.getTagsTU('',ds=True)
+        return [allTags[random.randint(0,len(allTags))] for k in range(n)]
+
 
     # ==============================================================================
     #                   functions filter on dataFrame
@@ -248,7 +256,6 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
     def DF_loadTimeRangeTags(self,timeRange,listTags,rs='auto',applyMethod='mean',
                                 parked=True,timezone='Europe/Paris',pool=True):
         listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=0)
-        # if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()/6400)) + 's'
         if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()//1000)) + 's'
         dfs=[]
         if pool:
