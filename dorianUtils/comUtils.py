@@ -111,7 +111,7 @@ class ComUtils:
                 with open(todayFolder + tag + '.csv' , 'w') as f:
                     f.write('timestampUTC,value\n')
 
-    def readTag_csv(self,tag,folderDayRT,rs,applyMethod='mean'):
+    def readTag_csv(self,tag,folderDayRT,rs,applyMethod='mean',old=True):
         df = pd.DataFrame()
         try :
             filename = folderDayRT + tag + '.csv'
@@ -119,7 +119,11 @@ class ComUtils:
             df.index = df.index.tz_localize('Europe/Paris')
             if not rs=='raw':
                 df = eval("df.resample('1s').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
-            df.columns=[tag]
+            if old :
+                df.reset_index()
+                df['tag'] = tag
+            else :
+                df.columns=[tag]
         except:
             print('problem for reading :',filename)
         return df
@@ -140,7 +144,7 @@ class ComUtils:
         return df[df.index>timeMin.tz_localize('Europe/Paris')]
 
     def parkTag_csv(self,tag,folderDayPkl,folderDayRT):
-        df = self.readTag_csv(tag,folderDayRT,rs='5s')
+        df = self.readTag_csv(tag,folderDayRT,rs='raw')
         with open(folderDayPkl + tag + '.pkl' , 'wb') as handle:
             pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
