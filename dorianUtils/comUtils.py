@@ -120,7 +120,7 @@ class ComUtils:
             if not rs=='raw':
                 df = eval("df.resample('1s').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
             if old :
-                df.reset_index()
+                df = df.reset_index()
                 df['tag'] = tag
             else :
                 df.columns=[tag]
