@@ -25,7 +25,7 @@ class Utils:
     # ==========================================================================
 
     def printCTime(self,start,entete='time laps' ):
-        print(entete + ' : {:.2f} seconds'.format(time.time()-start))
+        return entete + ' : {:.2f} seconds'.format(time.time()-start)
 
     def printListArgs(self,*args):
         for a in args :
@@ -131,6 +131,13 @@ class Utils:
         # print('tmax:',tmax)
         tmax = dt.datetime(int(tmax[0]),int(tmax[1]),int(tmax[2]))
         return tmax
+
+    def writeLog(self,logFile,msg,newBlock=False):
+        goLine = '================================================================'
+        with open(logFile, 'a') as f:
+            if newBlock:f.write(goLine + '\n')
+            f.write(msg + '\n')
+            if newBlock:f.write(goLine + '\n')
 
     # ==========================================================================
     #                           PHYSICS
