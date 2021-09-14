@@ -4,7 +4,6 @@ import subprocess as sp, os
 from dateutil import parser
 from pyModbusTCP.client import ModbusClient
 import xml.etree.ElementTree as ET, pandas as pd,re,struct,importlib,glob
-from dorianUtils.utilsD import Utils
 from multiprocessing import Process, Queue, current_process,Pool
 
 class Scheduler():
@@ -96,8 +95,11 @@ class StartEveryDayAt(Scheduler):
             self.job()
 
 class ComUtils:
-    def __init__(self):
-        self.utils=Utils()
+    def datesBetween2Dates(self,dates,offset=0):
+        times = [parser.parse(k) for k in dates]
+        t0,t1 = [t-dt.timedelta(hours=t.hour,minutes=t.minute,seconds=t.second) for t in times]
+        delta = t1 - t0       # as timedelta
+        return [(t0 + dt.timedelta(days=i+offset)).strftime('%Y-%m-%d') for i in range(delta.days + 1)],times[1]-times[0]
 
     def checkDirectory(self,todayFolder,validFiles):
         if not os.path.exists(todayFolder) :
@@ -125,7 +127,7 @@ class ComUtils:
     def readTagsRealTime(self,folderRT,tags,timeWindow=30*60,rs='5s',applyMethod='mean'):
         today = dt.datetime.now()
         timeMin =  pd.to_datetime(dt.datetime.now() - dt.timedelta(seconds=timeWindow))
-        listDays=self.utils.datesBetween2Dates([t.strftime('%Y-%m-%d') for t in [timeMin,today]])[0]
+        listDays = self.datesBetween2Dates([t.strftime('%Y-%m-%d') for t in [timeMin,today]])[0]
         dfdays = []
         for day in listDays:
             folderDay = folderRT + day + '/'
@@ -335,7 +337,8 @@ class Modebus_utils(ComUtils):
             permutRep = list(itertools.permutations(['a ','b ','c ','d ']))
             permutRep = list(itertools.permutations(['a ','b ','c ','d ','e','f','g','h']))
             hexList     = ['{0:04x}'.format(k) for k in regs]
-        hexList   = utils.flattenList([[k[:2],k[2:]] for k in hexList])
+        hexList   = [[k[:2],k[2:]] for k in hexList]
+        hexList = [item for sublist in hexList for item in sublist] #flatten list
         allPerms    = list(itertools.permutations(hexList))
         permHexList = [''.join(k) for k in allPerms]
         # print(permutRep)

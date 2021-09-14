@@ -6,6 +6,7 @@ import time, datetime as dt, pytz
 from scipy import linalg, integrate
 from dateutil import parser
 from dorianUtils.utilsD import Utils
+from dorianUtils.comUtils import Modebus_utils
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -25,8 +26,10 @@ class ConfigMaster:
 #                                 functions
 # ==============================================================================
     def _loadDF_PLC(self):
-        df = self.loadFile(self.listFiles[0])
-        return pd.DataFrame(df.tag.unique(),columns=['TAG'])
+        if len(self.listFiles)>0:
+            df = self.loadFile(self.listFiles[0])
+            return pd.DataFrame(df.tag.unique(),columns=['TAG'])
+        else : return pd.DataFrame()
 
     def _getValidFiles(self):
         return sp.check_output('cd ' + '{:s}'.format(self.folderPkl) + ' && ls *' + self.validPattern +'*',shell=True).decode().split('\n')[:-1]
@@ -601,3 +604,28 @@ class ConfigDashSpark(ConfigDashTagUnitTimestamp):
             # return dfs
     except:
         print('not possible to load : module pyspark ')
+
+class ConfigFilesRealTimeCSV(ConfigDashTagUnitTimestamp):
+    def __init__(self,folderRT,confFolder):
+        ConfigDashTagUnitTimestamp.__init__(self,folderRT,confFolder,folderFig='')
+        self.folderRT = folderRT
+        self.listParkedDays=[k for k in os.listdir(folderRT) if re.search('\d{4}-\d{2}-\d{2}',k)]
+        self.mbUtils = Modebus_utils()
+        self.listParkTags=self.getListTagsParked()
+
+    def findUnitTagName(self,t,sep=['-']):
+        listUnits = [k for s in list(self.utils.phyQties.values()) for k in s ]
+        listUnits = self.utils.combineUnits(self.utils.unitMag,listUnits,'')
+        listUnitsPat=[l + k + l for k in listUnits for l in seps]
+        return [k for k in listUnitsPat if re.search(k,t)]
+
+    def getListTagsParked(self):
+        if len(self.listParkedDays)>0:
+            return [k[:-4] for k in os.listdir(self.folderRT+self.listParkedDays[0])]
+        else : return []
+
+    def getTagsTU(self,patTag,units=None,onCol=None,case=False,cols=None,ds=True):
+        return [k for k in self.dfPLC.TAG if re.search(patTag,k)]
+
+    def realtimeTagsDF(self,listTags,**kwargs):
+        return self.mbUtils.readTagsRealTime(self.folderRT,listTags,**kwargs)

@@ -340,7 +340,7 @@ class TabMultiUnits(TabDataTags):
 #                              REAL TIME
 # ==============================================================================
 class RealTimeTagSelectorTab(TabSelectedTags):
-    def __init__(self,app,connParameters,cfg,baseId='rts0_'):
+    def __init__(self,app,cfg,baseId='rts0_'):
         TabSelectedTags.__init__(self,None,cfg,app,baseId)
         self.tabname   = 'tag selector'
         self.cfg = cfg
@@ -422,19 +422,19 @@ class RealTimeTagSelectorTab(TabSelectedTags):
             return fig
 
 class RealTimeTagMultiUnit(TabMultiUnits):
-    def __init__(self,app,connParameters,cfg,baseId='rtmu0_'):
+    def __init__(self,app,cfg,baseId='rtmu0_'):
         TabMultiUnits.__init__(self,None,cfg,app,baseId)
         self.tabname   = 'graphe multi-échelles'
         self.cfg = cfg
         self.tabLayout = self._buildLayout()
         self._define_callbacks()
 
-    def _buildLayout(self,widthG=85,defaultTags='',val_window=60*2,val_refresh=20,min_refresh=5,min_window=1):
+    def _buildLayout(self,widthG=85,defaultTags='',val_window=60*2,val_refresh=20,min_refresh=5,min_window=1,val_res='auto'):
         dicWidgets = {
                         'block_refresh':{'val_window':val_window,'val_refresh':val_refresh,
                                             'min_refresh':min_refresh,'min_window':min_window},
                         'btn_update':0,
-                        'block_resample':{'val_res':'auto','val_method' : 'mean'},
+                        'block_resample':{'val_res':val_res,'val_method' : 'mean'},
                         'block_graphSettings':{'style':'lines+markers','type':'scatter','colmap':'jet'}
                         }
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
@@ -494,7 +494,6 @@ class RealTimeTagMultiUnit(TabMultiUnits):
             except:print('skip and update for next graph')
             fig = self.updateLegend(fig,lgd)
             return fig
-
 
 # ==============================================================================
 #                               template tabs
