@@ -6,7 +6,7 @@ dirParent = "dorianUtils"
 
 setuptools.setup(
 name="dorianUtilsModulaire", # Replace with your own username
-version="3.6.1",
+version="3.7.2",
 author="Dorian Drevon",
 author_email="drevondorian@gmail.com",
 description="Utilities package",
@@ -27,6 +27,7 @@ packages=setuptools.find_packages(),
 package_data={'': ['conf/*']},
 include_package_data=True,
 install_requires=['IPython','matplotlib','scipy','pandas==1.3.1',
-                    'dash==1.21.0','dash_bootstrap_components==0.13.0','flask_caching','psycopg2-binary'],
+                    'dash==1.21.0','dash_bootstrap_components==0.13.0','flask_caching','psycopg2-binary',
+                    'pyModbusTCP==0.1.10'],
 python_requires=">=3.8"
 )
