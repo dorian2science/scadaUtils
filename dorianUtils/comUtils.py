@@ -101,7 +101,7 @@ class ComUtils:
         delta = t1 - t0       # as timedelta
         return [(t0 + dt.timedelta(days=i+offset)).strftime('%Y-%m-%d') for i in range(delta.days + 1)],times[1]-times[0]
 
-    def readTag_csv(self,tag,folderDayRT,rs,applyMethod='mean',old=True):
+    def readTag_csv(self,tag,folderDayRT,rs,applyMethod='mean',old=True,locProd='Europe/Paris'):
         df = pd.DataFrame()
         try :
             filename = folderDayRT + tag + '.csv'
@@ -113,7 +113,8 @@ class ComUtils:
                 df = pd.read_csv(filename,parse_dates=[0],header=None)
                 df.columns=['timestampUTC','value']
                 df = df.set_index('timestampUTC')
-                df.index = df.index.tz_localize('UTC')
+                df.index = df.index.tz_localize(locProd)
+                df.index = df.index.tz_convert('UTC')
                 df['tag']=tag
                 df=df.reset_index()
             else :

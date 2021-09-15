@@ -217,7 +217,6 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         return df
 
     def _DF_cutTimeRange(self,df,timeRange,timezone='Europe/Paris'):
-        '''df should have a timestamp object as index or raw column called timestampUTC'''
         t0 = parser.parse(timeRange[0]).astimezone(pytz.timezone('UTC'))
         t1 = parser.parse(timeRange[1]).astimezone(pytz.timezone('UTC'))
         df=df[(df.index>t0)&(df.index<t1)].sort_index()
