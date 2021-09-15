@@ -101,15 +101,6 @@ class ComUtils:
         delta = t1 - t0       # as timedelta
         return [(t0 + dt.timedelta(days=i+offset)).strftime('%Y-%m-%d') for i in range(delta.days + 1)],times[1]-times[0]
 
-    def checkDirectory(self,todayFolder,validFiles):
-        if not os.path.exists(todayFolder) :
-            os.mkdir(todayFolder)
-        for tag in validFiles:
-            if not os.path.exists(todayFolder + tag + '.csv'):
-                print('file :' , todayFolder + tag +'.csv','created')
-            with open(todayFolder + tag + '.csv' , 'w') as f:
-                f.write('timestampUTC,value\n')
-
     def readTag_csv(self,tag,folderDayRT,rs,applyMethod='mean',old=True):
         df = pd.DataFrame()
         try :
