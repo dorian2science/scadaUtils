@@ -104,12 +104,11 @@ class ComUtils:
     def checkDirectory(self,todayFolder,validFiles):
         if not os.path.exists(todayFolder) :
             os.mkdir(todayFolder)
-        listFiles = glob.glob(todayFolder+'*.csv')
         for tag in validFiles:
-            if not todayFolder + tag + '.csv' in listFiles:
+            if not os.path.exists(todayFolder + tag + '.csv'):
                 print('file :' , todayFolder + tag +'.csv','created')
-                with open(todayFolder + tag + '.csv' , 'w') as f:
-                    f.write('timestampUTC,value\n')
+            with open(todayFolder + tag + '.csv' , 'w') as f:
+                f.write('timestampUTC,value\n')
 
     def readTag_csv(self,tag,folderDayRT,rs,applyMethod='mean',old=True):
         df = pd.DataFrame()
