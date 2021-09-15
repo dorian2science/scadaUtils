@@ -105,13 +105,14 @@ class ComUtils:
         df = pd.DataFrame()
         try :
             filename = folderDayRT + tag + '.csv'
-            df = pd.read_csv(filename,parse_dates=[0],index_col=0)
-            df.index = df.index.tz_localize('Europe/Paris')
             if not rs=='raw':
+                df = pd.read_csv(filename,parse_dates=[0],index_col=0,)
+                df.index = df.index.tz_localize('Europe/Paris')
                 df = eval("df.resample('1s').ffill().ffill().resample(rs).apply(np." + applyMethod + ")")
             if old :
-                df = df.reset_index()
-                df['tag'] = tag
+                df = pd.read_csv(filename,parse_dates=[0],header=None)
+                df.columns=['timestampUTC','value']
+                df['tag']=tag
             else :
                 df.columns=[tag]
         except:
@@ -138,10 +139,11 @@ class ComUtils:
         with open(folderDayPkl + tag + '.pkl' , 'wb') as handle:
             pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def park_today(self,folderPkl,folderRT,listTags,offSetDay=0):
+    def park_today(self,folderPkl,folderRT,offSetDay=0):
         today = dt.datetime.now()-dt.timedelta(days=offSetDay)
         folderDayPkl = folderPkl + today.strftime('%Y-%m-%d') + '/'
         folderDayRT = folderRT + today.strftime('%Y-%m-%d') + '/'
+        listTags = [k[:-4] for k in os.listdir(folderDayRT)]
         if not os.path.exists(folderDayPkl):os.mkdir(folderDayPkl)
         with Pool() as p:
             df=p.starmap(self.parkTag_csv,[(tag,folderDayPkl,folderDayRT) for tag in listTags])
