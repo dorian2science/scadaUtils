@@ -112,7 +112,10 @@ class ComUtils:
             if old :
                 df = pd.read_csv(filename,parse_dates=[0],header=None)
                 df.columns=['timestampUTC','value']
+                df = df.set_index('timestampUTC')
+                df.index = df.index.tz_localize('Europe/Paris')
                 df['tag']=tag
+                df.reset_index()
             else :
                 df.columns=[tag]
         except:
