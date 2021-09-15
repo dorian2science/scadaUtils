@@ -115,7 +115,7 @@ class ComUtils:
                 df = df.set_index('timestampUTC')
                 df.index = df.index.tz_localize('Europe/Paris')
                 df['tag']=tag
-                df.reset_index()
+                df=df.reset_index()
             else :
                 df.columns=[tag]
         except:
