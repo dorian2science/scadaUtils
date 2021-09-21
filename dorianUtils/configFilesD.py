@@ -13,13 +13,9 @@ pd.options.mode.chained_assignment = None  # default='warn'
 class ConfigMaster:
     """docstring for ConfigMaster."""
 
-    def __init__(self,folderPkl,folderFig=None,folderExport=None):
+    def __init__(self,folderPkl):
         self.utils      = Utils()
         self.folderPkl = folderPkl
-        if not folderFig:folderFig = os.getenv('HOME') + '/Images/'
-        self.folderFig  = folderFig
-        if not folderExport:folderExport = os.getenv('HOME') + '/Documents/'
-        self.folderExport  = folderExport
         self.listFiles = self.utils.get_listFilesPklV2(folderPkl)
         self.dfPLC = self._loadDF_PLC()
 # ==============================================================================
@@ -73,8 +69,8 @@ class ConfigMaster:
                 self.parkDayPKL(datum)
 
 class ConfigDashTagUnitTimestamp(ConfigMaster):
-    def __init__(self,folderPkl,confFolder,folderFig=None,folderExport=None,encode='utf-8'):
-        ConfigMaster.__init__(self,folderPkl,folderFig=folderFig,folderExport=folderExport)
+    def __init__(self,folderPkl,confFolder,encode='utf-8'):
+        ConfigMaster.__init__(self,folderPkl)
         self.confFolder   = confFolder
         self.confFile     = glob.glob(self.confFolder + '*PLC*')[0]
         self.modelAndFile = self.__getModelNumber()
