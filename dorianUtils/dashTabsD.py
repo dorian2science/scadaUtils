@@ -23,8 +23,8 @@ class TabMaster():
 #                       format Tag,timestamp,value
 # ==============================================================================
 class TabDataTags(TabMaster):
-    def __init__(self,folderPkl,cfg,app,baseId):
-        super().__init__(app,baseId)
+    def __init__(self,cfg,app,baseId):
+        TabMaster.__init__(self,app,baseId)
         self.cfg = cfg
         self.tabLayout = self._buildLayout()
         self.tabname = 'select tags'
@@ -101,8 +101,8 @@ class TabDataTags(TabMaster):
         return self.utils.plotGraphType(df,typeGraph,**kwargs)
 
 class TabUnitSelector(TabDataTags):
-    def __init__(self,folderPkl,cfg,app,baseId='tu0_'):
-        TabDataTags.__init__(self,folderPkl,cfg,app,baseId)
+    def __init__(self,cfg,app,baseId='tu0_'):
+        TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname = 'select units'
 
     def _buildLayout(self,widthG=85,unitInit=None,patTagInit=''):
@@ -176,8 +176,8 @@ class TabUnitSelector(TabDataTags):
             return dcc.send_data_frame(df.to_csv, filename+'.csv')
 
 class TabSelectedTags(TabDataTags):
-    def __init__(self,folderPkl,cfg,app,baseId='ts0_'):
-        super().__init__(folderPkl,cfg,app,baseId)
+    def __init__(self,cfg,app,baseId='ts0_'):
+        TabDataTags.__init__(cfg,app,baseId)
         self.tabname = 'select tags'
 
     def _buildLayout(self,widthG=80,tagCatDefault=None):
@@ -259,8 +259,8 @@ class TabSelectedTags(TabDataTags):
             return dcc.send_data_frame(df.to_csv, filename+'.csv')
 
 class TabMultiUnits(TabDataTags):
-    def __init__(self,folderPkl,cfg,app,baseId='tmu0_'):
-        super().__init__(folderPkl,cfg,app,baseId)
+    def __init__(self,cfg,app,baseId='tmu0_'):
+        TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname = 'multi Units'
 
     def updateLayoutMultiUnitGraph(self,fig,sizeDots=10):
@@ -423,7 +423,7 @@ class RealTimeTagSelectorTab(TabSelectedTags):
 
 class RealTimeTagMultiUnit(TabMultiUnits):
     def __init__(self,app,cfg,baseId='rtmu0_'):
-        TabMultiUnits.__init__(self,None,cfg,app,baseId)
+        TabMultiUnits.__init__(self,cfg,app,baseId)
         self.tabname   = 'graphe multi-échelles'
         self.cfg = cfg
         self.tabLayout = self._buildLayout()
@@ -435,7 +435,8 @@ class RealTimeTagMultiUnit(TabMultiUnits):
                                             'min_refresh':min_refresh,'min_window':min_window},
                         'btn_update':0,
                         'block_resample':{'val_res':val_res,'val_method' : 'mean'},
-                        'block_graphSettings':{'style':'lines+markers','type':'scatter','colmap':'jet'}
+                        'block_graphSettings':{'style':'lines+markers','type':'scatter','colmap':'jet'},
+                        'btn_export':0,
                         }
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
         specialWidgets = self.addWidgets({'dd_tag':defaultTags,'btn_legend':0,'in_axisSp':0.05},self.baseId)
@@ -494,6 +495,17 @@ class RealTimeTagMultiUnit(TabMultiUnits):
             except:print('skip and update for next graph')
             fig = self.updateLegend(fig,lgd)
             return fig
+
+        @self.app.callback(
+                Output(self.baseId + 'dl','data'),
+                Input(self.baseId + 'btn_export', 'n_clicks'),
+                State(self.baseId + 'graph','figure'),
+                prevent_initial_call=True
+                )
+        def exportClickMUG(btn,fig):
+            df,filename =  self.utils.exportDataOnClick(fig)
+            return dcc.send_data_frame(df.to_csv, filename+'.csv')
+
 
 # ==============================================================================
 #                               template tabs
