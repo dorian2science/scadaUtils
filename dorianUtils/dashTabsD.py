@@ -177,7 +177,7 @@ class TabUnitSelector(TabDataTags):
 
 class TabSelectedTags(TabDataTags):
     def __init__(self,cfg,app,baseId='ts0_'):
-        TabDataTags.__init__(cfg,app,baseId)
+        TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname = 'select tags'
 
     def _buildLayout(self,widthG=80,tagCatDefault=None):
