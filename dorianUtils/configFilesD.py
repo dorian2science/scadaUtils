@@ -52,7 +52,8 @@ class ConfigMaster:
         if not df.empty:
             folder=self.folderPkl+'parkedData/'+ datum + '/'
             if not os.path.exists(folder):os.mkdir(folder)
-            listTags=list(self.dfPLC.TAG.unique())
+            # listTags=list(self.dfPLC.TAG.unique())
+            listTags=list(df.tag.unique())
             if pool:
                 with Pool() as p:p.starmap(self._parkTag,[(df,tag,folder) for tag in listTags])
             else:
