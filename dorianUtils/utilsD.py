@@ -139,6 +139,33 @@ class Utils:
             f.write(msg + '\n')
             if newBlock:f.write(goLine + '\n')
 
+    def getSysConf(self, scriptFile):
+        def toString(b):
+            s = str(b).strip()
+            if (s.startswith("b'")): s = s[2:].strip()
+            if (s.endswith("'")): s = s[:-1].strip()
+            return s
+        conf = None
+        with open(scriptFile) as f: s= ''.join(f.readlines())+'\nenv'
+        process = subprocess.Popen(s,stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True,
+                                    executable="/bin/bash")
+        stdout, stderr = process.communicate()
+
+        stderr = toString(stderr)
+        if (len(stderr) < 3):
+            conf = {}
+            stdout = toString(stdout)
+            stdout = stdout.replace("\\n", '\n')
+            stdout = stdout.split('\n')
+            for kv in stdout:
+                kv = kv.split('=', 1)
+                if (len(kv)==2 and not ' ' in kv[0] and kv[0] != '_'):
+                    kv[0] = kv[0].strip()
+                    conf.update({kv[0]: kv[1]})
+        else : print(stderr)
+
+        return conf
+
     # ==========================================================================
     #                           PHYSICS
     # ==========================================================================
