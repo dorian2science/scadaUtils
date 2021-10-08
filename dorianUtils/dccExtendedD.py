@@ -254,8 +254,8 @@ class DccExtended:
                                 display_format = 'D-MMM-YY',minimum_nights=0,persistence=False,
                                 start_date = t0, end_date = t1))]),
 
-                    dbc.Row([dbc.Col(dcc.Input(id = baseId + wid_key + 'Start',type='text',value = '07:00',size='13',style={'font-size' : 13})),
-                            dbc.Col(dcc.Input(id = baseId + wid_key + 'End',type='text',value = '21:00',size='13',style={'font-size' : 13}))])
+                    dbc.Row([dbc.Col(dcc.Input(id = baseId + wid_key + 'Start',type='text',value = '09:00',size='13',style={'font-size' : 13})),
+                            dbc.Col(dcc.Input(id = baseId + wid_key + 'End',type='text',value = '18:00',size='13',style={'font-size' : 13}))])
                 ])]
 
             elif 'block_refresh' in wid_key:
