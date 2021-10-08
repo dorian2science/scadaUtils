@@ -147,7 +147,7 @@ class Utils:
             return s
         conf = None
         with open(scriptFile) as f: s= ''.join(f.readlines())+'\nenv'
-        process = subprocess.Popen(s,stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True,
+        process = sp.Popen(s,stdout=sp.PIPE,stderr=sp.PIPE,shell=True,
                                     executable="/bin/bash")
         stdout, stderr = process.communicate()
 
