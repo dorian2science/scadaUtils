@@ -241,8 +241,10 @@ class DccExtended:
                     tmax = self.utils.findDateInFilename(wid_val['tmax'])-dt.timedelta(seconds=1)
                     tmin = self.utils.findDateInFilename(wid_val['tmin'])
                 t1 = tmax
-                t0 = t1 - dt.timedelta(days=1)
+                t0 = t1
                 timeFormat='%Y-%m-%d'
+                t0 = t0.strftime(timeFormat)
+                t1 = t1.strftime(timeFormat)
                 widgetObj = [
                 html.Div([
                     dbc.Row([dbc.Col(html.P('select start and end time : ')),
