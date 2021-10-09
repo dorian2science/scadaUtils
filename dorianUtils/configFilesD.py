@@ -76,6 +76,11 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         self.confFile     = glob.glob(self.confFolder + '*PLC*')[0]
         self.modelAndFile = self.__getModelNumber()
         self.listFilesPkl = self._get_ValidFiles()
+        self.parked   = False
+        if os.path.exists(self.folderPkl+'/parkedData'):
+            self.parked     = True
+            self.parkedDays =[k.split('/')[-1] for k in glob.glob(self.folderPkl+'parkedData/*')]
+            self.parkedDays.sort()
         self.dfPLC        = pd.read_csv(self.confFile,encoding=encode)
         try :
             self.usefulTags = pd.read_csv(self.confFolder+'/predefinedCategories.csv',index_col=0)
@@ -252,9 +257,17 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
             df = pd.concat(dfs,axis=1)
         return df
 
-    def DF_loadTimeRangeTags(self,timeRange,listTags,rs='auto',applyMethod='mean',
+    def DF_loadTimeRangeTags(self,timeRange=None,listTags=None,rs='auto',applyMethod='mean',
                                 parked=True,timezone='Europe/Paris',pool=True):
         listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=0)
+        if not timeRange:
+            if parked : day = self.parkedDays[-1]
+            else : day = re.findall('\d{4}-\d{2}-\d{2}',self.listFilesPkl[-1])[0]
+            timeRange = [day + ' 9:00',day + ' 18:00']
+        if not listTags:
+            listTags = self.getTagsTU('')
+            listTags = [listTags[k] for k in np.random.randint(0,len(listTags),5)]
+
         if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()//1000)) + 's'
         dfs=[]
         if pool:
