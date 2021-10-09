@@ -259,7 +259,6 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
 
     def DF_loadTimeRangeTags(self,timeRange=None,listTags=None,rs='auto',applyMethod='mean',
                                 parked=True,timezone='Europe/Paris',pool=True):
-        listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=0)
         if not timeRange:
             if parked : day = self.parkedDays[-1]
             else : day = re.findall('\d{4}-\d{2}-\d{2}',self.listFilesPkl[-1])[0]
@@ -267,6 +266,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         if not listTags:
             listTags = self.getTagsTU('')
             listTags = [listTags[k] for k in np.random.randint(0,len(listTags),5)]
+        listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=0)
 
         if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()//1000)) + 's'
         dfs=[]
