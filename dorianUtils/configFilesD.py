@@ -263,7 +263,9 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
             if parked : day = self.parkedDays[-1]
             else : day = re.findall('\d{4}-\d{2}-\d{2}',self.listFilesPkl[-1])[0]
             timeRange = [day + ' 9:00',day + ' 18:00']
-        if not listTags:
+        if len(listTags)==0:
+            return pd.DataFrame()
+        elif not listTags:
             listTags = self.getTagsTU('')
             listTags = [listTags[k] for k in np.random.randint(0,len(listTags),5)]
         listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=0)
