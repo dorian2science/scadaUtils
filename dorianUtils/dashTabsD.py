@@ -341,7 +341,7 @@ class TabMultiUnits(TabDataTags):
 # ==============================================================================
 class RealTimeTagSelectorTab(TabSelectedTags):
     def __init__(self,app,cfg,baseId='rts0_'):
-        TabSelectedTags.__init__(self,None,cfg,app,baseId)
+        TabSelectedTags.__init__(self,cfg,app,baseId)
         self.tabname   = 'tag selector'
         self.cfg = cfg
         self.tabLayout = self._buildLayout()
