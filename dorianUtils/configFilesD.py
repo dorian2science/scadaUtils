@@ -348,7 +348,7 @@ class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
     def __init__(self,confFolder,connParameters):
         import glob
         from dorianUtils.utilsD import DataBase
-        super().__init__(folderPkl=None,confFolder=confFolder)
+        super().__init__(folderPkl='',confFolder=confFolder)
         self.dataBaseUtils=DataBase()
         self.connParameters = connParameters
 
