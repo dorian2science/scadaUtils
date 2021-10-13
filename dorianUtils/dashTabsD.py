@@ -94,6 +94,13 @@ class TabDataTags(TabMaster):
                 fig         = self.utils.customLegend(fig,dictNames)
         return fig
 
+    def updateLayoutGraph(self,fig,sizeDots=6):
+        fig.update_yaxes(showgrid=False)
+        fig.update_traces(marker=dict(size=sizeDots))
+        fig.update_layout(height=800)
+        fig.update_traces(hovertemplate='<b>%{y:.1f}')
+        return fig
+
     def drawGraph(self,df,typeGraph,**kwargs):
         unit = self.cfg.getUnitofTag(df.columns[0])
         nameGrandeur = self.utils.detectUnit(unit)
@@ -263,12 +270,6 @@ class TabMultiUnits(TabDataTags):
         TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname = 'multi Units'
 
-    def updateLayoutMultiUnitGraph(self,fig,sizeDots=10):
-        fig.update_yaxes(showgrid=False)
-        fig.update_traces(marker=dict(size=sizeDots))
-        fig.update_layout(height=900)
-        fig.update_traces(hovertemplate='<b>%{y:.1f}')
-        return fig
 
     def _buildLayout(self,widthG=80,initialTags=None):
         dicWidgets = {'pdr_time' : {'tmin':self.cfg.listFilesPkl[0],'tmax':self.cfg.listFilesPkl[-1]},
@@ -277,6 +278,7 @@ class TabMultiUnits(TabDataTags):
                         'dd_cmap':'jet','btn_export':0}
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
         specialWidgets = self.addWidgets({'dd_tag':initialTags,'btn_legend':0,'in_axisSp':0.05},self.baseId)
+
         # reodrer widgets
         widgetLayout = basicWidgets + specialWidgets
         return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
@@ -319,7 +321,7 @@ class TabMultiUnits(TabDataTags):
             else :fig = go.Figure(previousFig)
             tagMapping = {t:self.cfg.getUnitofTag(t) for t in tags}
             fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
-            fig = self.updateLayoutMultiUnitGraph(fig)
+            fig = self.updateLayoutGraph(fig)
             try :
                 fig = self.utils.legendPersistant(previousFig,fig)
             except:print('skip and update for next graph')
@@ -336,6 +338,78 @@ class TabMultiUnits(TabDataTags):
             df,filename =  self.utils.exportDataOnClick(fig)
             return dcc.send_data_frame(df.to_csv, filename+'.csv')
 
+class TabMultiUnitSelectedTags(TabDataTags):
+    def __init__(self,cfg,app,baseId='tmus0_'):
+        TabDataTags.__init__(self,cfg,app,baseId)
+        self.tabname = 'multi-units +'
+
+    def _buildLayout(self,widthG=80,initialTags=None):
+        dicWidgets = {'pdr_time' : {'tmin':self.cfg.listFilesPkl[0],'tmax':self.cfg.listFilesPkl[-1]},
+                        'in_timeRes':'60s','dd_resampleMethod' : 'mean',
+                        'dd_style':'lines+markers','dd_typeGraph':'scatter',
+                        'dd_cmap':'jet','btn_export':0}
+        basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
+        specialWidgets = self.addWidgets({'dd_typeTags':tagCatDefault,'btn_legend':0},self.baseId)
+        specialWidgets = self.addWidgets({'dd_tag':initialTags,'btn_legend':0,'in_axisSp':0.05},self.baseId)
+
+        # reodrer widgets
+        widgetLayout = basicWidgets + specialWidgets
+        return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
+
+    def _define_callbacks(self):
+        @self.app.callback(Output(self.baseId + 'btn_legend', 'children'),
+                            Input(self.baseId + 'btn_legend','n_clicks'))
+        def updateLgdBtn(legendType):return self.updateLegendBtnState(legendType)
+
+        listInputsGraph = {
+                        'dd_tag':'value',
+                        'pdr_timeBtn':'n_clicks',
+                        'dd_resampleMethod':'value',
+                        'dd_cmap':'value',
+                        'btn_legend':'children',
+                        'dd_style':'value',
+                        'in_axisSp':'value'}
+        listStatesGraph = {
+                            'graph':'figure',
+                            'in_timeRes' : 'value',
+                            'pdr_timeStart' : 'value',
+                            'pdr_timeEnd':'value',
+                            'pdr_timePdr':'start_date',
+                            }
+
+        @self.app.callback(
+            Output(self.baseId + 'graph', 'figure'),
+            [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
+            [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
+            State(self.baseId+'pdr_timePdr','end_date'))
+        def updateMUGGraph(tags,timeBtn,rsMethod,cmapName,lgd,style,axSP,previousFig,rs,date0,date1,t0,t1):
+            ctx = dash.callback_context
+            trigId = ctx.triggered[0]['prop_id'].split('.')[0]
+            # to ensure that action on graphs only without computation do not
+            # trigger computing the dataframe again
+            triggerList=['dd_tag','pdr_timeBtn','dd_resampleMethod']
+            if not timeBtn or trigId in [self.baseId+k for k in triggerList] :
+                timeRange = [date0+' '+t0,date1+' '+t1]
+                fig  = self.cfg.plotMultiUnitGraph(timeRange,listTags=tags,rs=rs,applyMethod=rsMethod)
+            else :fig = go.Figure(previousFig)
+            tagMapping = {t:self.cfg.getUnitofTag(t) for t in tags}
+            fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
+            fig = self.updateLayoutGraph(fig)
+            try :
+                fig = self.utils.legendPersistant(previousFig,fig)
+            except:print('skip and update for next graph')
+            fig = self.updateLegend(fig,lgd)
+            return fig
+
+        @self.app.callback(
+                Output(self.baseId + 'dl','data'),
+                Input(self.baseId + 'btn_export', 'n_clicks'),
+                State(self.baseId + 'graph','figure'),
+                prevent_initial_call=True
+                )
+        def exportClickMUG(btn,fig):
+            df,filename =  self.utils.exportDataOnClick(fig)
+            return dcc.send_data_frame(df.to_csv, filename+'.csv')
 # ==============================================================================
 #                              REAL TIME
 # ==============================================================================
@@ -414,8 +488,7 @@ class RealTimeTagSelectorTab(TabSelectedTags):
                 fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
             else :fig = go.Figure(previousFig)
             fig = self.utils.updateStyleGraph(fig,style,colmap)
-            try :
-                fig = self.utils.legendPersistant(previousFig,fig)
+            try : fig = self.utils.legendPersistant(previousFig,fig)
             except:print('skip and update for next graph')
             fig = self.updateLegend(fig,lgd)
             fig.update_layout(font_size=20)
@@ -489,7 +562,7 @@ class RealTimeTagMultiUnit(TabMultiUnits):
                 fig = self.utils.multiUnitGraph(df,tagMapping)
             else : fig = go.Figure(previousFig)
             fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
-            fig = self.updateLayoutMultiUnitGraph(fig)
+            fig = self.updateLayoutGraph(fig)
             try :
                 fig = self.utils.legendPersistant(previousFig,fig)
             except:print('skip and update for next graph')
@@ -506,6 +579,191 @@ class RealTimeTagMultiUnit(TabMultiUnits):
             df,filename =  self.utils.exportDataOnClick(fig)
             return dcc.send_data_frame(df.to_csv, filename+'.csv')
 
+class RealTimeMultiUnitSelectedTags(TabDataTags):
+    def __init__(self,app,cfg,baseId='rtmus0_'):
+        TabMultiUnits.__init__(self,cfg,app,baseId)
+        self.tabname   = 'multi-échelles +'
+        self.cfg = cfg
+        self.tabLayout = self._buildLayout()
+        self._define_callbacks()
+
+    def _buildLayout(self,widthG=85,defaultSelTags=[],defaultTags=[],val_window=60*2,val_refresh=20,min_refresh=5,min_window=1,val_res='auto'):
+        dicWidgets = {
+                        'block_refresh':{'val_window':val_window,'val_refresh':val_refresh,
+                                            'min_refresh':min_refresh,'min_window':min_window},
+                        'btn_update':0,
+                        'block_resample':{'val_res':val_res,'val_method' : 'mean'},
+                        'block_graphSettings':{'style':'lines+markers','type':'scatter','colmap':'jet'},
+                        'btn_export':0,
+                        }
+        basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
+        selTagsDD = self.addWidgets({'dd_typeTags':defaultSelTags,'btn_legend':0},self.baseId)
+        tagDD = self.addWidgets({'dd_tag':defaultTags,'in_axisSp':0.05},self.baseId)
+        # reodrer widgets
+        widgetLayout = basicWidgets + selTagsDD + tagDD
+        return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
+
+    def _define_callbacks(self):
+
+        @self.app.callback(Output(self.baseId + 'interval', 'interval'),
+                            Input(self.baseId + 'in_refreshTime','value'))
+        def updateRefreshTime(refreshTime):return refreshTime*1000
+
+        @self.app.callback(Output(self.baseId + 'btn_legend', 'children'),
+                            Input(self.baseId + 'btn_legend','n_clicks'))
+        def updateLgdBtn(legendType):return self.updateLegendBtnState(legendType)
+
+        listInputsGraph = {
+                        'interval':'n_intervals',
+                        'btn_update':'n_clicks',
+                        'dd_tag':'value',
+                        'dd_typeTags':'value',
+                        'dd_resampleMethod':'value',
+                        'dd_typeGraph':'value',
+                        'dd_cmap':'value',
+                        'btn_legend':'children',
+                        'dd_style':'value',
+                        'in_axisSp':'value',
+                        }
+        listStatesGraph = {
+                            'graph':'figure',
+                            'in_timeWindow':'value',
+                            'in_timeRes':'value'
+                            }
+        @self.app.callback(
+        Output(self.baseId + 'graph', 'figure'),
+        [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
+        [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
+        )
+        def updateGraph(n,updateBtn,tags,selTags,rsMethod,typeGraph,colmap,lgd,style,axSP,previousFig,tw,rs):
+            # self.utils.printListArgs(n,updateBtn,tags,rsMethod,typeGraph,colmap,lgd,style,axSP,fig,tw,rs)
+            ctx = dash.callback_context
+            trigId = ctx.triggered[0]['prop_id'].split('.')[0]
+            # ==============================================================
+            triggerList = ['interval','dd_tag','btn_update','dd_resampleMethod','dd_typeGraph']
+            if not updateBtn or trigId in [self.baseId+k for k in triggerList]:
+                listTags = self.cfg.getUsefulTags(selTags)+tags
+                df = self.cfg.realtimeTagsDF(listTags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
+                tagMapping = {t:self.cfg.getUnitofTag(t) for t in listTags}
+                fig = self.cfg.utils.multiUnitGraph(df,tagMapping)
+                fig = self.utils.updateColorMap(fig,colmap)
+            else : fig = go.Figure(previousFig)
+            tagMapping = {t:self.cfg.getUnitofTag(t) for t in listTags}
+            fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
+            try :
+                fig = self.utils.legendPersistant(previousFig,fig)
+            except:print('skip and update for next graph')
+            fig.update_yaxes(tickfont_color='black',title_font_color='black')
+            fig = self.updateLegend(fig,lgd)
+            fig = self.updateLayoutGraph(fig)
+            return fig
+
+        @self.app.callback(
+                Output(self.baseId + 'dl','data'),
+                Input(self.baseId + 'btn_export', 'n_clicks'),
+                State(self.baseId + 'graph','figure'),
+                prevent_initial_call=True
+                )
+        def exportClickMUG(btn,fig):
+            df,filename =  self.utils.exportDataOnClick(fig)
+            return dcc.send_data_frame(df.to_csv, filename+'.csv')
+
+class RealTimeDoubleMultiUnits(TabDataTags):
+    def __init__(self,app,cfg,baseId='rtdmu0_'):
+        TabMultiUnits.__init__(self,cfg,app,baseId)
+        self.tabname   = 'double multi-échelles'
+        self.cfg = cfg
+        self.tabLayout = self._buildLayout()
+        self._define_callbacks()
+
+    def _buildLayout(self,widthG=85,defaultTags1=[],defaultTags2=[],val_window=60*2,val_refresh=20,min_refresh=5,min_window=1,val_res='auto'):
+        dicWidgets = {
+                        'block_refresh':{'val_window':val_window,'val_refresh':val_refresh,
+                                            'min_refresh':min_refresh,'min_window':min_window},
+                        'btn_update':0,
+                        'block_resample':{'val_res':val_res,'val_method' : 'mean'},
+                        'block_graphSettings':{'style':'lines+markers','type':'scatter','colmap':'jet'},
+                        'btn_export':0,
+                        }
+        basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
+        tagDD = self.addWidgets({'dd_tag':defaultTags1,'in_axisSp':0.05,'btn_legend':0},self.baseId)
+        tagDD2 = self.addWidgets({'dd_tag':defaultTags2},self.baseId+'2')
+        # reodrer widgets
+        widgetLayout = basicWidgets + tagDD +tagDD2
+        return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
+
+    def _define_callbacks(self):
+
+        @self.app.callback(Output(self.baseId + 'interval', 'interval'),
+                            Input(self.baseId + 'in_refreshTime','value'))
+        def updateRefreshTime(refreshTime):return refreshTime*1000
+
+        @self.app.callback(Output(self.baseId + 'btn_legend', 'children'),
+                            Input(self.baseId + 'btn_legend','n_clicks'))
+        def updateLgdBtn(legendType):return self.updateLegendBtnState(legendType)
+
+        listInputsGraph = {
+                        'interval':'n_intervals',
+                        'btn_update':'n_clicks',
+                        'dd_tag':'value',
+                        '2dd_tag':'value',
+                        'dd_resampleMethod':'value',
+                        'dd_typeGraph':'value',
+                        'dd_cmap':'value',
+                        'btn_legend':'children',
+                        'dd_style':'value',
+                        'in_axisSp':'value',
+                        }
+        listStatesGraph = {
+                            'graph':'figure',
+                            'in_timeWindow':'value',
+                            'in_timeRes':'value'
+                            }
+        @self.app.callback(
+        Output(self.baseId + 'graph', 'figure'),
+        [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
+        [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
+        )
+        def updateGraph(n,updateBtn,tags1,tags2,rsMethod,typeGraph,colmap,lgd,style,axSP,previousFig,tw,rs):
+            # self.utils.printListArgs(n,updateBtn,tags,rsMethod,typeGraph,colmap,lgd,style,axSP,fig,tw,rs)
+            ctx = dash.callback_context
+            trigId = ctx.triggered[0]['prop_id'].split('.')[0]
+            # ==============================================================
+            triggerList = ['interval','dd_tag','2dd_tag','btn_update','dd_resampleMethod','dd_typeGraph']
+            if not updateBtn or trigId in [self.baseId+k for k in triggerList]:
+
+                df = self.cfg.realtimeTagsDF(tags1+tags2,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
+                dictdictGroups={'graph1':{t:t for t in tags1},'graph2':{t:t for t in tags2}}
+                fig = self.utils.multiUnitGraphSubPlots(df,dictdictGroups,axisSpace=axSP)
+                hs=0.002
+                for y in range(1,len(tags1)+1):
+                    fig.layout['yaxis1'+str(y)].domain=[0.5+hs,1]
+                for y in range(1,len(tags2)+1):
+                    fig.layout['yaxis2'+str(y)].domain=[0,0.5-hs]
+                    fig.update_layout(xaxis_showticklabels=False)
+                    fig.update_yaxes(title_text='',showticklabels=False)
+                    fig.update_yaxes(showgrid=False)
+                    fig.update_xaxes(matches='x')
+                    fig.update_layout(height=900)
+
+            else : fig = go.Figure(previousFig)
+            dictdictGroups={'graph1':{t:t for t in tags1},'graph2':{t:t for t in tags2}}
+            # fig.layout = self.utils.getLayoutMultiUnitSubPlots(dictdictGroups,axisSpace=axSP)[0].layout
+            try : fig = self.utils.legendPersistant(previousFig,fig)
+            except:print('skip and update for next graph')
+            fig = self.updateLegend(fig,lgd)
+            fig = self.updateLayoutGraph(fig)
+            return fig
+
+        @self.app.callback(
+                Output(self.baseId + 'dl','data'),
+                Input(self.baseId + 'btn_export', 'n_clicks'),
+                State(self.baseId + 'graph','figure'),
+                prevent_initial_call=True
+                )
+        def exportClickMUG(btn,fig):
+            df,filename =  self.utils.exportDataOnClick(fig)
+            return dcc.send_data_frame(df.to_csv, filename+'.csv')
 
 # ==============================================================================
 #                               template tabs

@@ -79,7 +79,6 @@ class Utils:
         ''' compress a dataframe by computing the mean around idxForMean points'''
         if not col :
             col = [k for k in range(len(df.columns))]
-        print(col)
         if not idxForMean :
             idxForMean = list(range(windowPts,len(df),windowPts))
         ll = [df.iloc[k-windowPts:k+windowPts+1,col].mean().to_frame().transpose()
@@ -430,7 +429,6 @@ class Utils:
         idx=filename.find(patStop)
         f=filename[:idx]
         f=re.sub('[\./]','_','_'.join([f]+toAdd))
-        print(f)
         return f
 
     def figureName(self,params,joinCara=',',egal='=',patAfterList=None):
@@ -603,7 +601,6 @@ class Utils:
 
     def multiUnitGraphSubPlots(self,df,dictdictGroups,**kwargs):
         fig,dfGroups=self.getLayoutMultiUnitSubPlots(dictdictGroups,**kwargs)
-        print(dfGroups)
         for trace,g in zip(dfGroups.index,dfGroups.group):
             curTrace =dfGroups[dfGroups.group==g].loc[trace,:]
             col,xa,ya,symbol,line = [curTrace[k] for k in ['color','xaxis','yaxis','symbol','line']]
@@ -794,7 +791,6 @@ class DataBase():
         # tagSQL = tagCol + " like '" + patSql + "'"
         tagSQL = tagCol + " ~ '" + patSql + "'"
         sqlQ = "select * from realtimedata where " + timeSQL + " and  " + tagSQL + ";"
-        print(sqlQ)
         df = pd.read_sql_query(sqlQ,conn,parse_dates=[tsCol])
         return df
 
@@ -803,7 +799,6 @@ class DataBase():
         timeSQL = tsCol + " BETWEEN '" + t0 +"' AND '" + t1 +"'"
         tagSQL = tagCol + " in ('" + "','".join(tags) + "')"
         sqlQ = "select * from realtimedata where " + timeSQL + " and  " + tagSQL + ";"
-        print(sqlQ)
         df = pd.read_sql_query(sqlQ,conn,parse_dates=[tsCol])
         return df
 
