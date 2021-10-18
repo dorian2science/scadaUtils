@@ -350,7 +350,7 @@ class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
         import glob
         from dorianUtils.utilsD import DataBase
         super().__init__(folderPkl='',confFolder=confFolder)
-        self.dataBaseUtils=DataBase()
+        self.dataBaseUtils  = DataBase()
         self.connParameters = connParameters
 
     def _getPLC_ColName(self):
@@ -391,11 +391,15 @@ class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
         conn.close()
         return df
 
-    def realtimeTagsDF(self,tags,timeWindow=60*60*2,rs='1s',applyMethod='mean'):
+    def realtimeTagsDF(self,tags,timeWindow=60*60*2,rs='1s',applyMethod='mean',simulated=False):
         if rs=='auto':rs = '{:.0f}'.format(max(1,timeWindow//1000)) + 's'
-        conn = self.connectToDB()
-        df   = self.dataBaseUtils.readSeveralTagsSQL(conn,tags,secs=timeWindow)
-        return self.processRawData(df,rs=rs,applyMethod=applyMethod)
+        if simulated:
+            df = [np.random.randint(0,100) + np.random.randn() for k in range(len(tags))]
+        else :
+            conn = self.connectToDB()
+            df   = self.dataBaseUtils.readSeveralTagsSQL(conn,tags,secs=timeWindow)
+            df   = self.processRawData(df,rs=rs,applyMethod=applyMethod)
+        return df
 
 class ConfigDashSpark(ConfigDashTagUnitTimestamp):
     try :
@@ -641,3 +645,38 @@ class ConfigFilesRealTimeCSV(ConfigDashTagUnitTimestamp):
 
     def realtimeTagsDF(self,listTags,**kwargs):
         return self.mbUtils.readTagsRealTime(self.folderRT,listTags,**kwargs)
+
+class Config_opcua():
+    from opcua import Client
+
+    def __init__(self,folderRT,connected=False,endpointurl=None,nameSpace=None,maxNbPoints = 600,tags=[],speed=100):
+        self.folderRT = folderRT
+        if not nameSpace:nameSpace = "ns=4;s=GVL."
+        if not endpointurl:endpointurl = "opc.tcp://10.10.38.100:4840"
+        self.appDir      = os.path.dirname(os.path.realpath(__file__))
+        self.endpointurl = endpointurl
+        self.nameSpace   = nameSpace
+        self.plcFile     = glob.glob('*.xlsm')[0]
+        self.dfPLC       = pd.read_excel(self.plcFile,sheet_name='FichierConf_Jules')
+        self.alltags     = self.dfPLC[self.dfPLC.DATASCIENTISM==True]['TAG'].unique()
+        self.client      = Client(self.endpointurl)
+        self.certif_path = self.appDir + "/my_cert.pem"
+        self.key_path    = self.appDir + "/my_private_key.pem"
+        self.maxNbPoints = maxNbPoints
+        self.speed       = speed
+        self.connected   = connected
+        if self.connected:
+            self.client.set_security_string('Basic256Sha256,Sign,' + self.certif_path + ',' + self.key_path)
+            self.client.set_user("Alpha")
+            self.client.set_password("Alpha$01")
+            self.client.connect()
+        self.dfGlobal = pd.DataFrame(columns = ['timestamp','value']).set_index('timestamp')
+        self.tags = tags
+
+    def getValues(self,tags):
+        if cfg.connected:
+            nodes=[self.client.get_node(self.nameSpace + t) for t in tags]
+            values = self.client.get_values(nodes)
+        else :
+            values = np.random.randn(len(tags))
+        return values

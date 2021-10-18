@@ -731,7 +731,6 @@ class RealTimeDoubleMultiUnits(TabDataTags):
             # ==============================================================
             triggerList = ['interval','dd_tag','2dd_tag','btn_update','dd_resampleMethod','dd_typeGraph']
             if not updateBtn or trigId in [self.baseId+k for k in triggerList]:
-
                 df = self.cfg.realtimeTagsDF(tags1+tags2,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
                 dictdictGroups={'graph1':{t:t for t in tags1},'graph2':{t:t for t in tags2}}
                 fig = self.utils.multiUnitGraphSubPlots(df,dictdictGroups,axisSpace=axSP)
@@ -740,11 +739,11 @@ class RealTimeDoubleMultiUnits(TabDataTags):
                     fig.layout['yaxis1'+str(y)].domain=[0.5+hs,1]
                 for y in range(1,len(tags2)+1):
                     fig.layout['yaxis2'+str(y)].domain=[0,0.5-hs]
-                    fig.update_layout(xaxis_showticklabels=False)
-                    fig.update_yaxes(title_text='',showticklabels=False)
-                    fig.update_yaxes(showgrid=False)
-                    fig.update_xaxes(matches='x')
-                    fig.update_layout(height=900)
+                fig.update_layout(xaxis_showticklabels=False)
+                fig.update_yaxes(title_text='',showticklabels=False)
+                fig.update_yaxes(showgrid=False)
+                fig.update_xaxes(matches='x')
+                fig.update_layout(height=900)
 
             else : fig = go.Figure(previousFig)
             dictdictGroups={'graph1':{t:t for t in tags1},'graph2':{t:t for t in tags2}}
