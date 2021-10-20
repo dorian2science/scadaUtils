@@ -7,6 +7,7 @@ from scipy import linalg, integrate
 from dateutil import parser
 from dorianUtils.utilsD import Utils
 from dorianUtils.comUtils import Modebus_utils
+from opcua import Client
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -646,19 +647,16 @@ class ConfigFilesRealTimeCSV(ConfigDashTagUnitTimestamp):
     def realtimeTagsDF(self,listTags,**kwargs):
         return self.mbUtils.readTagsRealTime(self.folderRT,listTags,**kwargs)
 
-class Config_opcua():
-    from opcua import Client
-
-    def __init__(self,folderRT,connected=False,endpointurl=None,nameSpace=None,maxNbPoints = 600,tags=[],speed=100):
-        self.folderRT = folderRT
+class Config_opcua(ConfigDashTagUnitTimestamp):
+    def __init__(self,plcfile,connected=False,endpointurl=None,nameSpace=None,maxNbPoints = 600,tags=[],speed=100):
         if not nameSpace:nameSpace = "ns=4;s=GVL."
         if not endpointurl:endpointurl = "opc.tcp://10.10.38.100:4840"
         self.appDir      = os.path.dirname(os.path.realpath(__file__))
         self.endpointurl = endpointurl
         self.nameSpace   = nameSpace
-        self.plcFile     = glob.glob('*.xlsm')[0]
-        self.dfPLC       = pd.read_excel(self.plcFile,sheet_name='FichierConf_Jules')
-        self.alltags     = self.dfPLC[self.dfPLC.DATASCIENTISM==True]['TAG'].unique()
+        self.plcFile     = plcfile
+        self.dfPLC       = self._load_dfplc()
+        self.alltags     = self.dfPLC['TAG']
         self.client      = Client(self.endpointurl)
         self.certif_path = self.appDir + "/my_cert.pem"
         self.key_path    = self.appDir + "/my_private_key.pem"
@@ -670,13 +668,32 @@ class Config_opcua():
             self.client.set_user("Alpha")
             self.client.set_password("Alpha$01")
             self.client.connect()
+        else :
+            values = [np.random.randint(a,b) for a,b in zip(self.dfPLC.MIN,self.dfPLC.MAX)]
+            self.lastValues = {t:v for t,v in zip(self.alltags,values)}
         self.dfGlobal = pd.DataFrame(columns = ['timestamp','value']).set_index('timestamp')
-        self.tags = tags
+
+    def _load_dfplc(self):
+        dfplc = pd.read_excel(self.plcFile,sheet_name='FichierConf_Jules')
+        dfplc = dfplc[dfplc.DATASCIENTISM==True]
+        dfplc.loc[dfplc['TAG'].str.contains('JT_'),'MAX']=4000
+        dfplc.loc[dfplc['TAG'].str.contains('JT_'),'MIN']=0
+        dfplc.loc[dfplc['TAG'].str.contains('STK.*ET'),'MAX']=2.2
+        dfplc.loc[dfplc['TAG'].str.contains('STK.*ET'),'MIN']=0
+        dfplc.loc[dfplc['TAG'].str.contains('STK_ALIM.*ET'),'MAX']=30
+        dfplc.loc[dfplc['TAG'].str.contains('STK_ALIM.*ET'),'MIN']=0
+        dfplc.loc[dfplc['TAG'].str.contains('IT_'),'MAX']=50
+        dfplc.loc[dfplc['TAG'].str.contains('IT_'),'MIN']=0
+        dfplc.loc[dfplc['TAG'].str.contains('TT_'),'MIN']=0
+        return dfplc
+
 
     def getValues(self,tags):
-        if cfg.connected:
-            nodes=[self.client.get_node(self.nameSpace + t) for t in tags]
+        if self.connected:
+            nodes  = [self.client.get_node(self.nameSpace + t) for t in tags]
             values = self.client.get_values(nodes)
-        else :
-            values = np.random.randn(len(tags))
+        else:
+            values = [v + 0.002*v*np.random.randn() for v in self.lastValues.values()]
+            self.lastValues = {t:v for t,v in zip(self.lastValues.keys(),values)}
+            values = [self.lastValues[t] for t in tags]
         return values
