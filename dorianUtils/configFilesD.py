@@ -648,9 +648,11 @@ class ConfigFilesRealTimeCSV(ConfigDashTagUnitTimestamp):
         return self.mbUtils.readTagsRealTime(self.folderRT,listTags,**kwargs)
 
 class Config_opcua(ConfigDashTagUnitTimestamp):
-    def __init__(self,plcfile,connected=False,endpointurl=None,nameSpace=None,maxNbPoints = 600,tags=[],speed=100):
+    def __init__(self,plcfile,connected=False,endpointurl=None,nameSpace=None,login=None,passwd=None,maxNbPoints = 600,tags=[],speed=100):
         if not nameSpace:nameSpace = "ns=4;s=GVL."
         if not endpointurl:endpointurl = "opc.tcp://10.10.38.100:4840"
+        if not login:login = "Alpha"
+        if not endpointurl:endpointurl = "Alpha$01"
         self.appDir      = os.path.dirname(os.path.realpath(__file__))
         self.endpointurl = endpointurl
         self.nameSpace   = nameSpace
@@ -665,8 +667,8 @@ class Config_opcua(ConfigDashTagUnitTimestamp):
         self.connected   = connected
         if self.connected:
             self.client.set_security_string('Basic256Sha256,Sign,' + self.certif_path + ',' + self.key_path)
-            self.client.set_user("Alpha")
-            self.client.set_password("Alpha$01")
+            self.client.set_user(login)
+            self.client.set_password(passwd)
             self.client.connect()
         else :
             values = [np.random.randint(a,b) for a,b in zip(self.dfPLC.MIN,self.dfPLC.MAX)]
