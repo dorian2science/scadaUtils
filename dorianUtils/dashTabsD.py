@@ -580,10 +580,12 @@ class RealTimeTagMultiUnit(TabMultiUnits):
             return dcc.send_data_frame(df.to_csv, filename+'.csv')
 
 class RealTimeMultiUnitSelectedTags(TabDataTags):
-    def __init__(self,app,cfg,baseId='rtmus0_'):
+    def __init__(self,app,cfg,baseId='rtmus0_',graphfunction=None):
         TabMultiUnits.__init__(self,cfg,app,baseId)
         self.tabname   = 'multi-échelles +'
         self.cfg = cfg
+        if not graphfunction:graphfunction='standard'
+        self.graphfunction = graphfunction
         self.tabLayout = self._buildLayout()
         self._define_callbacks()
 
@@ -645,17 +647,22 @@ class RealTimeMultiUnitSelectedTags(TabDataTags):
                 listTags = self.cfg.getUsefulTags(selTags)+tags
                 df = self.cfg.realtimeTagsDF(listTags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
                 tagMapping = {t:self.cfg.getUnitofTag(t) for t in listTags}
-                fig = self.cfg.utils.multiUnitGraph(df,tagMapping)
-                fig = self.utils.updateColorMap(fig,colmap)
+                if self.graphfunction=='standard':
+                    fig = self.cfg.utils.multiUnitGraph(df,tagMapping)
+                    fig = self.utils.updateColorMap(fig,colmap)
+                elif self.graphfunction=='multiunitshades':
+                    fig = multiUnitGraphShades(df)
+
             else : fig = go.Figure(previousFig)
-            tagMapping = {t:self.cfg.getUnitofTag(t) for t in listTags}
-            fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
-            try :
-                fig = self.utils.legendPersistant(previousFig,fig)
-            except:print('skip and update for next graph')
-            fig.update_yaxes(tickfont_color='black',title_font_color='black')
-            fig = self.updateLegend(fig,lgd)
-            fig = self.updateLayoutGraph(fig)
+                if self.graphfunction=='standard':
+                    tagMapping = {t:self.cfg.getUnitofTag(t) for t in listTags}
+                    fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
+                    fig = self.updateLayoutGraph(fig)
+                    fig.update_yaxes(tickfont_color='black',title_font_color='black')
+                try :
+                    fig = self.utils.legendPersistant(previousFig,fig)
+                except:print('skip and update for next graph')
+                fig = self.updateLegend(fig,lgd)
             return fig
 
         @self.app.callback(
