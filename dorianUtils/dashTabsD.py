@@ -644,11 +644,11 @@ class RealTimeMultiUnitSelectedTags(TabDataTags):
             # ==============================================================
             triggerList = ['interval','dd_tag','btn_update','dd_resampleMethod','dd_typeGraph']
             if not updateBtn or trigId in [self.baseId+k for k in triggerList]:
-                listTags = self.cfg.getUsefulTags(selTags)+tags
+                listTags = self.cfg.getUsefulTags(selTags) + tags
                 df = self.cfg.realtimeTagsDF(listTags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
+                df=df[listTags]
                 tagMapping = {t:self.cfg.getUnitofTag(t) for t in listTags}
                 if self.graphfunction=='standard':
-                    print('here')
                     fig = self.cfg.utils.multiUnitGraph(df,tagMapping)
                     fig = self.utils.updateColorMap(fig,colmap)
                 elif self.graphfunction=='multiunitshades':
@@ -656,7 +656,7 @@ class RealTimeMultiUnitSelectedTags(TabDataTags):
 
             else : fig = go.Figure(previousFig)
             if self.graphfunction=='standard':
-                tagMapping = {t:self.cfg.getUnitofTag(t) for t in listTags}
+                tagMapping = {t:self.cfg.getUnitofTag(t) for t in df.columns}
                 fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
                 fig = self.updateLayoutGraph(fig)
                 fig.update_yaxes(tickfont_color='black',title_font_color='black')
