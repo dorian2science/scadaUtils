@@ -174,65 +174,80 @@ class DccExtended:
         )
         return logModal
 
-    def basicComponents(self,dicWidgets,baseId):
+    def basicComponents(self,dicWidgets,baseId=''):
         widgetLayout,dicLayouts = [],{}
         for wid_key,wid_val in dicWidgets.items():
-            if 'dd_cmap' in wid_key:
+            if 'dd_cmap'==wid_key:
                 widgetObj = self.dropDownFromList(baseId+wid_key,self.utils.cmapNames[0],
                                                 'colormap : ',value=wid_val)
 
 
-            elif 'dd_resampleMethod' in wid_key:
+            elif 'dd_resampleMethod'==wid_key:
                 widgetObj = self.dropDownFromList(baseId+wid_key,['mean','max','min','median'],
                 'resampling method: ',value=wid_val,multi=False)
 
-            elif 'dd_style' in wid_key:
+            elif 'dd_style'==wid_key:
                 widgetObj = self.dropDownFromList(baseId+wid_key,self.graphStyles,'style : ',value = wid_val)
 
-            elif 'dd_typeGraph' in wid_key:
+            elif 'dd_typeGraph'==wid_key:
                 widgetObj = self.dropDownFromList(baseId+wid_key,self.graphTypes,
                             'type graph : ',value=wid_val,
                             style=self.stdStyle,optionHeight=20)
 
-            elif 'btn_export' in wid_key:
+            elif 'btn_export'==wid_key:
                 widgetObj = [html.Button('export .csv',id=baseId+wid_key, n_clicks=wid_val),
                             dcc.Download(id=baseId + "dl")]
 
-            elif 'btn_update' in wid_key:
+            elif 'btn_update'==wid_key:
                 widgetObj = [html.Button('update',id=baseId+wid_key, n_clicks=wid_val)]
 
-            elif 'check_button' in wid_key:
+
+            elif 'check_button'==wid_key:
                 widgetObj = [dcc.Checklist(id=baseId+wid_key,options=[{'label': wid_val, 'value': wid_val}])]
 
-            elif 'in_timeRes' in wid_key:
+            elif 'btns_refresh'==wid_key:
+                widgetObj = [
+                dbc.Row([
+                    dbc.Col(html.Button('update',id=baseId+'btn_update', n_clicks=0)),
+                    dbc.Col(html.Button('stop refresh',id=baseId+'btn_stop', n_clicks=0))]),
+                dbc.Row([
+                    dbc.Col(html.Button('-',id=baseId+'btn'+'-', n_clicks=0),
+                            style={'fontsize':'12 px','width':'120px','height': '40px','min-height': '1px',}),
+                    dbc.Col(dcc.Input(id=baseId+'in_addtime',value=60,max=60*60,min=0,type='number',
+                                style=self.smallStyle)),
+                    dbc.Col(html.Button('+',id=baseId+'btn_stop'+'+', n_clicks=0),style=self.smallStyle),
+                    ])
+                    ]
+
+            elif 'in_timeRes'==wid_key:
                 widgetObj = [html.P('time resolution : '),
                 dcc.Input(id=baseId+wid_key,placeholder='time resolution : ',type='text',value=wid_val)]
                 widgetObj = [self.build_dbcBasicBlock(widgetObj,2,1)]
 
-            elif 'in_heightGraph' in wid_key:
+            elif 'in_heightGraph'==wid_key:
                 widgetObj = [html.P('heigth of graph: '),
                 dcc.Input(id=baseId+wid_key,type='number',value=wid_val,max=3000,min=400,step=5,style=self.stdStyle)]
                 widgetObj = [self.build_dbcBasicBlock(widgetObj,2,1)]
 
-            elif 'in_axisSp' in wid_key :
+            elif 'in_axisSp'==wid_key :
                 widgetObj = [html.P('space between axis: '),
                 dcc.Input(id=baseId+wid_key,type='number',value=wid_val,max=1,min=0,step=0.01,style=self.stdStyle)]
                 widgetObj = [self.build_dbcBasicBlock(widgetObj,2,1)]
 
-            elif 'in_hspace' in wid_key :
+            elif 'in_hspace'==wid_key :
                 widgetObj = [html.P('horizontal space: '),
                 dcc.Input(id=baseId+wid_key,type='number',value=wid_val,max=1,min=0,step=0.01,style=self.stdStyle)]
                 widgetObj = [self.build_dbcBasicBlock(widgetObj,2,1)]
 
-            elif 'in_vspace' in wid_key :
+            elif 'in_vspace'==wid_key :
                 widgetObj = [html.P('vertical space: '),
                 dcc.Input(id=baseId+wid_key,type='number',value=wid_val,max=1,min=0,step=0.01,style=self.stdStyle)]
                 widgetObj = [self.build_dbcBasicBlock(widgetObj,2,1)]
 
-            elif wid_key == 'interval' :
+            elif 'interval'==wid_key :
                 widgetObj = [dcc.Interval(id=baseId + wid_key,interval=wid_val*1000,n_intervals=0)]
 
-            elif 'pdr_time' in wid_key :
+            elif 'pdr_time'==wid_key :
                 if not wid_val :
                     wid_val={}
                     tmax = dt.datetime.now()
@@ -260,17 +275,17 @@ class DccExtended:
                             dbc.Col(dcc.Input(id = baseId + wid_key + 'End',type='text',value = '18:00',size='13',style={'font-size' : 13}))])
                 ])]
 
-            elif 'block_refresh' in wid_key:
+            elif 'block_refresh'==wid_key:
                 interval = dcc.Interval(id=baseId + 'interval',interval=wid_val['val_refresh']*1000,n_intervals=0)
 
                 timeWindow=[html.P('time window (in min): ',style=self.smallStyle),
                         dcc.Input(id=baseId+'in_timeWindow',placeholder='refresh Time in seconds: ',type='number',
-                            max=24*60,min=wid_val['min_window'],step=1,value=wid_val['val_window'],style=self.smallStyle)]
+                            max=10000000,min=wid_val['min_window'],step=1,value=wid_val['val_window'],style=self.smallStyle)]
                 timeWindow = [self.build_dbcBasicBlock(timeWindow,1,2,ws=[6,6])]
 
                 refreshTime = [html.P('refresh time (in s): ',style=self.smallStyle),
                         dcc.Input(id=baseId+'in_refreshTime',placeholder='refresh Time in seconds: ',type='number',
-                            max=1500,min=wid_val['min_refresh'],step=1,value=wid_val['val_refresh'],style=self.smallStyle)]
+                            max=10000000,min=wid_val['min_refresh'],step=1,value=wid_val['val_refresh'],style=self.smallStyle)]
                 refreshTime = [self.build_dbcBasicBlock(refreshTime,1,2,ws=[6,6])]
                 timeBlock = html.Div([
                                     html.H5(''),
@@ -278,7 +293,7 @@ class DccExtended:
                                                 style=self.blockStyle1)
                 widgetObj = [interval,timeBlock]
 
-            elif wid_key=='block_graphSettings':
+            elif wid_key =='block_graphSettings':
                 blockSettings = self.basicComponents({
                                             'dd_cmap':wid_val['colmap'],
                                             'dd_style':wid_val['style'],
@@ -286,7 +301,7 @@ class DccExtended:
                                             },baseId)
                 widgetObj = [html.Div([self.build_dbcBasicBlock(blockSettings,3,2)],style=self.blockStyle2)]
 
-            elif wid_key=='block_resample':
+            elif wid_key == 'block_resample':
                 timeRes = [html.P('time resolution: ',style=self.smallStyle),
                 dcc.Input(id=baseId+'in_timeRes',placeholder='time resolution : ',type='text',value=wid_val['val_res'],style=self.smallStyle)]
                 timeRes = [self.build_dbcBasicBlock(timeRes,1,2)]
@@ -299,7 +314,7 @@ class DccExtended:
                 resampleMethod = [self.build_dbcBasicBlock(resampleMethod,1,2)]
                 widgetObj = [html.Div(self.build_dbcBasicBlock([timeRes,resampleMethod],2,1),style=self.blockStyle3)]
 
-            elif wid_key=='block_multiAxisSettings':
+            elif wid_key == 'block_multiAxisSettings':
                 blockSettings = self.basicComponents({
                                             'in_heightGraph':900,
                                             'in_axisSp':0.02,

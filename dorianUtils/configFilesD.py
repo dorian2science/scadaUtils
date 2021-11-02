@@ -392,13 +392,13 @@ class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
         conn.close()
         return df
 
-    def realtimeTagsDF(self,tags,timeWindow=60*60*2,rs='1s',applyMethod='mean',simulated=False):
+    def realtimeTagsDF(self,tags,timeWindow=60*60*2,rs='1s',applyMethod='mean',simulated=False,timeRange=None):
         if rs=='auto':rs = '{:.0f}'.format(max(1,timeWindow//1000)) + 's'
         if simulated:
             df = [np.random.randint(0,100) + np.random.randn() for k in range(len(tags))]
         else :
             conn = self.connectToDB()
-            df   = self.dataBaseUtils.readSeveralTagsSQL(conn,tags,secs=timeWindow)
+            df   = self.dataBaseUtils.readSeveralTagsSQL(conn,tags,secs=timeWindow,timeRange=timeRange)
             df   = self.processRawData(df,rs=rs,applyMethod=applyMethod)
         return df
 

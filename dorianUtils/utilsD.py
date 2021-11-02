@@ -54,14 +54,14 @@ class Utils:
     def convert_csv2pkl(self,folderCSV,folderPKL,overwrite=False):
         try :
             listFiles=self.get_listFilesPkl(folderCSV,'.csv')
+            if not overwrite:
+                listFiles = [f for f in listFiles if not f[:-4]+'.pkl' in folderPKL]
+                for filename in listFiles:
+                    df=self.read_csv_datetimeTZ(folderCSV + filename)
+                    with open(folderPKL + filename[:-4] + '.pkl' , 'wb') as handle:
+                        pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
         except:
             print('no csv files in directory : ',folderCSV)
-        if not overwrite:
-            listFiles = [f for f in listFiles if not f[:-4]+'.pkl' in folderPKL]
-        for filename in listFiles:
-            df=self.read_csv_datetimeTZ(folderCSV + filename)
-            with open(folderPKL + filename[:-4] + '.pkl' , 'wb') as handle:
-                pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     def get_listFilesPkl(self,folderName=None,ext='.pkl'):
         if not folderName :folderName = os.getcwd()
@@ -794,8 +794,11 @@ class DataBase():
         df = pd.read_sql_query(sqlQ,conn,parse_dates=[tsCol])
         return df
 
-    def readSeveralTagsSQL(self,conn,tags,secs=60*2,tagCol="tag",tsCol="timestampz"):
-        t0,t1 = self.gettimeSQL(secs=secs)
+    def readSeveralTagsSQL(self,conn,tags,secs=60*2,tagCol="tag",tsCol="timestampz",timeRange=None):
+        if not timeRange:
+            t0,t1 = self.gettimeSQL(secs=secs)
+        else :
+            t0,t1 = timeRange
         timeSQL = tsCol + " BETWEEN '" + t0 +"' AND '" + t1 +"'"
         tagSQL = tagCol + " in ('" + "','".join(tags) + "')"
         sqlQ = "select * from realtimedata where " + timeSQL + " and  " + tagSQL + ";"
