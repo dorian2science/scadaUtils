@@ -1,5 +1,6 @@
 import pandas as pd, numpy as np, pickle, re, time, datetime as dt,glob,threading
 from datetime import timezone
+import pytz
 import subprocess as sp, os
 from dateutil import parser
 from pyModbusTCP.client import ModbusClient
@@ -389,7 +390,7 @@ class Modebus_utils(ComUtils):
                     curReg+=row['size(mots)']
 
                     if not row.type == exclude:
-                        timestamps[row['point de comptage'] + '---'+ row['description']] = dt.datetime.now().isoformat()
+                        timestamps[row['point de comptage'] + '---'+ row['description']] = dt.datetime.now(tz=pytz.timezone('Europe/Paris')).isoformat()
                         d[row['point de comptage'] + '---'+ row['description']]=value
                         # print(row['point de comptage'] + '---'+ row['description'],' : ',value)
         return d,timestamps
