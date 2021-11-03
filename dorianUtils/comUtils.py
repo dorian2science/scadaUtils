@@ -113,7 +113,6 @@ class ComUtils:
                 df = pd.read_csv(filename,parse_dates=[0],header=None)
                 df.columns=['timestampUTC','value']
                 df = df.set_index('timestampUTC')
-                df.index = df.index.tz_localize(locProd)
                 df.index = df.index.tz_convert('UTC')
                 df['tag']=tag
                 df=df.reset_index()
