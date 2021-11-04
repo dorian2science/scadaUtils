@@ -159,7 +159,7 @@ class TabDataTags(TabMaster):
         fig.update_yaxes(showgrid=False)
         fig.update_traces(marker=dict(size=sizeDots))
         fig.update_layout(height=800)
-        fig.update_traces(hovertemplate='%{y:.1f}<br>%{x|%H:%M:%S}')
+        fig.update_traces(hovertemplate='<b>%{y:.1f}<\b> <br>%{x|%H:%M:%S}')
         # fig.update_traces(hovername='tag')
         return fig
 
@@ -433,16 +433,17 @@ class RealTimeTagSelectorTab(TabSelectedTags):
         self.tabname   = 'tag selector'
         self.cfg = cfg
         self.tabLayout = self._buildLayout()
-        # self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
-        # self._define_callbacks()
+        self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
+        self._define_callbacks()
 
     def _buildLayout(self,widthG=85,defaultCat='',val_window=60*2,val_refresh=20,min_refresh=5,min_window=1):
         dicWidgets = {
                         'block_refresh':{'val_window':val_window,'val_refresh':val_refresh,
                                             'min_refresh':min_refresh,'min_window':min_window},
-                        'btn_update':0,
+                        'btns_refresh':None,
                         'block_resample':{'val_res':'auto','val_method' : 'mean'},
-                        'block_graphSettings':{'style':'lines+markers','type':'scatter','colmap':'jet'}
+                        'block_graphSettings':{'style':'lines+markers','type':'scatter','colmap':'jet'},
+                        'btn_export':0,
                         }
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
         specialWidgets = self.addWidgets({'dd_typeTags':defaultCat,'btn_legend':0},self.baseId)
@@ -554,11 +555,9 @@ class RealTimeTagMultiUnit(TabDataTags):
             # ==============================================================
             triggerList = ['interval','dd_tag','btn_update','st_freeze','dd_resampleMethod','dd_typeGraph']
             fig = go.Figure(previousFig)
-            print(trigId)
             if not updateBtn or trigId in [self.baseId+k for k in triggerList]:
                 start = time.time()
                 if trigId==self.baseId+'st_freeze':
-                    print(timeRange)
                     df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod,timeRange=timeRange)
                 else:
                     df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
@@ -573,22 +572,21 @@ class RealTimeTagMultiUnit(TabDataTags):
             fig = self.updateLegend(fig,lgd)
             return fig
 
-class RealTimeMultiUnitSelectedTags(TabDataTags):
-    def __init__(self,app,cfg,baseId='rtmus0_',graphfunction=None):
+class RealTimeMultiUnitSelectedTags(TabMultiUnits):
+    def __init__(self,app,cfg,baseId='rtmus0_',graphfunction='standard'):
         TabMultiUnits.__init__(self,cfg,app,baseId)
         self.tabname   = 'multi-échelles +'
         self.cfg = cfg
-        if not graphfunction:graphfunction='standard'
         self.graphfunction = graphfunction
         self.tabLayout = self._buildLayout()
-        # self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
-        # self._define_callbacks()
+        self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
+        self._define_callbacks()
 
     def _buildLayout(self,widthG=85,defaultSelTags=[],defaultTags=[],val_window=60*2,val_refresh=20,min_refresh=5,min_window=1,val_res='auto'):
         dicWidgets = {
                         'block_refresh':{'val_window':val_window,'val_refresh':val_refresh,
                                             'min_refresh':min_refresh,'min_window':min_window},
-                        'btn_update':0,
+                        'btns_refresh':0,
                         'block_resample':{'val_res':val_res,'val_method' : 'mean'},
                         'block_graphSettings':{'style':'lines+markers','type':'scatter','colmap':'jet'},
                         'btn_export':0,
@@ -632,7 +630,8 @@ class RealTimeMultiUnitSelectedTags(TabDataTags):
             if not updateBtn or trigId in [self.baseId+k for k in triggerList]:
                 listTags = self.cfg.getUsefulTags(selTags) + tags
                 df = self.cfg.realtimeTagsDF(listTags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
-                df=df[listTags]
+                listTags = [k for k in listTags if k in df.columns]# reorder tags
+                df = df[listTags]
                 tagMapping = {t:self.cfg.getUnitofTag(t) for t in listTags}
                 if self.graphfunction=='standard':
                     fig = self.cfg.utils.multiUnitGraph(df,tagMapping)
@@ -644,11 +643,11 @@ class RealTimeMultiUnitSelectedTags(TabDataTags):
             if self.graphfunction=='standard':
                 tagMapping = {t:self.cfg.getUnitofTag(t) for t in df.columns}
                 fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
-                fig = self.updateLayoutGraph(fig)
                 fig.update_yaxes(tickfont_color='black',title_font_color='black')
             try :
                 fig = self.utils.legendPersistant(previousFig,fig)
             except:print('skip and update for next graph')
+            fig = self.updateLayoutGraph(fig)
             fig = self.updateLegend(fig,lgd)
             return fig
 
