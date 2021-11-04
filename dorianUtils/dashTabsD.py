@@ -26,9 +26,9 @@ class TabMaster():
                 Input(self.baseId + 'btn_stop','n_clicks'))
             def update_btnstop(n):
                 if n%2:
-                    return 'refresh again'
+                    return 'refresh'
                 else:
-                    return 'stop refreshing'
+                    return 'freeze'
 
         if 'refreshWindow' in categories:
             @self.app.callback(Output(self.baseId + 'interval', 'interval'),

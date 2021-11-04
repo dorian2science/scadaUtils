@@ -11,7 +11,7 @@ class DccExtended:
         self.graphStyles = ['lines+markers','stairs','markers','lines']
         self.graphTypes = ['scatter','area','area %']
         self.stdStyle = {'fontsize':'12 px','width':'120px','height': '40px','min-height': '1px',}
-        self.smallStyle = {'fontsize':'12 px','width':'120px','height': '40px','min-height': '1px',}
+        self.smallStyle = {'fontsize':'12 px','width':'180px','height': '40px','min-height': '1px',}
         self.verysmallStyle = {'fontsize':'12 px','width':'60px','height': '40px','min-height': '1px',}
         self.blockStyle1 = {"border":"4px green double"}
         self.blockStyle2 = {"border":"3px red solid"}
@@ -111,7 +111,7 @@ class DccExtended:
 
     def parseLayoutIds(self,obj,debug=False):
         c = True
-        ids,queueList,k = [],[],0
+        objs,queueList,k = {},[],0
         while c:
             if debug : k=k+1;print(k)
             if isinstance(obj,list):
@@ -120,7 +120,7 @@ class DccExtended:
                 obj = obj[0]
             elif hasattr(obj,'id'):
                 if debug : print('id prop found')
-                ids.append(obj.id)
+                objs[obj.id]=obj
                 obj='idfound'
             elif hasattr(obj,'children'):
                 if debug : print('children found')
@@ -131,7 +131,8 @@ class DccExtended:
             else :
                 if debug : print('iterate over queue list')
                 obj = queueList.pop()
-        return ids
+        print('\n'.join(list(objs.keys())))
+        return objs
 
     def autoDictOptions(self,listWidgets):
         dictOpts = {}
@@ -201,23 +202,26 @@ class DccExtended:
             elif 'btn_update'==wid_key:
                 widgetObj = [html.Button('update',id=baseId+wid_key, n_clicks=wid_val)]
 
-
             elif 'check_button'==wid_key:
                 widgetObj = [dcc.Checklist(id=baseId+wid_key,options=[{'label': wid_val, 'value': wid_val}])]
 
             elif 'btns_refresh'==wid_key:
+                btnstyle = {'font-size':'30px','padding':'0px 16px','margin':'10px','display':'inline-block'}
+                btnstyle2 = {'font-size':'18px','padding':'10px 25px','display':'inline-block'}
+                instyle = btnstyle.copy()
+                for k,v in zip(['font-size','padding','width'],['20px','0px 0px','120px']):instyle[k]=v
                 widgetObj = [
                 dbc.Row([
-                    dbc.Col(html.Button('update',id=baseId+'btn_update', n_clicks=0)),
-                    dbc.Col(html.Button('stop refresh',id=baseId+'btn_stop', n_clicks=0))]),
+                    dbc.Col(html.Button('update',id=baseId+'btn_update', n_clicks=0,style=btnstyle2)),
+                    dbc.Col(html.Button('freeze',id=baseId+'btn_stop', n_clicks=0,style=btnstyle2))]),
                 dbc.Row([
-                    dbc.Col(html.Button('-',id=baseId+'btn'+'-', n_clicks=0),
-                            style={'fontsize':'12 px','width':'120px','height': '40px','min-height': '1px',}),
-                    dbc.Col(dcc.Input(id=baseId+'in_addtime',value=60,max=60*60,min=0,type='number',
-                                style=self.smallStyle)),
-                    dbc.Col(html.Button('+',id=baseId+'btn_stop'+'+', n_clicks=0),style=self.smallStyle),
+                    dbc.Col([
+                        html.Button('-',id=baseId+'btn'+'-', n_clicks=0,style=btnstyle),
+                        dcc.Input(id=baseId+'in_addtime',value=60,max=60*60,min=0,type='number',style=instyle),
+                        html.Button('+',id=baseId+'btn_stop'+'+', n_clicks=0,style=btnstyle),
+                        ])
                     ])
-                    ]
+                ]
 
             elif 'in_timeRes'==wid_key:
                 widgetObj = [html.P('time resolution : '),
