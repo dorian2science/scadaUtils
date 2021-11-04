@@ -760,6 +760,16 @@ class Utils:
                 'eraseshape'
                ])
 
+    def showPalettes(self,color):
+        colorPalettes = pickle.load(open(self.confDir + '/palettes.pkl','rb'))
+        cols = colorPalettes[color]['hex']
+        # cols = cols.loc['Red','Salmon Pink','Cordovan','Tomato','Rosy brown','Scarlet','Bittersweet','Blood red']
+        data=[[k,k] for k,c in enumerate(cols)]
+        df = pd.DataFrame(data)
+        df.index = colorPalettes[color].index
+        fig=px.scatter(df.transpose(),color_discrete_sequence=cols)
+        fig.update_traces(line_width=20,mode='lines').show()
+
 class DataBase():
     def __init__(self):
         try :
