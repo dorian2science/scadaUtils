@@ -213,12 +213,13 @@ class DccExtended:
                 widgetObj = [
                 dbc.Row([
                     dbc.Col(html.Button('update',id=baseId+'btn_update', n_clicks=0,style=btnstyle2)),
-                    dbc.Col(html.Button('freeze',id=baseId+'btn_stop', n_clicks=0,style=btnstyle2))]),
+                    dbc.Col(html.Button('freeze',id=baseId+'btn_freeze', n_clicks=0,style=btnstyle2))]),
                 dbc.Row([
                     dbc.Col([
-                        html.Button('-',id=baseId+'btn'+'-', n_clicks=0,style=btnstyle),
+                        html.Button('-',id=baseId+'btn_freeze'+'-', n_clicks=0,style=btnstyle),
                         dcc.Input(id=baseId+'in_addtime',value=60,max=60*60,min=0,type='number',style=instyle),
-                        html.Button('+',id=baseId+'btn_stop'+'+', n_clicks=0,style=btnstyle),
+                        html.Button('+',id=baseId+'btn_freeze'+'+', n_clicks=0,style=btnstyle),
+                        dcc.Store(id=baseId+'st_freeze'),
                         ])
                     ])
                 ]

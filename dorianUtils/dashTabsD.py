@@ -20,15 +20,36 @@ class TabMaster():
         self.dccE = DccExtended()
 
     def _define_basicCallbacks(self,categories=[]):
-        if 'btn_stop' in categories:
+        if 'btn_freeze' in categories:
             @self.app.callback(
-                Output(self.baseId + 'btn_stop', 'children'),
-                Input(self.baseId + 'btn_stop','n_clicks'))
-            def update_btnstop(n):
+                Output(self.baseId + 'btn_freeze', 'children'),
+                Output(self.baseId + 'st_freeze', 'data'),
+                Output(self.baseId + 'interval', 'disabled'),
+                Input(self.baseId + 'btn_freeze','n_clicks'),
+                Input(self.baseId + 'btn_freeze+','n_clicks'),
+                Input(self.baseId + 'btn_freeze-','n_clicks'),
+                State(self.baseId + 'in_addtime','value'),
+                State(self.baseId + 'st_freeze','data'),
+                State(self.baseId + 'graph','figure'),
+                prevent_initial_call=True)
+            def updateTimeRangeFrozen(n,tp,tm,tadd,timeRange,fig):
                 if n%2:
-                    return 'refresh'
+                    newbt_txt='refresh'
+                    ctx = dash.callback_context
+                    trigId = ctx.triggered[0]['prop_id'].split('.')[0]
+                    if trigId==self.baseId + 'btn_freeze':
+                        fig = go.Figure(fig)
+                        timeRange = [min([min(k['x']) for k in fig.data]),max([max(k['x']) for k in fig.data])]
+                    elif trigId==self.baseId + 'btn_freeze+':
+                        timeRange[1] = (pd.to_datetime(timeRange[1]) + dt.timedelta(seconds=tadd)).isoformat()
+                    elif trigId==self.baseId + 'btn_freeze-':
+                        timeRange[0] = (pd.to_datetime(timeRange[0]) - dt.timedelta(seconds=tadd)).isoformat()
                 else:
-                    return 'freeze'
+                    newbt_txt='freeze'
+
+                if newbt_txt=='freeze':freeze=False
+                elif newbt_txt=='refresh':freeze=True
+                return newbt_txt, timeRange,freeze
 
         if 'refreshWindow' in categories:
             @self.app.callback(Output(self.baseId + 'interval', 'interval'),
@@ -138,7 +159,8 @@ class TabDataTags(TabMaster):
         fig.update_yaxes(showgrid=False)
         fig.update_traces(marker=dict(size=sizeDots))
         fig.update_layout(height=800)
-        fig.update_traces(hovertemplate='<b>%{y:.1f}')
+        fig.update_traces(hovertemplate='%{y:.1f}<br>%{x|%H:%M:%S}')
+        # fig.update_traces(hovername='tag')
         return fig
 
     def drawGraph(self,df,typeGraph,**kwargs):
@@ -411,7 +433,7 @@ class RealTimeTagSelectorTab(TabSelectedTags):
         self.tabname   = 'tag selector'
         self.cfg = cfg
         self.tabLayout = self._buildLayout()
-        # self._define_basicCallbacks(['legendtoogle','export','btn_stop','refreshWindow'])
+        # self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
         # self._define_callbacks()
 
     def _buildLayout(self,widthG=85,defaultCat='',val_window=60*2,val_refresh=20,min_refresh=5,min_window=1):
@@ -484,7 +506,7 @@ class RealTimeTagMultiUnit(TabDataTags):
         self.tabname   = 'graphe multi-échelles'
         self.cfg = cfg
         self.tabLayout = self._buildLayout()
-        self._define_basicCallbacks(['btn_stop','refreshWindow','legendtoogle','export'])
+        self._define_basicCallbacks(['btn_freeze','refreshWindow','legendtoogle','export'])
         self._define_callbacks()
 
     def _buildLayout(self,widthG=85,defaultTags='',val_window=60*2,val_refresh=20,min_refresh=5,min_window=1,val_res='auto'):
@@ -506,8 +528,8 @@ class RealTimeTagMultiUnit(TabDataTags):
         listInputsGraph = {
                         'interval':'n_intervals',
                         'btn_update':'n_clicks',
-                        'btn_stop':'n_clicks',
                         'dd_tag':'value',
+                        'st_freeze':'data',
                         'dd_resampleMethod':'value',
                         'dd_typeGraph':'value',
                         'dd_cmap':'value',
@@ -525,20 +547,19 @@ class RealTimeTagMultiUnit(TabDataTags):
         [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
         [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
         )
-        def updateGraph(n,updateBtn,stopBtn,tags,rsMethod,typeGraph,colmap,lgd,style,axSP,previousFig,tw,rs):
+        def updateGraph(n,updateBtn,tags,timeRange,rsMethod,typeGraph,colmap,lgd,style,axSP,previousFig,tw,rs):
             # self.utils.printListArgs(n,updateBtn,tags,rsMethod,typeGraph,colmap,lgd,style,axSP,fig,tw,rs)
             ctx = dash.callback_context
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
             # ==============================================================
-            triggerList = ['interval','dd_tag','btn_update','btn_stop','dd_resampleMethod','dd_typeGraph']
+            triggerList = ['interval','dd_tag','btn_update','st_freeze','dd_resampleMethod','dd_typeGraph']
             fig = go.Figure(previousFig)
+            print(trigId)
             if not updateBtn or trigId in [self.baseId+k for k in triggerList]:
                 start = time.time()
-                print(stopBtn)
-                if stopBtn%2:
-                    tr = [min([min(k['x']) for k in fig.data]),max([max(k['x']) for k in fig.data])]
-                    print(tr)
-                    df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod,timeRange=tr)
+                if trigId==self.baseId+'st_freeze':
+                    print(timeRange)
+                    df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod,timeRange=timeRange)
                 else:
                     df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
                 self.utils.printCTime(start)
@@ -560,7 +581,7 @@ class RealTimeMultiUnitSelectedTags(TabDataTags):
         if not graphfunction:graphfunction='standard'
         self.graphfunction = graphfunction
         self.tabLayout = self._buildLayout()
-        # self._define_basicCallbacks(['legendtoogle','export','btn_stop','refreshWindow'])
+        # self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
         # self._define_callbacks()
 
     def _buildLayout(self,widthG=85,defaultSelTags=[],defaultTags=[],val_window=60*2,val_refresh=20,min_refresh=5,min_window=1,val_res='auto'):
@@ -637,7 +658,7 @@ class RealTimeDoubleMultiUnits(TabDataTags):
         self.tabname   = 'double multi-échelles'
         self.cfg = cfg
         self.tabLayout = self._buildLayout()
-        # self._define_basicCallbacks(['legendtoogle','export','btn_stop','refreshWindow'])
+        # self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
         # self._define_callbacks()
 
     def _buildLayout(self,widthG=85,defaultTags1=[],defaultTags2=[],val_window=60*2,val_refresh=20,min_refresh=5,min_window=1,val_res='auto'):
