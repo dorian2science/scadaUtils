@@ -33,8 +33,8 @@ class TabMaster():
                 State(self.baseId + 'graph','figure'),
                 prevent_initial_call=True)
             def updateTimeRangeFrozen(n,tp,tm,tadd,timeRange,fig):
-                if n%2:
-                    newbt_txt='refresh'
+                if n%2==1:
+                    newbt_txt='freeze'
                     ctx = dash.callback_context
                     trigId = ctx.triggered[0]['prop_id'].split('.')[0]
                     if trigId==self.baseId + 'btn_freeze':
@@ -45,11 +45,10 @@ class TabMaster():
                     elif trigId==self.baseId + 'btn_freeze-':
                         timeRange[0] = (pd.to_datetime(timeRange[0]) - dt.timedelta(seconds=tadd)).isoformat()
                 else:
-                    newbt_txt='freeze'
+                    newbt_txt='refresh'
 
-                if newbt_txt=='freeze':freeze=False
-                elif newbt_txt=='refresh':freeze=True
-                print(timeRange)
+                if newbt_txt=='refresh':freeze=False
+                elif newbt_txt=='freeze':freeze=True
                 return newbt_txt, timeRange,freeze
 
         if 'refreshWindow' in categories:
@@ -437,13 +436,13 @@ class RealTimeTagSelectorTab(TabSelectedTags):
         self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
         self._define_callbacks()
 
-    def _buildLayout(self,widthG=85,defaultCat='',val_window=60*2,val_refresh=20,min_refresh=5,min_window=1):
+    def _buildLayout(self,widthG=85,defaultCat='',val_window=60*2,val_refresh=20,min_refresh=5,min_window=1,val_res='auto'):
         dicWidgets = {
                         'block_refresh':{'val_window':val_window,'val_refresh':val_refresh,
                                             'min_refresh':min_refresh,'min_window':min_window},
                         'btns_refresh':None,
-                        'block_resample':{'val_res':'auto','val_method' : 'mean'},
-                        'block_graphSettings':{'style':'lines+markers','type':'scatter','colmap':'jet'},
+                        'block_resample':{'val_res':val_res,'val_method' : 'mean'},
+                        'block_colstyle':{'style':'lines+markers','colmap':'jet'},
                         'btn_export':0,
                         }
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
@@ -459,7 +458,6 @@ class RealTimeTagSelectorTab(TabSelectedTags):
                         'dd_typeTags':'value',
                         'st_freeze':'data',
                         'dd_resampleMethod':'value',
-                        'dd_typeGraph':'value',
                         'dd_cmap':'value',
                         'btn_legend':'children',
                         'dd_style':'value',
@@ -467,39 +465,38 @@ class RealTimeTagSelectorTab(TabSelectedTags):
         listStatesGraph = {
                             'graph':'figure',
                             'in_timeWindow':'value',
-                            'in_timeRes':'value'
+                            'in_timeRes':'value',
+                            'btn_freeze':'children'
                             }
         @self.app.callback(
         Output(self.baseId + 'graph', 'figure'),
         [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
         [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
         )
-        def updateGraph(n,updateBtn,preSelGraph,timeRange,rsMethod,typeGraph,colmap,lgd,style,previousFig,tw,rs):
+        def updateGraph(n,updateBtn,preSelGraph,timeRange,rsMethod,colmap,lgd,style,previousFig,tw,rs,freezeBtn):
             # self.utils.printListArgs(n,updateBtn,preSelGraph,rsMethod,typeGraph,colmap,lgd,style,rs)
             ctx = dash.callback_context
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
             # to ensure that action on graphs only without computation do not
             # trigger computing the dataframe again
-            triggerList = [self.baseId+k for k in ['interval','dd_typeTags','btn_update','dd_resampleMethod','dd_typeGraph']]
-            # print(trigId)
+            triggerList = [self.baseId+k for k in ['interval','btn_update','st_freeze','dd_typeTags','dd_resampleMethod']]
             tags    = self.cfg.getUsefulTags(preSelGraph)
-            if not updateBtn or trigId in triggerList :
-                start = time.time()
-                if trigId==self.baseId+'st_freeze':
+            if trigId in triggerList :
+                if freezeBtn=='freeze':
                     df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod,timeRange=timeRange)
                 else:
                     df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
-                # df = self.cfg.readTagsRealTime(tags=listTags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
-                self.utils.printCTime(start)
-                fig = self.utils.plotGraphType(df,typeGraph)
+                fig = px.scatter(df)
                 unit = self.cfg.getUnitofTag(df.columns[0])
                 nameGrandeur = self.cfg.utils.detectUnit(unit)
                 fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
             else :fig = go.Figure(previousFig)
             fig = self.utils.updateStyleGraph(fig,style,colmap)
-            try : fig = self.utils.legendPersistant(previousFig,fig)
+            try : fig = self.utils.legendPersistant(previousFig,fig)#to keep traces hidden if updated
             except:print('skip and update for next graph')
-            fig = self.updateLegend(fig,lgd)
+            try :
+                fig = self.updateLegend(fig,lgd)
+            except:print('skip and update legend next time')
             fig.update_layout(font_size=20)
             return fig
 
