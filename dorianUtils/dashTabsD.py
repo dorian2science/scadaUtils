@@ -49,6 +49,7 @@ class TabMaster():
 
                 if newbt_txt=='freeze':freeze=False
                 elif newbt_txt=='refresh':freeze=True
+                print(timeRange)
                 return newbt_txt, timeRange,freeze
 
         if 'refreshWindow' in categories:
@@ -456,6 +457,7 @@ class RealTimeTagSelectorTab(TabSelectedTags):
                         'interval':'n_intervals',
                         'btn_update':'n_clicks',
                         'dd_typeTags':'value',
+                        'st_freeze':'data',
                         'dd_resampleMethod':'value',
                         'dd_typeGraph':'value',
                         'dd_cmap':'value',
@@ -480,6 +482,7 @@ class RealTimeTagSelectorTab(TabSelectedTags):
             # trigger computing the dataframe again
             triggerList = [self.baseId+k for k in ['interval','dd_typeTags','btn_update','dd_resampleMethod','dd_typeGraph']]
             # print(trigId)
+            tags    = self.cfg.getUsefulTags(preSelGraph)
             if not updateBtn or trigId in triggerList :
                 start = time.time()
                 if trigId==self.baseId+'st_freeze':
