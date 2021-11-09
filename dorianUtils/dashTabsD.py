@@ -628,7 +628,6 @@ class RealTimeMultiUnitSelectedTags(TabMultiUnits):
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
             # ==============================================================
             triggerList = ['interval','dd_tag','btn_update','dd_resampleMethod','st_freeze']
-            print(freezeBtn)
             if trigId in [self.baseId+k for k in triggerList]:
                 listTags = self.cfg.getUsefulTags(selTags) + tags
                 start = time.time()
