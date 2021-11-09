@@ -590,8 +590,7 @@ class RealTimeMultiUnitSelectedTags(TabMultiUnits):
                         'block_refresh':{'val_window':val_window,'val_refresh':val_refresh,
                                             'min_refresh':min_refresh,'min_window':min_window},
                         'btns_refresh':0,
-                        'block_resample':{'val_res':val_res,'val_method' : 'mean'},
-                        'block_graphSettings':{'style':'lines+markers','type':'scatter','colmap':'jet'},
+                        'block_resample':{'val_res':val_res,'val_method':'mean'},
                         'btn_export':0,
                         }
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
@@ -609,41 +608,39 @@ class RealTimeMultiUnitSelectedTags(TabMultiUnits):
                         'dd_typeTags':'value',
                         'st_freeze':'data',
                         'dd_resampleMethod':'value',
-                        'dd_typeGraph':'value',
-                        'dd_cmap':'value',
                         'btn_legend':'children',
-                        'dd_style':'value',
                         'in_axisSp':'value',
                         }
         listStatesGraph = {
                             'graph':'figure',
                             'in_timeWindow':'value',
-                            'in_timeRes':'value'
+                            'in_timeRes':'value',
+                            'btn_freeze':'children'
                             }
         @self.app.callback(
         Output(self.baseId + 'graph', 'figure'),
         [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
         [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
         )
-        def updateGraph(n,updateBtn,tags,selTags,timeRange,rsMethod,typeGraph,colmap,lgd,style,axSP,previousFig,tw,rs):
-            # self.utils.printListArgs(n,updateBtn,tags,rsMethod,typeGraph,colmap,lgd,style,axSP,fig,tw,rs)
+        def updateGraph(n,updateBtn,tags,selTags,timeRange,rsMethod,lgd,axSP,previousFig,tw,rs,freezeBtn):
+            # self.utils.printListArgs(n,updateBtn,tags,rsMethod,lgd,axSP,fig,tw,rs)
             ctx = dash.callback_context
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
             # ==============================================================
-            triggerList = ['interval','dd_tag','btn_update','dd_resampleMethod','dd_typeGraph']
-            if not updateBtn or trigId in [self.baseId+k for k in triggerList]:
+            triggerList = ['interval','dd_tag','btn_update','dd_resampleMethod','st_freeze']
+            print(freezeBtn)
+            if trigId in [self.baseId+k for k in triggerList]:
                 listTags = self.cfg.getUsefulTags(selTags) + tags
                 start = time.time()
-                if trigId==self.baseId+'st_freeze':
-                    df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod,timeRange=timeRange)
+                if freezeBtn=='freeze':
+                    df = self.cfg.realtimeTagsDF(listTags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod,timeRange=timeRange)
                 else:
-                    df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
+                    df = self.cfg.realtimeTagsDF(listTags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
                 listTags = [k for k in listTags if k in df.columns]# reorder tags
                 df = df[listTags]
                 tagMapping = {t:self.cfg.getUnitofTag(t) for t in listTags}
                 if self.graphfunction=='standard':
                     fig = self.cfg.utils.multiUnitGraph(df,tagMapping)
-                    fig = self.utils.updateColorMap(fig,colmap)
                 elif self.graphfunction=='multiunitshades':
                     fig = self.cfg.multiUnitGraphShades(df)
 
@@ -652,11 +649,11 @@ class RealTimeMultiUnitSelectedTags(TabMultiUnits):
                 tagMapping = {t:self.cfg.getUnitofTag(t) for t in df.columns}
                 fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
                 fig.update_yaxes(tickfont_color='black',title_font_color='black')
+            fig = self.updateLayoutGraph(fig)
             try :
                 fig = self.utils.legendPersistant(previousFig,fig)
+                fig = self.updateLegend(fig,lgd)
             except:print('skip and update for next graph')
-            fig = self.updateLayoutGraph(fig)
-            fig = self.updateLegend(fig,lgd)
             return fig
 
 class RealTimeDoubleMultiUnits(TabDataTags):

@@ -212,7 +212,7 @@ class DccExtended:
                 widgetObj = [
                 dbc.Row([
                     dbc.Col(html.Button('update',id=baseId+'btn_update', n_clicks=0,style=btnstyle2)),
-                    dbc.Col(html.Button('freeze',id=baseId+'btn_freeze', n_clicks=0,style=btnstyle2))]),
+                    dbc.Col(html.Button('refresh',id=baseId+'btn_freeze', n_clicks=0,style=btnstyle2))]),
                 dbc.Row([
                     dbc.Col([
                         html.Button('-',id=baseId+'btn_freeze'+'-', n_clicks=0,style=btnstyle),
