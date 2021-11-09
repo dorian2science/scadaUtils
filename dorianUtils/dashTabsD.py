@@ -159,7 +159,7 @@ class TabDataTags(TabMaster):
         fig.update_yaxes(showgrid=False)
         fig.update_traces(marker=dict(size=sizeDots))
         fig.update_layout(height=800)
-        fig.update_traces(hovertemplate='<b>%{y:.1f}<\b> <br>%{x|%H:%M:%S}')
+        fig.update_traces(hovertemplate='    <b>%{y:.1f} <br>     %{x|%H:%M:%S}')
         # fig.update_traces(hovername='tag')
         return fig
 
@@ -472,21 +472,20 @@ class RealTimeTagSelectorTab(TabSelectedTags):
         [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
         [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
         )
-        def updateGraph(n,updateBtn,preSelGraph,rsMethod,typeGraph,colmap,lgd,style,previousFig,tw,rs):
+        def updateGraph(n,updateBtn,preSelGraph,timeRange,rsMethod,typeGraph,colmap,lgd,style,previousFig,tw,rs):
             # self.utils.printListArgs(n,updateBtn,preSelGraph,rsMethod,typeGraph,colmap,lgd,style,rs)
             ctx = dash.callback_context
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
             # to ensure that action on graphs only without computation do not
             # trigger computing the dataframe again
-            # ==============================================================
-            #               CHANGE HERE YOUR CODE
-            #           better to use decorators in the parent class
-            # ==============================================================
             triggerList = [self.baseId+k for k in ['interval','dd_typeTags','btn_update','dd_resampleMethod','dd_typeGraph']]
             # print(trigId)
             if not updateBtn or trigId in triggerList :
                 start = time.time()
-                df    = self.cfg.realtimeDF(preSelGraph,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
+                if trigId==self.baseId+'st_freeze':
+                    df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod,timeRange=timeRange)
+                else:
+                    df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
                 # df = self.cfg.readTagsRealTime(tags=listTags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
                 self.utils.printCTime(start)
                 fig = self.utils.plotGraphType(df,typeGraph)
@@ -502,11 +501,12 @@ class RealTimeTagSelectorTab(TabSelectedTags):
             return fig
 
 class RealTimeTagMultiUnit(TabDataTags):
-    def __init__(self,app,cfg,baseId='rtmu0_'):
+    def __init__(self,app,cfg,baseId='rtmu0_',plugfunc=None):
         TabMultiUnits.__init__(self,cfg,app,baseId)
-        self.tabname   = 'graphe multi-échelles'
+        self.tabname = 'graphe multi-échelles'
         self.cfg = cfg
         self.tabLayout = self._buildLayout()
+        self.plugfunc=plugfunc
         self._define_basicCallbacks(['btn_freeze','refreshWindow','legendtoogle','export'])
         self._define_callbacks()
 
@@ -570,6 +570,8 @@ class RealTimeTagMultiUnit(TabDataTags):
                 fig = self.utils.legendPersistant(previousFig,fig)
             except:print('skip and update for next graph')
             fig = self.updateLegend(fig,lgd)
+            if not not self.plugfunc:
+                fig = self.plugfunc(fig)
             return fig
 
 class RealTimeMultiUnitSelectedTags(TabMultiUnits):
@@ -604,6 +606,7 @@ class RealTimeMultiUnitSelectedTags(TabMultiUnits):
                         'btn_update':'n_clicks',
                         'dd_tag':'value',
                         'dd_typeTags':'value',
+                        'st_freeze':'data',
                         'dd_resampleMethod':'value',
                         'dd_typeGraph':'value',
                         'dd_cmap':'value',
@@ -621,7 +624,7 @@ class RealTimeMultiUnitSelectedTags(TabMultiUnits):
         [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
         [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
         )
-        def updateGraph(n,updateBtn,tags,selTags,rsMethod,typeGraph,colmap,lgd,style,axSP,previousFig,tw,rs):
+        def updateGraph(n,updateBtn,tags,selTags,timeRange,rsMethod,typeGraph,colmap,lgd,style,axSP,previousFig,tw,rs):
             # self.utils.printListArgs(n,updateBtn,tags,rsMethod,typeGraph,colmap,lgd,style,axSP,fig,tw,rs)
             ctx = dash.callback_context
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
@@ -629,7 +632,11 @@ class RealTimeMultiUnitSelectedTags(TabMultiUnits):
             triggerList = ['interval','dd_tag','btn_update','dd_resampleMethod','dd_typeGraph']
             if not updateBtn or trigId in [self.baseId+k for k in triggerList]:
                 listTags = self.cfg.getUsefulTags(selTags) + tags
-                df = self.cfg.realtimeTagsDF(listTags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
+                start = time.time()
+                if trigId==self.baseId+'st_freeze':
+                    df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod,timeRange=timeRange)
+                else:
+                    df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
                 listTags = [k for k in listTags if k in df.columns]# reorder tags
                 df = df[listTags]
                 tagMapping = {t:self.cfg.getUnitofTag(t) for t in listTags}
