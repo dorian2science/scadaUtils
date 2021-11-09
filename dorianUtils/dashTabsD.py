@@ -516,7 +516,6 @@ class RealTimeTagMultiUnit(TabDataTags):
                                             'min_refresh':min_refresh,'min_window':min_window},
                         'btns_refresh':None,
                         'block_resample':{'val_res':val_res,'val_method' : 'mean'},
-                        'block_graphSettings':{'style':'lines+markers','type':'scatter','colmap':'jet'},
                         'btn_export':0,
                         }
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
@@ -532,44 +531,46 @@ class RealTimeTagMultiUnit(TabDataTags):
                         'dd_tag':'value',
                         'st_freeze':'data',
                         'dd_resampleMethod':'value',
-                        'dd_typeGraph':'value',
-                        'dd_cmap':'value',
                         'btn_legend':'children',
-                        'dd_style':'value',
                         'in_axisSp':'value',
                         }
         listStatesGraph = {
                             'graph':'figure',
                             'in_timeWindow':'value',
-                            'in_timeRes':'value'
+                            'in_timeRes':'value',
+                            'btn_freeze':'children'
                             }
         @self.app.callback(
         Output(self.baseId + 'graph', 'figure'),
         [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
         [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
         )
-        def updateGraph(n,updateBtn,tags,timeRange,rsMethod,typeGraph,colmap,lgd,style,axSP,previousFig,tw,rs):
-            # self.utils.printListArgs(n,updateBtn,tags,rsMethod,typeGraph,colmap,lgd,style,axSP,fig,tw,rs)
+        def updateGraph(n,updateBtn,tags,timeRange,rsMethod,lgd,axSP,previousFig,tw,rs,freezeBtn):
+            # self.utils.printListArgs(n,updateBtn,tags,rsMethod,colmap,lgd,axSP,fig,tw,rs)
             ctx = dash.callback_context
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
             # ==============================================================
-            triggerList = ['interval','dd_tag','btn_update','st_freeze','dd_resampleMethod','dd_typeGraph']
+            triggerList = ['interval','dd_tag','btn_update','st_freeze','dd_resampleMethod']
             fig = go.Figure(previousFig)
-            if not updateBtn or trigId in [self.baseId+k for k in triggerList]:
+            if trigId in [self.baseId+k for k in triggerList]:
                 start = time.time()
-                if trigId==self.baseId+'st_freeze':
+                if freezeBtn=='freeze':
                     df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod,timeRange=timeRange)
                 else:
                     df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
                 self.utils.printCTime(start)
                 tagMapping = {t:self.cfg.getUnitofTag(t) for t in tags}
                 fig = self.utils.multiUnitGraph(df,tagMapping)
-            fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
+            try:
+                fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
+            except:
+                print('next time for space between axes')
             fig = self.updateLayoutGraph(fig)
             try :
                 fig = self.utils.legendPersistant(previousFig,fig)
-            except:print('skip and update for next graph')
-            fig = self.updateLegend(fig,lgd)
+                fig = self.updateLegend(fig,lgd)
+            except:
+                print('skip and update for next graph')
             if not not self.plugfunc:
                 fig = self.plugfunc(fig)
             return fig
