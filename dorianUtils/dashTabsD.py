@@ -80,6 +80,20 @@ class TabMaster():
                 df,filename =  self.utils.exportDataOnClick(fig)
                 return dcc.send_data_frame(df.to_csv, filename+'.csv')
 
+        if 'datePickerRange' in categories:
+            @self.app.callback(
+            Output(self.baseId + 'pdr_timePdr','initial_visible_month'),
+            Input(self.baseId + 'pdr_timePdr','start_date'),
+            Input(self.baseId + 'pdr_timePdr','end_date'),
+            )
+            def updateInitialVisibleMonth(startdate,enddate):
+                ctx = dash.callback_context
+                trigId = ctx.triggered[0]['prop_id']
+                if 'start_date' in trigId:
+                    return startdate
+                else :
+                    return enddate
+
 # ==============================================================================
 #                       format Tag,timestamp,value
 # ==============================================================================
@@ -173,7 +187,7 @@ class TabUnitSelector(TabDataTags):
     def __init__(self,cfg,app,baseId='tu0_'):
         TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname = 'select units'
-        # self._define_basicCallbacks(['legendtoogle','export'])
+        self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
         # self._define_callbacks()
 
     def _buildLayout(self,widthG=85,unitInit=None,patTagInit=''):
@@ -235,7 +249,7 @@ class TabSelectedTags(TabDataTags):
     def __init__(self,cfg,app,baseId='ts0_'):
         TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname = 'select tags'
-        # self._define_basicCallbacks(['legendtoogle','export'])
+        self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
         # self._define_callbacks()
 
     def _buildLayout(self,widthG=80,tagCatDefault=None):
@@ -304,7 +318,7 @@ class TabMultiUnits(TabDataTags):
     def __init__(self,cfg,app,baseId='tmu0_'):
         TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname = 'multi Units'
-        # self._define_basicCallbacks(['legendtoogle','export'])
+        self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
         # self._define_callbacks()
 
     def _buildLayout(self,widthG=80,initialTags=None):
@@ -368,7 +382,7 @@ class TabMultiUnitSelectedTags(TabDataTags):
     def __init__(self,cfg,app,baseId='tmus0_'):
         TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname = 'multi-units +'
-        # self._define_basicCallbacks(['legendtoogle','export'])
+        self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
         # self._define_callbacks()
 
     def _buildLayout(self,widthG=80,initialTags=None):
