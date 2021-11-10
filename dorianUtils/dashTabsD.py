@@ -437,11 +437,10 @@ class TabMultiUnitSelectedTags(TabDataTags):
 # ==============================================================================
 #                              REAL TIME
 # ==============================================================================
-class RealTimeTagSelectorTab(TabSelectedTags):
+class RealTimeTagSelectorTab(TabDataTags):
     def __init__(self,app,cfg,baseId='rts0_'):
-        TabSelectedTags.__init__(self,cfg,app,baseId)
+        TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname   = 'tag selector'
-        self.cfg = cfg
         self.tabLayout = self._buildLayout()
         self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
         self._define_callbacks()
@@ -511,12 +510,11 @@ class RealTimeTagSelectorTab(TabSelectedTags):
             return fig
 
 class RealTimeTagMultiUnit(TabDataTags):
-    def __init__(self,app,cfg,baseId='rtmu0_',plugfunc=None):
-        TabMultiUnits.__init__(self,cfg,app,baseId)
-        self.tabname = 'graphe multi-échelles'
-        self.cfg = cfg
+    def __init__(self,app,cfg,baseId='rtmu0_',plotdffunc=None):
+        TabDataTags.__init__(self,cfg,app,baseId)
+        self.tabname   = 'multi-échelles'
         self.tabLayout = self._buildLayout()
-        self.plugfunc=plugfunc
+        self.plotdffunc  = plotdffunc
         self._define_basicCallbacks(['btn_freeze','refreshWindow','legendtoogle','export'])
         self._define_callbacks()
 
@@ -563,33 +561,26 @@ class RealTimeTagMultiUnit(TabDataTags):
             triggerList = ['interval','dd_tag','btn_update','st_freeze','dd_resampleMethod']
             fig = go.Figure(previousFig)
             if trigId in [self.baseId+k for k in triggerList]:
-                start = time.time()
                 if freezeBtn=='freeze':
                     df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod,timeRange=timeRange)
                 else:
                     df = self.cfg.realtimeTagsDF(tags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
-                self.utils.printCTime(start)
-                tagMapping = {t:self.cfg.getUnitofTag(t) for t in tags}
-                fig = self.utils.multiUnitGraph(df,tagMapping)
-            try:
-                fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
-            except:
-                print('next time for space between axes')
-            fig = self.updateLayoutGraph(fig)
+                fig = self.plotdffunc(df)
+            # try:
+            #     fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
+            # except:
+            #     print('next time for space between axes')
             try :
                 fig = self.utils.legendPersistant(previousFig,fig)
                 fig = self.updateLegend(fig,lgd)
             except:
                 print('skip and update for next graph')
-            if not not self.plugfunc:
-                fig = self.plugfunc(fig)
             return fig
 
-class RealTimeMultiUnitSelectedTags(TabMultiUnits):
+class RealTimeMultiUnitSelectedTags(TabDataTags):
     def __init__(self,app,cfg,baseId='rtmus0_',graphfunction='standard'):
-        TabMultiUnits.__init__(self,cfg,app,baseId)
+        TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname   = 'multi-échelles +'
-        self.cfg = cfg
         self.graphfunction = graphfunction
         self.tabLayout = self._buildLayout()
         self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
@@ -667,9 +658,8 @@ class RealTimeMultiUnitSelectedTags(TabMultiUnits):
 
 class RealTimeDoubleMultiUnits(TabDataTags):
     def __init__(self,app,cfg,baseId='rtdmu0_'):
-        TabMultiUnits.__init__(self,cfg,app,baseId)
+        TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname   = 'double multi-échelles'
-        self.cfg = cfg
         self.tabLayout = self._buildLayout()
         self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
         self._define_callbacks()
