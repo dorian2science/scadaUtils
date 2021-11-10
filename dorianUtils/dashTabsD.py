@@ -188,7 +188,7 @@ class TabUnitSelector(TabDataTags):
         TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname = 'select units'
         self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
-        # self._define_callbacks()
+        self._define_callbacks()
 
     def _buildLayout(self,widthG=85,unitInit=None,patTagInit=''):
         dicWidgets = {'pdr_time' : {'tmin':self.cfg.listFilesPkl[0],'tmax':self.cfg.listFilesPkl[-1]},
@@ -250,7 +250,7 @@ class TabSelectedTags(TabDataTags):
         TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname = 'select tags'
         self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
-        # self._define_callbacks()
+        self._define_callbacks()
 
     def _buildLayout(self,widthG=80,tagCatDefault=None):
         dicWidgets = {'pdr_time' : {'tmin':self.cfg.listFilesPkl[0],'tmax':self.cfg.listFilesPkl[-1]},
@@ -319,7 +319,7 @@ class TabMultiUnits(TabDataTags):
         TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname = 'multi Units'
         self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
-        # self._define_callbacks()
+        self._define_callbacks()
 
     def _buildLayout(self,widthG=80,initialTags=None):
         dicWidgets = {'pdr_time' : {'tmin':self.cfg.listFilesPkl[0],'tmax':self.cfg.listFilesPkl[-1]},
@@ -334,10 +334,6 @@ class TabMultiUnits(TabDataTags):
         return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
 
     def _define_callbacks(self):
-        @self.app.callback(Output(self.baseId + 'btn_legend', 'children'),
-                            Input(self.baseId + 'btn_legend','n_clicks'))
-        def updateLgdBtn(legendType):return self.updateLegendBtnState(legendType)
-
         listInputsGraph = {
                         'dd_tag':'value',
                         'pdr_timeBtn':'n_clicks',
@@ -383,7 +379,7 @@ class TabMultiUnitSelectedTags(TabDataTags):
         TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname = 'multi-units +'
         self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
-        # self._define_callbacks()
+        self._define_callbacks()
 
     def _buildLayout(self,widthG=80,initialTags=None):
         dicWidgets = {'pdr_time' : {'tmin':self.cfg.listFilesPkl[0],'tmax':self.cfg.listFilesPkl[-1]},
@@ -675,8 +671,8 @@ class RealTimeDoubleMultiUnits(TabDataTags):
         self.tabname   = 'double multi-échelles'
         self.cfg = cfg
         self.tabLayout = self._buildLayout()
-        # self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
-        # self._define_callbacks()
+        self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
+        self._define_callbacks()
 
     def _buildLayout(self,widthG=85,defaultTags1=[],defaultTags2=[],val_window=60*2,val_refresh=20,min_refresh=5,min_window=1,val_res='auto'):
         dicWidgets = {
@@ -756,7 +752,7 @@ class TabExploreDF(TabMaster):
         self.tabname = 'explore df'
         self.df = df
         self.tabLayout = self._buildLayout()
-        # self._define_callbacks()
+        self._define_callbacks()
 
     def _buildLayout(self,widthG=85):
         dicWidgets = {  'btn_update':0,
