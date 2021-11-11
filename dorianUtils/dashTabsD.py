@@ -94,6 +94,27 @@ class TabMaster():
                 else :
                     return enddate
 
+        if 'modalTagsTxt' in categories:
+            @self.app.callback(
+                Output(self.baseId + "modalListTags", "is_open"),
+                [Input(self.baseId + "btn_omlt", "n_clicks"), Input(self.baseId + "close_omlt", "n_clicks")],
+                [State(self.baseId + "modalListTags", "is_open")],
+            )
+            def popupModalListTags(n1,n2, is_open):
+                if n1:
+                    return not is_open
+                return is_open
+
+            @self.app.callback(
+                Output(self.baseId + "dd_tag", "value"),
+                [Input(self.baseId + "close_omlt", "n_clicks")],
+                [State(self.baseId + "txtListTags", "value")],
+                prevent_initial_call=True
+            )
+            def getListTagsModal(close,txt):
+                listTags = [k.strip().upper() for k in txt.split('\n')]
+                return listTags
+
 # ==============================================================================
 #                       format Tag,timestamp,value
 # ==============================================================================
@@ -515,7 +536,7 @@ class RealTimeTagMultiUnit(TabDataTags):
         self.tabname   = 'multi-échelles'
         self.tabLayout = self._buildLayout()
         self.plotdffunc  = plotdffunc
-        self._define_basicCallbacks(['btn_freeze','refreshWindow','legendtoogle','export'])
+        self._define_basicCallbacks(['btn_freeze','refreshWindow','legendtoogle','export','modalTagsTxt'])
         self._define_callbacks()
 
     def _buildLayout(self,widthG=85,defaultTags='',val_window=60*2,val_refresh=20,min_refresh=5,min_window=1,val_res='auto'):
@@ -525,6 +546,7 @@ class RealTimeTagMultiUnit(TabDataTags):
                         'btns_refresh':None,
                         'block_resample':{'val_res':val_res,'val_method' : 'mean'},
                         'btn_export':0,
+                        'modalListTags':None
                         }
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
         specialWidgets = self.addWidgets({'dd_tag':defaultTags,'btn_legend':0,'in_axisSp':0.05},self.baseId)
