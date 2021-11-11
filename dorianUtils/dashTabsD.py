@@ -115,6 +115,17 @@ class TabMaster():
                 listTags = [k.strip().upper() for k in txt.split('\n')]
                 return listTags
 
+    def addLogo(self,fig,logo=None):
+        if not not logo:
+            fig.add_layout_image(
+                dict(
+                    source=logo,
+                    xref="paper", yref="paper",
+                    x=0., y=1.02,
+                    sizex=0.12, sizey=0.12,
+                    xanchor="left", yanchor="bottom"
+                ))
+        return fig
 # ==============================================================================
 #                       format Tag,timestamp,value
 # ==============================================================================
@@ -600,11 +611,12 @@ class RealTimeTagMultiUnit(TabDataTags):
             return fig
 
 class RealTimeMultiUnitSelectedTags(TabDataTags):
-    def __init__(self,app,cfg,baseId='rtmus0_',graphfunction='standard'):
+    def __init__(self,app,cfg,baseId='rtmus0_',plotdffunc=None,logo=None):
         TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname   = 'multi-échelles +'
-        self.graphfunction = graphfunction
+        self.plotdffunc = plotdffunc
         self.tabLayout = self._buildLayout()
+        self.logo=logo
         self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
         self._define_callbacks()
 
@@ -660,22 +672,14 @@ class RealTimeMultiUnitSelectedTags(TabDataTags):
                     df = self.cfg.realtimeTagsDF(listTags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
                 listTags = [k for k in listTags if k in df.columns]# reorder tags
                 df = df[listTags]
-                tagMapping = {t:self.cfg.getUnitofTag(t) for t in listTags}
-                if self.graphfunction=='standard':
-                    fig = self.cfg.utils.multiUnitGraph(df,tagMapping)
-                elif self.graphfunction=='multiunitshades':
-                    fig = self.cfg.multiUnitGraphShades(df)
-
+                fig = self.plotdffunc(df)
             else : fig = go.Figure(previousFig)
-            if self.graphfunction=='standard':
-                tagMapping = {t:self.cfg.getUnitofTag(t) for t in df.columns}
-                fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
-                fig.update_yaxes(tickfont_color='black',title_font_color='black')
-            fig = self.updateLayoutGraph(fig)
+            # fig.layout = self.utils.getLayoutMultiUnit(axisSpace=axSP,dictGroups=tagMapping)[0].layout
             try :
                 fig = self.utils.legendPersistant(previousFig,fig)
                 fig = self.updateLegend(fig,lgd)
             except:print('skip and update for next graph')
+            fig = self.addLogo(fig,self.logo)
             return fig
 
 class RealTimeDoubleMultiUnits(TabDataTags):
