@@ -665,7 +665,6 @@ class RealTimeMultiUnitSelectedTags(TabDataTags):
             triggerList = ['interval','dd_tag','btn_update','dd_resampleMethod','st_freeze']
             if trigId in [self.baseId+k for k in triggerList]:
                 listTags = self.cfg.getUsefulTags(selTags) + tags
-                start = time.time()
                 if freezeBtn=='freeze':
                     df = self.cfg.realtimeTagsDF(listTags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod,timeRange=timeRange)
                 else:
@@ -683,10 +682,11 @@ class RealTimeMultiUnitSelectedTags(TabDataTags):
             return fig
 
 class RealTimeDoubleMultiUnits(TabDataTags):
-    def __init__(self,app,cfg,baseId='rtdmu0_'):
+    def __init__(self,app,cfg,baseId='rtdmu0_',logo=None):
         TabDataTags.__init__(self,cfg,app,baseId)
         self.tabname   = 'double multi-échelles'
         self.tabLayout = self._buildLayout()
+        self.logo=logo
         self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
         self._define_callbacks()
 
@@ -694,9 +694,9 @@ class RealTimeDoubleMultiUnits(TabDataTags):
         dicWidgets = {
                         'block_refresh':{'val_window':val_window,'val_refresh':val_refresh,
                                             'min_refresh':min_refresh,'min_window':min_window},
-                        'btn_update':0,
+                        'btns_refresh':0,
                         'block_resample':{'val_res':val_res,'val_method' : 'mean'},
-                        'block_graphSettings':{'style':'lines+markers','type':'scatter','colmap':'jet'},
+                        'block_colstyle':{'style':'lines+markers','colmap':'jet'},
                         'btn_export':0,
                         }
         basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
@@ -712,8 +712,8 @@ class RealTimeDoubleMultiUnits(TabDataTags):
                         'btn_update':'n_clicks',
                         'dd_tag':'value',
                         '2dd_tag':'value',
+                        'st_freeze':'data',
                         'dd_resampleMethod':'value',
-                        'dd_typeGraph':'value',
                         'dd_cmap':'value',
                         'btn_legend':'children',
                         'dd_style':'value',
@@ -722,41 +722,36 @@ class RealTimeDoubleMultiUnits(TabDataTags):
         listStatesGraph = {
                             'graph':'figure',
                             'in_timeWindow':'value',
-                            'in_timeRes':'value'
+                            'in_timeRes':'value',
+                            'btn_freeze':'children'
                             }
         @self.app.callback(
         Output(self.baseId + 'graph', 'figure'),
         [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
         [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
         )
-        def updateGraph(n,updateBtn,tags1,tags2,rsMethod,typeGraph,colmap,lgd,style,axSP,previousFig,tw,rs):
-            # self.utils.printListArgs(n,updateBtn,tags,rsMethod,typeGraph,colmap,lgd,style,axSP,fig,tw,rs)
+        def updateGraph(n,updateBtn,tags1,tags2,timeRange,rsMethod,colmap,lgd,style,axSP,previousFig,tw,rs,freezeBtn):
             ctx = dash.callback_context
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
             # ==============================================================
-            triggerList = ['interval','dd_tag','2dd_tag','btn_update','dd_resampleMethod','dd_typeGraph']
-            if not updateBtn or trigId in [self.baseId+k for k in triggerList]:
-                df = self.cfg.realtimeTagsDF(tags1+tags2,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
-                dictdictGroups={'graph1':{t:t for t in tags1},'graph2':{t:t for t in tags2}}
-                fig = self.utils.multiUnitGraphSubPlots(df,dictdictGroups,axisSpace=axSP)
-                hs=0.002
-                for y in range(1,len(tags1)+1):
-                    fig.layout['yaxis1'+str(y)].domain=[0.5+hs,1]
-                for y in range(1,len(tags2)+1):
-                    fig.layout['yaxis2'+str(y)].domain=[0,0.5-hs]
-                fig.update_layout(xaxis_showticklabels=False)
-                fig.update_yaxes(title_text='',showticklabels=False)
-                fig.update_yaxes(showgrid=False)
-                fig.update_xaxes(matches='x')
-                fig.update_layout(height=900)
+            triggerList = ['interval','dd_tag','2dd_tag','btn_update','dd_resampleMethod','st_freeze']
+            listTags = tags1+tags2
+            if trigId in [self.baseId+k for k in triggerList]:
+                if freezeBtn=='freeze':
+                    df = self.cfg.realtimeTagsDF(listTags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod,timeRange=timeRange)
+                else:
+                    df = self.cfg.realtimeTagsDF(listTags,timeWindow=tw*60,rs=rs,applyMethod=rsMethod)
 
+                fig = self.cfg.doubleMultiUnitGraph(df,tags1,tags2,axSP)
             else : fig = go.Figure(previousFig)
-            dictdictGroups={'graph1':{t:t for t in tags1},'graph2':{t:t for t in tags2}}
+            # dictdictGroups={'graph1':{t:t for t in tags1},'graph2':{t:t for t in tags2}}
             # fig.layout = self.utils.getLayoutMultiUnitSubPlots(dictdictGroups,axisSpace=axSP)[0].layout
-            try : fig = self.utils.legendPersistant(previousFig,fig)
+            try :
+                fig = self.utils.legendPersistant(previousFig,fig)
+                fig = self.updateLegend(fig,lgd)
             except:print('skip and update for next graph')
-            fig = self.updateLegend(fig,lgd)
             fig = self.updateLayoutGraph(fig)
+            fig = self.addLogo(fig,self.logo)
             return fig
 
 # ==============================================================================

@@ -402,6 +402,21 @@ class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
             df   = self.processRawData(df,rs=rs,applyMethod=applyMethod)
         return df
 
+    def doubleMultiUnitGraph(self,df,tags1,tags2,axSP=0.05):
+        dictdictGroups={'graph1':{t:t for t in tags1},'graph2':{t:t for t in tags2}}
+        fig = self.utils.multiUnitGraphSubPlots(df,dictdictGroups,axisSpace=axSP)
+        hs=0.002
+        for y in range(1,len(tags1)+1):
+            fig.layout['yaxis1'+str(y)].domain=[0.5+hs,1]
+        for y in range(1,len(tags2)+1):
+            fig.layout['yaxis2'+str(y)].domain=[0,0.5-hs]
+        fig.update_layout(xaxis_showticklabels=False)
+        fig.update_yaxes(title_text='',showticklabels=False)
+        fig.update_yaxes(showgrid=False)
+        fig.update_xaxes(matches='x')
+        fig.update_layout(height=900)
+        return fig
+
 class ConfigDashSpark(ConfigDashTagUnitTimestamp):
     try :
         from pyspark.sql import SparkSession
