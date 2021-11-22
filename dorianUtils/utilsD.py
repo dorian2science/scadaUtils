@@ -9,7 +9,9 @@ import matplotlib.colors as mtpcl
 import matplotlib.pyplot as plt
 import scipy
 from scipy.optimize import curve_fit
-
+from plotly.validators.scatter.line import ShapeValidator
+from plotly.validators.scatter.marker import SymbolValidator
+from plotly.validators.scatter.line import DashValidator
 
 class Utils:
     def __init__(self):
@@ -17,6 +19,11 @@ class Utils:
         self.phyQties = self.df2dict(pd.read_csv(self.confDir+ '/units.csv'))
         self.unitMag = ['u','m','c','d','','da','h','k','M']
         self.buildNewUnits()
+        raw_symbols = pd.Series(SymbolValidator().values[2::3])
+        self.raw_symbols = list(pd.concat([raw_symbols[::4],raw_symbols[1::4],raw_symbols[2::4]]))
+        self.listLines = 40*DashValidator().values[:-1]
+
+        self.lineshapes = ShapeValidator().values
         # self.cmapNames = pickle.load(open(self.confDir+"/colormaps.pkl",'rb'))[::3]
         self.cmapNames = [['viridis','tab20','jet','prism','gist_ncar']]
 
@@ -461,31 +468,22 @@ class Utils:
         dfGroups = pd.DataFrame.from_dict(dictGroups,orient='index',columns=['group'])
         groups=dfGroups.group.unique()
 
-        listSymbols = ['circle','x','square','diamond','octagon','star','hexagon','cross','hourglass','bowtie',
-        'triangle-up', 'triangle-down','circle-open','triangle-left', 'triangle-right', 'triangle-ne',
-        'pentagon','circle-dot','hexagram','star-triangle-up','star-square','diamond-tall', 'circle-x',
-        'square-cross','diamond-x','cross-thin','cross-thin-open','x-thin','asterisk','hash','arrow'
-        ]
-        listLines=["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"]
-
         yaxes=['yaxis'] + ['yaxis'+str(k) for k in range(2,len(groups)+1)]
         minx = (len(groups)-1)//2*axisSpace
         xdomain =[minx,1-minx]
         sides,positions = self.getAutoYAxes(len(groups),xdomain,inc=axisSpace)
         colors=self.getColorHexSeq(len(groups),colormap)
         dfGroups['color']=colors[0]
-        dfGroups['symbol']='hexagon-dot'
-        dfGroups['line']='solid'
+        dfGroups['symbol'] = 'circle'
+        dfGroups['line']   = 'solid'
         dictYaxis={}
         yscales=['y'] + ['y'+str(k) for k in range(2,len(groups)+1)]
         for g,c,s,p,y,ys in zip(groups,colors,sides,positions,yaxes,yscales):
             dfGroups.at[dfGroups.group==g,'color'] = c
             dfGroups.at[dfGroups.group==g,'yscale'] = ys
-            try :
-                dfGroups.at[dfGroups.group==g,'line']=(4*listLines)[:len(dfGroups[dfGroups.group==g])]
-            except :
-                print("there are more than 24 lines : that's to much amigo")
-            dfGroups.at[dfGroups.group==g,'symbol']=listSymbols[:len(dfGroups[dfGroups.group==g])]
+            lenGroup=len(dfGroups[dfGroups.group==g])
+            dfGroups.at[dfGroups.group==g,'line']=self.listLines[:lenGroup]
+            dfGroups.at[dfGroups.group==g,'symbol']=self.raw_symbols[:lenGroup]
             if ys=='y' : ov = None
             else : ov = 'y'
             dictYaxis[y] = dict(
@@ -503,10 +501,9 @@ class Utils:
         fig.update_layout(xaxis=dict(domain=xdomain))
         return fig,dfGroups
 
-    def multiUnitGraph(self,df,dictGroups=None,sizeDots=15):
+    def multiUnitGraph(self,df,dictGroups=None,sizeDots=3):
         if not dictGroups : dictGroups={t:t for t in df.columns}
         fig,dfGroups=self.getLayoutMultiUnit(dictGroups)
-
         for trace in df.columns:
             col=dfGroups.loc[trace,'color']
             fig.add_trace(go.Scatter(
@@ -516,6 +513,7 @@ class Utils:
                 marker=dict(color = col,size=sizeDots,symbol=dfGroups.loc[trace,'symbol']),
                 line=dict(color = col,dash=dfGroups.loc[trace,'line'])
                 ))
+        fig.update_yaxes(showgrid=False)
         return fig
 
     def getAutoXYAxes(self,n,grid=None,hspace=0.05,minx=0.05,**kwargs):
@@ -536,12 +534,6 @@ class Utils:
         return fig
 
     def getLayoutMultiUnitSubPlots(self,dictdictGroups,colormap='Dark2_r',axisSpace=0.02,**kwargs):
-        listSymbols = ['circle','x','square','diamond','octagon','star','hexagon','cross','hourglass','bowtie',
-        'triangle-up', 'triangle-down','circle-open','triangle-left', 'triangle-right', 'triangle-ne',
-        'pentagon','circle-dot','hexagram','star-triangle-up','star-square','diamond-tall', 'circle-x',
-        'square-cross','diamond-x','cross-thin','cross-thin-open','x-thin','asterisk','hash','arrow'
-        ]
-        listLines=["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"]
         dfGroups = self.dictdict2df(dictdictGroups)
         groups = dfGroups.group.unique()
         maxgroups = max([len(dfGroups.groupby('group').get_group(g).subgroup.unique()) for g in groups])
@@ -578,11 +570,9 @@ class Utils:
                 dfGroups.loc[filter,'yaxis'] = ys
                 dfGroups.loc[filter,'xaxis'] = xs
                 # print(ax,' ------ ',ay1,' ------ ',g)
-                try :
-                    dfGroups.loc[dfGroups.subgroup==sg,'line']=(4*listLines)[:len(dfGroups[dfGroups.subgroup==sg])]
-                except :
-                    print("there are more than 24 lines : that's too much amigo")
-                dfGroups.loc[dfGroups.subgroup==sg,'symbol']=listSymbols[:len(dfGroups[dfGroups.subgroup==sg])]
+                lensubgroup=len(dfGroups[dfGroups.subgroup==sg])
+                dfGroups.loc[dfGroups.subgroup==sg,'line']=self.listLines[:lensubgroup]
+                dfGroups.loc[dfGroups.subgroup==sg,'symbol']=self.raw_symbols[:lensubgroup]
                 if ys==ys1+'1' : ov = None
                 else : ov = ys1+'1'
                 dictYaxis[ay] = dict(
