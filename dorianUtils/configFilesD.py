@@ -18,13 +18,15 @@ class ConfigMaster:
         self.utils      = Utils()
         self.folderPkl = folderPkl
         self.listFiles = self.utils.get_listFilesPklV2(folderPkl)
-        self.dfPLC = self._loadDF_PLC()
+        # self.dfPLC = self._loadDF_PLC()
 # ==============================================================================
 #                                 functions
 # ==============================================================================
     def _loadDF_PLC(self):
         if len(self.listFiles)>0:
+            start=time.time()
             df = self.loadFile(self.listFiles[0])
+            print('dfplc loaded in {:.2f} milliseconds'.format((time.time()-start)*1000))
             return pd.DataFrame(df.tag.unique(),columns=['TAG'])
         else : return pd.DataFrame()
 
