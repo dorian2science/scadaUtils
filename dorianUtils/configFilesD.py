@@ -179,9 +179,9 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
     def getTagsTU(self,patTag,units=None,onCol='index',cols='tag'):
         #patTag
         if onCol=='index':
-            df = self.dfPLC[self.dfPLC.index.str.contains(patTag)]
+            df = self.dfPLC[self.dfPLC.index.str.contains(patTag,case=False)]
         else:
-            df = self.dfPLC[self.dfPLC[onCol].str.contains(patTag)]
+            df = self.dfPLC[self.dfPLC[onCol].str.contains(patTag,case=False)]
 
         #units
         if not units : units = self.listUnits
@@ -192,9 +192,9 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         if cols=='tdu' :
             return df[['DESCRIPTION','UNITE']]
         elif cols=='tag':
-            return list(df[self.index])
+            return list(df.index)
         else :
-            return df1
+            return df
 
     def getCatsFromUnit(self,unitName,pattern=None):
         if not pattern:pattern = self.listPatterns[0]
