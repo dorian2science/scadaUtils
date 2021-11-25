@@ -170,25 +170,31 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         if asList :tagsWithUnits = [k + ' ( in ' + l + ')' for k,l in zip(tagsWithUnits[self.tagCol],tagsWithUnits[self.unitCol])]
         return tagsWithUnits
 
-    def getTagsTU(self,patTag,units=None,onCol='tag',case=False,cols='tag',ds=True):
-        if not units : units = self.listUnits
-        if ds and 'DATASCIENTISM' in self.dfPLC.columns: res=self.dfPLC[self.dfPLC.DATASCIENTISM==True]
-        else: res = self.dfPLC.copy()
-
-        if 'tag' in onCol.lower():whichCol = self.tagCol
-        elif 'des' in onCol.lower():whichCol = self.descriptCol
-
-        filter1 = res[whichCol].str.contains(patTag,case=case)
-        if isinstance(units,str):units = [units]
-        filter2 = res[self.unitCol].isin(units)
-        res = res[filter1&filter2]
-        if cols=='tdu' :
-            return res.loc[:,[self.tagCol,self.descriptCol,self.unitCol]]
-        elif cols=='tag' : return list(res[self.tagCol])
-        elif cols=='all':return res
-
     def getUnitofTag(self,tag):
-        return list(self.dfPLC[self.dfPLC.TAG==tag].UNITE)[0]
+        unit=self.dfPLC.loc[tag].UNITE
+        if not isinstance(unit,str):
+            unit='u.a'
+        return unit
+
+    def getTagsTU(self,patTag,units=None,onCol='index',cols='tag'):
+        #patTag
+        if onCol=='index':
+            df = self.dfPLC[self.dfPLC.index.str.contains(patTag)]
+        else:
+            df = self.dfPLC[self.dfPLC[onCol].str.contains(patTag)]
+
+        #units
+        if not units : units = self.listUnits
+        if isinstance(units,str):units = [units]
+        df = df[df['UNITE'].isin(units)]
+
+        #return
+        if cols=='tdu' :
+            return df[['DESCRIPTION','UNITE']]
+        elif cols=='tag':
+            return list(df[self.index])
+        else :
+            return df1
 
     def getCatsFromUnit(self,unitName,pattern=None):
         if not pattern:pattern = self.listPatterns[0]
