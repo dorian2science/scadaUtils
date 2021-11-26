@@ -195,7 +195,7 @@ class TabDataTags(TabMaster):
         elif lgd=='unvisible': fig.update_layout(showlegend=False)
 
         elif lgd=='tag': # get tags
-            if not oldNames[0] in list(self.cfg.dfPLC[self.cfg.tagCol]):# for initialization mainly
+            if not oldNames[0] in list(self.cfg.dfPLC.index):# for initialization mainly
                 newNames = [self.cfg.getTagnamefromDescription(k) for k in oldNames]
                 dictNames   = dict(zip(oldNames,newNames))
                 fig         = self.utils.customLegend(fig,dictNames)

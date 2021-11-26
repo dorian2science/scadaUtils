@@ -407,3 +407,29 @@ class DccExtended:
 
     def createTabs(self,tabs):
         return [dbc.Tabs([dbc.Tab(t.tabLayout,label=t.tabname) for t in tabs])]
+
+
+class ModalError():
+    def __init__(self,baseid='error_modal'):
+        self.id = baseid
+        self.errorHeader=dbc.ModalHeader(id=baseid+'_header',children='')
+        self.errorBody=dbc.ModalBody(id=baseid+'_body',children=''),
+        self.logModal = html.Div([
+            dbc.Modal([
+                self.errorHeader,self.errorBody,
+                dbc.ModalFooter(dbc.Button("Close", id="close", className="ml-auto", n_clicks=0)),
+                ],
+                id=self.id,
+                is_open=False,
+                # size='xl',
+            ),
+        ])
+
+    def set_errorCode(self,errorCode):
+        if errorCode==0:
+            self.errorHeader.children='no data'
+            self.errorBody.children='''no data could be loaded. Please
+                            select another time range'''
+        elif errorCode==1:
+            self.errorHeader.children='ok'
+            self.errorBody.children='''ok'''

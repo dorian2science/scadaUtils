@@ -172,6 +172,7 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
 
     def getUnitofTag(self,tag):
         unit=self.dfPLC.loc[tag].UNITE
+        # print(unit)
         if not isinstance(unit,str):
             unit='u.a'
         return unit
