@@ -271,7 +271,7 @@ class DccExtended:
                         dbc.Col(html.Button(id  = baseId + wid_key + 'Btn',children='update'))]),
 
                     dbc.Row([dbc.Col(dcc.DatePickerRange(id = baseId + wid_key + 'Pdr',
-                                max_date_allowed = t1,
+                                # max_date_allowed = t1,
                                 initial_visible_month = t0,
                                 display_format = 'D-MMM-YY',minimum_nights=0,persistence=False,
                                 start_date = t0, end_date = t1))]),
