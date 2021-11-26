@@ -93,7 +93,7 @@ class TabMaster():
                     return startdate
                 else :
                     return enddate
-
+                    
         if 'modalTagsTxt' in categories:
             @self.app.callback(
                 Output(self.baseId + "modalListTags", "is_open"),
