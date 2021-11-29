@@ -26,6 +26,9 @@ class Utils:
         self.lineshapes = ShapeValidator().values
         # self.cmapNames = pickle.load(open(self.confDir+"/colormaps.pkl",'rb'))[::3]
         self.cmapNames = [['viridis','tab20','jet','prism','gist_ncar']]
+        from PIL import Image # new import
+        self.sylfenlogo  = Image.open(self.confDir +  '/logo_sylfen.png')
+
 
     # ==========================================================================
     #                               DEBUG
@@ -728,14 +731,25 @@ class Utils:
         return fig
 
     def legendPersistant(self,previousFig,newFig):
-        if previousFig:
+        if not not previousFig:
             visible_state = {}
-            for i in previousFig['data']:
-                visible = i['visible'] if 'visible' in i.keys() else True
-                visible_state[i['name']] = visible
-            for j in newFig['data']:
-                j['visible'] = visible_state[j['name']]
+            for trace in previousFig['data']:
+                idxO = [k for k,v in enumerate(newFig['data']) if v['name']==trace['name']]
+                if len(idxO)==1:
+                    visible = trace['visible'] if 'visible' in trace.keys() else True
+                    newFig['data'][idxO[0]]['visible'] = visible
         return newFig
+
+    def addLogo(self,fig):
+        fig.add_layout_image(
+            dict(
+                source=self.sylfenlogo,
+                xref="paper", yref="paper",
+                x=0., y=1.02,
+                sizex=0.12, sizey=0.12,
+                xanchor="left", yanchor="bottom"
+            ))
+        return fig
 
     def add_drawShapeToolbar(self,fig):
         fig.update_layout(

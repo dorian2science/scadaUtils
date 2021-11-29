@@ -6,7 +6,7 @@ from dash.exceptions import PreventUpdate
 import plotly.express as px, plotly.graph_objects as go
 import matplotlib.pyplot as plt, matplotlib.colors as mtpcl
 from pylab import cm
-from dorianUtils.dccExtendedD import DccExtended
+from dorianUtils.dccExtendedD import DccExtended,ModalError
 from dorianUtils.utilsD import Utils
 import dorianUtils.configFilesD as cfd
 
@@ -18,8 +18,23 @@ class TabMaster():
         self.app = app
         self.utils = Utils()
         self.dccE = DccExtended()
+        self.initialDateMethod = 'parkedData'
+        self.modal_error= ModalError()
+
+    def addLogModal(self,title,mdFile):
+        logModal = self.dccE.buildModalLog(title,mdFile)
+        @app.callback(
+            Output("log_modal", "is_open"),
+            [Input("btn_log", "n_clicks"), Input("close", "n_clicks")],
+            [State("log_modal", "is_open")],
+        )
+        def showLog(n1, n2, is_open):
+            if n1 or n2:
+                return not is_open
+            return is_open
 
     def _define_basicCallbacks(self,categories=[]):
+
         if 'btn_freeze' in categories:
             @self.app.callback(
                 Output(self.baseId + 'btn_freeze', 'children'),
@@ -81,6 +96,7 @@ class TabMaster():
                 return dcc.send_data_frame(df.to_csv, filename+'.csv')
 
         if 'datePickerRange' in categories:
+            # initial visible month tuned to selection
             @self.app.callback(
             Output(self.baseId + 'pdr_timePdr','initial_visible_month'),
             Input(self.baseId + 'pdr_timePdr','start_date'),
@@ -93,7 +109,34 @@ class TabMaster():
                     return startdate
                 else :
                     return enddate
-                    
+
+            # update inital datetime regularly
+            @self.app.callback(
+            Output(self.baseId + 'pdr_timePdr','start_date'),
+            Output(self.baseId + 'pdr_timeStart','value'),
+            Output(self.baseId + 'pdr_timePdr','end_date'),
+            Output(self.baseId + 'pdr_timeEnd','value'),
+            Input(self.baseId + 'pdr_timeInterval','n_intervals'),
+            )
+            def updateInitialDateTime(n):
+                if self.initialDateMethod == 'time':
+                    now = dt.datetime.now().astimezone()
+                    t0 = now- dt.timedelta(hours=8)
+                    return t0,t0.strftime('%H:%M'),now,now.strftime('%H:%M')
+                if self.initialDateMethod == 'parkedData':
+                    # dangerous => better use localtimezone
+                    listDates = [pd.Timestamp(k,tz='CET') for k in self.cfg.parkedDays]
+                    lastDate = max(listDates)
+                    t0=t1=lastDate
+                    # if hours/minute parked take the last 8 hours:
+                    # folderLastDay = self.cfg.folderPkl+'parkedData/'+lastDate.strftime('%Y-%m-%d')+'/*'
+                    # listHours=glob.glob(folderLastDay)
+                    # lastHour = max([float(k) for k in listHours])
+                    # t1 = lastDate+dt.timedelta(hours=lastHour)
+                    # t0 = t1-dt.timedelta(hours=8)
+                    # return t0,t0.strftime('%H:%M'),t1,t1.strftime('%H:%M')
+                    return t0,t0.strftime('9:00'),t1,t1.strftime('18:00')
+
         if 'modalTagsTxt' in categories:
             @self.app.callback(
                 Output(self.baseId + "modalListTags", "is_open"),
@@ -115,17 +158,41 @@ class TabMaster():
                 listTags = [k.strip().upper() for k in txt.split('\n')]
                 return listTags
 
-    def addLogo(self,fig,logo=None):
-        if not not logo:
-            fig.add_layout_image(
-                dict(
-                    source=logo,
-                    xref="paper", yref="paper",
-                    x=0., y=1.02,
-                    sizex=0.12, sizey=0.12,
-                    xanchor="left", yanchor="bottom"
-                ))
-        return fig
+    # @app.callback(
+    #     Output(self.baseId + "log_modal", "is_open"),
+    #     Input(self.baseId + "btn_log", "n_clicks"),
+    #     Input(self.baseId + "close", "n_clicks"),
+    #     Input(self.baseId + "log_modal", "is_open"),
+    # )
+    # def showLog(n1, n2, is_open):
+    #     if n1 or n2:
+    #
+    #         return not is_open
+    #     return is_open
+
+
+    def updateGraph(self,previousFig,listTrigs,loadData,plotData,updateStyleGraph,*args,**kwargs):
+        ctx = dash.callback_context
+        trigId = ctx.triggered[0]['prop_id'].split('.')[0]
+        fig = go.Figure(previousFig)
+        ## load data in that case
+        if trigId in [self.baseId+k for k in listTrigs]:
+            df = loadData(*args)
+            if not df.empty:
+                fig  = plotData(df)
+            else :
+                ## get error code loading data ==> 1
+                return go.Figure(),1
+        ## update style of graph
+        # print(kwargs)
+        fig = updateStyleGraph(fig,**kwargs)
+        # keep traces visibility
+        try :
+            fig = self.utils.legendPersistant(previousFig,fig)
+        except:
+            print('problem to make traces visibility persistant.')
+        return self.utils.addLogo(fig),0
+
 # ==============================================================================
 #                       format Tag,timestamp,value
 # ==============================================================================
@@ -133,7 +200,6 @@ class TabDataTags(TabMaster):
     def __init__(self,cfg,app,baseId):
         TabMaster.__init__(self,app,baseId)
         self.cfg = cfg
-        self.tabLayout = self._buildLayout()
         self.tabname = 'select tags'
 
     def addWidgets(self,dicWidgets,baseId):
@@ -409,6 +475,62 @@ class TabMultiUnits(TabDataTags):
             except:print('skip and update for next graph')
             fig = self.addLogo(fig,self.logo)
             return fig
+
+class TabMultiUnits_V2(TabDataTags):
+    def __init__(self,cfg,app,loadData,plotGraph,updateLayoutGraph,baseId='tmu0_'):
+        '''loadData,plotGraph and updateLayoutGraph are functions.'''
+        TabDataTags.__init__(self,cfg,app,baseId)
+        self.tabname = 'multi Units'
+        self.loadData  = loadData
+        self.plotGraph = plotGraph
+        self.updateLayoutGraph=updateLayoutGraph
+
+    def _buildLayout(self,widthG=80,initialTags=None):
+        dicWidgets = {
+            'pdr_time' : {'tmin':self.cfg.listFilesPkl[0],'tmax':self.cfg.listFilesPkl[-1]},
+            'in_timeRes':'60s','dd_resampleMethod' : 'mean',
+            'dd_style':'default',
+            'btn_export':0,
+            'modalListTags':None
+                }
+        basicWidgets = self.dccE.basicComponents(dicWidgets,self.baseId)
+        specialWidgets = self.addWidgets({'dd_tag':initialTags,'btn_legend':0,'in_axisSp':0.05},self.baseId)
+
+        # reodrer widgets
+        widgetLayout = basicWidgets + specialWidgets
+        return self.dccE.buildGraphLayout(widgetLayout,self.baseId,widthG=widthG)
+
+    def _define_callbacks(self):
+        self._define_basicCallbacks(['legendtoogle','export','datePickerRange','modalTagsTxt'])
+        @self.app.callback(
+            Output(self.baseId + 'graph', 'figure'),
+            Output('error_modal_store', 'data'),
+            Input(self.baseId + 'dd_tag','value'),
+            Input(self.baseId + 'pdr_timeBtn','n_clicks'),
+            Input(self.baseId + 'dd_resampleMethod','value'),
+            Input(self.baseId + 'btn_legend','children'),
+            Input(self.baseId + 'dd_style','value'),
+            Input(self.baseId + 'in_axisSp','value'),
+            State(self.baseId + 'graph','figure'),
+            State(self.baseId + 'in_timeRes','value'),
+            State(self.baseId + 'pdr_timeStart','value'),
+            State(self.baseId + 'pdr_timeEnd','value'),
+            State(self.baseId + 'pdr_timePdr','start_date'),
+            State(self.baseId + 'pdr_timePdr','end_date')
+            )
+        def updateMUGGraph(tags,timeBtn,rsMethod,lgd,style,axSP,previousFig,rs,date0,date1,t0,t1):
+            triggerList=['dd_tag','pdr_timeBtn','dd_resampleMethod']
+            timeRange = [date0+' '+t0,date1+' '+t1]
+            fig,errCode = self.updateGraph(previousFig,triggerList,
+                self.loadData,
+                self.plotGraph,
+                self.updateLayoutGraph,
+                timeRange,tags,rs,rsMethod,
+                style=style,
+                # axSP=axSP
+                )
+            # fig = self.updateLegend(fig,lgd)
+            return fig,errCode
 
 class TabMultiUnitSelectedTags(TabDataTags):
     def __init__(self,cfg,app,baseId='tmus0_',plotdffunc=None,logo=None):

@@ -267,18 +267,13 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
             df = pd.concat(dfs,axis=1)
         return df
 
-    def DF_loadTimeRangeTags(self,timeRange=None,listTags=None,rs='auto',applyMethod='mean',
+    def DF_loadTimeRangeTags(self,timeRange,listTags,rs='auto',applyMethod='mean',
                                 parked=True,timezone='Europe/Paris',pool=True):
         if not timeRange:
             if parked : day = self.parkedDays[-1]
             else : day = re.findall('\d{4}-\d{2}-\d{2}',self.listFilesPkl[-1])[0]
             timeRange = [day + ' 9:00',day + ' 18:00']
-        if isinstance(listTags,list):
-            if len(listTags)==0:
-                return pd.DataFrame()
-        else:
-            listTags = self.getTagsTU('')
-            listTags = [listTags[k] for k in np.random.randint(0,len(listTags),5)]
+
         listDates,delta = self.utils.datesBetween2Dates(timeRange,offset=0)
 
         if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()//1000)) + 's'

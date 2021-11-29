@@ -8,7 +8,7 @@ from dorianUtils.utilsD import Utils
 class DccExtended:
     def __init__(self):
         self.utils=Utils()
-        self.graphStyles = ['lines+markers','stairs','markers','lines']
+        self.line_styles = ['default','lines+markers','stairs','markers','lines']
         self.graphTypes = ['scatter','area','area %']
         self.stdStyle = {'fontsize':'12 px','width':'120px','height': '40px','min-height': '1px',}
         self.smallStyle = {'fontsize':'12 px','width':'180px','height': '40px','min-height': '1px',}
@@ -53,7 +53,6 @@ class DccExtended:
             # print(valSel)
             dd = dcc.Dropdown(id=idName,options=ddOpt,value=valSel,clearable=False,**kwargs)
         else :
-            print('here')
             dd = dcc.Dropdown(id=idName,options=ddOpt,clearable=False,**kwargs)
         return [p,dd]
 
@@ -188,7 +187,7 @@ class DccExtended:
                 'resampling method: ',value=wid_val,multi=False)
 
             elif 'dd_style'==wid_key:
-                widgetObj = self.dropDownFromList(baseId+wid_key,self.graphStyles,'style : ',value = wid_val)
+                widgetObj = self.dropDownFromList(baseId+wid_key,self.line_styles,'style : ',value = wid_val)
 
             elif 'dd_typeGraph'==wid_key:
                 widgetObj = self.dropDownFromList(baseId+wid_key,self.graphTypes,
@@ -277,7 +276,9 @@ class DccExtended:
                                 start_date = t0, end_date = t1))]),
 
                     dbc.Row([dbc.Col(dcc.Input(id = baseId + wid_key + 'Start',type='text',value = '09:00',size='13',style={'font-size' : 13})),
-                            dbc.Col(dcc.Input(id = baseId + wid_key + 'End',type='text',value = '18:00',size='13',style={'font-size' : 13}))])
+                            dbc.Col(dcc.Input(id = baseId + wid_key + 'End',type='text',value = '18:00',size='13',style={'font-size' : 13}))
+                        ]),
+                    dcc.Interval(id=baseId + wid_key + 'Interval',n_intervals=0,interval=60*60*1000)
                 ])]
 
             elif 'block_refresh'==wid_key:
@@ -325,7 +326,7 @@ class DccExtended:
                 styledd =[
                     html.P('style : ',style=txtStyle),
                     dcc.Dropdown(id=baseId+'dd_style',
-                            options=[{'label':t,'value':t} for t in self.graphStyles],
+                            options=[{'label':t,'value':t} for t in self.line_styles],
                             value=wid_val['style'],style=stStyle)
                             ]
 
@@ -398,10 +399,12 @@ class DccExtended:
         return widgetLayout
 
     def buildGraphLayout(self,widgetLayout,baseId,widthG=85):
-        graphObj = dcc.Graph(id=baseId+'graph',
-                    config = {
-                            'displaylogo': False
-                            })
+        import plotly.graph_objects as go
+        config={
+                'displaylogo': False
+                }
+        fig = self.utils.addLogo(go.Figure())
+        graphObj = dcc.Graph(id=baseId+'graph',config = config,figure=fig)
         graphLayout=[html.Div(graphObj,style={"width": str(widthG)+"%", "display": "inline-block"})]
         return [html.Div(widgetLayout,style={"width": str(100-widthG) + "%", "float": "left"})]+graphLayout
 
@@ -412,17 +415,22 @@ class DccExtended:
 class ModalError():
     def __init__(self,baseid='error_modal'):
         self.id = baseid
-        self.errorHeader=dbc.ModalHeader(id=baseid+'_header',children='')
-        self.errorBody=dbc.ModalBody(id=baseid+'_body',children=''),
-        self.logModal = html.Div([
+        self.errorHeader = dbc.ModalHeader(id=baseid+'_header',children='')
+        self.errorBody   = dbc.ModalBody(id=baseid+'_body',children='')
+        self.errorStore  = dcc.Store(id = baseid + '_store',data=0)
+        self.errorFooter = dbc.ModalFooter(dbc.Button("Close",id=baseid + "_close",
+                                                className="ml-auto", n_clicks=0))
+        self.errorModal  = html.Div([
             dbc.Modal([
-                self.errorHeader,self.errorBody,
-                dbc.ModalFooter(dbc.Button("Close", id="close", className="ml-auto", n_clicks=0)),
+                self.errorHeader,
+                self.errorBody,
+                self.errorFooter
                 ],
-                id=self.id,
-                is_open=False,
-                # size='xl',
+            id=self.id,
+            is_open=False,
+            # size='xl',
             ),
+            self.errorStore
         ])
 
     def set_errorCode(self,errorCode):
