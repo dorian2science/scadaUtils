@@ -192,7 +192,6 @@ class TabMaster():
         graphLayout = html.Div(graphObj, style={"width": str(widthG)+"%", "display": "inline-block"})
         self.tabLayout = [widgetLayout,graphLayout]
 
-
     def updateLayoutStandard(self,fig,sizeDots=5):
         fig.update_yaxes(showgrid=False)
         fig.update_traces(marker=dict(size=sizeDots))
@@ -200,7 +199,7 @@ class TabMaster():
         fig.update_traces(hovertemplate='<b>%{y:.2f}')
         return fig
 
-    def updateGraph(self,previousFig,listTrigs,*args,**kwargs):
+    def updateGraph(self,previousFig,listTrigs,style,*args,**kwargs):
         ctx = dash.callback_context
         trigId = ctx.triggered[0]['prop_id'].split('.')[0]
         fig = go.Figure(previousFig)
@@ -208,14 +207,14 @@ class TabMaster():
         if trigId in [self.baseId+k for k in listTrigs]:
             df = self.loadData(*args)
             if not df.empty:
-                fig  = self.plotData(df)
+                fig  = self.plotData(df,**kwargs)
             else :
                 ## get error code loading data ==> 1
                 return go.Figure(),1
         ## update style of graph
         # print(kwargs)
         fig = self.updateLayoutStandard(fig)
-        fig = self.updateStyleGraph(fig,**kwargs)
+        fig = self.updateStyleGraph(fig,style)
         # keep traces visibility
         try :
             fig = self.utils.legendPersistant(previousFig,fig)
@@ -349,9 +348,8 @@ class TabSelectedTags(TabMaster):
             if len(tags)==0:
                 return previousFig,2
 
-            fig,errCode = self.updateGraph(previousFig,triggerList,
+            fig,errCode = self.updateGraph(previousFig,triggerList,style,
                 timeRange,tags,rs,rsMethod,
-                style=style,
                 )
             fig = self.utils.updateColorMap(fig,colmap)
             # fig = self.updateLegend(fig,lgd)
@@ -385,9 +383,8 @@ class TabMultiUnits(TabMaster):
         def updateMUGGraph(tags,timeBtn,rsMethod,lgd,style,axSP,previousFig,rs,date0,date1,t0,t1):
             triggerList=['dd_tag','pdr_timeBtn','dd_resampleMethod']
             timeRange = [date0+' '+t0,date1+' '+t1]
-            fig,errCode = self.updateGraph(previousFig,triggerList,
+            fig,errCode = self.updateGraph(previousFig,triggerList,style,
                 timeRange,tags,rs,rsMethod,
-                style=style,
                 # axSP=axSP
                 )
             # fig = self.updateLegend(fig,lgd)
@@ -423,9 +420,8 @@ class TabUnitSelector(TabMaster):
             triggerList=['dd_tag','pdr_timeBtn','dd_resampleMethod']
             tags  = self.cfg.getTagsTU(patTag,unit)
             timeRange = [date0+' '+t0,date1+' '+t1]
-            fig,errCode = self.updateGraph(previousFig,triggerList,
+            fig,errCode = self.updateGraph(previousFig,triggerList,style,
                 timeRange,tags,rs,rsMethod,
-                style=style,
                 )
             fig = self.utils.updateColorMap(fig,colmap)
             # fig = self.updateLegend(fig,lgd)
@@ -467,9 +463,8 @@ class TabMultiUnitSelectedTags(TabMaster):
 
             triggerList=['dd_tag','pdr_timeBtn','dd_resampleMethod']
             timeRange = [date0+' '+t0,date1+' '+t1]
-            fig,errCode = self.updateGraph(previousFig,triggerList,
+            fig,errCode = self.updateGraph(previousFig,triggerList,style,
                 timeRange,tags,rs,rsMethod,
-                style=style,
                 # axSP=axSP
                 )
             # fig = self.updateLegend(fig,lgd)
@@ -510,9 +505,9 @@ class RealTimeTabSelectedTags(TabMaster):
                 return previousFig,2
 
             if freezeBtn=='freeze':
-                fig,errCode = self.updateGraph(previousFig,triggerList,tags,tw*60,rs,rsMethod,True,timeRange,style=style)
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True,timeRange)
             else:
-                fig,errCode = self.updateGraph(previousFig,triggerList,tags,tw*60,rs,rsMethod,True,style=style)
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True)
 
             fig = self.utils.updateColorMap(fig,colmap)
             # fig = self.updateLegend(fig,lgd)
@@ -548,9 +543,9 @@ class RealTimeTagMultiUnit(TabMaster):
                 return previousFig,2
 
             if freezeBtn=='freeze':
-                fig,errCode = self.updateGraph(previousFig,triggerList,tags,tw*60,rs,rsMethod,True,timeRange,style=style)
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True,timeRange)
             else:
-                fig,errCode = self.updateGraph(previousFig,triggerList,tags,tw*60,rs,rsMethod,True,style=style)
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True)
 
             # fig = self.updateLegend(fig,lgd)
             return fig,errCode
@@ -590,9 +585,9 @@ class RealTimeMultiUnitSelectedTags(TabMaster):
                 return previousFig,2
 
             if freezeBtn=='freeze':
-                fig,errCode = self.updateGraph(previousFig,triggerList,tags,tw*60,rs,rsMethod,True,timeRange,style=style)
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True,timeRange)
             else:
-                fig,errCode = self.updateGraph(previousFig,triggerList,tags,tw*60,rs,rsMethod,True,style=style)
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True)
 
             # fig = self.updateLegend(fig,lgd)
             return fig,errCode
@@ -606,7 +601,7 @@ class RealTimeDoubleMultiUnits(TabMaster):
             'btn_legend':0,'in_axisSp':0.05}
 
         self._buildLayout(dicSpecialWidgets,realTime=True)
-        # self._define_callbacks()
+        self._define_callbacks()
 
     def _define_callbacks(self):
         self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
@@ -632,12 +627,12 @@ class RealTimeDoubleMultiUnits(TabMaster):
             if len(tags)==0:
                 return previousFig,2
 
-            fig = self.cfg.doubleMultiUnitGraph(df,tags1,tags2,axSP)
-
             if freezeBtn=='freeze':
-                fig,errCode = self.updateGraph(previousFig,triggerList,tags,tw*60,rs,rsMethod,True,timeRange,style=style)
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True,timeRange,
+                    tags1=tags1,tags2=tags2)
             else:
-                fig,errCode = self.updateGraph(previousFig,triggerList,tags,tw*60,rs,rsMethod,True,style=style)
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True,
+                    tags1=tags1,tags2=tags2)
 
             # fig = self.updateLegend(fig,lgd)
             return fig,errCode

@@ -426,7 +426,6 @@ class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
         fig.update_yaxes(title_text='',showticklabels=False)
         fig.update_yaxes(showgrid=False)
         fig.update_xaxes(matches='x')
-        fig.update_layout(height=900)
         return fig
 
 class ConfigDashSpark(ConfigDashTagUnitTimestamp):
