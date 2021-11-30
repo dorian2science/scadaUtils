@@ -278,12 +278,15 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
 
         if rs=='auto':rs = '{:.0f}'.format(max(1,delta.total_seconds()//1000)) + 's'
         dfs=[]
-        if pool:
-            with Pool() as p:
-                dfs=p.starmap(self._loadDFTagsDay, [(datum,listTags,parked,False,rs=='raw') for datum in listDates])
+        if len(listTags)>0:
+            if pool:
+                with Pool() as p:
+                    dfs=p.starmap(self._loadDFTagsDay, [(datum,listTags,parked,False,rs=='raw') for datum in listDates])
+            else:
+                for datum in listDates:
+                    dfs.append(self._loadDFTagsDay(datum,listTags,parked,True,rs=='raw'))
         else:
-            for datum in listDates:
-                dfs.append(self._loadDFTagsDay(datum,listTags,parked,True,rs=='raw'))
+            return pd.DataFrame() 
         if len(dfs)>0 :
             df = pd.concat(dfs,axis=0)
             print("finish loading")

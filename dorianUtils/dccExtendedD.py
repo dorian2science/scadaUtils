@@ -353,30 +353,6 @@ class DccExtended:
                                             },baseId)
                 widgetObj = [self.build_dbcBasicBlock(blockSettings,2,2)]
 
-            elif wid_key == 'modalListTags':
-                widgetObj = [
-                    dbc.Button("enter your list of tags!", id=baseId + "btn_omlt", n_clicks=0),
-                    dbc.Modal(
-                        [
-                            dbc.ModalHeader("list of tags to load"),
-                            dbc.ModalBody(
-                            [
-                            html.P('please enter your list of tags. Tags are written as rows ==> a line for each tag:'),
-                            dcc.Textarea(id=baseId + 'txtListTags',value='',
-                                            style={
-                                'width':'50em',
-                                'min-height': '50vh'
-                                }),
-                            ]
-                            ),
-                            dbc.ModalFooter(dbc.Button("Apply changes", id=baseId + "close_omlt", className="ml-auto", n_clicks=0)),
-                        ],
-                        id=baseId + "modalListTags",
-                        is_open=False,
-                        size='xl',
-                        ),
-                    ]
-
             else :
                 print('component ',wid_key,' is not available')
                 return
@@ -464,10 +440,17 @@ class DccExtended:
                         [html.P(k) for k in cfg.parkedDays[::-1]]
                             )
                 elif d==2:
-                    errorHeader = 'Still okay'
-                    errorBody = 'Still okay'
+                    errorHeader = 'NO TAGS'
+                    errorBody = 'No tags found for this comibnation/category. Please select another category.'
                 return True,errorHeader,errorBody
             else:
                 return False,'',''
 
         return errorModal
+
+
+    ''' dropdown with a list'''
+    class DropdownFromList(dcc.Dropdown):
+        def __init__(self,listdd,**kwargs):
+            dcc.Dropdown.__init__(self,**kwargs)
+            self.options = [{'label': t, 'value': t} for t in listdd]
