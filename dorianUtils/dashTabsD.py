@@ -6,7 +6,7 @@ from dash.exceptions import PreventUpdate
 import plotly.express as px, plotly.graph_objects as go
 import matplotlib.pyplot as plt, matplotlib.colors as mtpcl
 from pylab import cm
-from dorianUtils.dccExtendedD import DccExtended,ModalError
+from dorianUtils.dccExtendedD import DccExtended
 from dorianUtils.utilsD import Utils
 import dorianUtils.configFilesD as cfd
 
@@ -19,19 +19,6 @@ class TabMaster():
         self.utils = Utils()
         self.dccE = DccExtended()
         self.initialDateMethod = 'parkedData'
-        self.modal_error= ModalError()
-
-    def addLogModal(self,title,mdFile):
-        logModal = self.dccE.buildModalLog(title,mdFile)
-        @app.callback(
-            Output("log_modal", "is_open"),
-            [Input("btn_log", "n_clicks"), Input("close", "n_clicks")],
-            [State("log_modal", "is_open")],
-        )
-        def showLog(n1, n2, is_open):
-            if n1 or n2:
-                return not is_open
-            return is_open
 
     def _define_basicCallbacks(self,categories=[]):
 
@@ -157,18 +144,6 @@ class TabMaster():
             def getListTagsModal(close,txt):
                 listTags = [k.strip().upper() for k in txt.split('\n')]
                 return listTags
-
-    # @app.callback(
-    #     Output(self.baseId + "log_modal", "is_open"),
-    #     Input(self.baseId + "btn_log", "n_clicks"),
-    #     Input(self.baseId + "close", "n_clicks"),
-    #     Input(self.baseId + "log_modal", "is_open"),
-    # )
-    # def showLog(n1, n2, is_open):
-    #     if n1 or n2:
-    #
-    #         return not is_open
-    #     return is_open
 
 
     def updateGraph(self,previousFig,listTrigs,loadData,plotData,updateStyleGraph,*args,**kwargs):

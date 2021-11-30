@@ -1,6 +1,9 @@
 import dash_html_components as html
 import dash_core_components as dcc
 import dash_bootstrap_components as dbc
+import dash
+from dash.dependencies import Input, Output, State
+
 from dateutil import parser
 import re,datetime as dt, numpy as np
 from dorianUtils.utilsD import Utils
@@ -16,6 +19,8 @@ class DccExtended:
         self.blockGreen = {"border":"0.25em green solid","padding":"0.25em","margin":"0.25em"}
         self.blockRed = {"border":"0.25em red solid","padding":"0.25em","margin":"0.25em"}
         self.blockBlue = {"border":"0.25em blue solid","padding":"0.25em","margin":"0.25em"}
+        self.id_modalLog='log_modal'
+
 
     ''' dropdown with a list or dictionnary. Dictionnary doesn"t work for the moment '''
     def dropDownFromList(self,idName,listdd,pddPhrase = None,defaultIdx=None,labelsPattern=None,**kwargs):
@@ -154,25 +159,6 @@ class DccExtended:
                 k+=1
             dbc_rows.append(curRow)
         return html.Div([dbc.Row(r) for r in dbc_rows])
-
-    def buildModalLog(self,titleBtn,mdFile):
-        f = open(mdFile)
-        t = dcc.Markdown(f.readlines())
-        f.close()
-        logModal = html.Div([
-                dbc.Button(titleBtn, id="btn_log", n_clicks=0),
-                dbc.Modal([
-                    dbc.ModalHeader("Log versionning"),
-                    dbc.ModalBody(t),
-                    dbc.ModalFooter(dbc.Button("Close", id="close", className="ml-auto", n_clicks=0)),
-                    ],
-                    id="log_modal",
-                    is_open=False,
-                    size='xl',
-                ),
-            ]
-        )
-        return logModal
 
     def basicComponents(self,dicWidgets,baseId=''):
         widgetLayout,dicLayouts = [],{}
@@ -411,33 +397,77 @@ class DccExtended:
     def createTabs(self,tabs):
         return [dbc.Tabs([dbc.Tab(t.tabLayout,label=t.tabname) for t in tabs])]
 
+    def addModalLog(self,app,titleBtn,mdFile):
+        f = open(mdFile)
+        t = dcc.Markdown(f.readlines())
+        f.close()
+        logModal = html.Div([
+                dbc.Button(titleBtn, id=self.id_modalLog + "_btn", n_clicks=0),
+                dbc.Modal([
+                    dbc.ModalHeader("Log versionning"),
+                    dbc.ModalBody(t),
+                    dbc.ModalFooter(dbc.Button("Close", id=self.id_modalLog + "_close", className="ml-auto", n_clicks=0)),
+                    ],
+                    id=self.id_modalLog,
+                    is_open=False,
+                    size='xl',
+                ),
+            ]
+        )
+        @app.callback(
+            Output(self.id_modalLog, "is_open"),
+            Input(self.id_modalLog + "_btn", "n_clicks"),
+            Input(self.id_modalLog + "_close", "n_clicks"),
+            State(self.id_modalLog, "is_open")
+        )
+        def showLog(n1, n2, is_open):
+            if n1 or n2:
+                return not is_open
+            return is_open
 
-class ModalError():
-    def __init__(self,baseid='error_modal'):
-        self.id = baseid
-        self.errorHeader = dbc.ModalHeader(id=baseid+'_header',children='')
-        self.errorBody   = dbc.ModalBody(id=baseid+'_body',children='')
-        self.errorStore  = dcc.Store(id = baseid + '_store',data=0)
-        self.errorFooter = dbc.ModalFooter(dbc.Button("Close",id=baseid + "_close",
+        return logModal
+
+    def addModalError(self,app,cfg,baseid='error_modal'):
+        errorHeader = dbc.ModalHeader(id=baseid +'_header',children='')
+        errorBody   = dbc.ModalBody(id=baseid +'_body',children='')
+        errorStore  = dcc.Store(id = baseid  + '_store',data=0)
+        errorFooter = dbc.ModalFooter(dbc.Button("Close",id = baseid  + "_close",
                                                 className="ml-auto", n_clicks=0))
-        self.errorModal  = html.Div([
+        errorModal  = html.Div([
             dbc.Modal([
-                self.errorHeader,
-                self.errorBody,
-                self.errorFooter
+                errorHeader,
+                errorBody,
+                errorFooter
                 ],
-            id=self.id,
+            id = baseid,
             is_open=False,
             # size='xl',
             ),
-            self.errorStore
+            errorStore
         ])
+        @app.callback(
+            Output(baseid, "is_open"),
+            Output(baseid + "_header", "children"),
+            Output(baseid + "_body", "children"),
+            Input(baseid + "_store", "data"),
+            Input(baseid + "_close", "n_clicks"),
+        )
+        def showError(d,n):
+            ctx = dash.callback_context
+            trigId = ctx.triggered[0]['prop_id'].split('.')[0]
+            if d>0 and not trigId=='error_modal_close':
+                if d==1:
+                    errorHeader = 'NO DATA COULD BE LOADED'
+                    errorBody = html.Div([
+                        html.P('''no available data for that time range,
+                            please select among the available dates : ''')]+
+                        [html.P(k) for k in cfg.parkedDays[::-1]]
+                            )
+                elif d==2:
+                    errorHeader = 'Still okay'
+                    errorBody = 'Still okay'
+                return True,errorHeader,errorBody
+            else:
+                return False,'',''
 
-    def set_errorCode(self,errorCode):
-        if errorCode==0:
-            self.errorHeader.children='no data'
-            self.errorBody.children='''no data could be loaded. Please
-                            select another time range'''
-        elif errorCode==1:
-            self.errorHeader.children='ok'
-            self.errorBody.children='''ok'''
+        return errorModal
