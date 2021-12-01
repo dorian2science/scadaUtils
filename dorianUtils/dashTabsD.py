@@ -25,6 +25,8 @@ class TabMaster():
         self.updateStyleGraph=updateStyleGraph
         self.tabname = tabname
         self.baseId = baseId
+        self.modalError = self.dccE.addModalError(app,cfg,baseid=self.baseId)
+
 
     def _define_basicCallbacks(self,categories=[]):
 
@@ -183,7 +185,7 @@ class TabMaster():
                 ]
             }
 
-        specialWidgets = self.addWidgets(specialWidDic,self.baseId)
+        specialWidgets = self.addWidgets(specialWidDic)
         # add graph object
         fig = self.utils.addLogo(go.Figure())
         graphObj = dcc.Graph(id=self.baseId + 'graph',config = config,figure=fig)
@@ -199,15 +201,15 @@ class TabMaster():
         fig.update_traces(hovertemplate='<b>%{y:.2f}')
         return fig
 
-    def updateGraph(self,previousFig,listTrigs,style,*args,**kwargs):
+    def updateGraph(self,previousFig,listTrigs,style,argsLoad,argsPlot):
         ctx = dash.callback_context
         trigId = ctx.triggered[0]['prop_id'].split('.')[0]
         fig = go.Figure(previousFig)
         ## load data in that case
         if trigId in [self.baseId+k for k in listTrigs]:
-            df = self.loadData(*args)
+            df = self.loadData(*argsLoad)
             if not df.empty:
-                fig  = self.plotData(df,**kwargs)
+                fig  = self.plotData(df,*argsPlot)
             else :
                 ## get error code loading data ==> 1
                 return go.Figure(),1
@@ -222,62 +224,62 @@ class TabMaster():
             print('problem to make traces visibility persistant.')
         return self.utils.addLogo(fig),0
 
-    def addWidgets(self,dicWidgets,baseId):
+    def addWidgets(self,dicWidgets):
         widgetLayout,dicLayouts = [],{}
         for wid_key,wid_val in dicWidgets.items():
             if 'dd_cmap'==wid_key:
                 widgetObj = self.dccE.dropDownFromList(
-                    baseId + wid_key, self.utils.cmapNames[0], 'colormap : ',value=wid_val)
+                    self.baseId + wid_key, self.utils.cmapNames[0], 'colormap : ',value=wid_val)
 
             elif 'dd_listFiles' in wid_key:
-                widgetObj = self.dccE.dropDownFromList(baseId+wid_key,self.cfg.listFilesPkl,
+                widgetObj = self.dccE.dropDownFromList(self.baseId+wid_key,self.cfg.listFilesPkl,
                     'Select your File : ',labelsPattern='\d{4}-\d{2}-\d{2}-\d{2}',defaultIdx=wid_val)
 
 
             elif 'dd_tag' in wid_key:
-                widgetObj = self.dccE.dropDownFromList(baseId+wid_key,self.cfg.getTagsTU(''),
+                widgetObj = self.dccE.dropDownFromList(self.baseId+wid_key,self.cfg.getTagsTU(''),
                     'Select the tags : ',value=wid_val,multi=True,optionHeight=20)
 
             elif 'dd_Units' in wid_key :
-                widgetObj = self.dccE.dropDownFromList(baseId+wid_key,self.cfg.listUnits,'Select units graph : ',value=wid_val)
+                widgetObj = self.dccE.dropDownFromList(self.baseId+wid_key,self.cfg.listUnits,'Select units graph : ',value=wid_val)
 
             elif 'dd_typeTags' in wid_key:
-                widgetObj = self.dccE.dropDownFromList(baseId+wid_key,list(self.cfg.usefulTags.index),
+                widgetObj = self.dccE.dropDownFromList(self.baseId+wid_key,list(self.cfg.usefulTags.index),
                             'Select categorie : ',value=wid_val,optionHeight=20)
 
             elif 'btn_legend' in wid_key:
-                widgetObj = [html.Button('tag',id=baseId+wid_key, n_clicks=wid_val)]
+                widgetObj = [html.Button('tag',id=self.baseId+wid_key, n_clicks=wid_val)]
 
             elif 'in_patternTag' in wid_key  :
                 widgetObj = [html.P('pattern with regexp on tag : '),
-                dcc.Input(id=baseId+wid_key,type='text',value=wid_val)]
+                dcc.Input(id=self.baseId+wid_key,type='text',value=wid_val)]
 
             elif 'in_step' in wid_key:
                 widgetObj = [html.P('skip points : '),
-                dcc.Input(id=baseId+wid_key,placeholder='skip points : ',type='number',
+                dcc.Input(id=self.baseId+wid_key,placeholder='skip points : ',type='number',
                             min=1,step=1,value=wid_val)]
 
             elif 'in_axisSp' in wid_key:
                 widgetObj = [
                     html.P('select the space between axis : '),
-                    dcc.Input(id=baseId+wid_key,type='number',value=wid_val,max=1,min=0,step=0.01)]
+                    dcc.Input(id=self.baseId+wid_key,type='number',value=wid_val,max=1,min=0,step=0.01)]
 
             elif wid_key == 'modalListTags':
                 widgetObj = [
-                    dbc.Button("enter your list of tags!", id=baseId + "btn_omlt", n_clicks=0),
+                    dbc.Button("enter your list of tags!", id=self.baseId + "btn_omlt", n_clicks=0),
                     dbc.Modal([
                             dbc.ModalHeader("list of tags to load"),
                             dbc.ModalBody([
                                 html.P('please enter your list of tags. Tags are written as rows ==> a line for each tag:'),
-                                dcc.Textarea(id=baseId + 'txtListTags',value='',
+                                dcc.Textarea(id=self.baseId + 'txtListTags',value='',
                                                 style={
                                     'width':'50em',
                                     'min-height': '50vh'
                                     }),
                             ]),
-                            dbc.ModalFooter(dbc.Button("Apply changes", id=baseId + "close_omlt", className="ml-auto", n_clicks=0)),
+                            dbc.ModalFooter(dbc.Button("Apply changes", id=self.baseId + "close_omlt", className="ml-auto", n_clicks=0)),
                         ],
-                        id=baseId + "modalListTags",
+                        id=self.baseId + "modalListTags",
                         is_open=False,
                         size='xl',
                     )
@@ -320,14 +322,14 @@ class TabSelectedTags(TabMaster):
     def __init__(self,*args,defaultCat=[],baseId='ts0_',**kwargs):
         TabMaster.__init__(self,*args,**kwargs,tabname='pre-selected tags',baseId=baseId)
         dicSpecialWidgets = {'dd_typeTags':defaultCat,'dd_cmap':'jet','btn_legend':0}
-        self._buildLayout(dicSpecialWidgets,realTime=realTime)
+        self._buildLayout(dicSpecialWidgets)
         self._define_callbacks()
 
     def _define_callbacks(self):
         self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
         @self.app.callback(
             Output(self.baseId + 'graph', 'figure'),
-            Output('error_modal_store', 'data'),
+            Output(self.baseId + 'error_modal_store', 'data'),
             Input(self.baseId + 'dd_typeTags','value'),
             Input(self.baseId + 'pdr_timeBtn','n_clicks'),
             Input(self.baseId + 'dd_resampleMethod','value'),
@@ -349,7 +351,7 @@ class TabSelectedTags(TabMaster):
                 return previousFig,2
 
             fig,errCode = self.updateGraph(previousFig,triggerList,style,
-                timeRange,tags,rs,rsMethod,
+                [timeRange,tags,rs,rsMethod],[]
                 )
             fig = self.utils.updateColorMap(fig,colmap)
             # fig = self.updateLegend(fig,lgd)
@@ -366,7 +368,7 @@ class TabMultiUnits(TabMaster):
         self._define_basicCallbacks(['legendtoogle','export','datePickerRange','modalTagsTxt'])
         @self.app.callback(
             Output(self.baseId + 'graph', 'figure'),
-            Output('error_modal_store', 'data'),
+            Output(self.baseId + 'error_modal_store', 'data'),
             Input(self.baseId + 'dd_tag','value'),
             Input(self.baseId + 'pdr_timeBtn','n_clicks'),
             Input(self.baseId + 'dd_resampleMethod','value'),
@@ -384,7 +386,7 @@ class TabMultiUnits(TabMaster):
             triggerList=['dd_tag','pdr_timeBtn','dd_resampleMethod']
             timeRange = [date0+' '+t0,date1+' '+t1]
             fig,errCode = self.updateGraph(previousFig,triggerList,style,
-                timeRange,tags,rs,rsMethod,
+                [timeRange,tags,rs,rsMethod],[]
                 # axSP=axSP
                 )
             # fig = self.updateLegend(fig,lgd)
@@ -401,7 +403,7 @@ class TabUnitSelector(TabMaster):
         self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
         @self.app.callback(
             Output(self.baseId + 'graph', 'figure'),
-            Output('error_modal_store', 'data'),
+            Output(self.baseId + 'error_modal_store', 'data'),
             Input(self.baseId + 'dd_Units','value'),
             Input(self.baseId + 'in_patternTag','value'),
             Input(self.baseId + 'pdr_timeBtn','n_clicks'),
@@ -421,7 +423,7 @@ class TabUnitSelector(TabMaster):
             tags  = self.cfg.getTagsTU(patTag,unit)
             timeRange = [date0+' '+t0,date1+' '+t1]
             fig,errCode = self.updateGraph(previousFig,triggerList,style,
-                timeRange,tags,rs,rsMethod,
+                [timeRange,tags,rs,rsMethod],[]
                 )
             fig = self.utils.updateColorMap(fig,colmap)
             # fig = self.updateLegend(fig,lgd)
@@ -441,7 +443,7 @@ class TabMultiUnitSelectedTags(TabMaster):
         self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
         @self.app.callback(
             Output(self.baseId + 'graph', 'figure'),
-            Output('error_modal_store', 'data'),
+            Output(self.baseId + 'error_modal_store', 'data'),
             Input(self.baseId + 'dd_tag','value'),
             Input(self.baseId + 'dd_typeTags','value'),
             Input(self.baseId + 'pdr_timeBtn','n_clicks'),
@@ -464,7 +466,7 @@ class TabMultiUnitSelectedTags(TabMaster):
             triggerList=['dd_tag','pdr_timeBtn','dd_resampleMethod']
             timeRange = [date0+' '+t0,date1+' '+t1]
             fig,errCode = self.updateGraph(previousFig,triggerList,style,
-                timeRange,tags,rs,rsMethod,
+                [timeRange,tags,rs,rsMethod],[]
                 # axSP=axSP
                 )
             # fig = self.updateLegend(fig,lgd)
@@ -484,7 +486,7 @@ class RealTimeTabSelectedTags(TabMaster):
         self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
         @self.app.callback(
             Output(self.baseId + 'graph', 'figure'),
-            Output('error_modal_store', 'data'),
+            Output(self.baseId + 'error_modal_store', 'data'),
             Input(self.baseId + 'interval','n_intervals'),
             Input(self.baseId + 'dd_typeTags','value'),
             Input(self.baseId + 'btn_update','n_clicks'),
@@ -505,9 +507,9 @@ class RealTimeTabSelectedTags(TabMaster):
                 return previousFig,2
 
             if freezeBtn=='freeze':
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True,timeRange)
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,[tags,tw*60,rs,rsMethod,True,timeRange],[])
             else:
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True)
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,[tags,tw*60,rs,rsMethod,True],[])
 
             fig = self.utils.updateColorMap(fig,colmap)
             # fig = self.updateLegend(fig,lgd)
@@ -524,7 +526,7 @@ class RealTimeTagMultiUnit(TabMaster):
         self._define_basicCallbacks(['legendtoogle','export','modalTagsTxt','refreshWindow','btn_freeze'])
         @self.app.callback(
             Output(self.baseId + 'graph', 'figure'),
-            Output('error_modal_store', 'data'),
+            Output(self.baseId + 'error_modal_store', 'data'),
             Input(self.baseId + 'interval','n_intervals'),
             Input(self.baseId + 'dd_tag','value'),
             Input(self.baseId + 'btn_update','n_clicks'),
@@ -543,9 +545,10 @@ class RealTimeTagMultiUnit(TabMaster):
                 return previousFig,2
 
             if freezeBtn=='freeze':
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True,timeRange)
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,
+                            [tags,tw*60,rs,rsMethod,True,timeRange],[])
             else:
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True)
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,[tags,tw*60,rs,rsMethod,True],[])
 
             # fig = self.updateLegend(fig,lgd)
             return fig,errCode
@@ -564,7 +567,7 @@ class RealTimeMultiUnitSelectedTags(TabMaster):
         self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
         @self.app.callback(
             Output(self.baseId + 'graph', 'figure'),
-            Output('error_modal_store', 'data'),
+            Output(self.baseId + 'error_modal_store', 'data'),
             Input(self.baseId + 'interval','n_intervals'),
             Input(self.baseId + 'dd_tag','value'),
             Input(self.baseId + 'dd_typeTags','value'),
@@ -585,9 +588,9 @@ class RealTimeMultiUnitSelectedTags(TabMaster):
                 return previousFig,2
 
             if freezeBtn=='freeze':
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True,timeRange)
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,[tags,tw*60,rs,rsMethod,True,timeRange],[])
             else:
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True)
+                fig,errCode = self.updateGraph(previousFig,[triggerList,style,tags,tw*60,rs,rsMethod,True])
 
             # fig = self.updateLegend(fig,lgd)
             return fig,errCode
@@ -607,7 +610,7 @@ class RealTimeDoubleMultiUnits(TabMaster):
         self._define_basicCallbacks(['legendtoogle','export','btn_freeze','refreshWindow'])
         @self.app.callback(
             Output(self.baseId + 'graph', 'figure'),
-            Output('error_modal_store', 'data'),
+            Output(self.baseId + 'error_modal_store', 'data'),
             Input(self.baseId + 'interval','n_intervals'),
             Input(self.baseId + 'dd_tag1','value'),
             Input(self.baseId + 'dd_tag2','value'),
@@ -628,11 +631,13 @@ class RealTimeDoubleMultiUnits(TabMaster):
                 return previousFig,2
 
             if freezeBtn=='freeze':
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True,timeRange,
-                    tags1=tags1,tags2=tags2)
+                fig,errCode = self.updateGraph(previousFig,
+                    triggerList,style,[tags,tw*60,rs,rsMethod,True,timeRange],
+                    [tags1,tags2])
             else:
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,tags,tw*60,rs,rsMethod,True,
-                    tags1=tags1,tags2=tags2)
+                fig,errCode = self.updateGraph(previousFig,
+                    [triggerList,style,tags,tw*60,rs,rsMethod,True],
+                    [tags1,tags2])
 
             # fig = self.updateLegend(fig,lgd)
             return fig,errCode

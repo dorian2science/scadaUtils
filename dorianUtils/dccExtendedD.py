@@ -403,7 +403,8 @@ class DccExtended:
 
         return logModal
 
-    def addModalError(self,app,cfg,baseid='error_modal'):
+    def addModalError(self,app,cfg,baseid=''):
+        baseid = baseid+'error_modal'
         errorHeader = dbc.ModalHeader(id=baseid +'_header',children='')
         errorBody   = dbc.ModalBody(id=baseid +'_body',children='')
         errorStore  = dcc.Store(id = baseid  + '_store',data=0)
