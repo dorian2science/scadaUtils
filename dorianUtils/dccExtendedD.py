@@ -2,6 +2,7 @@ import dash_html_components as html
 import dash_core_components as dcc
 import dash_bootstrap_components as dbc
 import dash
+import dash_daq as daq
 from dash.dependencies import Input, Output, State
 
 from dateutil import parser
@@ -167,7 +168,6 @@ class DccExtended:
                 widgetObj = self.dropDownFromList(
                     baseId+wid_key,self.utils.cmapNames[0],'colormap : ',value=wid_val)
 
-
             elif 'dd_resampleMethod'==wid_key:
                 widgetObj = self.dropDownFromList(baseId+wid_key,['mean','max','min','median'],
                 'resampling method: ',value=wid_val,multi=False)
@@ -198,7 +198,9 @@ class DccExtended:
                 widgetObj = [
                 dbc.Row([
                     dbc.Col(html.Button('update',id=baseId+'btn_update', n_clicks=0,style=btnstyle2)),
-                    dbc.Col(html.Button('refresh',id=baseId+'btn_freeze', n_clicks=0,style=btnstyle2))]),
+                    # dbc.Col(html.Button('refresh',id=baseId+'btn_freeze', n_clicks=0,style=btnstyle2))
+                    dbc.Col(daq.ToggleSwitch(id=baseId+'ts_freeze',value=False,label='Refresh mode',color='blue')),
+                    ]),
                 dbc.Row([
                     dbc.Col([
                         html.Button('-',id=baseId+'btn_freeze'+'-', n_clicks=0,style=btnstyle),
