@@ -72,6 +72,13 @@ class ConfigMaster:
             for datum in listDates:
                 self.parkDayPKL(datum)
 
+    def updateLayoutStandard(self,fig,sizeDots=5):
+        fig.update_yaxes(showgrid=False)
+        fig.update_traces(marker=dict(size=sizeDots))
+        fig.update_layout(height=750)
+        fig.update_traces(hovertemplate='<b>%{y:.2f}')
+        return fig
+
 class ConfigDashTagUnitTimestamp(ConfigMaster):
     def __init__(self,folderPkl,confFolder,encode='utf-8'):
         ConfigMaster.__init__(self,folderPkl)
@@ -240,9 +247,12 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         folderDaySmallPower=self.folderPkl+'parkedData/'+ datum + '/'
         try:
             df = pickle.load(open(folderDaySmallPower + tag + '.pkl', "rb" ))
-            df = df.drop_duplicates(subset=['timestampUTC', 'tag'], keep='last')
+            # df = df.drop_duplicates(subset=['timestampUTC', 'tag'], keep='last')
             # df.duplicated(subset=['timestampUTC', 'tag'], keep=False)
-            if not raw:df = df.pivot(index="timestampUTC", columns="tag", values="value")
+            if not raw:
+                # df = df.pivot(index="timestampUTC", columns="tag", values="value")
+                df = df[['timestampUTC','value']].set_index('timestampUTC')
+                df.columns=[tag]
             else : df=df.set_index('timestampUTC')
         except :
             df = pd.DataFrame()
@@ -287,8 +297,9 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
                     dfs.append(self._loadDFTagsDay(datum,listTags,parked,True,rs=='raw'))
         else:
             return pd.DataFrame()
-        if len(dfs)>0 :
+        if len(dfs)>0:
             df = pd.concat(dfs,axis=0)
+            print(dfs)
             print("finish loading")
             if not df.empty:
                 if not rs=='raw':

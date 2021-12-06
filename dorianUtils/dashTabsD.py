@@ -194,12 +194,6 @@ class TabMaster():
         graphLayout = html.Div(graphObj, style={"width": str(widthG)+"%", "display": "inline-block"})
         self.tabLayout = [widgetLayout,graphLayout]
 
-    def updateLayoutStandard(self,fig,sizeDots=5):
-        fig.update_yaxes(showgrid=False)
-        fig.update_traces(marker=dict(size=sizeDots))
-        fig.update_layout(height=750)
-        fig.update_traces(hovertemplate='<b>%{y:.2f}')
-        return fig
 
     def updateGraph(self,previousFig,listTrigs,style,argsLoad,argsPlot):
         ctx = dash.callback_context
@@ -216,8 +210,8 @@ class TabMaster():
                 ## get error code loading data ==> 1
                 return go.Figure(),1
         ## update style of graph
-        fig = self.updateLayoutStandard(fig)
         if not not self.update_lineshapes:
+            fig = self.cfg.updateLayoutStandard(fig)
             fig = self.update_lineshapes(fig,style)
         # keep traces visibility
         try :
