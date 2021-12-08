@@ -27,7 +27,6 @@ class TabMaster():
         self.baseId = baseId
         self.modalError = self.dccE.addModalError(app,cfg,baseid=self.baseId)
 
-
     def _define_basicCallbacks(self,categories=[]):
 
         if 'ts_freeze' in categories:
@@ -194,7 +193,6 @@ class TabMaster():
         graphLayout = html.Div(graphObj, style={"width": str(widthG)+"%", "display": "inline-block"})
         self.tabLayout = [widgetLayout,graphLayout]
 
-
     def updateGraph(self,previousFig,listTrigs,style,argsLoad,argsPlot):
         ctx = dash.callback_context
         trigId = ctx.triggered[0]['prop_id'].split('.')[0]
@@ -334,10 +332,10 @@ class TabSelectedTags(TabMaster):
             Input(self.baseId + 'dd_cmap','value'),
             State(self.baseId + 'graph','figure'),
             State(self.baseId + 'in_timeRes','value'),
+            State(self.baseId + 'pdr_timePdr','start_date'),
+            State(self.baseId + 'pdr_timePdr','end_date'),
             State(self.baseId + 'pdr_timeStart','value'),
             State(self.baseId + 'pdr_timeEnd','value'),
-            State(self.baseId + 'pdr_timePdr','start_date'),
-            State(self.baseId + 'pdr_timePdr','end_date')
             )
         def updatePSTGraph(tagCat,timeBtn,rsMethod,lgd,style,colmap,previousFig,rs,date0,date1,t0,t1):
             tags = self.cfg.getUsefulTags(tagCat)
@@ -373,14 +371,14 @@ class TabMultiUnits(TabMaster):
             Input(self.baseId + 'in_axisSp','value'),
             State(self.baseId + 'graph','figure'),
             State(self.baseId + 'in_timeRes','value'),
+            State(self.baseId + 'pdr_timePdr','start_date'),
+            State(self.baseId + 'pdr_timePdr','end_date'),
             State(self.baseId + 'pdr_timeStart','value'),
             State(self.baseId + 'pdr_timeEnd','value'),
-            State(self.baseId + 'pdr_timePdr','start_date'),
-            State(self.baseId + 'pdr_timePdr','end_date')
             )
         def updateMUGGraph(tags,timeBtn,rsMethod,lgd,style,axSP,previousFig,rs,date0,date1,t0,t1):
             triggerList=['dd_tag','pdr_timeBtn','dd_resampleMethod']
-            timeRange = [date0+' '+t0,date1+' '+t1]
+            timeRange = [date0 + ' ' + t0, date1 + ' ' + t1]
             fig,errCode = self.updateGraph(previousFig,triggerList,style,
                 [timeRange,tags,rs,rsMethod],[]
                 # axSP=axSP
@@ -409,10 +407,10 @@ class TabUnitSelector(TabMaster):
             Input(self.baseId + 'dd_cmap','value'),
             State(self.baseId + 'graph','figure'),
             State(self.baseId + 'in_timeRes','value'),
+            State(self.baseId + 'pdr_timePdr','start_date'),
+            State(self.baseId + 'pdr_timePdr','end_date'),
             State(self.baseId + 'pdr_timeStart','value'),
             State(self.baseId + 'pdr_timeEnd','value'),
-            State(self.baseId + 'pdr_timePdr','start_date'),
-            State(self.baseId + 'pdr_timePdr','end_date')
             )
         def updateMUGGraph(unit,patTag,timeBtn,rsMethod,lgd,style,colmap,previousFig,rs,date0,date1,t0,t1):
             triggerList=['dd_tag','pdr_timeBtn','dd_resampleMethod']
@@ -449,10 +447,10 @@ class TabMultiUnitSelectedTags(TabMaster):
             Input(self.baseId + 'in_axisSp','value'),
             State(self.baseId + 'graph','figure'),
             State(self.baseId + 'in_timeRes','value'),
+            State(self.baseId + 'pdr_timePdr','start_date'),
+            State(self.baseId + 'pdr_timePdr','end_date'),
             State(self.baseId + 'pdr_timeStart','value'),
             State(self.baseId + 'pdr_timeEnd','value'),
-            State(self.baseId + 'pdr_timePdr','start_date'),
-            State(self.baseId + 'pdr_timePdr','end_date')
             )
         def updateMUGSGraph(tags,tagCat,timeBtn,rsMethod,lgd,style,axSP,previousFig,rs,date0,date1,t0,t1):
             tags = self.cfg.getUsefulTags(tagCat) + tags

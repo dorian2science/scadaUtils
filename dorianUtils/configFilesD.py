@@ -79,6 +79,13 @@ class ConfigMaster:
         fig.update_traces(hovertemplate='<b>%{y:.2f}')
         return fig
 
+    def update_lineshape(self,fig,style='default'):
+        if style in ['markers','lines','lines+markers']:
+            fig.update_traces(line_shape="linear",mode=style)
+        elif style =='stairs':
+            fig.update_traces(line_shape="hv",mode='lines')
+        return fig
+
 class ConfigDashTagUnitTimestamp(ConfigMaster):
     def __init__(self,folderPkl,confFolder,encode='utf-8'):
         ConfigMaster.__init__(self,folderPkl)
@@ -243,11 +250,10 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         return df
 
     def _loadDFTagDay(self,datum,tag,raw=False):
-        # print(tag)
         folderDaySmallPower=self.folderPkl+'parkedData/'+ datum + '/'
         try:
             df = pickle.load(open(folderDaySmallPower + tag + '.pkl', "rb" ))
-            # df = df.drop_duplicates(subset=['timestampUTC', 'tag'], keep='last')
+            df = df.drop_duplicates(subset=['timestampUTC', 'tag'], keep='last')
             # df.duplicated(subset=['timestampUTC', 'tag'], keep=False)
             if not raw:
                 # df = df.pivot(index="timestampUTC", columns="tag", values="value")
@@ -299,7 +305,6 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
             return pd.DataFrame()
         if len(dfs)>0:
             df = pd.concat(dfs,axis=0)
-            print(dfs)
             print("finish loading")
             if not df.empty:
                 if not rs=='raw':
