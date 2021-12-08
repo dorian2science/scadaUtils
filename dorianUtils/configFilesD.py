@@ -8,7 +8,7 @@ from dateutil import parser
 from dorianUtils.utilsD import Utils
 from dorianUtils.comUtils import Modebus_utils
 from opcua import Client
-import plotly.express as px 
+import plotly.express as px
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -75,7 +75,7 @@ class ConfigMaster:
 
     def updateLayoutStandard(self,fig,sizeDots=5):
         fig.update_yaxes(showgrid=False)
-        fig.update_traces(marker=dict(size=sizeDots))
+        fig.update_traces(selector=dict(type='scatter'),marker=dict(size=sizeDots))
         fig.update_layout(height=750)
         fig.update_traces(hovertemplate='<b>%{y:.2f}')
         return fig
