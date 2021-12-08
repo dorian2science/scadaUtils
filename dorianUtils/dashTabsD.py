@@ -470,6 +470,142 @@ class TabMultiUnitSelectedTags(TabMaster):
             # fig = self.updateLegend(fig,lgd)
             return fig,errCode
 
+class AnalysisTab(TabMaster):
+    def __init__(self,app,cfg):
+        TabMaster.__init__(self,app,cfg,
+                    self.loadDF,self.plotdf,cfg.update_lineshape,
+                    baseId='formu_',tabname = 'Analysis'
+                    )
+        self.df = px.data.stocks()
+        dicSpecialWidgets = {}
+        self._buildLayout(dicSpecialWidgets)
+        xwid  = self.dccE.DropdownFromList(self.cfg.getTagsTU('')+['timestamp'],
+                    id=self.baseId+'dd_x',value='timestamp',clearable=False)
+        ywid  = self.dccE.DropdownFromList(self.cfg.getTagsTU(''),
+                    id=self.baseId+'dd_y',value=self.cfg.getTagsTU('GFC')[0],multi=True)
+        self.tabLayout[0].children+=[html.P('   x variable :'),xwid,html.P('   y variables :'),ywid]
+        self.tabLayout.append(html.Div(self.newWidgets()))
+        self.tabLayout.append(dcc.Store(id=self.baseId + '_newListTags',data={}))
+        self._define_callbacks()
+
+    def computeNewTag(self,timeRange,formulas,**kwargs):
+        if len(formulas)==0:
+            return pd.DataFrame()
+        listTags = [re.findall('[a-zA-Z][a-zA-Z\._\d]*',f) for f in formulas]
+        listTags = list(pd.Series(self.cfg.utils.flattenList(listTags)).unique())
+
+        df = self.cfg.DF_loadTimeRangeTags(timeRange,listTags,**kwargs)
+        newdf=pd.DataFrame()
+        for formula in formulas:
+            realFormula = formula
+            for t in listTags:realFormula = realFormula.replace(t,"df['"+t+"']")
+            newdf[realFormula] = eval(realFormula)
+        return newdf
+
+    def loadDF(self,timeRange,x,ys,rs,rsMethod):
+        if not isinstance(ys,list):ys=[ys]
+        #search and compute formulas
+        formulas = [t for t in ys + [x] if re.search('[-\*\+\/]',t)]
+        dfFormulas = self.computeNewTag(timeRange,formulas,rs=rs,applyMethod=rsMethod)
+        #search and compute not formulas
+        tags = [t for t in ys+[x] if t not in formulas]
+        if not x=='timestamp':
+            df = self.cfg.DF_loadTimeRangeTags(timeRange,tags,rs=rs,applyMethod=rsMethod)
+            dft = pd.concat([dfFormulas,df],axis=1)
+            dft = dft.set_index(x)
+        else :
+            tags = [t for t in tags if not t=='timestamp']
+            df = self.cfg.DF_loadTimeRangeTags(timeRange,tags,rs=rs,applyMethod=rsMethod)
+            dft = pd.concat([dfFormulas,df],axis=1)
+        return dft
+
+    def plotdf(self,df):
+        return px.scatter(df)
+
+    def newWidgets(self):
+        self.egalstyle = {'fontsize':'20 px','width':'10px','height': '40px','min-height': '1px',}
+        self.newtagstyle = {'fontsize':'15 px','width':'300px','height': '40px','min-height': '1px',}
+        self.tagstyle = {'fontsize':'15 px','width':'400px','height': '40px','min-height': '1px',}
+        self.formulastyle = {'fontsize':'15 px','width':'800px','height': '40px','min-height': '1px',}
+        self.buttonstyle = {'fontsize':'15 px','width':'90px','height': '40px','min-height': '1px',}
+
+        tagwid = self.dccE.DropdownFromList(self.cfg.getTagsTU(''),
+                        id=self.baseId+'dd_tag',placeholder='liste tags:',style=self.tagstyle)
+        newTagIn = dcc.Input(id=self.baseId+'in_newtag',placeholder='tagname:',
+                        type='text',style=self.newtagstyle)
+        egalwid     = html.P(id=self.baseId+'egal',children=' : ',style=self.egalstyle)
+        formulawid  = dcc.Input(id=self.baseId+'in_formula',placeholder='formula : ',
+                        type='text',style=self.formulastyle,value='')
+        btn_create  = html.Button(id=self.baseId+'btn_create',children='create',
+                        style=self.buttonstyle)
+
+        createFormulaWidget = [
+                dbc.Row([
+                    dbc.Col(tagwid),
+                    dbc.Col(newTagIn),
+                    dbc.Col(egalwid),
+                    dbc.Col(formulawid),
+                    dbc.Col(btn_create)
+                ]),
+                ]
+        return createFormulaWidget
+
+    def _define_callbacks(self):
+        @self.app.callback(
+            Output(self.baseId + 'in_formula', 'value'),
+            Output(self.baseId + 'in_newtag', 'value'),
+            Output(self.baseId + 'dd_tag', 'value'),
+            Output(self.baseId + 'dd_x', 'options'),
+            Output(self.baseId + 'dd_y', 'options'),
+
+            Input(self.baseId + 'btn_create', 'n_clicks'),
+            Input(self.baseId + 'dd_tag', 'value'),
+            State(self.baseId + 'in_newtag','value'),
+            State(self.baseId + 'in_formula','value'),
+            State(self.baseId + 'dd_x','options'),
+            State(self.baseId + 'dd_y','options'),
+            prevent_initial_call=True
+        )
+        def addNewTag(n,tag,newtag,formula,ddx,ddy):
+            ctx = dash.callback_context
+            trigId = ctx.triggered[0]['prop_id'].split('.')[0]
+            print(trigId)
+            if trigId==self.baseId + 'dd_tag':
+                return formula + tag,newtag,'',ddx,ddy
+
+            if trigId==self.baseId + 'btn_create':
+                ## check if formula is correct
+                ## add the new formula
+                newentry = [{'label':newtag,'value':formula}]
+                newddx = ddx + newentry
+                newddy = ddy + newentry
+                return '','','',newddx,newddy
+
+        self._define_basicCallbacks(['export','datePickerRange'])
+        @self.app.callback(
+            Output(self.baseId + 'graph', 'figure'),
+            Output(self.baseId + 'error_modal_store', 'data'),
+            Input(self.baseId + 'pdr_timeBtn','n_clicks'),
+            Input(self.baseId + 'dd_resampleMethod','value'),
+            Input(self.baseId + 'dd_style','value'),
+            Input(self.baseId + 'dd_x','value'),
+            Input(self.baseId + 'dd_y','value'),
+            State(self.baseId + 'graph','figure'),
+            State(self.baseId + 'in_timeRes','value'),
+            State(self.baseId + 'pdr_timePdr','start_date'),
+            State(self.baseId + 'pdr_timePdr','end_date'),
+            State(self.baseId + 'pdr_timeStart','value'),
+            State(self.baseId + 'pdr_timeEnd','value'),
+            )
+        def updateGraph(timeBtn,rsMethod,style,x,y,previousFig,rs,date0,date1,t0,t1):
+            triggerList=['pdr_timeBtn','dd_resampleMethod','dd_x','dd_y']
+            timeRange = [date0+' '+t0,date1+' '+t1]
+
+            fig,errCode = self.updateGraph(previousFig,triggerList,style,
+                [timeRange,x,y,rs,rsMethod],[]
+                )
+            return fig,errCode
+
 # ==============================================================================
 #                              REAL TIME
 # ==============================================================================
