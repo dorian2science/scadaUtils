@@ -202,11 +202,11 @@ class TabMaster():
             df_tuple = self.loadData(*argsLoad)
             if not isinstance(df_tuple,tuple):
                 df_tuple = df_tuple,
-            if not df_tuple[0].empty:
-                fig = self.plotData(*df_tuple,*argsPlot)
-            else :
+            if isinstance(df_tuple[0],pd.DataFrame) and df_tuple[0].empty:
                 ## get error code loading data ==> 1
                 return go.Figure(),1
+            else :
+                fig = self.plotData(*df_tuple,*argsPlot)
         ## update style of graph
         if not not self.update_lineshapes:
             fig = self.cfg.updateLayoutStandard(fig)

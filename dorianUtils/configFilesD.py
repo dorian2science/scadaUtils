@@ -8,6 +8,7 @@ from dateutil import parser
 from dorianUtils.utilsD import Utils
 from dorianUtils.comUtils import Modebus_utils
 from opcua import Client
+import plotly.express as px 
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -327,6 +328,12 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         tagMapping = {t:self.getUnitofTag(t) for t in listTags}
         df  = self.DF_loadTimeRangeTags(timeRange,listTags,**kwargs)
         return self.utils.multiUnitGraph(df,tagMapping)
+
+    def plotTabSelectedData(self,df):
+        fig = px.scatter(df)
+        unit = self.getUnitofTag(df.columns[0])
+        nameGrandeur = self.utils.detectUnit(unit)
+        return fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
 
     # ==============================================================================
     #                   functions to compute new variables
