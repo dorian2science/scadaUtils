@@ -28,7 +28,7 @@ class TabMaster():
         self.modalError = self.dccE.addModalError(app,cfg,baseid=self.baseId)
 
     def _define_basicCallbacks(self,categories=[]):
-
+        #update freeze button
         if 'ts_freeze' in categories:
             @self.app.callback(
                 Output(self.baseId + 'ts_freeze', 'label'),
@@ -60,12 +60,14 @@ class TabMaster():
 
                 return mode_ts, timeRange, freeze
 
+        #update freeze button
         if 'refreshWindow' in categories:
             @self.app.callback(Output(self.baseId + 'interval', 'interval'),
                                 Input(self.baseId + 'in_refreshTime','value'))
             def updateRefreshTime(refreshTime):
                 return refreshTime*1000
 
+        #update legend toogle button
         if 'legendtoogle' in categories:
             @self.app.callback(Output(self.baseId + 'btn_legend', 'children'),
                                 Input(self.baseId + 'btn_legend','n_clicks'))
@@ -78,6 +80,7 @@ class TabMaster():
                         buttonMessage = 'unvisible'
                     return buttonMessage
 
+        # call the export button
         if 'export' in categories:
             @self.app.callback(
                     Output(self.baseId + 'dl','data'),
@@ -116,7 +119,7 @@ class TabMaster():
                 if self.initialDateMethod == 'time':
                     now = dt.datetime.now().astimezone()
                     t0 = now- dt.timedelta(hours=8)
-                    return t0,t0.strftime('%H:%M'),now,now.strftime('%H:%M')
+                    return t0.strftime('%Y-%m-%d'),t0.strftime('%H:%M'),now.strftime('%Y-%m-%d'),now.strftime('%H:%M')
                 if self.initialDateMethod == 'parkedData':
                     # dangerous => better use localtimezone
                     listDates = [pd.Timestamp(k,tz='CET') for k in self.cfg.parkedDays]
@@ -129,7 +132,8 @@ class TabMaster():
                     # t1 = lastDate+dt.timedelta(hours=lastHour)
                     # t0 = t1-dt.timedelta(hours=8)
                     # return t0,t0.strftime('%H:%M'),t1,t1.strftime('%H:%M')
-                    return t0,t0.strftime('9:00'),t1,t1.strftime('18:00')
+                    return t0.strftime('%Y-%m-%d'),t0.strftime('9:00'),t1.strftime('%Y-%m-%d'),t1.strftime('18:00')
+                    # return t0,t0.strftime('9:00'),t1,t1.strftime('18:00')
 
         if 'modalTagsTxt' in categories:
             @self.app.callback(
