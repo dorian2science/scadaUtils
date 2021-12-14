@@ -203,6 +203,7 @@ class TabMaster():
         fig = go.Figure(previousFig)
         ## load data in that case
         if trigId in [self.baseId+k for k in listTrigs]:
+            print(*argsLoad)
             df_tuple = self.loadData(*argsLoad)
             if not isinstance(df_tuple,tuple):
                 df_tuple = df_tuple,

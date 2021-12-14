@@ -77,7 +77,8 @@ class ConfigMaster:
         fig.update_yaxes(showgrid=False)
         fig.update_traces(selector=dict(type='scatter'),marker=dict(size=sizeDots))
         fig.update_layout(height=750)
-        fig.update_traces(hovertemplate='<b>%{y:.2f}')
+        # fig.update_traces(hovertemplate='<b>%{y:.2f}')
+        fig.update_traces(hovertemplate='     <b>%{y:.2f}<br>     %{x|%H:%M:%S}')
         return fig
 
     def update_lineshape(self,fig,style='default'):
