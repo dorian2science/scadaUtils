@@ -422,15 +422,8 @@ class ConfigDashRealTime(ConfigDashTagUnitTimestamp):
         conn.close()
         return df
 
-    def realtimeTagsDF(self,tags,timeWindow=60*60*2,rs='1s',applyMethod='mean',simulated=False,timeRange=None):
+    def realtimeTagsDF(self,tags,timeWindow=60*60*2,rs='1s',applyMethod='mean',timeRange=None):
         if rs=='auto':rs = '{:.0f}'.format(max(1,timeWindow//1000)) + 's'
-        if simulated:
-            t1 = pd.Timestamp.now('CET')
-            idx = pd.date_range(start=t1-dt.timedelta(seconds=timeWindow),end=t1,freq=rs)
-            df = pd.DataFrame([np.random.randint(0,100) + np.random.randn(len(idx)) for k in range(len(tags))]).transpose()
-            df.columns=tags
-            df.index=idx
-
         else :
             conn = self.connectToDB()
             df   = self.dataBaseUtils.readSeveralTagsSQL(conn,tags,secs=timeWindow,timeRange=timeRange)

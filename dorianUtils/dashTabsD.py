@@ -641,9 +641,9 @@ class RealTimeTabSelectedTags(TabMaster):
                 return previousFig,2
 
             if freezeMode:
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,[tags,tw*60,rs,rsMethod,True,timeRange],[])
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,[tags,tw*60,rs,rsMethod,timeRange],[])
             else:
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,[tags,tw*60,rs,rsMethod,True],[])
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,[tags,tw*60,rs,rsMethod],[])
 
             fig = self.utils.updateColorMap(fig,colmap)
             # fig = self.updateLegend(fig,lgd)
@@ -680,9 +680,9 @@ class RealTimeTagMultiUnit(TabMaster):
 
             if freezeMode:
                 fig,errCode = self.updateGraph(previousFig,triggerList,style,
-                            [tags,tw*60,rs,rsMethod,True,timeRange],[])
+                            [tags,tw*60,rs,rsMethod,timeRange],[])
             else:
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,[tags,tw*60,rs,rsMethod,True],[])
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,[tags,tw*60,rs,rsMethod],[])
 
             # fig = self.updateLegend(fig,lgd)
             return fig,errCode
@@ -723,10 +723,10 @@ class RealTimeMultiUnitSelectedTags(TabMaster):
 
             if freezeMode:
                 fig,errCode = self.updateGraph(previousFig,triggerList,style,
-                                        [tags,tw*60,rs,rsMethod,True,timeRange],[])
+                                        [tags,tw*60,rs,rsMethod,timeRange],[])
             else:
                 fig,errCode = self.updateGraph(previousFig,triggerList,style,
-                                [tags,tw*60,rs,rsMethod,True],[])
+                                [tags,tw*60,rs,rsMethod],[])
 
             # fig = self.updateLegend(fig,lgd)
             return fig,errCode
@@ -768,11 +768,11 @@ class RealTimeDoubleMultiUnits(TabMaster):
 
             if freezeMode:
                 fig,errCode = self.updateGraph(previousFig,triggerList,style,
-                    [tags,tw*60,rs,rsMethod,True,timeRange],
+                    [tags,tw*60,rs,rsMethod,timeRange],
                     [tags1,tags2])
             else:
                 fig,errCode = self.updateGraph(previousFig,triggerList,style,
-                [tags,tw*60,rs,rsMethod,True],
+                [tags,tw*60,rs,rsMethod],
                     [tags1,tags2])
 
             # fig = self.updateLegend(fig,lgd)

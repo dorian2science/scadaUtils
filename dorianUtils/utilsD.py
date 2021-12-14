@@ -507,6 +507,9 @@ class Utils:
     def multiUnitGraph(self,df,dictGroups=None,sizeDots=3):
         if not dictGroups : dictGroups={t:t for t in df.columns}
         fig,dfGroups=self.getLayoutMultiUnit(dictGroups)
+        if len(dfGroups.yscale.unique())>12:
+            print('too many axes. Please reduce the number of axis')
+            return
         for trace in df.columns:
             col=dfGroups.loc[trace,'color']
             fig.add_trace(go.Scatter(
