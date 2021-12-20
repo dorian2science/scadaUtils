@@ -6,8 +6,6 @@ import time, datetime as dt, pytz
 from scipy import linalg, integrate
 from dateutil import parser
 from dorianUtils.utilsD import Utils
-from dorianUtils.comUtils import Modebus_utils
-from opcua import Client
 import plotly.express as px
 
 pd.options.mode.chained_assignment = None  # default='warn'
