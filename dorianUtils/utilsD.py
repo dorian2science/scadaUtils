@@ -504,7 +504,7 @@ class Utils:
         fig.update_layout(xaxis=dict(domain=xdomain))
         return fig,dfGroups
 
-    def multiUnitGraph(self,df,dictGroups=None,sizeDots=3):
+    def multiUnitGraph(self,df,dictGroups=None,sizeDots=3,dropna=False):
         if not dictGroups : dictGroups={t:t for t in df.columns}
         fig,dfGroups=self.getLayoutMultiUnit(dictGroups)
         if len(dfGroups.yscale.unique())>12:
@@ -512,8 +512,10 @@ class Utils:
             return
         for trace in df.columns:
             col=dfGroups.loc[trace,'color']
+            y = df[trace]
+            if dropna:y = y.dropna()
             fig.add_trace(go.Scatter(
-                x=df.index,y=df[trace],name=trace,
+                x=df.index,y=y,name=trace,
                 mode="lines+markers",
                 yaxis=dfGroups.loc[trace,'yscale'],
                 marker=dict(color = col,size=sizeDots,symbol=dfGroups.loc[trace,'symbol']),

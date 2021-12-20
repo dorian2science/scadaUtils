@@ -325,6 +325,7 @@ class DccExtended:
 
             elif wid_key == 'block_resample':
                 ddStyle = {'fontsize':'1em','width':'5em','display':'inline-block','float':'right'}
+                ddStyleMethods = {'fontsize':'1em','width':'15em'}
                 inStyle = {'fontsize':'1em','width':'3em','display':'inline-block','float':'right'}
                 txtStyle = {'fontsize':'1em','width':'10em','display':'inline-block'}
 
@@ -333,12 +334,10 @@ class DccExtended:
                     dcc.Input(id=baseId+'in_timeRes',placeholder='time resolution : ',type='text',
                             value=wid_val['val_res'],style=inStyle)
                         ]
-
-                listdd=['mean','max','min','median']
                 resampleMethod = [
                     html.P('resampling method: ',style=txtStyle),
-                    dcc.Dropdown(id=baseId+'dd_resampleMethod',options=[{'value':t,'label':t} for t in listdd],
-                        value=wid_val['val_method'],clearable=False,style=ddStyle)
+                    dcc.Dropdown(id=baseId+'dd_resampleMethod',options=[{'value':t,'label':t} for t in wid_val['methods']],
+                        value=wid_val['val_method'],clearable=False,style=ddStyleMethods)
                         ]
 
                 widgetObj = [html.Div([

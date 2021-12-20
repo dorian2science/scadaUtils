@@ -17,22 +17,38 @@ class ConfigMaster:
 
     def __init__(self,folderPkl):
         self.utils      = Utils()
-        self.folderPkl = folderPkl
-        self.listFiles = self.utils.get_listFilesPklV2(folderPkl)
+        self.folderPkl  = folderPkl
+        self.listFiles  = self.utils.get_listFilesPklV2(folderPkl)
         # self.dfPLC = self._loadDF_PLC()
 # ==============================================================================
 #                                 functions
 # ==============================================================================
-    def _loadDF_PLC(self):
-        if len(self.listFiles)>0:
-            start=time.time()
-            df = self.loadFile(self.listFiles[0])
-            print('dfplc loaded in {:.2f} milliseconds'.format((time.time()-start)*1000))
-            return pd.DataFrame(df.tag.unique(),columns=['TAG'])
-        else : return pd.DataFrame()
+    def getUnitofTag(self,tag):
+        unit=self.dfPLC.loc[tag].UNITE
+        # print(unit)
+        if not isinstance(unit,str):
+            unit='u.a'
+        return unit
 
-    def _getValidFiles(self):
-        return sp.check_output('cd ' + '{:s}'.format(self.folderPkl) + ' && ls *' + self.validPattern +'*',shell=True).decode().split('\n')[:-1]
+    def getTagsTU(self,patTag,units=None,onCol='index',cols='tag'):
+        #patTag
+        if onCol=='index':
+            df = self.dfPLC[self.dfPLC.index.str.contains(patTag,case=False)]
+        else:
+            df = self.dfPLC[self.dfPLC[onCol].str.contains(patTag,case=False)]
+
+        #units
+        if not units : units = self.listUnits
+        if isinstance(units,str):units = [units]
+        df = df[df['UNITE'].isin(units)]
+
+        #return
+        if cols=='tdu' :
+            return df[['DESCRIPTION','UNITE']]
+        elif cols=='tag':
+            return list(df.index)
+        else :
+            return df
 
     def loadFile(self,filename,skip=1):
         if '*' in filename :
@@ -185,33 +201,6 @@ class ConfigDashTagUnitTimestamp(ConfigMaster):
         tagsWithUnits = pd.concat(tagsWithUnits)
         if asList :tagsWithUnits = [k + ' ( in ' + l + ')' for k,l in zip(tagsWithUnits[self.tagCol],tagsWithUnits[self.unitCol])]
         return tagsWithUnits
-
-    def getUnitofTag(self,tag):
-        unit=self.dfPLC.loc[tag].UNITE
-        # print(unit)
-        if not isinstance(unit,str):
-            unit='u.a'
-        return unit
-
-    def getTagsTU(self,patTag,units=None,onCol='index',cols='tag'):
-        #patTag
-        if onCol=='index':
-            df = self.dfPLC[self.dfPLC.index.str.contains(patTag,case=False)]
-        else:
-            df = self.dfPLC[self.dfPLC[onCol].str.contains(patTag,case=False)]
-
-        #units
-        if not units : units = self.listUnits
-        if isinstance(units,str):units = [units]
-        df = df[df['UNITE'].isin(units)]
-
-        #return
-        if cols=='tdu' :
-            return df[['DESCRIPTION','UNITE']]
-        elif cols=='tag':
-            return list(df.index)
-        else :
-            return df
 
     def getCatsFromUnit(self,unitName,pattern=None):
         if not pattern:pattern = self.listPatterns[0]
@@ -689,56 +678,3 @@ class ConfigFilesRealTimeCSV(ConfigDashTagUnitTimestamp):
 
     def realtimeTagsDF(self,listTags,**kwargs):
         return self.mbUtils.readTagsRealTime(self.folderRT,listTags,**kwargs)
-
-class Config_opcua(ConfigDashTagUnitTimestamp):
-    def __init__(self,plcfile,connected=False,endpointurl=None,nameSpace=None,login=None,passwd=None,maxNbPoints = 600,tags=[],speed=100):
-        if not nameSpace:nameSpace = "ns=4;s=GVL."
-        if not endpointurl:endpointurl = "opc.tcp://10.10.38.100:4840"
-        if not login:login = "Alpha"
-        if not endpointurl:endpointurl = "Alpha$01"
-        self.appDir      = os.path.dirname(os.path.realpath(__file__))
-        self.endpointurl = endpointurl
-        self.nameSpace   = nameSpace
-        self.plcFile     = plcfile
-        self.dfPLC       = self._load_dfplc()
-        self.alltags     = self.dfPLC['TAG']
-        self.client      = Client(self.endpointurl)
-        self.certif_path = self.appDir + "/my_cert.pem"
-        self.key_path    = self.appDir + "/my_private_key.pem"
-        self.maxNbPoints = maxNbPoints
-        self.speed       = speed
-        self.connected   = connected
-        if self.connected:
-            self.client.set_security_string('Basic256Sha256,Sign,' + self.certif_path + ',' + self.key_path)
-            self.client.set_user(login)
-            self.client.set_password(passwd)
-            self.client.connect()
-        else :
-            values = [np.random.randint(a,b) for a,b in zip(self.dfPLC.MIN,self.dfPLC.MAX)]
-            self.lastValues = {t:v for t,v in zip(self.alltags,values)}
-        self.dfGlobal = pd.DataFrame(columns = ['timestamp','value']).set_index('timestamp')
-
-    def _load_dfplc(self):
-        dfplc = pd.read_excel(self.plcFile,sheet_name='FichierConf_Jules')
-        dfplc = dfplc[dfplc.DATASCIENTISM==True]
-        dfplc.loc[dfplc['TAG'].str.contains('JT_'),'MAX']=4000
-        dfplc.loc[dfplc['TAG'].str.contains('JT_'),'MIN']=0
-        dfplc.loc[dfplc['TAG'].str.contains('STK.*ET'),'MAX']=2.2
-        dfplc.loc[dfplc['TAG'].str.contains('STK.*ET'),'MIN']=0
-        dfplc.loc[dfplc['TAG'].str.contains('STK_ALIM.*ET'),'MAX']=30
-        dfplc.loc[dfplc['TAG'].str.contains('STK_ALIM.*ET'),'MIN']=0
-        dfplc.loc[dfplc['TAG'].str.contains('IT_'),'MAX']=50
-        dfplc.loc[dfplc['TAG'].str.contains('IT_'),'MIN']=0
-        dfplc.loc[dfplc['TAG'].str.contains('TT_'),'MIN']=0
-        return dfplc
-
-
-    def getValues(self,tags):
-        if self.connected:
-            nodes  = [self.client.get_node(self.nameSpace + t) for t in tags]
-            values = self.client.get_values(nodes)
-        else:
-            values = [v + 0.002*v*np.random.randn() for v in self.lastValues.values()]
-            self.lastValues = {t:v for t,v in zip(self.lastValues.keys(),values)}
-            values = [self.lastValues[t] for t in tags]
-        return values

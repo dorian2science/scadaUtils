@@ -14,17 +14,17 @@ class TabMaster():
     - loadData,plotgraph and updateLayoutGraph are functions
     '''
 
-    def __init__(self,app,cfg,loadData,plotData,update_lineshapes,tabname,baseId='tab_'):
+    def __init__(self,app,cfg,loadData,plotData,update_fig,tabname,baseId='tab_'):
         self.utils = Utils()
         self.dccE = DccExtended()
         self.initialDateMethod = 'parkedData'
         self.app = app
         self.cfg = cfg
-        self.loadData  = loadData
-        self.plotData = plotData
-        self.update_lineshapes=update_lineshapes
-        self.tabname = tabname
-        self.baseId = baseId
+        self.loadData   = loadData
+        self.plotData   = plotData
+        self.update_fig = update_fig
+        self.tabname    = tabname
+        self.baseId     = baseId
         self.modalError = self.dccE.addModalError(app,cfg,baseid=self.baseId)
 
     def _define_basicCallbacks(self,categories=[]):
@@ -160,16 +160,16 @@ class TabMaster():
         if not realTime:
             dicWidgets = {
                 'pdr_time' : {'tmin':self.cfg.listFilesPkl[0],'tmax':self.cfg.listFilesPkl[-1]},
-                'in_timeRes':'60s','dd_resampleMethod' : 'mean',
+                'in_timeRes':'5s','dd_resampleMethod' : 'mean',
                 'dd_style':'default',
                 'btn_export':0,
                     }
         else :
             dicWidgets = {
-                'block_refresh':{'val_window':30,'val_refresh':50,
+                'block_refresh':{'val_window':120,'val_refresh':50,
                                     'min_refresh':1,'min_window':2},
                 'btns_refresh':None,
-                'block_resample':{'val_res':'60s','val_method' : 'mean'},
+                'block_resample':{'val_res':'5s','val_method' : 'forwardfill','methods':list(self.cfg.methods.keys())},
                 'dd_style':'default',
                 'btn_export':0,
                 }
@@ -196,32 +196,6 @@ class TabMaster():
         widgetLayout = html.Div(basicWidgets+specialWidgets,style={"width": str(100-widthG) + "%", "float": "left"})
         graphLayout = html.Div(graphObj, style={"width": str(widthG)+"%", "display": "inline-block"})
         self.tabLayout = [widgetLayout,graphLayout]
-
-    def updateGraph(self,previousFig,listTrigs,style,argsLoad,argsPlot):
-        ctx = dash.callback_context
-        trigId = ctx.triggered[0]['prop_id'].split('.')[0]
-        fig = go.Figure(previousFig)
-        ## load data in that case
-        if trigId in [self.baseId+k for k in listTrigs]:
-            print(*argsLoad)
-            df_tuple = self.loadData(*argsLoad)
-            if not isinstance(df_tuple,tuple):
-                df_tuple = df_tuple,
-            if isinstance(df_tuple[0],pd.DataFrame) and df_tuple[0].empty:
-                ## get error code loading data ==> 1
-                return go.Figure(),1
-            else :
-                fig = self.plotData(*df_tuple,*argsPlot)
-        ## update style of graph
-        if not not self.update_lineshapes:
-            fig = self.cfg.updateLayoutStandard(fig)
-            fig = self.update_lineshapes(fig,style)
-        # keep traces visibility
-        try :
-            fig = self.utils.legendPersistant(previousFig,fig)
-        except:
-            print('problem to make traces visibility persistant.')
-        return self.utils.addLogo(fig),0
 
     def addWidgets(self,dicWidgets):
         widgetLayout,dicLayouts = [],{}
@@ -264,6 +238,7 @@ class TabMaster():
                     dcc.Input(id=self.baseId+wid_key,type='number',value=wid_val,max=1,min=0,step=0.01)]
 
             elif wid_key == 'modalListTags':
+                # print()
                 widgetObj = [
                     dbc.Button("enter your list of tags!", id=self.baseId + "btn_omlt", n_clicks=0),
                     dbc.Modal([
@@ -316,6 +291,236 @@ class TabMaster():
                 dictNames   = dict(zip(oldNames,newNames))
                 fig         = self.utils.customLegend(fig,dictNames)
         return fig
+
+    def updateGraph(self,previousFig,listTrigs,argsLoad,argsPlot,argsUpdateGraph):
+        ctx = dash.callback_context
+        trigId = ctx.triggered[0]['prop_id'].split('.')[0]
+        fig = go.Figure(previousFig)
+        ## load data in that case
+        if trigId in [self.baseId+k for k in listTrigs]:
+            # print('*argsLoad:')
+            # print(*argsLoad)
+            start=time.time()
+            df_tuple = self.loadData(*argsLoad)
+            print()
+            print('full loading of  data in {:.2f} ms'.format((time.time()-start)*1000))
+            if not isinstance(df_tuple,tuple):
+                df_tuple = df_tuple,
+            start=time.time()
+            if isinstance(df_tuple[0],pd.DataFrame) and df_tuple[0].empty:
+                ## get error code loading data ==> 1
+                return go.Figure(),1
+            else :
+                fig = self.plotData(*df_tuple,*argsPlot)
+                print(fig)
+        ###### update style of graph
+        if not self.update_fig==None:
+            start=time.time()
+            # print(fig)
+            fig = self.cfg.updateLayoutStandard(fig)
+            fig = self.update_fig(fig,*argsUpdateGraph)
+            print('figure generated in {:.2f} ms'.format((time.time()-start)*1000))
+            print("====================================")
+
+        # keep traces visibility
+        try :
+            fig = self.utils.legendPersistant(previousFig,fig)
+        except:
+            print('problem to make traces visibility persistant.')
+        return self.utils.addLogo(fig),0
+
+    def _updateGraph_RT(self,dicInputs,prepareTags,argsPrepare,argsPlotGraph=[],argsUpdateGraph=[],dicOutputs={},dicStates={}):
+        '''
+        dicInputs:dictionnary of inputs
+        triggerloadData_ids : list of id that trigger the loading of the data
+        '''
+        d_outputs = {
+            'graph':'figure',
+            'error_modal_store':'data'
+        }
+        d_outputs.update(dicOutputs)
+        d_inputs = {
+            'interval':'n_intervals',
+            'btn_update':'n_clicks',
+            'st_freeze':'data',
+            'dd_resampleMethod':'value',
+            'dd_style':'value'
+        }
+        d_inputs.update(dicInputs)
+        d_states = {
+            'graph':'figure',
+            'in_timeWindow':'value',
+            'in_timeRes':'value',
+            'ts_freeze':'value',
+        }
+        d_states.update(dicStates)
+
+        listArgsInputs = ['in_' + k for k,v in d_inputs.items()]
+        listArgsStates = ['st_' + k for k,v in d_states.items()]
+        allArgsName = listArgsInputs + listArgsStates
+        @self.app.callback(
+            [Output(self.baseId + k,v) for k,v in d_outputs.items()],
+            [Input(self.baseId + k,v) for k,v in d_inputs.items()],
+            [State(self.baseId + k,v) for k,v in d_states.items()])
+        def updateGraph(*argsCallback):
+            la = {k : v for k,v in zip(allArgsName,argsCallback)}
+            previousFig = la['st_graph']
+            corrArgsPrepare=[ la['in_' + k] for k in argsPrepare]
+            # print(corrArgsPrepare)
+            tags = prepareTags(*corrArgsPrepare)
+            if len(tags)==0:
+                return previousFig,2
+            t1 = pd.Timestamp.now()
+            t0 = t1 - dt.timedelta(seconds=la['st_in_timeWindow']*60)
+            if la['st_ts_freeze']:
+                timeRange = la['in_st_freeze']
+            else:
+                timeRange = [t0.isoformat(),t1.isoformat()]
+            # print(timeRange)
+            # print(la.keys())
+            # print([la['in_' + k] for k in argsUpdateGraph])
+            triggerloadData_ids = ['interval','btn_update','st_freeze','dd_resampleMethod'] + argsPrepare
+            fig,errCode = self.updateGraph(previousFig,triggerloadData_ids,
+                [tags,timeRange,False,la['in_dd_resampleMethod'],la['st_in_timeRes']],
+                [la['in_' + k] for k in argsPlotGraph],
+                [la['in_' + k] for k in argsUpdateGraph]
+            )
+            # print(fig)
+            # fig = self.updateLegend(fig,lgd)
+            return fig,errCode
+
+# ==============================================================================
+#                              REAL TIME
+# ==============================================================================
+class RealTimeTagMultiUnitWithDec(TabMaster):
+    def __init__(self,*args,defaultTags=[],baseId='tmu0_',**kwargs):
+        TabMaster.__init__(self,*args,**kwargs,tabname='multi unit',baseId=baseId)
+        dicSpecialWidgets = {'dd_tag':defaultTags,'modalListTags':None,'btn_legend':0}
+        self._buildLayout(dicSpecialWidgets,realTime=True)
+        self._define_basicCallbacks(['legendtoogle','export','modalTagsTxt','refreshWindow','ts_freeze'])
+        dicInputs = {
+            'dd_tag':'value',
+            'btn_legend':'children',
+        }
+        def prepareTags(tags):return tags
+        self._updateGraph_RT(dicInputs,prepareTags,['dd_tag'],[],['dd_style'])
+
+class RealTimeTabSelectedTags(TabMaster):
+    def __init__(self,*args,defaultCat=[],baseId='ts0_',**kwargs):
+        TabMaster.__init__(self,*args,**kwargs,
+                    update_fig = self.update_graph,
+                    tabname='pre-selected tags',
+                    baseId=baseId)
+        dicSpecialWidgets = {'dd_typeTags':defaultCat,'dd_cmap':'jet','btn_legend':0}
+        self._buildLayout(dicSpecialWidgets,realTime=True)
+        self._define_basicCallbacks(['legendtoogle','export','ts_freeze','refreshWindow'])
+        dicInputs = {
+            'dd_typeTags':'value',
+            'dd_cmap':'value'
+        }
+
+        def prepareTags(tagCat):return self.cfg.getUsefulTags(tagCat)
+        self._updateGraph_RT(dicInputs,prepareTags,['dd_typeTags'],[],['dd_style','dd_cmap'])
+
+    def update_graph(self,fig,style,colmap):
+        fig = self.cfg.update_lineshape_fig(fig,style)
+        fig = self.utils.updateColorMap(fig,colmap)
+        return fig
+
+class RealTimeMultiUnitSelectedTags(TabMaster):
+    def __init__(self,*args,defaultCat,defaultTags=[],baseId='tmus0_',**kwargs):
+        TabMaster.__init__(self,*args,**kwargs,tabname='multi unit +',baseId=baseId)
+        dicSpecialWidgets = {
+            'dd_typeTags':defaultCat,
+            'dd_tag':defaultTags,
+            'btn_legend':0,'in_axisSp':0.05}
+        self._buildLayout(dicSpecialWidgets,realTime=True)
+        self._define_callbacks()
+
+    def _define_callbacks(self):
+        self._define_basicCallbacks(['legendtoogle','export','ts_freeze','refreshWindow'])
+        @self.app.callback(
+            Output(self.baseId + 'graph', 'figure'),
+            Output(self.baseId + 'error_modal_store', 'data'),
+            Input(self.baseId + 'dd_tag','value'),
+            Input(self.baseId + 'dd_typeTags','value'),
+            Input(self.baseId + 'dd_resampleMethod','value'),
+            Input(self.baseId + 'btn_legend','children'),
+            Input(self.baseId + 'dd_style','value'),
+            Input(self.baseId + 'interval','n_intervals'),
+            Input(self.baseId + 'btn_update','n_clicks'),
+            Input(self.baseId + 'st_freeze','data'),
+            State(self.baseId + 'graph','figure'),
+            State(self.baseId + 'in_timeWindow','value'),
+            State(self.baseId + 'in_timeRes','value'),
+            State(self.baseId + 'ts_freeze','value'),
+            )
+        def updatePSTGraph(tags,tagCat,rsMethod,lgd,style,n,updateBtn,timeRange,previousFig,tw,rs,freezeMode):
+            triggerList = ['interval','btn_update','st_freeze','dd_typeTags','dd_resampleMethod']
+            tags = self.cfg.getUsefulTags(tagCat) + tags
+            if len(tags)==0:
+                return previousFig,2
+
+            if freezeMode:
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,
+                                        [tags,tw*60,rs,rsMethod,timeRange],[])
+            else:
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,
+                                [tags,tw*60,rs,rsMethod],[])
+
+            # fig = self.updateLegend(fig,lgd)
+            return fig,errCode
+
+class RealTimeDoubleMultiUnits(TabMaster):
+    def __init__(self,*args,defaultTags1=[],defaultTags2=[],baseId='rtdmu0_',**kwargs):
+        TabMaster.__init__(self,*args,**kwargs,tabname='double multi units',baseId=baseId)
+        dicSpecialWidgets = {
+            'dd_tag1':defaultTags1,
+            'dd_tag2':defaultTags2,
+            'btn_legend':0,'in_axisSp':0.05}
+
+        self._buildLayout(dicSpecialWidgets,realTime=True)
+        self._define_callbacks()
+
+    def _define_callbacks(self):
+        self._define_basicCallbacks(['legendtoogle','export','ts_freeze','refreshWindow'])
+        @self.app.callback(
+            Output(self.baseId + 'graph', 'figure'),
+            Output(self.baseId + 'error_modal_store', 'data'),
+            Input(self.baseId + 'dd_tag1','value'),
+            Input(self.baseId + 'dd_tag2','value'),
+            Input(self.baseId + 'dd_resampleMethod','value'),
+            Input(self.baseId + 'btn_legend','children'),
+            Input(self.baseId + 'dd_style','value'),
+            Input(self.baseId + 'interval','n_intervals'),
+            Input(self.baseId + 'btn_update','n_clicks'),
+            Input(self.baseId + 'st_freeze','data'),
+            State(self.baseId + 'graph','figure'),
+            State(self.baseId + 'in_timeWindow','value'),
+            State(self.baseId + 'in_timeRes','value'),
+            State(self.baseId + 'ts_freeze','value'),
+            )
+        def updateDMUGraph(tags1,tags2,rsMethod,lgd,style,n,updateBtn,timeRange,previousFig,tw,rs,freezeMode):
+            triggerList = ['interval','btn_update','st_freeze','dd_typeTags','dd_resampleMethod']
+            tags = tags1+tags2
+            if len(tags)==0:
+                return previousFig,2
+
+            if freezeMode:
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,
+                    [tags,tw*60,rs,rsMethod,timeRange],
+                    [tags1,tags2])
+            else:
+                fig,errCode = self.updateGraph(previousFig,triggerList,style,
+                [tags,tw*60,rs,rsMethod],
+                    [tags1,tags2])
+
+            # fig = self.updateLegend(fig,lgd)
+            return fig,errCode
+# ==============================================================================
+#                              EXPLORER
+# ==============================================================================
+
 
 class TabSelectedTags(TabMaster):
     def __init__(self,*args,defaultCat=[],baseId='ts0_',**kwargs):
@@ -570,7 +775,7 @@ class AnalysisTab(TabMaster):
         def addNewTag(n,tag,newtag,formula,ddx,ddy):
             ctx = dash.callback_context
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
-            print(trigId)
+            # print(trigId)
             if trigId==self.baseId + 'dd_tag':
                 return formula + tag,newtag,'',ddx,ddy
 
@@ -606,179 +811,6 @@ class AnalysisTab(TabMaster):
                 [timeRange,x,y,rs,rsMethod],[]
                 )
             return fig,errCode
-
-# ==============================================================================
-#                              REAL TIME
-# ==============================================================================
-class RealTimeTabSelectedTags(TabMaster):
-    def __init__(self,*args,defaultCat=[],baseId='ts0_',**kwargs):
-        TabMaster.__init__(self,*args,**kwargs,tabname='pre-selected tags',baseId=baseId)
-        dicSpecialWidgets = {'dd_typeTags':defaultCat,'dd_cmap':'jet','btn_legend':0}
-        self._buildLayout(dicSpecialWidgets,realTime=True)
-        self._define_callbacks()
-
-    def _define_callbacks(self):
-        self._define_basicCallbacks(['legendtoogle','export','ts_freeze','refreshWindow'])
-        @self.app.callback(
-            Output(self.baseId + 'graph', 'figure'),
-            Output(self.baseId + 'error_modal_store', 'data'),
-            Input(self.baseId + 'dd_typeTags','value'),
-            Input(self.baseId + 'dd_resampleMethod','value'),
-            Input(self.baseId + 'btn_legend','children'),
-            Input(self.baseId + 'dd_style','value'),
-            Input(self.baseId + 'dd_cmap','value'),
-            Input(self.baseId + 'interval','n_intervals'),
-            Input(self.baseId + 'btn_update','n_clicks'),
-            Input(self.baseId + 'st_freeze','data'),
-            State(self.baseId + 'graph','figure'),
-            State(self.baseId + 'in_timeWindow','value'),
-            State(self.baseId + 'in_timeRes','value'),
-            State(self.baseId + 'ts_freeze','value'),
-            )
-        def updatePSTGraph(tagCat,rsMethod,lgd,style,colmap,n,updateBtn,timeRange,previousFig,tw,rs,freezeMode):
-            tags = self.cfg.getUsefulTags(tagCat)
-            triggerList = ['interval','btn_update','st_freeze','dd_typeTags','dd_resampleMethod']
-            if len(tags)==0:
-                return previousFig,2
-
-            if freezeMode:
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,[tags,tw*60,rs,rsMethod,timeRange],[])
-            else:
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,[tags,tw*60,rs,rsMethod],[])
-
-            fig = self.utils.updateColorMap(fig,colmap)
-            # fig = self.updateLegend(fig,lgd)
-            return fig,errCode
-
-class RealTimeTagMultiUnit(TabMaster):
-    def __init__(self,*args,defaultTags=[],baseId='tmu0_',**kwargs):
-        TabMaster.__init__(self,*args,**kwargs,tabname='multi unit',baseId=baseId)
-        dicSpecialWidgets = {'dd_tag':defaultTags,'modalListTags':None,'btn_legend':0}
-        self._buildLayout(dicSpecialWidgets,realTime=True)
-        self._define_callbacks()
-
-    def _define_callbacks(self):
-        self._define_basicCallbacks(['legendtoogle','export','modalTagsTxt','refreshWindow','ts_freeze'])
-        @self.app.callback(
-            Output(self.baseId + 'graph', 'figure'),
-            Output(self.baseId + 'error_modal_store', 'data'),
-            Input(self.baseId + 'interval','n_intervals'),
-            Input(self.baseId + 'dd_tag','value'),
-            Input(self.baseId + 'btn_update','n_clicks'),
-            Input(self.baseId + 'st_freeze','data'),
-            Input(self.baseId + 'dd_resampleMethod','value'),
-            Input(self.baseId + 'btn_legend','children'),
-            Input(self.baseId + 'dd_style','value'),
-            State(self.baseId + 'graph','figure'),
-            State(self.baseId + 'in_timeWindow','value'),
-            State(self.baseId + 'in_timeRes','value'),
-            State(self.baseId + 'ts_freeze','value'),
-            )
-        def updatePSTGraph(n,tags,updateBtn,timeRange,rsMethod,lgd,style,previousFig,tw,rs,freezeMode):
-            triggerList = ['interval','btn_update','st_freeze','dd_typeTags','dd_resampleMethod']
-            if len(tags)==0:
-                return previousFig,2
-
-            if freezeMode:
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,
-                            [tags,tw*60,rs,rsMethod,timeRange],[])
-            else:
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,[tags,tw*60,rs,rsMethod],[])
-
-            # fig = self.updateLegend(fig,lgd)
-            return fig,errCode
-
-class RealTimeMultiUnitSelectedTags(TabMaster):
-    def __init__(self,*args,defaultCat,defaultTags=[],baseId='tmus0_',**kwargs):
-        TabMaster.__init__(self,*args,**kwargs,tabname='multi unit +',baseId=baseId)
-        dicSpecialWidgets = {
-            'dd_typeTags':defaultCat,
-            'dd_tag':defaultTags,
-            'btn_legend':0,'in_axisSp':0.05}
-        self._buildLayout(dicSpecialWidgets,realTime=True)
-        self._define_callbacks()
-
-    def _define_callbacks(self):
-        self._define_basicCallbacks(['legendtoogle','export','ts_freeze','refreshWindow'])
-        @self.app.callback(
-            Output(self.baseId + 'graph', 'figure'),
-            Output(self.baseId + 'error_modal_store', 'data'),
-            Input(self.baseId + 'dd_tag','value'),
-            Input(self.baseId + 'dd_typeTags','value'),
-            Input(self.baseId + 'dd_resampleMethod','value'),
-            Input(self.baseId + 'btn_legend','children'),
-            Input(self.baseId + 'dd_style','value'),
-            Input(self.baseId + 'interval','n_intervals'),
-            Input(self.baseId + 'btn_update','n_clicks'),
-            Input(self.baseId + 'st_freeze','data'),
-            State(self.baseId + 'graph','figure'),
-            State(self.baseId + 'in_timeWindow','value'),
-            State(self.baseId + 'in_timeRes','value'),
-            State(self.baseId + 'ts_freeze','value'),
-            )
-        def updatePSTGraph(tags,tagCat,rsMethod,lgd,style,n,updateBtn,timeRange,previousFig,tw,rs,freezeMode):
-            triggerList = ['interval','btn_update','st_freeze','dd_typeTags','dd_resampleMethod']
-            tags = self.cfg.getUsefulTags(tagCat) + tags
-            if len(tags)==0:
-                return previousFig,2
-
-            if freezeMode:
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,
-                                        [tags,tw*60,rs,rsMethod,timeRange],[])
-            else:
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,
-                                [tags,tw*60,rs,rsMethod],[])
-
-            # fig = self.updateLegend(fig,lgd)
-            return fig,errCode
-
-class RealTimeDoubleMultiUnits(TabMaster):
-    def __init__(self,*args,defaultTags1=[],defaultTags2=[],baseId='rtdmu0_',**kwargs):
-        TabMaster.__init__(self,*args,**kwargs,tabname='double multi units',baseId=baseId)
-        dicSpecialWidgets = {
-            'dd_tag1':defaultTags1,
-            'dd_tag2':defaultTags2,
-            'btn_legend':0,'in_axisSp':0.05}
-
-        self._buildLayout(dicSpecialWidgets,realTime=True)
-        self._define_callbacks()
-
-    def _define_callbacks(self):
-        self._define_basicCallbacks(['legendtoogle','export','ts_freeze','refreshWindow'])
-        @self.app.callback(
-            Output(self.baseId + 'graph', 'figure'),
-            Output(self.baseId + 'error_modal_store', 'data'),
-            Input(self.baseId + 'dd_tag1','value'),
-            Input(self.baseId + 'dd_tag2','value'),
-            Input(self.baseId + 'dd_resampleMethod','value'),
-            Input(self.baseId + 'btn_legend','children'),
-            Input(self.baseId + 'dd_style','value'),
-            Input(self.baseId + 'interval','n_intervals'),
-            Input(self.baseId + 'btn_update','n_clicks'),
-            Input(self.baseId + 'st_freeze','data'),
-            State(self.baseId + 'graph','figure'),
-            State(self.baseId + 'in_timeWindow','value'),
-            State(self.baseId + 'in_timeRes','value'),
-            State(self.baseId + 'ts_freeze','value'),
-            )
-        def updateDMUGraph(tags1,tags2,rsMethod,lgd,style,n,updateBtn,timeRange,previousFig,tw,rs,freezeMode):
-            triggerList = ['interval','btn_update','st_freeze','dd_typeTags','dd_resampleMethod']
-            tags = tags1+tags2
-            if len(tags)==0:
-                return previousFig,2
-
-            if freezeMode:
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,
-                    [tags,tw*60,rs,rsMethod,timeRange],
-                    [tags1,tags2])
-            else:
-                fig,errCode = self.updateGraph(previousFig,triggerList,style,
-                [tags,tw*60,rs,rsMethod],
-                    [tags1,tags2])
-
-            # fig = self.updateLegend(fig,lgd)
-            return fig,errCode
-
 
 # ==============================================================================
 #                               template tabs
