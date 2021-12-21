@@ -731,7 +731,7 @@ class DumpingClientMaster():
             try :
                 data = self.collectData(*args)
             except:
-                print('souci connexion at ' + ts)
+                print('souci connexion at ' + ts.isoformat())
                 self.isConnected = False
                 print('waiting for the connexion to be re-established...')
 

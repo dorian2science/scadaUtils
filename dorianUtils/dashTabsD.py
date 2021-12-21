@@ -382,6 +382,88 @@ class TabMaster():
             )
             return fig,errCode
 
+    def _updateGraph_Explorer(self,dicInputs,prepareTags,argsPrepare,argsPlotGraph=[],argsUpdateGraph=[],dicOutputs={},dicStates={}):
+
+        Input(self.baseId + 'dd_typeTags','value'),
+
+        Input(self.baseId + 'btn_legend','children'),
+        Input(self.baseId + 'dd_style','value'),
+        Input(self.baseId + 'dd_cmap','value'),
+        State(self.baseId + 'graph','figure'),
+
+        tags = self.cfg.getUsefulTags(tagCat)
+        triggerList=['dd_tag','pdr_timeBtn','dd_resampleMethod']
+        timeRange = [date0+' '+t0,date1+' '+t1]
+        if len(tags)==0:
+            return previousFig,2
+
+        fig,errCode = self.updateGraph(previousFig,triggerList,style,
+            [timeRange,tags,rs,rsMethod],[]
+            )
+        fig = self.utils.updateColorMap(fig,colmap)
+        # fig = self.updateLegend(fig,lgd)
+        return fig,errCode
+
+        '''
+        dicInputs:dictionnary of inputs
+        triggerloadData_ids : list of id that trigger the loading of the data
+        '''
+        d_outputs = {
+            'graph':'figure',
+            'error_modal_store':'data'
+        }
+        d_outputs.update(dicOutputs)
+
+        d_inputs = {
+            'pdr_timeBtn':'n_clicks',
+            'dd_resampleMethod':'value',
+            'dd_style':'value'
+        }
+        d_inputs.update(dicInputs)
+        d_states = {
+            'graph':'figure',
+            'in_timeWindow':'value',
+            'in_timeRes':'value',
+            'pdr_timePdr':'start_date',
+            'pdr_timePdr':'end_date',
+            'pdr_timeStart':'value',
+            'pdr_timeEnd':'value',
+        }
+
+        d_states.update(dicStates)
+
+        listArgsInputs = ['in_' + k for k,v in d_inputs.items()]
+        listArgsStates = ['st_' + k for k,v in d_states.items()]
+        allArgsName = listArgsInputs + listArgsStates
+        @self.app.callback(
+            [Output(self.baseId + k,v) for k,v in d_outputs.items()],
+            [Input(self.baseId + k,v) for k,v in d_inputs.items()],
+            [State(self.baseId + k,v) for k,v in d_states.items()])
+        def updateGraph(*argsCallback):
+            la = {k : v for k,v in zip(allArgsName,argsCallback)}
+            previousFig = la['st_graph']
+            corrArgsPrepare=[ la['in_' + k] for k in argsPrepare]
+            # print(corrArgsPrepare)
+            tags = prepareTags(*corrArgsPrepare)
+            if len(tags)==0:
+                return previousFig,2
+            t1 = pd.Timestamp.now()
+            t0 = t1 - dt.timedelta(seconds=la['st_in_timeWindow']*60)
+            if la['st_ts_freeze']:
+                timeRange = la['in_st_freeze']
+            else:
+                timeRange = [t0.isoformat(),t1.isoformat()]
+            # print(timeRange)
+            # print(la.keys())
+            # print([la['in_' + k] for k in argsUpdateGraph])
+            triggerloadData_ids = ['interval','btn_update','st_freeze','dd_resampleMethod'] + argsPrepare
+            fig,errCode = self.updateGraph(previousFig,triggerloadData_ids,
+                [tags,timeRange,False,la['in_dd_resampleMethod'],la['st_in_timeRes']],
+                [la['in_' + k] for k in argsPlotGraph],
+                [la['in_' + k] for k in argsUpdateGraph]
+            )
+            return fig,errCode
+
     def update_fig(self,fig,style,colmap=None,lgd=None):
         self.cfg.update_lineshape_fig(fig,style)
         self.cfg.standardLayout(fig)
@@ -478,39 +560,7 @@ class TabSelectedTags(TabMaster):
         TabMaster.__init__(self,*args,**kwargs,tabname='pre-selected tags',baseId=baseId)
         dicSpecialWidgets = {'dd_typeTags':defaultCat,'dd_cmap':'jet','btn_legend':0}
         self._buildLayout(dicSpecialWidgets)
-        self._define_callbacks()
-
-    def _define_callbacks(self):
         self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
-        @self.app.callback(
-            Output(self.baseId + 'graph', 'figure'),
-            Output(self.baseId + 'error_modal_store', 'data'),
-            Input(self.baseId + 'dd_typeTags','value'),
-            Input(self.baseId + 'pdr_timeBtn','n_clicks'),
-            Input(self.baseId + 'dd_resampleMethod','value'),
-            Input(self.baseId + 'btn_legend','children'),
-            Input(self.baseId + 'dd_style','value'),
-            Input(self.baseId + 'dd_cmap','value'),
-            State(self.baseId + 'graph','figure'),
-            State(self.baseId + 'in_timeRes','value'),
-            State(self.baseId + 'pdr_timePdr','start_date'),
-            State(self.baseId + 'pdr_timePdr','end_date'),
-            State(self.baseId + 'pdr_timeStart','value'),
-            State(self.baseId + 'pdr_timeEnd','value'),
-            )
-        def updatePSTGraph(tagCat,timeBtn,rsMethod,lgd,style,colmap,previousFig,rs,date0,date1,t0,t1):
-            tags = self.cfg.getUsefulTags(tagCat)
-            triggerList=['dd_tag','pdr_timeBtn','dd_resampleMethod']
-            timeRange = [date0+' '+t0,date1+' '+t1]
-            if len(tags)==0:
-                return previousFig,2
-
-            fig,errCode = self.updateGraph(previousFig,triggerList,style,
-                [timeRange,tags,rs,rsMethod],[]
-                )
-            fig = self.utils.updateColorMap(fig,colmap)
-            # fig = self.updateLegend(fig,lgd)
-            return fig,errCode
 
 class TabUnitSelector(TabMaster):
     def __init__(self,*args,unitInit='mbarg',patTagInit='GFC',baseId='tu0_',**kwargs):
