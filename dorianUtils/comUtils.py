@@ -828,7 +828,7 @@ class DumpingClientMaster():
         dfs=[]
         for tag in self.allTags:
             dfs.append(self.parktagfromdb(t0,t1,df,tag))
-
+        print(timenow.strftime('%H:%M:%S,%f') + ''' ===> database parked in {:.2f} milliseconds'''.format((time.time()-start)*1000))
         self.parkingTimes[timenow.isoformat()] = (time.time()-start)*1000
         # #FLUSH DATABASE
         start=time.time()
