@@ -214,10 +214,12 @@ class OpcuaConfigMaster(ComConfigMaster):
                     endpointUrl,port=4843,nameSpace="ns=4;s=GVL.",**kwargs):
         ComConfigMaster.__init__(self,folderPkl,confFolder,dbParameters,**kwargs)
         self.endpointUrl = endpointUrl
-        self.ip = endpointUrl
+        self.ip   = endpointUrl
         self.port = port
         self.nameSpace   = nameSpace
-        self.client      = Client(endpointUrl)
+        self.client      = opcua.Client(endpointUrl)
+        self.certif_path = self.confFolder + 'my_cert.pem'
+        self.key_path    = self.confFolder + 'my_private_key.pem'
         ####### load nodes
         self.nodesDict  = {t:self.client.get_node(self.nameSpace + t) for t in self.allTags}
         self.nodes      = list(self.nodesDict.values())
@@ -251,7 +253,6 @@ from pymodbus.server.sync import ModbusTcpServer
 from pymodbus.datastore import ModbusSequentialDataBlock, ModbusSlaveContext, ModbusServerContext
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from random import uniform
-from opcua import Client
 import opcua
 
 class Simulator():
