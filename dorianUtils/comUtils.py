@@ -571,10 +571,10 @@ class Streaming():
         t1 = pd.to_datetime(time2save).tz_localize(self.local_tzname)
         t2 = t1+dt.timedelta(minutes=1)
         dfminute = dftag[(dftag.index<t2)&(dftag.index>=t1)]
-        if dfminute.empty:
-            print(tag,t1,t2)
-            print(dfminute)
-            time.sleep(1)
+        # if dfminute.empty:
+        #     print(tag,t1,t2)
+        #     print(dfminute)
+        #     time.sleep(1)
         #create folder if necessary
         if not os.path.exists(folderminute):
             return 'no folder : ' + folderminute
@@ -1200,11 +1200,11 @@ class StreamingVisualisationMaster():
             df = dfp
         return df.sort_index()
 
-    def standardLayout(self,fig,ms=5):
+    def standardLayout(self,fig,ms=5,h=750):
         fig.update_yaxes(showgrid=False)
         fig.update_xaxes(title_text='')
         fig.update_traces(selector=dict(type='scatter'),marker=dict(size=ms))
-        fig.update_layout(height=750)
+        fig.update_layout(height=h)
         # fig.update_traces(hovertemplate='<b>%{y:.2f}')
         fig.update_traces(hovertemplate='     <b>%{y:.2f}<br>     %{x|%H:%M:%S,%f}')
         return fig
@@ -1235,7 +1235,7 @@ class StreamingVisualisationMaster():
             for y in range(1,len(units)+1):
                 fig.layout['yaxis'+str(k+1)+str(y)].domain = curDomaine
         fig.update_xaxes(showticklabels=False)
-        fig.update_yaxes(showticklabels=False)
+        # fig.update_yaxes(showticklabels=False)
         fig.update_yaxes(showgrid=False)
         fig.update_xaxes(matches='x')
         self.updatecolorAxes(fig)
