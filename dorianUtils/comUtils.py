@@ -1200,9 +1200,10 @@ class StreamingVisualisationMaster():
             df = dfp
         return df.sort_index()
 
-    def updateLayoutStandard(self,fig,sizeDots=5):
+    def standardLayout(self,fig,ms=5):
         fig.update_yaxes(showgrid=False)
-        fig.update_traces(selector=dict(type='scatter'),marker=dict(size=sizeDots))
+        fig.update_xaxes(title_text='')
+        fig.update_traces(selector=dict(type='scatter'),marker=dict(size=ms))
         fig.update_layout(height=750)
         # fig.update_traces(hovertemplate='<b>%{y:.2f}')
         fig.update_traces(hovertemplate='     <b>%{y:.2f}<br>     %{x|%H:%M:%S,%f}')

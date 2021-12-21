@@ -169,8 +169,8 @@ class DccExtended:
                     baseId+wid_key,self.utils.cmapNames[0],'colormap : ',value=wid_val)
 
             elif 'dd_resampleMethod'==wid_key:
-                widgetObj = self.dropDownFromList(baseId+wid_key,['mean','max','min','median'],
-                'resampling method: ',value=wid_val,multi=False)
+                widgetObj = self.dropDownFromList(baseId+wid_key,wid_val['methods'],
+                    'resampling method: ',value=wid_val['value'],multi=False)
 
             elif 'dd_style'==wid_key:
                 widgetObj = self.dropDownFromList(baseId+wid_key,self.line_styles,'style : ',value = wid_val)
@@ -257,7 +257,7 @@ class DccExtended:
                     dbc.Row([dbc.Col(html.P('select start and end time : ')),
                         dbc.Col(html.Button(id  = baseId + wid_key + 'Btn',children='update'))]),
 
-                    dbc.Row([dbc.Col(dcc.DatePickerRange(id = baseId + wid_key + 'Pdr',
+                    dbc.Row([dbc.Col(dcc.DatePickerRange(id = baseId + 'pdr_date',
                                 # max_date_allowed = t1,
                                 initial_visible_month = t0,
                                 display_format = 'D-MMM-YY',minimum_nights=0,persistence=False,
