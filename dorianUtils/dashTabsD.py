@@ -365,7 +365,7 @@ class TabMaster():
         d_inputs+=inputTuples
         d_states+=stateTuples
 
-        print(d_inputs)
+        # print(d_inputs)
         listArgsInputs = [k+'_' + v for k,v in d_inputs]
         listArgsStates = [k+'_' + v for k,v in d_states]
         allArgsName = listArgsInputs + listArgsStates
@@ -377,8 +377,7 @@ class TabMaster():
         def updateGraph(*argsCallback):
             la = {k : v for k,v in zip(allArgsName,argsCallback)}
             # print(timeRange)
-            for k in la.keys() : print(k)
-            # print([la['' + k] for k in argsUpdateGraph])
+            # for k in la.keys() : print(k)
 
             previousFig = la['graph_figure']
             corrArgsPrepare=[ la[k+'_value'] for k in argsPrepare]
@@ -474,23 +473,6 @@ class TabMultiUnitSelectedTags(TabMaster):
             return self.cfg.getUsefulTags(tagCat) + tags
         self._defineCallbackGraph(realtime,inputTuples,prepareTags,['dd_typeTags','dd_tag'],[],['dd_style'])
 
-class TabUnitSelector(TabMaster):
-    def __init__(self,*args,realtime=False,unitInit='mbarg',patTagInit='GFC',baseId='tu0_',**kwargs):
-        TabMaster.__init__(self,*args,**kwargs,tabname='select Units',baseId=baseId)
-
-        dicSpecialWidgets = {'dd_Units':unitInit,'in_patternTag':patTagInit,'dd_cmap':'jet','btn_legend':0}
-        inputTuples = [
-            ('dd_Units','value'),
-            ('in_patternTag','value'),
-        ]
-        self._buildLayout(dicSpecialWidgets,realTime=realtime)
-        if realtime:
-            self._define_basicCallbacks(['legendtoogle','export','ts_freeze','refreshWindow'])
-        else:
-            self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
-        def prepareTags(patTag,unit):return self.cfg.getTagsTU(patTag,unit)
-        self._defineCallbackGraph(realtime,inputTuples,prepareTags,['dd_tag'],[],['dd_style'])
-
 class TabDoubleMultiUnits(TabMaster):
     def __init__(self,*args,realtime=False,defaultTags1=[],defaultTags2=[],baseId='rtdmu0_',**kwargs):
         TabMaster.__init__(self,*args,**kwargs,
@@ -517,6 +499,26 @@ class TabDoubleMultiUnits(TabMaster):
 
     def plotData(self,*args,**kwargs):
         return self.cfg.doubleMultiUnitGraph(*args,**kwargs)
+
+class TabUnitSelector(TabMaster):
+    def __init__(self,*args,realtime=False,unitInit='mbarg',patTagInit='GFC',baseId='tu0_',**kwargs):
+        TabMaster.__init__(self,*args,**kwargs,tabname='select Units',baseId=baseId)
+
+        dicSpecialWidgets = {'dd_Units':unitInit,'in_patternTag':patTagInit,'dd_cmap':'jet','btn_legend':0}
+        inputTuples = [
+            ('dd_Units','value'),
+            ('in_patternTag','value'),
+        ]
+        self._buildLayout(dicSpecialWidgets,realTime=realtime)
+        if realtime:
+            self._define_basicCallbacks(['legendtoogle','export','ts_freeze','refreshWindow'])
+        else:
+            self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
+        def prepareTags(patTag,unit):
+            tags=self.cfg.getTagsTU(patTag,unit)
+            return tags
+        self._defineCallbackGraph(realtime,inputTuples,prepareTags,['in_patternTag','dd_Units'],[],['dd_style'])
+
 
 class AnalysisTab(TabMaster):
     def __init__(self,app,cfg):
