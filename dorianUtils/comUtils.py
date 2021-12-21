@@ -218,8 +218,6 @@ class OpcuaConfigMaster(ComConfigMaster):
         self.port = port
         self.nameSpace   = nameSpace
         self.client      = Client(endpointUrl)
-        self.certif_path = self.confFolder + "my_cert.pem"
-        self.key_path    = self.confFolder + "my_private_key.pem"
         ####### load nodes
         self.nodesDict  = {t:self.client.get_node(self.nameSpace + t) for t in self.allTags}
         self.nodes      = list(self.nodesDict.values())
