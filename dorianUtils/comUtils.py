@@ -997,7 +997,6 @@ class DumpingModeBusClient(DumpingClientMaster):
         d={}
         for tag in block.index:
             row = block.loc[tag]
-            print(curReg)
             if row.type == 'INT32':
                 valueShorts = [regs[curReg+k] for k in [0,1]]
                 # conversion of 2 shorts(=DWORD=word) into long(=INT32)
@@ -1016,10 +1015,9 @@ class DumpingModeBusClient(DumpingClientMaster):
 
     def checkRegisterValueTag(self,tag,**kwargs):
         # self.connectDevice()
-        tagid = vmucDumpingClient.dfInstr.loc[tag]
-        regs  = vmucDumpingClient.client.read_holding_registers(tagid.intAddress,tagid['size(mots)'],unit=tagid.addrTCP).registers
+        tagid = self.dfInstr.loc[tag]
+        regs  = self.client.read_holding_registers(tagid.intAddress,tagid['size(mots)'],unit=tagid.addrTCP).registers
         return self.decodeRegisters(regs,pd.DataFrame(tagid).T,**kwargs)
-
 
     def getPtComptageValues(self,conn,unit_id,**kwargs):
         '''ptComptage must be a continuous block.'''
