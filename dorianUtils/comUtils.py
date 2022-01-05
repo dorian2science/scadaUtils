@@ -79,6 +79,14 @@ class ComConfigMaster():
         from dateutil.tz import tzlocal
         self.local_tzname = now.tzinfo.tzname(now)
         self.utils= Utils()
+        self.dataTypes = {
+          'REAL':'float',
+          'BOOL':'bool',
+          'WORD':'int',
+          'DINT':'int',
+          'INT':'int',
+          'STRING(40)':'str'
+        }
         self.loadPLC_file()
         self.allTags = list(self.dfPLC.index)
         self.listUnits = self.dfPLC.UNITE.dropna().unique().tolist()
@@ -131,30 +139,46 @@ class ComConfigMaster():
                 valueInit[tag] = np.random.randint(tagvar.MIN,tagvar.MAX)
         return valueInit
 
+import xml.etree.ElementTree as ET
 class ModeBusConfigMaster(ComConfigMaster):
-    import xml.etree.ElementTree as ET
     def __init__(self,folderPkl,confFolder,dbParameters,ipdevice,port,*args,**kwargs):
         ComConfigMaster.__init__(self,folderPkl,confFolder,dbParameters,*args,**kwargs)
-        self.ip=ipdevice
-        self.port=port
-        self.allTags = dfInstr['id'].unique()
+        self.ip     = ipdevice
+        self.port   = port
         self.fs = FileSystem()
-        self.xmlfile = glob.glob(self.confFolder + '*dfInstr')[0]
-        dfInstr = self._findInstruments(xmlfile)
-        dfInstr = self._makeDfInstrUnique()
-        pickle.dump(dfInstr,open(self.fs.getParentDir(xmlfile) + 'dfInstr.pkl','wb'))
+        self.loaddfInstr()
+        self.allTCPid=list(self.dfInstr.addrTCP.unique())
+
+    def loadPLC_file(self):
+        patternPLC_file='*PLC_v*'
+        listPLC = glob.glob(self.confFolder + patternPLC_file + '.pkl')
+        if len(listPLC)<1:
+            listPLC_csv = glob.glob(self.confFolder + patternPLC_file+'.csv')
+            plcfile = listPLC_csv[0]
+            print(plcfile,' is read and converted in .pkl')
+            dfPLC = pd.read_csv(plcfile,index_col=0)
+            dfPLC = dfPLC[dfPLC.DATASCIENTISM]
+            pickle.dump(dfPLC,open(plcfile[:-4]+'.pkl','wb'))
+            listPLC = glob.glob(self.confFolder + patternPLC_file + '.pkl')
+
+        self.plcFile = listPLC[0]
+        self.dfPLC = pickle.load(open(self.plcFile,'rb'))
 
     def loaddfInstr(self):
+        self.fileDfInstr=self.confFolder + 'dfInstr.pkl'
         try:
-            if not os.path.exists(self.confFolder + 'dfInstr.pkl'):
+            if not os.path.exists(self.fileDfInstr):
                 xmlfile = glob.glob(self.confFolder+'*ModbusTCP*.xml')[0]
-                ModeBusXMLInstrument(xmlfile)
-            self.dfInstr = pickle.load(open(self.confFolder+'dfInstr.pkl','rb'))
+                dfInstr = self._findInstruments(xmlfile)
+                self.allTags = dfInstr['id'].unique()
+                dfInstr = self._makeDfInstrUnique(dfInstr)
+                pickle.dump(dfInstr,open(self.confFolder + 'dfInstr.pkl','wb'))
         except:
             print('no xml file found in ',self.confFolder)
             raise SystemExit
+        self.dfInstr = pickle.load(open(self.fileDfInstr,'rb'))
 
-    def _makeDfInstrUnique(self):
+    def _makeDfInstrUnique(self,dfInstr):
         '''make build dfInstr from xmfile and make every tag unique. Then save.'''
         uniqueDfInstr = []
         for tag in self.allTags:
@@ -164,7 +188,7 @@ class ModeBusConfigMaster(ComConfigMaster):
                 uniqueDfInstr.append(rowFloat)
             else :
                 uniqueDfInstr.append(dup.iloc[[0]])
-        uniqueDfInstr=pd.concat(uniqueDfInstr)
+        uniqueDfInstr=pd.concat(uniqueDfInstr).set_index('id')
         return uniqueDfInstr
 
     def getSizeOf(self,typeVar,f=1):
@@ -204,7 +228,7 @@ class ModeBusConfigMaster(ComConfigMaster):
         # df=df[df['type']=='INT32']
         df['addrTCP'] = pd.to_numeric(df['addrTCP'],errors='coerce')
         df['scale'] = pd.to_numeric(df['scale'],errors='coerce')
-        df=df.set_index('adresse')
+        # df=df.set_index('adresse')
         # df=df[df['scale']==0.1]
 
         return df
@@ -225,14 +249,6 @@ class OpcuaConfigMaster(ComConfigMaster):
         self.nodes      = list(self.nodesDict.values())
 
     def loadPLC_file(self):
-        self.dataTypes = {
-          'REAL':'float',
-          'BOOL':'bool',
-          'WORD':'int',
-          'DINT':'int',
-          'INT':'int',
-          'STRING(40)':'str'
-        }
         listPLC = glob.glob(self.confFolder + '*Instrum*.pkl')
         if len(listPLC)<1:
             listPLC_xlsm = glob.glob(self.confFolder + '*Instrum*.xlsm')
@@ -252,7 +268,6 @@ class OpcuaConfigMaster(ComConfigMaster):
 from pymodbus.server.sync import ModbusTcpServer
 from pymodbus.datastore import ModbusSequentialDataBlock, ModbusSlaveContext, ModbusServerContext
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
-from random import uniform
 import opcua
 
 class Simulator():
@@ -269,8 +284,8 @@ class Simulator():
         '''
         self.volatilitySimu = volatilitySimu
         self.speedflowdata = speedflowdata
-        self.server_thread = threading.Thread(target=self.serve)
-        self.server_thread.daemon = True
+        # self.server_thread = threading.Thread(target=self.serve)
+        # self.server_thread.daemon = True
         self.feed = True
         self.stopfeed = threading.Event()
         self.feedingThread = threading.Thread(target=self.feedingLoop)
@@ -299,7 +314,7 @@ class Simulator():
                 start=time.time()
                 self.writeInRegisters()
                 print('fed in {:.2f} milliseconds'.format((time.time()-start)*1000))
-                sleep(self.speedflowdata/1000 + uniform(0,1/1000))
+                sleep(self.speedflowdata/1000 + np.random.randint(0,1)/1000)
 
     def is_serving(self):
         return self.server_thread.is_alive()
@@ -317,7 +332,7 @@ class SimulatorModeBus(Simulator):
         self.bo = bo
         Simulator.__init__(self,*args,**kwargs)
         # initialize server with random values
-        self.dfInstr['value']=self.dfInstr['type'].apply(lambda x:uniform(0,100000))
+        self.dfInstr['value']=self.dfInstr['type'].apply(lambda x:np.random.randint(0,100000))
         self.dfInstr['precision']=0.1
         self.dfInstr['FREQUENCE_ECHANTILLONNAGE']=1
         allTCPid = list(self.dfInstr['addrTCP'].unique())
@@ -327,11 +342,10 @@ class SimulatorModeBus(Simulator):
             slaves[k]  = ModbusSlaveContext(hr=ModbusSequentialDataBlock(0, [k]*128))
             self.context = ModbusServerContext(slaves=slaves, single=False)
         self.server = ModbusTcpServer(self.context, address=("", self.port))
-        self.server_thread = threading.Thread(target=self.server.serve_forever)
+        self.server_thread = threading.Thread(target=self.serve)
         self.server_thread.daemon = True
-        self.feed = True
-        self.stopfeed = threading.Event()
-        self.feedingThread = threading.Thread(target=self.feedingLoop)
+        # self.stopfeed = threading.Event()
+        # self.feedingThread = threading.Thread(target=self.feedingLoop)
 
     def start(self):
         print("Start server...")
@@ -340,66 +354,71 @@ class SimulatorModeBus(Simulator):
         self.feedingThread.start()
         print("Server simulator is feeding")
 
-    def generateRandomData(self,ptComptage):
+    def generateRandomData(self,idTCP):
+        ptComptage = self.dfInstr[self.dfInstr['addrTCP']==idTCP]
         byteflow=[]
         values=[]
         # te = ptComptage.iloc[[0]]
-        for te in ptComptage.iterrows():
-            te=te[1]
+        for tag in ptComptage.index:
+            te = ptComptage.loc[tag]
             # print(te)
             # address = te.index[0]
             typevar = te.type
             if typevar=='INT32':
-                value = int(te.value + uniform(0,te.value*self.volatilitySimu/100))
+                value = int(te.value + np.random.randint(0,value*self.volatilitySimu/100))
                 # conversion of long(=INT32) into 2 shorts(=DWORD=word)
                 valueShorts = struct.unpack(self.bo + '2H',struct.pack(self.bo + "i",value))
             if typevar=='INT64':
-                value = int(te.value + uniform(0,te.value*self.volatilitySimu/100))
-                # conversion of long long(=INT64) to 4 short(=DWORD=word)
-                valueShorts = struct.unpack(self.bo + '4H', struct.pack(self.bo + 'q', value))
+                value = int(te.value + np.random.randint(0,value*self.volatilitySimu/100))
+                try:
+                    # conversion of long long(=INT64) to 4 short(=DWORD=word)
+                    valueShorts = struct.unpack(self.bo + '4H', struct.pack(self.bo + 'q',value))
+                except:
+                    print(value)
             if typevar=='IEEE754':
-                value = te.value + uniform(0,te.value*self.volatilitySimu/100)
+                value = te.value + np.random.randn()*te.value*self.volatilitySimu/100
                 # value = 16.565
                 # conversion of float(=IEEE7554O) to 2 shorts(=DWORD)
                 valueShorts=struct.unpack(self.bo + '2H', struct.pack(self.bo+'f', value))
             byteflow.append(valueShorts)
-            values.append(value)
-        return [l for k in byteflow for l in k],values
+            self.dfInstr.loc[tag,'value']=value
+            # values.append(value)
+        # return [l for k in byteflow for l in k],values
+        return [l for k in byteflow for l in k]
 
-    def writeInRegisters(self,idTCP):
-        ptComptage = self.dfInstr[self.dfInstr['addrTCP']==idTCP]
-        # #######
-        #                   IMPORTANT CHECK HERE
-        #           block should have continuous adresses with no gap!
-        # #######
-        # ptComptage = ptComptage[ptComptage.intAddress<10000]
-        # try :
+    def writeInRegisters(self):
         feedingClient = ModbusClient(host='localhost',port=self.port)
         feedingClient.connect()
-        byteflow,values = self.generateRandomData(ptComptage)
-        feedingClient.write_registers(ptComptage.intAddress[0],byteflow,unit=idTCP)
-        feedingClient.close()
-        return byteflow,values
-        # except:
-            # print("Shutdown server ...")
-            # self.stop()
-            # print("Server is offline")
 
-    def feedingLoop(self):
-        while not self.stopfeed.isSet():
-            if self.feed:
-                idTCP = self.dfInstr.addrTCP.sample(n=1)[0]
-                # print('idTCP ======> ',idTCP)
-                start =time.time()
-                byteflow,values=self.writeInRegisters(idTCP)
-                # print('byteflow : ', byteflow)
-                sleep(self.speedflowdata/1000 + uniform(0,1/1000))
+        for idTCP in self.allTCPid:
+            # print(idTCP)
+            ptComptage = self.dfInstr[self.dfInstr['addrTCP']==idTCP]
+
+            # #######
+            #                   IMPORTANT CHECK HERE
+            #           block should have continuous adresses with no gap!
+            # #######
+            # ptComptage = ptComptage[ptComptage.intAddress<10000]
+            try:
+                byteflow = self.generateRandomData(idTCP)
+                feedingClient.write_registers(ptComptage.intAddress[0],byteflow,unit=idTCP)
+            except:
+                print(dt.datetime.now().astimezone())
+                print('***********************************')
+                print(str(idTCP) + 'problem generating random Data')
+                traceback.print_exc()
+                print('***********************************')
+
+        tagtest='C00000001-A003-1-kW sys-JTW'
+        print(tagtest + ' : ',self.dfInstr.loc[tagtest,'value'])
+        feedingClient.close()
 
     def serve(self):
         self.server.serve_forever()
 
     def shutdown_server(self):
         self.server.shutdown()
+        print("Server simulator is shutdown")
 
 class SimulatorOPCUA(Simulator):
     ''' can only be used with a children class inheritating from a class that has
@@ -672,7 +691,6 @@ class DumpingClientMaster():
     flushing the database with a dbwindow parameters that determines how big
     the buffer data base can be and how often data should be parked.
     For inheritance children classes should have :
-    - a function connect2device to connect to the device
     - a function collectData to collect data from the device.
     - a function connectDevice to connect to the device.
     '''
@@ -730,6 +748,7 @@ class DumpingClientMaster():
         if self.isConnected:
             try :
                 data = self.collectData(*args)
+                # print(data)
             except:
                 print('souci connexion at ' + ts.isoformat())
                 self.isConnected = False
@@ -785,6 +804,7 @@ class DumpingClientMaster():
         dftag.index=dftag.index.tz_convert(self.local_tzname)
         if dftag.empty:
             return dftag
+        # print(tag + ' : ',self.dfPLC.loc[tag,'DATATYPE'])
         if compression in ['reduce','diff','dynamic'] and not self.dfPLC.loc[tag,'DATATYPE']=='STRING(40)':
             precision = self.dfPLC.loc[tag,'PRECISION']
             dftag = dftag.replace('null',np.nan)
@@ -970,13 +990,14 @@ class DumpingModeBusClient(DumpingClientMaster):
     def __init__(self):
         DumpingClientMaster.__init__(self)
         self.allTCPid = self.dfInstr['addrTCP'].unique()
+        self.client = ModbusClient(host=self.ip,port=self.port)
 
     def decodeRegisters(self,regs,block,bo='='):
         firstReg = min(block['intAddress'])
         curReg   = firstReg
         d={}
-        for row in block.iterrows():
-            row=row[1]
+        for tag in block.index:
+            row = block.loc[tag]
             if row.type == 'INT32':
                 valueShorts = [regs[curReg+k] for k in [0,1]]
                 # conversion of 2 shorts(=DWORD=word) into long(=INT32)
@@ -990,11 +1011,11 @@ class DumpingModeBusClient(DumpingClientMaster):
                 valueShorts = [regs[curReg+k] for k in [0,1,2,3]]
                 value = struct.unpack(bo + 'q',struct.pack(bo + "4H",*valueShorts))[0]
                 curReg+=4
-            d[row.id]=[value*row.scale,dt.datetime.now().astimezone().isoformat()]
+            d[tag]=[value*row.scale,dt.datetime.now().astimezone().isoformat()]
         return d
 
     def checkRegisterValueTag(self,tag,**kwargs):
-        checkClient = self.connect2device()
+        checkClient = self.connectDevice()
         checkClient.connect()
         tagid    = self.dfInstr[self.dfInstr['id']==tag]
         regs     = checkClient.read_holding_registers(tagid.intAddress[0],tagid['size(mots)'][0],unit=tagid.addrTCP[0]).registers
@@ -1011,15 +1032,15 @@ class DumpingModeBusClient(DumpingClientMaster):
         regs = conn.read_holding_registers(firstReg,ptComptage['size(mots)'].sum(),unit=unit_id).registers
         return self.decodeRegisters(regs,ptComptage,**kwargs)
 
-    def connect2device(self):
-        return ModbusClient(host=self.ip,port=self.port)
+    def connectDevice(self):
+        return self.client.connect()
 
-    def getModeBusRegistersValues(self,**kwargs):
+    def getModeBusRegistersValues(self,*args,**kwargs):
         d={}
-        conn = self.connect2device()
+        # conn = self.connectDevice()
         for idTCP in self.allTCPid:
-            d.update(self.getPtComptageValues(conn,unit_id=idTCP,**kwargs))
-        conn.close()
+            d.update(self.getPtComptageValues(self.client,unit_id=idTCP,*args,**kwargs))
+        # self.client.close()
         return d
 
     def quickmodebus2dbint32(self,conn,add):
@@ -1027,13 +1048,7 @@ class DumpingModeBusClient(DumpingClientMaster):
         return struct.unpack(bo + 'i',struct.pack(bo + "2H",*regs))[0]
 
     def collectData(self):
-        data={}
-        try:
-            data = self.getModeBusRegistersValues()
-        except Exception:
-            print(dt.datetime.now().astimezone().isoformat() + '''--> problem gathering data from mode bus device
-                with ip adress : ''' + self.ip + ' on port ' + str(self.port))
-            # print(traceback.format_exc())
+        data = self.getModeBusRegistersValues()
         return data
 
 class DumpingOPCUAClient(DumpingClientMaster):
@@ -1106,6 +1121,9 @@ class StreamingVisualisationMaster():
         # print(df)
         df.index = df.index.tz_convert(timezone)
         start=time.time()
+        dtypes = self.dfPLC.loc[df.columns].DATATYPE.apply(lambda x:self.dataTypes[x]).to_dict()
+        # df = df.dropna().astype(dtypes)
+        df = df.astype(dtypes)
         if not rsMethod=='raw':
             df = eval(self.methods[rsMethod])
         print(rsMethod + ' data in {:.2f} ms'.format((time.time()-start)*1000))
@@ -1175,8 +1193,6 @@ class StreamingVisualisationMaster():
             df.loc[df.value=='null','value']=np.nan
             df = df.set_index('timestampz')
             df = self.processdf(df,*args,**kwargs)
-            dtypes = self.dfPLC.loc[tags].DATATYPE.apply(lambda x:self.dataTypes[x]).to_dict()
-            df = df.dropna().astype(dtypes)
         return df
 
     def df_loadtagsrealtime(self,tags,timeRange,poolTags=False,*args,**kwargs):
