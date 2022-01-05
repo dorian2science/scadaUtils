@@ -1019,14 +1019,14 @@ class DumpingModeBusClient(DumpingClientMaster):
         regs  = self.client.read_holding_registers(tagid.intAddress,tagid['size(mots)'],unit=tagid.addrTCP).registers
         return self.decodeRegisters(regs,pd.DataFrame(tagid).T,**kwargs)
 
-    def getPtComptageValues(self,conn,unit_id,**kwargs):
+    def getPtComptageValues(self,unit_id,**kwargs):
         '''ptComptage must be a continuous block.'''
         ptComptage = self.dfInstr[self.dfInstr['addrTCP']==unit_id]
         firstReg = min(ptComptage['intAddress'])
         lastReg  = max(ptComptage['intAddress'])
         unit_id  = ptComptage['addrTCP'][0]
         #read all registers in a single command for better performances
-        regs = conn.read_holding_registers(firstReg,ptComptage['size(mots)'].sum(),unit=unit_id).registers
+        regs = self.client.read_holding_registers(firstReg,ptComptage['size(mots)'].sum(),unit=unit_id).registers
         return self.decodeRegisters(regs,ptComptage,**kwargs)
 
     def connectDevice(self):
@@ -1034,10 +1034,8 @@ class DumpingModeBusClient(DumpingClientMaster):
 
     def getModeBusRegistersValues(self,*args,**kwargs):
         d={}
-        # conn = self.connectDevice()
         for idTCP in self.allTCPid:
-            d.update(self.getPtComptageValues(self.client,unit_id=idTCP,*args,**kwargs))
-        # self.client.close()
+            d.update(self.getPtComptageValues(unit_id=idTCP,*args,**kwargs))
         return d
 
     def quickmodebus2dbint32(self,conn,add):
