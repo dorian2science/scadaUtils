@@ -1020,12 +1020,9 @@ class DumpingModeBusClient(DumpingClientMaster):
 
     def getPtComptageValues(self,unit_id,**kwargs):
         ptComptage = self.dfInstr[self.dfInstr['addrTCP']==unit_id].sort_values(by='intAddress')
-        firstReg = ptComptage['intAddress'][0]
         lastReg  = ptComptage['intAddress'][-1]
         nbregs   = lastReg + ptComptage['size(mots)'][-1]
         #read all registers in a single command for better performances
-        # regs = self.client.read_holding_registers(firstReg,ptComptage['size(mots)'].sum(),unit=unit_id).registers
-        # regs = self.client.read_holding_registers(firstReg,nbregs,unit=unit_id).registers
         regs = self.client.read_holding_registers(0,nbregs,unit=unit_id).registers
         return self.decodeRegisters(regs,ptComptage,**kwargs)
 
