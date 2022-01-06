@@ -991,23 +991,24 @@ class DumpingModeBusClient(DumpingClientMaster):
         self.client = ModbusClient(host=self.ip,port=self.port)
 
     def decodeRegisters(self,regs,block,bo='='):
-        curReg   = 0
         d={}
         for tag in block.index:
             row = block.loc[tag]
+            #### in order to make it work even if block is not continuous.
+            curReg = int(row['intAddress'])
             if row.type == 'INT32':
                 valueShorts = [regs[curReg+k] for k in [0,1]]
                 # conversion of 2 shorts(=DWORD=word) into long(=INT32)
                 value = struct.unpack(bo + 'i',struct.pack(bo + "2H",*valueShorts))[0]
-                curReg+=2
+                # curReg+=2
             if row.type == 'IEEE754':
                 valueShorts = [regs[curReg+k] for k in [0,1]]
                 value = struct.unpack(bo + 'f',struct.pack(bo + "2H",*valueShorts))[0]
-                curReg+=2
+                # curReg+=2
             elif row.type == 'INT64':
                 valueShorts = [regs[curReg+k] for k in [0,1,2,3]]
                 value = struct.unpack(bo + 'q',struct.pack(bo + "4H",*valueShorts))[0]
-                curReg+=4
+                # curReg+=4
             d[tag]=[value*row.scale,dt.datetime.now().astimezone().isoformat()]
         return d
 
@@ -1018,13 +1019,14 @@ class DumpingModeBusClient(DumpingClientMaster):
         return self.decodeRegisters(regs,pd.DataFrame(tagid).T,**kwargs)
 
     def getPtComptageValues(self,unit_id,**kwargs):
-        '''ptComptage must be a continuous block.'''
-        ptComptage = self.dfInstr[self.dfInstr['addrTCP']==unit_id]
-        firstReg = min(ptComptage['intAddress'])
-        lastReg  = max(ptComptage['intAddress'])
-        unit_id  = ptComptage['addrTCP'][0]
+        ptComptage = self.dfInstr[self.dfInstr['addrTCP']==unit_id].sort_values(by='intAddress')
+        firstReg = ptComptage['intAddress'][0]
+        lastReg  = ptComptage['intAddress'][-1]
+        nbregs   = lastReg + ptComptage['size(mots)'][-1]
         #read all registers in a single command for better performances
-        regs = self.client.read_holding_registers(firstReg,ptComptage['size(mots)'].sum(),unit=unit_id).registers
+        # regs = self.client.read_holding_registers(firstReg,ptComptage['size(mots)'].sum(),unit=unit_id).registers
+        # regs = self.client.read_holding_registers(firstReg,nbregs,unit=unit_id).registers
+        regs = self.client.read_holding_registers(0,nbregs,unit=unit_id).registers
         return self.decodeRegisters(regs,ptComptage,**kwargs)
 
     def connectDevice(self):
