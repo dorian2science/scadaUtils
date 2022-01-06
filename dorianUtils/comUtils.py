@@ -141,13 +141,13 @@ class ComConfigMaster():
 
 import xml.etree.ElementTree as ET
 class ModeBusConfigMaster(ComConfigMaster):
+    '''dfInstr should be loaded with loaddfInstr before calling this constructor'''
     def __init__(self,folderPkl,confFolder,dbParameters,ipdevice,port,*args,**kwargs):
         ComConfigMaster.__init__(self,folderPkl,confFolder,dbParameters,*args,**kwargs)
-        self.ip     = ipdevice
-        self.port   = port
-        self.fs = FileSystem()
-        self.loaddfInstr()
-        self.allTCPid=list(self.dfInstr.addrTCP.unique())
+        self.ip       = ipdevice
+        self.port     = port
+        self.fs       = FileSystem()
+        self.allTCPid = list(self.dfInstr.addrTCP.unique())
 
     def loadPLC_file(self):
         patternPLC_file='*PLC_v*'
@@ -165,11 +165,11 @@ class ModeBusConfigMaster(ComConfigMaster):
         self.dfPLC = pickle.load(open(self.plcFile,'rb'))
 
     def loaddfInstr(self):
+        self.xmlfile  = glob.glob(self.confFolder+'*ModbusTCP*.xml')[0]
         self.fileDfInstr=self.confFolder + 'dfInstr.pkl'
         try:
             if not os.path.exists(self.fileDfInstr):
-                xmlfile = glob.glob(self.confFolder+'*ModbusTCP*.xml')[0]
-                dfInstr = self._findInstruments(xmlfile)
+                dfInstr = self._findInstruments(self.xmlfile)
                 self.allTags = dfInstr['id'].unique()
                 dfInstr = self._makeDfInstrUnique(dfInstr)
                 pickle.dump(dfInstr,open(self.confFolder + 'dfInstr.pkl','wb'))
@@ -344,8 +344,6 @@ class SimulatorModeBus(Simulator):
         self.server = ModbusTcpServer(self.context, address=("", self.port))
         self.server_thread = threading.Thread(target=self.serve)
         self.server_thread.daemon = True
-        # self.stopfeed = threading.Event()
-        # self.feedingThread = threading.Thread(target=self.feedingLoop)
 
     def start(self):
         print("Start server...")
