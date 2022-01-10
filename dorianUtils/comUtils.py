@@ -75,8 +75,9 @@ class Device():
         - a function <collectData> should be written  to collect data from the device.
         - a function <connectDevice> to connect to the device.
     '''
-    def __init__(self):
-        self.fs     = FileSystem()
+    def __init__(self,device_name):
+        self.fs = FileSystem()
+        self.device_name = device_name
         self.isConnected = True
         now = dt.datetime.now().astimezone()
         from dateutil.tz import tzlocal
@@ -190,22 +191,67 @@ class Device():
                 valueInit[tag] = np.random.randint(tagvar.MIN,tagvar.MAX)
         return valueInit
 
-
+from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 import xml.etree.ElementTree as ET
 class ModeBusDevice(Device):
     '''dfInstr should be loaded with loaddfInstr before calling this constructor'''
-    def __init__(self,device,ipdevice,port,confFolder):
+    def __init__(self,device_name,ipdevice,port,confFolder,plc_dict=None):
         self.ip     = ipdevice
         self.port   = port
-        self.device = device
         self.confFolder = confFolder
-        Device.__init__(self)
+        Device.__init__(self,device_name)
+        if not plc_dict is None:
+            self.file_plc = self.confFolder + 'plc_' + device_name + plc_dict['version'] + '.csv'
+            self.file_instr=self.confFolder + 'dfInstr_' + device_name + plc_dict['version']+'.pkl'
+            self.build_plc_fromDevice(plc_dict)
         self.loaddfInstr()
         self.allTCPid = list(self.dfInstr.addrTCP.unique())
         self.client = ModbusClient(host=self.ip,port=self.port)
 
+    def build_plc_fromDevice(self,plc_dict):
+        print('building PLC configuration file of ' + self.device_name  +' from dfInstr')
+        dfInstr=self.loaddfInstr()
+        units = {'kW':'JTW','kWh':'JTWH','kVA':'JTVA','kvar':'JTVar','kvarh':'JTVarH','kVAh':'JTVAH'}
+        tags  = {}
+        variables=plc_dict['variables']
+        compteurs=plc_dict['compteurs']
+        for t in dfInstr.index:
+            currentTag = dfInstr.loc[t]
+            variable = currentTag['description']
+            fullCompteurName = compteurs.loc[currentTag['point de comptage']]
+            if variable not in list(variables.index):
+                print('variable ',variable, 'not describe in compteurs.ods/variables')
+                # print('         exit        ')
+                # print('=========================')
+                print('')
+                # sys.exit()
+            else:
+                unit = units[currentTag['unit']]
+                # print(t)
+                description = fullCompteurName['description'] + ' - ' + variables.loc[variable,'description']
+                tag     = fullCompteurName.fullname + '-' + currentTag['description'] + '-' + unit
+                tags[tag] = {'DESCRIPTION' :description,'UNITE':unit}
+                dfInstr.loc[t,'tag'] = tag
+        dfplc = pd.DataFrame.from_dict(tags).T
+        dfplc.index.name  = 'TAG'
+        dfplc['MIN']      = -200000
+        dfplc['MAX']      = 200000
+        dfplc['DATATYPE'] = 'REAL'
+        dfplc['DATASCIENTISM'] = True
+        dfplc['PRECISION'] = 0.01
+        dfplc['FREQUENCE_ECHANTILLONNAGE'] = 5
+        dfplc['VAL_DEF'] = 0
+        dfplc.to_csv(self.file_plc)
+        print()
+        print(self.file_plc +' saved.')
+        dfInstr = dfInstr[~dfInstr['tag'].isna()].set_index('tag')
+        pickle.dump(dfInstr,open(self.file_instr,'wb'))
+        print(self.file_instr +' saved.')
+        print('=======================================')
+        print('')
+
     def loadPLC_file(self):
-        patternPLC=self.confFolder + 'plc*' + self.device
+        patternPLC=self.confFolder + 'plc*' + self.device_name
         listPLC = glob.glob(patternPLC + '*.pkl')
         if len(listPLC)<1:
             listPLC_csv = glob.glob(patternPLC+'*.csv')
@@ -273,48 +319,6 @@ class ModeBusDevice(Device):
 
         return df
 
-    def build_plc_fromDevice(dfInstr):
-        print('building PLC configuration file of ' + self.device  +' from dfInstr')
-        self.loaddfInstr()
-        units = {'kW':'JTW','kWh':'JTWH','kVA':'JTVA','kvar':'JTVar','kvarh':'JTVarH','kVAh':'JTVAH'}
-        tags  = {}
-        deviceVariables = VARIABLES[VARIABLES.device==device]
-        for t in dfInstr.index:
-            currentTag = dfInstr.loc[t]
-            variable = currentTag['description']
-            fullCompteurName = COMPTEURS.loc[currentTag['point de comptage']]
-            if variable not in list(deviceVariables.index):
-                print('variable ',variable, 'not describe in compteurs.ods/variables')
-                # print('         exit        ')
-                # print('=========================')
-                print('')
-                # sys.exit()
-            else:
-                unit = units[currentTag['unit']]
-                # print(t)
-                description = fullCompteurName['description'] + ' - ' + deviceVariables.loc[variable,'description']
-                tag     = fullCompteurName.fullname + '-' + currentTag['description'] + '-' + unit
-                tags[tag] = {'DESCRIPTION' :description,'UNITE':unit}
-                dfInstr.loc[t,'tag'] = tag
-        dfplc = pd.DataFrame.from_dict(tags).T
-        dfplc.index.name  = 'TAG'
-        dfplc['MIN']      = -200000
-        dfplc['MAX']      = 200000
-        dfplc['DATATYPE'] = 'REAL'
-        dfplc['DATASCIENTISM'] = True
-        dfplc['PRECISION'] = 0.01
-        dfplc['FREQUENCE_ECHANTILLONNAGE'] = 5
-        dfplc['VAL_DEF'] = 0
-        plcfilename=self.confFolder + 'plc_' + device + V_COMPTEURS + '.csv'
-        dfInstrFilename=self.confFolder + 'dfInstr_' + device + V_COMPTEURS+'.pkl'
-        dfplc.to_csv(plcfilename)
-        print()
-        print(plcfilename +' saved.')
-        dfInstr = dfInstr[~dfInstr['tag'].isna()].set_index('tag')
-        pickle.dump(dfInstr,open(dfInstrFilename,'wb'))
-        print(dfInstrFilename +' saved.')
-        print('=======================================')
-        print('')
 
     def decodeRegisters(self,regs,block,bo='='):
         d={}
@@ -373,15 +377,9 @@ class ModeBusDevice(Device):
         return data
 
 class ModeBusDeviceXML(ModeBusDevice):
-    def __init__(self,*args,**kwargs):
-        ModeBusDevice.__init__(self,*args,**kwargs)
-        ## build PLC file if necessary
-        # if len(glob.glob(self.confFolder+'*PLC*.csv'))==0:
-        self.build_plc_fromDevice()
-
     def loaddfInstr(self):
-        self.file_xml  = glob.glob(self.confFolder+self.device + '*ModbusTCP*.xml')[0]
-        patternDFinstr = self.confFolder + 'dfInstr*' + self.device+'*.pkl'
+        self.file_xml  = glob.glob(self.confFolder+self.device_name + '*ModbusTCP*.xml')[0]
+        patternDFinstr = self.confFolder + 'dfInstr*' + self.device_name+'*.pkl'
         listdfInstr    = glob.glob(patternDFinstr)
         if len(listdfInstr)==0:
             print('building dfInstr from '+ self.file_xml)
@@ -401,15 +399,8 @@ class ModeBusDeviceXML(ModeBusDevice):
 
 
 class ModeBusDeviceSingleRegisters(ModeBusDevice):
-    def __init__(self,*args,**kwargs):
-        self.confFolder = self.confFolder
-        self.device='smartlogger'
-        # if not os.path.exists(self.plcSmartLogger):
-        self.build_plc_fromDevice()
-        ModeBusDevice.__init__(self,*args,**kwargs)
-
     def loaddfInstr(self):
-        patternDFinstr=self.confFolder + 'dfInstr*' + self.device+'*.pkl'
+        patternDFinstr=self.confFolder + 'dfInstr*' + self.device_name+'*.pkl'
         listdfInstr = glob.glob(patternDFinstr)
         if len(listdfInstr)==0:
             dfInstr=pd.DataFrame()
@@ -477,6 +468,58 @@ class Opcua(Device):
         ts = dt.datetime.now().astimezone().isoformat()
         data = {tag:[val,ts] for tag,val in zip(nodes.keys(),values)}
         return data
+
+
+class Meteo_Client():
+    def __init__(self,city):
+        self.cities = pd.DataFrame({'leCheylas':{'lat' : '45.387','lon':'6.0000'},
+        'champet':{'lat':'45.466393','lon':'5.656045'},
+        'stJoachim':{'lat':'47.382074','lon':'-2.196835'}})
+        self.baseurl = 'https://api.openweathermap.org/data/2.5/'
+        self.apitoken = '79e8bbe89ac67324c6a6cdbf76a450c0'
+        # apitoken = '2baff0505c3177ad97ec1b648b504621'# Marc
+        self.device_name='meteo'
+        self.t0 = dt.datetime(1970,1,1,1,0).astimezone(tz = pytz.timezone('Etc/GMT-3'))
+    # baseFolder = '/home/dorian/data/sylfenData/'
+
+    def get_data(self):
+        return pd.concat([self.get_dfMeteo(city) for city in self.cities],axis=1)
+
+    def get_dfMeteo(self,city):
+        url = self.baseurl + 'weather?lat='+self.gps.lat+'&lon=' + gps.lon + '&units=metric&appid=' + self.apitoken
+        response = urllib.request.urlopen(url)
+        data = json.loads(response.read())
+        t0 = dt.datetime(1970,1,1,1,0).astimezone(tz = pytz.timezone('Etc/GMT-3'))
+        dfmain=pd.DataFrame(data['main'],index=[t0 + dt.timedelta(seconds=data['dt'])])
+        dfmain['clouds']=data['clouds']['all']
+        dfmain['visibility']=data['visibility']
+        dfmain['main']=data['weather'][0]['description']
+        dfwind=pd.DataFrame(data['wind'],index=[t0 + dt.timedelta(seconds=data['dt'])])
+        dfwind.columns = [self.city + '_wind_' + k  for k in dfwind.columns]
+        dfmain.columns = [self.city + '_' + k  for k in dfmain.columns]
+        return pd.concat([dfmain,dfwind],axis=1)
+
+    def dfMeteoForecast():
+        url = baseurl + 'onecall?lat='+lat+'&lon=' + lon + '&units=metric&appid=' + apitoken ## prediction
+        # url = 'http://history.openweathermap.org/data/2.5/history/city?q='+ +',' + country + '&appid=' + apitoken
+        listInfos = list(data['hourly'][0].keys())
+        listInfos = [listInfos[k] for k in [0,1,2,3,4,5,6,7,8,9,10,11]]
+        dictMeteo = {tag  : [k[tag] for k in data['hourly']] for tag in listInfos}
+        dfHourly = pd.DataFrame.from_dict(dictMeteo)
+        dfHourly['dt'] = [t0+dt.timedelta(seconds=k) for k in dfHourly['dt']]
+
+        listInfos = list(data['daily'][0].keys())
+        listInfos = [listInfos[k] for k in [0,1,2,3,4,5,6,8,9,10,11,13,15,16,18]]
+        dictMeteo = {tag  : [k[tag] for k in data['daily']] for tag in listInfos}
+        dfDaily = pd.DataFrame.from_dict(dictMeteo)
+        dfDaily['sunrise'] = [t0+dt.timedelta(seconds=k) for k in dfDaily['sunrise']]
+        dfDaily['sunset'] = [t0+dt.timedelta(seconds=k) for k in dfDaily['sunset']]
+        dfDaily['moonrise'] = [t0+dt.timedelta(seconds=k) for k in dfDaily['moonrise']]
+        dfDaily['moonset'] = [t0+dt.timedelta(seconds=k) for k in dfDaily['moonset']]
+
+        listInfos = list(data['minutely'][0].keys())
+        dictMeteo = {tag  : [k[tag] for k in data['minutely']] for tag in listInfos}
+        dfMinutely = pd.DataFrame.from_dict(dictMeteo)
 
 # #######################
 # #  DUMPING CLIENTS    #
@@ -697,7 +740,7 @@ class Streamer():
         return timelens
 
 class Configurator(Streamer):
-    def __init__(self,folderPkl,confFolder,devices,dbParameters,
+    def __init__(self,folderPkl,confFolder,dbParameters,
                     dbTimeWindow = 60*10,parkingTime=60*1):
         '''
         - dbTimeWindow : how many minimum seconds before now are in the database
@@ -707,17 +750,36 @@ class Configurator(Streamer):
         self.confFolder = confFolder##in seconds
         self.dbTimeWindow = dbTimeWindow##in seconds
         self.parkingTime = parkingTime##seconds
+        listFiles = glob.glob(self.confFolder + '*compteurs*.ods')
+        self.compteurFile=listFiles[0]
+        self.v_compteur=re.findall('_v\d+',self.compteurFile)[0]
+        self.df_devices = pd.read_excel(self.compteurFile,index_col=0,sheet_name='devices')
+        self.variables = pd.read_excel(self.compteurFile,index_col=0,sheet_name='variables')
+        self.compteurs = pd.read_excel(self.compteurFile,index_col=0,sheet_name='compteurs')
+        dictCat = self.df_devices.category.to_dict()
+        self.compteurs['fullname']=self.compteurs.reset_index().apply(lambda x: x['pointComptage']+'-' + dictCat[x['device']],axis=1)
+        for device in [d for  d in self.df_devices.index if not d=='meteo']:
+            catCompteur = self.compteurs.loc[self.compteurs.device==device].reset_index()
+            fullnames=dictCat[device] + catCompteur.index.to_series().apply(lambda x:'{:x}'.format(x+1).zfill(8))
+            self.compteurs.loc[self.compteurs.device==device,'fullname'] =list(fullnames)
+
         self.devices = EmptyClass()
-        for device_name in devices.index:
-            device=devices.loc[device_name]
-            print(device)
+        for device_name in self.df_devices.index[self.df_devices.statut=='actif']:
+            device=self.df_devices.loc[device_name]
+            # print(self.df_devices)
+            plc_dict={
+            'variables':self.variables[self.variables.device==device_name],
+            'compteurs':self.compteurs[self.compteurs.device==device_name],
+            'version':self.v_compteur
+            }
+            print(device_name)
             if device['protocole']=='modebus_xml':
-                device=ModeBusDeviceXML(device_name,device['IP'],device['port'],self.confFolder)
-            elif device_protocole=='modebus_single':
-                device=ModeBusDeviceSingleRegisters()
-            elif device_protocole=='HTTP':
-                device=HTTP(url)
-            elif device_protocole=='opcua':
+                device=ModeBusDeviceXML(device_name,device['IP'],device['port'],self.confFolder,plc_dict=plc_dict)
+            elif device['protocole']=='modebus_single':
+                device=ModeBusDeviceSingleRegisters(device_name,device['IP'],device['port'],self.confFolder,plc_dict=plc_dict)
+            elif device['protocole']=='Meteo_Client':
+                device=Meteo_Client(device_name)
+            elif device['protocole']=='opcua':
                 device=Opcua()
             setattr(self.devices,device_name,device)
         self.dbParameters=dbParameters
@@ -729,19 +791,15 @@ class Configurator(Streamer):
         except :
             self.usefulTags = pd.DataFrame()
         Streamer.__init__(self)
-
-
-
-
-class SuperDumper(Streamer):
-    def __init__(self,devices):
-        self.devices = devices
         dfplcs=[]
-        for device in self.device:
+        for device_name,device in self.devices.__dict__.items():
+            # print(device)
             dfplc=device.dfPLC
             dfplc['device']=device
             dfplcs.append(dfplc)
         self.dfplc=pd.concat(dfplcs)
+
+class SuperDumper(Streamer):
 
     def parkallfromdb(self):
         listTags = list(self.dfplc.index)
