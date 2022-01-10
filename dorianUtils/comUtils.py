@@ -12,7 +12,9 @@ from dorianUtils.utilsD import Utils
 # #######################
 # #      BASIC Utils    #
 # #######################
-# basic utilities for Streaming and DumpingClientMaster
+# basic utilities for Streamer and DumpingClientMaster
+class EmptyClass():pass
+
 class FileSystem():
     def getParentDir(self,folder):
         if folder[-1]=='/':
@@ -63,18 +65,19 @@ class SetInterval:
     def stop(self):
         self.stopEvent.set()
 
-class ComConfigMaster():
-    def __init__(self,folderPkl,confFolder,dbParameters,
-            dbTimeWindow = 60*10,parkingTime=60*1):
-        '''
-         - dbTimeWindow : how many minimum seconds before now are in the database
-         - parkingTime : how often data are parked and db flushed in seconds
-         '''
-        self.folderPkl  = folderPkl
-        self.confFolder = confFolder
-        self.dbTimeWindow = dbTimeWindow##in seconds
-        self.parkingTime = parkingTime##seconds
-        self.dbParameters=dbParameters
+# #######################
+# #      DEVICES        #
+# #######################
+# basic utilities for Streamer and DumpingClientMaster
+class Device():
+    ''' for inheritance :
+        - a function <loadPLC_file> should be written to load the data frame of info on tags.
+        - a function <collectData> should be written  to collect data from the device.
+        - a function <connectDevice> to connect to the device.
+    '''
+    def __init__(self):
+        self.fs     = FileSystem()
+        self.isConnected = True
         now = dt.datetime.now().astimezone()
         from dateutil.tz import tzlocal
         self.local_tzname = now.tzinfo.tzname(now)
@@ -90,13 +93,61 @@ class ComConfigMaster():
         self.loadPLC_file()
         self.allTags = list(self.dfPLC.index)
         self.listUnits = self.dfPLC.UNITE.dropna().unique().tolist()
-        self.parkedDays = [k.split('/')[-1] for k in glob.glob(self.folderPkl+'/*')]
-        self.parkedDays.sort()
+
+    def checkConnection(self):
+        if not self.isConnected:
+            print('+++++++++++++++++++++++++++')
+            print(dt.datetime.now(tz=pytz.timezone(self.local_tzname)))
+            print('try new connection ...')
+            try:
+                self.connectDevice()
+                print('connexion established again.')
+                self.isConnected=True
+            except Exception:
+                print(dt.datetime.now().astimezone().isoformat() + '''--> problem connecting to
+                                                device with endpointUrl''' + self.endpointUrl + '''
+                                                on port ''' + str(self.port))
+                print('sleep for ' + ' seconds')
+            print('+++++++++++++++++++++++++++')
+            print('')
+
+    def insert_intodb(self,dbParameters,*args):
+        ''' should have a function that gather data and returns them
+        in form of a dictionnary tag:value.
+        '''
+        data={}
         try :
-            self.usefulTags = pd.read_csv(self.confFolder+'/predefinedCategories.csv',index_col=0)
-            self.usefulTags.index = self.utils.uniformListStrings(list(self.usefulTags.index))
+            connReq = ''.join([k + "=" + v + " " for k,v in dbParameters.items()])
+            dbconn = psycopg2.connect(connReq)
         except :
-            self.usefulTags = pd.DataFrame()
+            print('problem connecting to database ',self.dbParameters )
+            return
+        cur  = dbconn.cursor()
+        start=time.time()
+        ts = dt.datetime.now(tz=pytz.timezone(self.local_tzname))
+        if self.isConnected:
+            try :
+                data = self.collectData(*args)
+                # print(data)
+            except:
+                print('souci connexion at ' + ts.isoformat())
+                self.isConnected = False
+                print('waiting for the connexion to be re-established...')
+
+            self.collectingTimes[ts] = (time.time()-start)*1000
+            for tag in data.keys():
+                sqlreq = "insert into realtimedata (tag,value,timestampz) values ('"
+                value = data[tag][0]
+                if value==None:
+                    value = 'null'
+                value=str(value)
+                sqlreq+= tag +"','" + value + "','" + data[tag][1]  + "');"
+                sqlreq=sqlreq.replace('nan','null')
+                cur.execute(sqlreq)
+            self.insertingTimes[dt.datetime.now(tz=pytz.timezone(self.local_tzname)).isoformat()]=(time.time()-start)*1000
+            dbconn.commit()
+        cur.close()
+        dbconn.close()
 
     def getUsefulTags(self,usefulTag):
         category = self.usefulTags.loc[usefulTag]
@@ -139,50 +190,39 @@ class ComConfigMaster():
                 valueInit[tag] = np.random.randint(tagvar.MIN,tagvar.MAX)
         return valueInit
 
+
 import xml.etree.ElementTree as ET
-class ModeBusConfigMaster(ComConfigMaster):
+class ModeBusDevice(Device):
     '''dfInstr should be loaded with loaddfInstr before calling this constructor'''
-    def __init__(self,folderPkl,confFolder,dbParameters,ipdevice,port,*args,**kwargs):
-        ComConfigMaster.__init__(self,folderPkl,confFolder,dbParameters,*args,**kwargs)
-        self.ip       = ipdevice
-        self.port     = port
-        self.fs       = FileSystem()
+    def __init__(self,device,ipdevice,port,confFolder):
+        self.ip     = ipdevice
+        self.port   = port
+        self.device = device
+        self.confFolder = confFolder
+        Device.__init__(self)
+        self.loaddfInstr()
         self.allTCPid = list(self.dfInstr.addrTCP.unique())
+        self.client = ModbusClient(host=self.ip,port=self.port)
 
     def loadPLC_file(self):
-        patternPLC_file='*PLC_v*'
-        listPLC = glob.glob(self.confFolder + patternPLC_file + '.pkl')
+        patternPLC=self.confFolder + 'plc*' + self.device
+        listPLC = glob.glob(patternPLC + '*.pkl')
         if len(listPLC)<1:
-            listPLC_csv = glob.glob(self.confFolder + patternPLC_file+'.csv')
+            listPLC_csv = glob.glob(patternPLC+'*.csv')
             plcfile = listPLC_csv[0]
-            print(plcfile,' is read and converted in .pkl')
+            print(plcfile,' is read and converted into .pkl')
             dfPLC = pd.read_csv(plcfile,index_col=0)
             dfPLC = dfPLC[dfPLC.DATASCIENTISM]
             pickle.dump(dfPLC,open(plcfile[:-4]+'.pkl','wb'))
-            listPLC = glob.glob(self.confFolder + patternPLC_file + '.pkl')
-
-        self.plcFile = listPLC[0]
-        self.dfPLC = pickle.load(open(self.plcFile,'rb'))
-
-    def loaddfInstr(self):
-        self.xmlfile  = glob.glob(self.confFolder+'*ModbusTCP*.xml')[0]
-        self.fileDfInstr=self.confFolder + 'dfInstr.pkl'
-        try:
-            if not os.path.exists(self.fileDfInstr):
-                dfInstr = self._findInstruments(self.xmlfile)
-                self.allTags = dfInstr['id'].unique()
-                dfInstr = self._makeDfInstrUnique(dfInstr)
-                pickle.dump(dfInstr,open(self.confFolder + 'dfInstr.pkl','wb'))
-        except:
-            print('no xml file found in ',self.confFolder)
-            raise SystemExit
-        self.dfInstr = pickle.load(open(self.fileDfInstr,'rb'))
+            listPLC = glob.glob(patternPLC + '*.pkl')
+        self.file_plc = listPLC[0]
+        self.dfPLC = pickle.load(open(self.file_plc,'rb'))
 
     def _makeDfInstrUnique(self,dfInstr):
-        '''make build dfInstr from xmfile and make every tag unique. Then save.'''
         uniqueDfInstr = []
-        for tag in self.allTags:
+        for tag in dfInstr['id'].unique():
             dup=dfInstr[dfInstr['id']==tag]
+            ### privilege on IEEE754 strcuture if duplicates
             rowFloat = dup[dup['type']=='IEEE754']
             if len(rowFloat)==1:
                 uniqueDfInstr.append(rowFloat)
@@ -233,10 +273,177 @@ class ModeBusConfigMaster(ComConfigMaster):
 
         return df
 
-class OpcuaConfigMaster(ComConfigMaster):
+    def build_plc_fromDevice(dfInstr):
+        print('building PLC configuration file of ' + self.device  +' from dfInstr')
+        self.loaddfInstr()
+        units = {'kW':'JTW','kWh':'JTWH','kVA':'JTVA','kvar':'JTVar','kvarh':'JTVarH','kVAh':'JTVAH'}
+        tags  = {}
+        deviceVariables = VARIABLES[VARIABLES.device==device]
+        for t in dfInstr.index:
+            currentTag = dfInstr.loc[t]
+            variable = currentTag['description']
+            fullCompteurName = COMPTEURS.loc[currentTag['point de comptage']]
+            if variable not in list(deviceVariables.index):
+                print('variable ',variable, 'not describe in compteurs.ods/variables')
+                # print('         exit        ')
+                # print('=========================')
+                print('')
+                # sys.exit()
+            else:
+                unit = units[currentTag['unit']]
+                # print(t)
+                description = fullCompteurName['description'] + ' - ' + deviceVariables.loc[variable,'description']
+                tag     = fullCompteurName.fullname + '-' + currentTag['description'] + '-' + unit
+                tags[tag] = {'DESCRIPTION' :description,'UNITE':unit}
+                dfInstr.loc[t,'tag'] = tag
+        dfplc = pd.DataFrame.from_dict(tags).T
+        dfplc.index.name  = 'TAG'
+        dfplc['MIN']      = -200000
+        dfplc['MAX']      = 200000
+        dfplc['DATATYPE'] = 'REAL'
+        dfplc['DATASCIENTISM'] = True
+        dfplc['PRECISION'] = 0.01
+        dfplc['FREQUENCE_ECHANTILLONNAGE'] = 5
+        dfplc['VAL_DEF'] = 0
+        plcfilename=self.confFolder + 'plc_' + device + V_COMPTEURS + '.csv'
+        dfInstrFilename=self.confFolder + 'dfInstr_' + device + V_COMPTEURS+'.pkl'
+        dfplc.to_csv(plcfilename)
+        print()
+        print(plcfilename +' saved.')
+        dfInstr = dfInstr[~dfInstr['tag'].isna()].set_index('tag')
+        pickle.dump(dfInstr,open(dfInstrFilename,'wb'))
+        print(dfInstrFilename +' saved.')
+        print('=======================================')
+        print('')
+
+    def decodeRegisters(self,regs,block,bo='='):
+        d={}
+        firstReg = block['intAddress'][0]
+        for tag in block.index:
+            row = block.loc[tag]
+            #### in order to make it work even if block is not continuous.
+            curReg = int(row['intAddress'])-firstReg
+            if row.type == 'INT32':
+                # print(curReg)
+                valueShorts = [regs[curReg+k] for k in [0,1]]
+                # conversion of 2 shorts(=DWORD=word) into long(=INT32)
+                value = struct.unpack(bo + 'i',struct.pack(bo + "2H",*valueShorts))[0]
+                # curReg+=2
+            if row.type == 'IEEE754':
+                valueShorts = [regs[curReg+k] for k in [0,1]]
+                value = struct.unpack(bo + 'f',struct.pack(bo + "2H",*valueShorts))[0]
+                # curReg+=2
+            elif row.type == 'INT64':
+                valueShorts = [regs[curReg+k] for k in [0,1,2,3]]
+                value = struct.unpack(bo + 'q',struct.pack(bo + "4H",*valueShorts))[0]
+                # curReg+=4
+            d[tag]=[value*row.scale,dt.datetime.now().astimezone().isoformat()]
+        return d
+
+    def checkRegisterValueTag(self,tag,**kwargs):
+        # self.connectDevice()
+        tagid = self.dfInstr.loc[tag]
+        regs  = self.client.read_holding_registers(tagid.intAddress,tagid['size(mots)'],unit=tagid.addrTCP).registers
+        return self.decodeRegisters(regs,pd.DataFrame(tagid).T,**kwargs)
+
+    def getPtComptageValues(self,unit_id,**kwargs):
+        ptComptage = self.dfInstr[self.dfInstr['addrTCP']==unit_id].sort_values(by='intAddress')
+        lastReg  = ptComptage['intAddress'][-1]
+        firstReg = ptComptage['intAddress'][0]
+        nbregs   = lastReg-firstReg + ptComptage['size(mots)'][-1]
+        #read all registers in a single command for better performances
+        regs = self.client.read_holding_registers(firstReg,nbregs,unit=unit_id).registers
+        return self.decodeRegisters(regs,ptComptage,**kwargs)
+
+    def connectDevice(self):
+        return self.client.connect()
+
+    def getModeBusRegistersValues(self,*args,**kwargs):
+        d={}
+        for idTCP in self.allTCPid:
+            d.update(self.getPtComptageValues(unit_id=idTCP,*args,**kwargs))
+        return d
+
+    def quickmodebus2dbint32(self,conn,add):
+        regs  = conn.read_holding_registers(add,2)
+        return struct.unpack(bo + 'i',struct.pack(bo + "2H",*regs))[0]
+
+    def collectData(self):
+        data = self.getModeBusRegistersValues()
+        return data
+
+class ModeBusDeviceXML(ModeBusDevice):
+    def __init__(self,*args,**kwargs):
+        ModeBusDevice.__init__(self,*args,**kwargs)
+        ## build PLC file if necessary
+        # if len(glob.glob(self.confFolder+'*PLC*.csv'))==0:
+        self.build_plc_fromDevice()
+
+    def loaddfInstr(self):
+        self.file_xml  = glob.glob(self.confFolder+self.device + '*ModbusTCP*.xml')[0]
+        patternDFinstr = self.confFolder + 'dfInstr*' + self.device+'*.pkl'
+        listdfInstr    = glob.glob(patternDFinstr)
+        if len(listdfInstr)==0:
+            print('building dfInstr from '+ self.file_xml)
+            try:
+                dfInstr = self._findInstruments(self.file_xml)
+                dfInstr = self._makeDfInstrUnique(dfInstr)
+                self.dfInstr = dfInstr
+            except:
+                print('no xml file found in ',self.confFolder)
+                raise SystemExit
+        else :
+            self.file_dfInstr = listdfInstr[0]
+            self.dfInstr=pickle.load(open(self.file_dfInstr,'rb'))
+        return self.dfInstr
+
+        self.dfInstr = pickle.load(open(self.fileDfInstr,'rb'))
+
+
+class ModeBusDeviceSingleRegisters(ModeBusDevice):
+    def __init__(self,*args,**kwargs):
+        self.confFolder = self.confFolder
+        self.device='smartlogger'
+        # if not os.path.exists(self.plcSmartLogger):
+        self.build_plc_fromDevice()
+        ModeBusDevice.__init__(self,*args,**kwargs)
+
+    def loaddfInstr(self):
+        patternDFinstr=self.confFolder + 'dfInstr*' + self.device+'*.pkl'
+        listdfInstr = glob.glob(patternDFinstr)
+        if len(listdfInstr)==0:
+            dfInstr=pd.DataFrame()
+            dfInstr['adresse']     = [40525,40560]
+            dfInstr['intAddress']  =[40525,40560]
+            dfInstr['type']        = ['INT32']*2
+            dfInstr['size(mots)']  = [2]*2
+            dfInstr['size(bytes)'] = [4]*2
+            dfInstr['description'] = ['kW','kWh']
+            dfInstr['scale']       = [1/1000,1/10]
+            dfInstr['unit']        = ['kW','kWh']
+            dfInstr['addrTCP']     = [1]*2
+            dfInstr['point de comptage'] = ['centrale SLS 80kWc']*2
+            dfInstr.index = dfInstr['point de comptage']+'-'+dfInstr['description']
+            self.dfInstr = dfInstr
+        else :
+            self.file_dfInstr = listdfInstr[0]
+            self.dfInstr=pickle.load(open(self.file_dfInstr,'rb'))
+        return self.dfInstr
+
+    def getModeBusRegistersValues(self):
+        data={}
+        for tag in self.dfInstr.index:
+            ptComptage = self.dfInstr.loc[[tag]]
+            val = self.dfInstr.loc[tag]
+            regs = self.client.read_holding_registers(val['intAddress'],val['size(mots)'],unit=val['addrTCP']).registers
+            data.update(self.decodeRegisters(regs,ptComptage,bo='!'))
+        return data
+
+
+class Opcua(Device):
     def __init__(self,folderPkl,confFolder,dbParameters,
                     endpointUrl,port=4843,nameSpace="ns=4;s=GVL.",**kwargs):
-        ComConfigMaster.__init__(self,folderPkl,confFolder,dbParameters,**kwargs)
+        Device.__init__(self,folderPkl,confFolder,dbParameters,**kwargs)
         self.endpointUrl = endpointUrl
         self.ip   = endpointUrl
         self.port = port
@@ -259,217 +466,23 @@ class OpcuaConfigMaster(ComConfigMaster):
             pickle.dump(dfPLC,open(plcfile[:-5]+'.pkl','wb'))
             listPLC = glob.glob(self.confFolder + '*Instrum*.pkl')
 
-        self.plcFile = listPLC[0]
-        self.dfPLC = pickle.load(open(self.plcFile,'rb'))
+        self.file_plc = listPLC[0]
+        self.dfPLC = pickle.load(open(self.file_plc,'rb'))
 
-# #######################
-# #      SIMULATORS     #
-# #######################
-from pymodbus.server.sync import ModbusTcpServer
-from pymodbus.datastore import ModbusSequentialDataBlock, ModbusSlaveContext, ModbusServerContext
-from pymodbus.client.sync import ModbusTcpClient as ModbusClient
-import opcua
+    def connectDevice(self):
+        self.client.connect()
 
-class Simulator():
-    ''' for inheritance a simulator should have:
-    - inheritance of a ComConfigMaster children class
-    - a function "serve" that starts the serveer
-    - a function "writeInRegisters" to feed the data.
-    - a function "shutdown_server" to shutdown the server.
-    '''
-    def __init__(self,speedflowdata=50,volatilitySimu=5):
-        '''
-        - speedflowdata : single data trigger event in ms
-        - volatilitySimu : how much random variation (absolute units)
-        '''
-        self.volatilitySimu = volatilitySimu
-        self.speedflowdata = speedflowdata
-        # self.server_thread = threading.Thread(target=self.serve)
-        # self.server_thread.daemon = True
-        self.feed = True
-        self.stopfeed = threading.Event()
-        self.feedingThread = threading.Thread(target=self.feedingLoop)
-
-    def stop(self):
-        self.stopfeed.set()
-        self.shutdown_server()
-        print("Server stopped")
-
-    def start(self):
-        print("Start server...")
-        self.server_thread.start()
-        print("Server is online")
-        self.feedingThread.start()
-        print("Server simulator is feeding")
-
-    def stopFeeding(self):
-        self.feed=False
-
-    def startFeeding(self):
-        self.feed=True
-
-    def feedingLoop(self):
-        while not self.stopfeed.isSet():
-            if self.feed:
-                start=time.time()
-                self.writeInRegisters()
-                print('fed in {:.2f} milliseconds'.format((time.time()-start)*1000))
-                sleep(self.speedflowdata/1000 + np.random.randint(0,1)/1000)
-
-    def is_serving(self):
-        return self.server_thread.is_alive()
-
-class SimulatorModeBus(Simulator):
-    ''' can only be used with a children class inheritating from a class that has
-    attributes and methods of ComConfigMaster.
-    ex : class StreamVisuSpecial(ComConfigSpecial,SimulatorModeBus)
-    with class ComConfigSpecial(ComConfigMaster)'''
-
-    def __init__(self,bo='=',*args,**kwargs):
-        '''
-        - bo : byteorder : bigendian >, littleendian <, native =, network(big endian) !
-        '''
-        self.bo = bo
-        Simulator.__init__(self,*args,**kwargs)
-        # initialize server with random values
-        self.dfInstr['value']=self.dfInstr['type'].apply(lambda x:np.random.randint(0,100000))
-        self.dfInstr['precision']=0.1
-        self.dfInstr['FREQUENCE_ECHANTILLONNAGE']=1
-        allTCPid = list(self.dfInstr['addrTCP'].unique())
-        # Create an instance of ModbusServer
-        slaves={}
-        for k in allTCPid:
-            slaves[k]  = ModbusSlaveContext(hr=ModbusSequentialDataBlock(0, [k]*128))
-            self.context = ModbusServerContext(slaves=slaves, single=False)
-        self.server = ModbusTcpServer(self.context, address=("", self.port))
-        self.server_thread = threading.Thread(target=self.serve)
-        self.server_thread.daemon = True
-
-    def start(self):
-        print("Start server...")
-        self.server_thread.start()
-        print("Server is online")
-        self.feedingThread.start()
-        print("Server simulator is feeding")
-
-    def generateRandomData(self,idTCP):
-        ptComptage = self.dfInstr[self.dfInstr['addrTCP']==idTCP]
-        byteflow=[]
-        values=[]
-        # te = ptComptage.iloc[[0]]
-        for tag in ptComptage.index:
-            te = ptComptage.loc[tag]
-            # print(te)
-            # address = te.index[0]
-            typevar = te.type
-            if typevar=='INT32':
-                value = int(te.value + np.random.randint(0,value*self.volatilitySimu/100))
-                # conversion of long(=INT32) into 2 shorts(=DWORD=word)
-                valueShorts = struct.unpack(self.bo + '2H',struct.pack(self.bo + "i",value))
-            if typevar=='INT64':
-                value = int(te.value + np.random.randint(0,value*self.volatilitySimu/100))
-                try:
-                    # conversion of long long(=INT64) to 4 short(=DWORD=word)
-                    valueShorts = struct.unpack(self.bo + '4H', struct.pack(self.bo + 'q',value))
-                except:
-                    print(value)
-            if typevar=='IEEE754':
-                value = te.value + np.random.randn()*te.value*self.volatilitySimu/100
-                # value = 16.565
-                # conversion of float(=IEEE7554O) to 2 shorts(=DWORD)
-                valueShorts=struct.unpack(self.bo + '2H', struct.pack(self.bo+'f', value))
-            byteflow.append(valueShorts)
-            self.dfInstr.loc[tag,'value']=value
-            # values.append(value)
-        # return [l for k in byteflow for l in k],values
-        return [l for k in byteflow for l in k]
-
-    def writeInRegisters(self):
-        feedingClient = ModbusClient(host='localhost',port=self.port)
-        feedingClient.connect()
-
-        for idTCP in self.allTCPid:
-            # print(idTCP)
-            ptComptage = self.dfInstr[self.dfInstr['addrTCP']==idTCP]
-
-            # #######
-            #                   IMPORTANT CHECK HERE
-            #           block should have continuous adresses with no gap!
-            # #######
-            # ptComptage = ptComptage[ptComptage.intAddress<10000]
-            try:
-                byteflow = self.generateRandomData(idTCP)
-                feedingClient.write_registers(ptComptage.intAddress[0],byteflow,unit=idTCP)
-            except:
-                print(dt.datetime.now().astimezone())
-                print('***********************************')
-                print(str(idTCP) + 'problem generating random Data')
-                traceback.print_exc()
-                print('***********************************')
-
-        tagtest='C00000001-A003-1-kW sys-JTW'
-        print(tagtest + ' : ',self.dfInstr.loc[tagtest,'value'])
-        feedingClient.close()
-
-    def serve(self):
-        self.server.serve_forever()
-
-    def shutdown_server(self):
-        self.server.shutdown()
-        print("Server simulator is shutdown")
-
-class SimulatorOPCUA(Simulator):
-    ''' can only be used with a children class inheritating from a class that has
-    attributes and methods of ComConfigMaster.
-    ex : class StreamVisuSpecial(ComConfigSpecial,SimulatorOPCUA)
-    with class ComConfigSpecial(ComConfigMaster)
-    '''
-    def __init__(self,*args,**kwargs):
-        self.server=opcua.Server()
-        self.server.set_endpoint(self.endpointUrl)
-        self.nodeValues = {}
-        self.nodeVariables = {}
-        self.createNodes()
-        Simulator.__init__(self,*args,**kwargs)
-
-    def serve(self):
-        print("start server")
-        self.server.start()
-        print("server Online")
-
-    def shutdown_server(self):
-        self.server.stop()
-
-    def createNodes(self):
-        objects=self.server.get_objects_node()
-        self.beckhoff = objects.add_object(self.nameSpace,"Beckhoff")
-        valueInits = self.createRandomInitalTagValues()
-        for tag,val in valueInits.items():
-            self.nodeValues[tag]    = val
-            self.nodeVariables[tag] = self.beckhoff.add_variable(self.nameSpace+tag,tag,val)
-
-    def writeInRegisters(self):
-        for tag,var in self.nodeVariables.items():
-            tagvar=self.dfPLC.loc[tag]
-            if tagvar.DATATYPE=='REAL':
-                newValue = self.nodeValues[tag] + self.volatilitySimu*np.random.randn()*tagvar.PRECISION
-                self.nodeVariables[tag].set_value(newValue)
-            if tagvar.DATATYPE=='BOOL':
-                newValue = np.random.randint(0,2)
-                self.nodeVariables[tag].set_value(newValue)
-            self.nodeValues[tag] = newValue
-        # tagTest = 'SEH1.STB_STK_03.HER_01_CL01.In.HR26'
-        tagTest = 'SEH1.GWPBH_PMP_05.HO00'
-        # tagTest = 'SEH1.STB_GFC_00_PT_01_HC21'
-        # tagTest = 'SEH1.STB_STK_01.SN'
-        # tagTest = 'SEH1.HPB_STG_01a_HER_03_JT_01.JTVAR_HC20'
-        print(tagTest + ': ',self.nodeVariables[tagTest].get_value())
+    def collectData(self,nodes):
+        values = self.client.get_values(nodes.values())
+        ts = dt.datetime.now().astimezone().isoformat()
+        data = {tag:[val,ts] for tag,val in zip(nodes.keys(),values)}
+        return data
 
 # #######################
 # #  DUMPING CLIENTS    #
 # #######################
-class Streaming():
-    '''Streaming enables to perform action on parked Day/Hour/Minute folders.
+class Streamer():
+    '''Streamer enables to perform action on parked Day/Hour/Minute folders.
     It comes with basic functions like loaddataminute/createminutefolder/parktagminute.'''
     def __init__(self):
         self.fs = FileSystem()
@@ -683,89 +696,115 @@ class Streaming():
         fig.show()
         return timelens
 
-class DumpingClientMaster():
-    ''' DumpingClientMaster is the master client that connects to buffer database and devices.
-    It has functions to store data in database while parking the data and
-    flushing the database with a dbwindow parameters that determines how big
-    the buffer data base can be and how often data should be parked.
-    For inheritance children classes should have :
-    - a function collectData to collect data from the device.
-    - a function connectDevice to connect to the device.
-    '''
+class Configurator(Streamer):
+    def __init__(self,folderPkl,confFolder,devices,dbParameters,
+                    dbTimeWindow = 60*10,parkingTime=60*1):
+        '''
+        - dbTimeWindow : how many minimum seconds before now are in the database
+        - parkingTime : how often data are parked and db flushed in seconds
+        '''
+        self.folderPkl = folderPkl##in seconds
+        self.confFolder = confFolder##in seconds
+        self.dbTimeWindow = dbTimeWindow##in seconds
+        self.parkingTime = parkingTime##seconds
+        self.devices = EmptyClass()
+        for device_name in devices.index:
+            device=devices.loc[device_name]
+            print(device)
+            if device['protocole']=='modebus_xml':
+                device=ModeBusDeviceXML(device_name,device['IP'],device['port'],self.confFolder)
+            elif device_protocole=='modebus_single':
+                device=ModeBusDeviceSingleRegisters()
+            elif device_protocole=='HTTP':
+                device=HTTP(url)
+            elif device_protocole=='opcua':
+                device=Opcua()
+            setattr(self.devices,device_name,device)
+        self.dbParameters=dbParameters
+        self.parkedDays = [k.split('/')[-1] for k in glob.glob(self.folderPkl+'/*')]
+        self.parkedDays.sort()
+        try :
+            self.usefulTags = pd.read_csv(self.confFolder+'/predefinedCategories.csv',index_col=0)
+            self.usefulTags.index = self.utils.uniformListStrings(list(self.usefulTags.index))
+        except :
+            self.usefulTags = pd.DataFrame()
+        Streamer.__init__(self)
+
+
+
+
+class SuperDumper(Streamer):
+    def __init__(self,devices):
+        self.devices = devices
+        dfplcs=[]
+        for device in self.device:
+            dfplc=device.dfPLC
+            dfplc['device']=device
+            dfplcs.append(dfplc)
+        self.dfplc=pd.concat(dfplcs)
+
+    def parkallfromdb(self):
+        listTags = list(self.dfplc.index)
+        start = time.time()
+        timenow = pd.Timestamp.now(tz=self.local_tzname)
+        t1 = timenow-dt.timedelta(seconds=self.dbTimeWindow)
+
+        ### read database
+        dbconn = self.connect2db()
+        sqlQ ="select * from realtimedata where timestampz < '" + t1.isoformat() +"'"
+        # df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'],dtype={'value':'float'})
+        df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
+        print(timenow.strftime('%H:%M:%S,%f') + ''' ===> database read in {:.2f} milliseconds'''.format((time.time()-start)*1000))
+        print('for data <' + t1.isoformat())
+        # close connection
+        dbconn.close()
+
+        # check if database not empty
+        if not len(df)>0:
+            print('database ' + self.dbParameters['dbname'] + ' empty')
+            return []
+
+        ##### determine minimum time for parking folders
+        t0 = df.set_index('timestampz').sort_index().index[0].tz_convert(self.local_tzname)
+        #### create Folders
+        self.createFolders(t0,t1)
+
+        #################################
+        #           park now            #
+        #################################
+        start=time.time()
+
+        # with Pool() as p:
+        #     dfs=p.starmap(self.parktagfromdb,[(t0,t1,df,tag) for tag in listTags])
+        dfs=[]
+        for tag in self.allTags:
+            dfs.append(self.parktagfromdb(t0,t1,df,tag))
+        print(timenow.strftime('%H:%M:%S,%f') + ''' ===> database parked in {:.2f} milliseconds'''.format((time.time()-start)*1000))
+        self.parkingTimes[timenow.isoformat()] = (time.time()-start)*1000
+        # #FLUSH DATABASE
+        start=time.time()
+        self.flushdb(t1.isoformat())
+        return dfs
+
+    def connect2db(self):
+        return psycopg2.connect(self.connReq)
+
     def __init__(self):
         # self.configCom = configCom
-        self.streaming = Streaming()
+        self.streaming = Streamer()
         self.fs = FileSystem()
-        self.connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
         self.logsFolder='/home/dorian/sylfen/exploreSmallPower/src/logs/'
         self.insertingTimes = {}
         self.collectingTimes = {}
         self.parkingTimes = {}
-        self.isConnected = True
         self.timeOutReconnexion = 3
         self.reconnectionThread = SetInterval(self.timeOutReconnexion,self.checkConnection)
         self.reconnectionThread.start()
-
-    def checkConnection(self):
-        if not self.isConnected:
-            print('+++++++++++++++++++++++++++')
-            print(dt.datetime.now(tz=pytz.timezone(self.local_tzname)))
-            print('try new connection ...')
-            try:
-                self.connectDevice()
-                print('connexion established again.')
-                self.isConnected=True
-            except Exception:
-                print(dt.datetime.now().astimezone().isoformat() + '''--> problem connecting to
-                                                device with endpointUrl''' + self.endpointUrl + '''
-                                                on port ''' + str(self.port))
-                print('sleep for ' + ' seconds')
-            print('+++++++++++++++++++++++++++')
-            print('')
 
     # ########################
     #       WORKING WITH     #
     #    POSTGRES DATABASE   #
     # ########################
-    def connect2db(self):
-        return psycopg2.connect(self.connReq)
-
-    def insert_intodb(self,*args):
-        ''' should have a function that gather data and returns them
-        in form of a dictionnary tag:value.
-        '''
-        data={}
-        try :
-            dbconn = self.connect2db()
-        except :
-            print('problem connecting to database ',self.dbParameters )
-            return
-        cur  = dbconn.cursor()
-        start=time.time()
-        ts = dt.datetime.now(tz=pytz.timezone(self.local_tzname))
-        if self.isConnected:
-            try :
-                data = self.collectData(*args)
-                # print(data)
-            except:
-                print('souci connexion at ' + ts.isoformat())
-                self.isConnected = False
-                print('waiting for the connexion to be re-established...')
-
-            self.collectingTimes[ts] = (time.time()-start)*1000
-            for tag in data.keys():
-                sqlreq = "insert into realtimedata (tag,value,timestampz) values ('"
-                value = data[tag][0]
-                if value==None:
-                    value = 'null'
-                value=str(value)
-                sqlreq+= tag +"','" + value + "','" + data[tag][1]  + "');"
-                sqlreq=sqlreq.replace('nan','null')
-                cur.execute(sqlreq)
-            self.insertingTimes[dt.datetime.now(tz=pytz.timezone(self.local_tzname)).isoformat()]=(time.time()-start)*1000
-            dbconn.commit()
-        cur.close()
-        dbconn.close()
 
     def flushdb(self,t,full=False):
         dbconn = psycopg2.connect(self.connReq)
@@ -811,8 +850,9 @@ class DumpingClientMaster():
         return self.streaming.foldersaction(t0,t1,self.folderPkl,self.streaming.parktagminute,dftag=dftag)
 
     def parkallfromdb(self):
-        start=time.time()
-        timenow=pd.Timestamp.now(tz=self.local_tzname)
+        listTags = self.allTags
+        start = time.time()
+        timenow = pd.Timestamp.now(tz=self.local_tzname)
         t1 = timenow-dt.timedelta(seconds=self.dbTimeWindow)
 
         ### read database
@@ -839,7 +879,6 @@ class DumpingClientMaster():
         #           park now            #
         #################################
         start=time.time()
-        listTags = self.allTags
 
         # with Pool() as p:
         #     dfs=p.starmap(self.parktagfromdb,[(t0,t1,df,tag) for tag in listTags])
@@ -874,8 +913,8 @@ class DumpingClientMaster():
         # close connection
         dbconn.close()
 
-    def parkalltagsDF(self,df,poolTags=True):
-        listTags = self.allTags
+    def parkalltagsDF(self,df,listTags=None,poolTags=True):
+        if listTags is None : listTags = self.allTags
         #### create Folders
         t0 = df.index.min()
         t1 = df.index.max()
@@ -979,100 +1018,18 @@ class DumpingClientMaster():
         self.bufferData={k:[] for k in self.dfInstr['id']}
         print(timenow.isoformat() + ' ===> data parked in {:.2f} milliseconds'.format((time.time()-start)*1000))
 
-class DumpingModeBusClient(DumpingClientMaster):
-    ''' can only be used with a children class inheritating from a class that has
-    attributes and methods of ComConfigMaster.
-    ex : class StreamVisuSpecial(ComConfigSpecial,DumpingModeBusClient)
-    with class ComConfigSpecial(ComConfigMaster)
-    '''
-    def __init__(self):
-        DumpingClientMaster.__init__(self)
-        self.allTCPid = self.dfInstr['addrTCP'].unique()
-        self.client = ModbusClient(host=self.ip,port=self.port)
-
-    def decodeRegisters(self,regs,block,bo='='):
-        d={}
-        for tag in block.index:
-            row = block.loc[tag]
-            #### in order to make it work even if block is not continuous.
-            curReg = int(row['intAddress'])
-            if row.type == 'INT32':
-                valueShorts = [regs[curReg+k] for k in [0,1]]
-                # conversion of 2 shorts(=DWORD=word) into long(=INT32)
-                value = struct.unpack(bo + 'i',struct.pack(bo + "2H",*valueShorts))[0]
-                # curReg+=2
-            if row.type == 'IEEE754':
-                valueShorts = [regs[curReg+k] for k in [0,1]]
-                value = struct.unpack(bo + 'f',struct.pack(bo + "2H",*valueShorts))[0]
-                # curReg+=2
-            elif row.type == 'INT64':
-                valueShorts = [regs[curReg+k] for k in [0,1,2,3]]
-                value = struct.unpack(bo + 'q',struct.pack(bo + "4H",*valueShorts))[0]
-                # curReg+=4
-            d[tag]=[value*row.scale,dt.datetime.now().astimezone().isoformat()]
-        return d
-
-    def checkRegisterValueTag(self,tag,**kwargs):
-        # self.connectDevice()
-        tagid = self.dfInstr.loc[tag]
-        regs  = self.client.read_holding_registers(tagid.intAddress,tagid['size(mots)'],unit=tagid.addrTCP).registers
-        return self.decodeRegisters(regs,pd.DataFrame(tagid).T,**kwargs)
-
-    def getPtComptageValues(self,unit_id,**kwargs):
-        ptComptage = self.dfInstr[self.dfInstr['addrTCP']==unit_id].sort_values(by='intAddress')
-        lastReg  = ptComptage['intAddress'][-1]
-        nbregs   = lastReg + ptComptage['size(mots)'][-1]
-        #read all registers in a single command for better performances
-        regs = self.client.read_holding_registers(0,nbregs,unit=unit_id).registers
-        return self.decodeRegisters(regs,ptComptage,**kwargs)
-
-    def connectDevice(self):
-        return self.client.connect()
-
-    def getModeBusRegistersValues(self,*args,**kwargs):
-        d={}
-        for idTCP in self.allTCPid:
-            d.update(self.getPtComptageValues(unit_id=idTCP,*args,**kwargs))
-        return d
-
-    def quickmodebus2dbint32(self,conn,add):
-        regs  = conn.read_holding_registers(add,2)
-        return struct.unpack(bo + 'i',struct.pack(bo + "2H",*regs))[0]
-
-    def collectData(self):
-        data = self.getModeBusRegistersValues()
-        return data
-
-class DumpingOPCUAClient(DumpingClientMaster):
-    ''' can only be used with a children class inheritating from a class that has
-    attributes and methods of ComConfigMaster.
-    ex : class StreamVisuSpecial(ComConfigSpecial,DumpingOPCUAClient)
-    with class ComConfigSpecial(ComConfigMaster)
-    '''
-    def __init__(self):
-        DumpingClientMaster.__init__(self)
-        self.isOPCUAconnected=True
-
-    def connectDevice(self):
-        self.client.connect()
-
-    def collectData(self,nodes):
-        values = self.client.get_values(nodes.values())
-        ts = dt.datetime.now().astimezone().isoformat()
-        data = {tag:[val,ts] for tag,val in zip(nodes.keys(),values)}
-        return data
 
 # #######################
-# #      VISU           #
+# #      VISU STREAMER  #
 # #######################
 import plotly.express as px
-class StreamingVisualisationMaster():
+class StreamerVisualisationMaster():
     ''' can only be used with a children class inheritating from a class that has
-    attributes and methods of ComConfigMaster.
-    ex : class StreamVisuSpecial(ComConfigSpecial,StreamingVisualisationMaster)
+    attributes and methods of Device.
+    ex : class StreamVisuSpecial(ComConfigSpecial,StreamerVisualisationMaster)
     '''
     def __init__(self):
-        self.streaming = Streaming()
+        self.streaming = Streamer()
         methods={}
         methods['forwardfill']= "df.ffill().resample(rs).ffill()"
         methods['raw']= None
