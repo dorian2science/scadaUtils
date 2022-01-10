@@ -94,6 +94,8 @@ class Device():
         self.loadPLC_file()
         self.allTags = list(self.dfPLC.index)
         self.listUnits = self.dfPLC.UNITE.dropna().unique().tolist()
+        self.collectingTimes={}
+        self.insertingTimes={}
 
     def checkConnection(self):
         if not self.isConnected:
@@ -134,8 +136,7 @@ class Device():
                 print('souci connexion at ' + ts.isoformat())
                 self.isConnected = False
                 print('waiting for the connexion to be re-established...')
-
-            self.collectingTimes[ts] = (time.time()-start)*1000
+            self.collectingTimes[dt.datetime.now(tz=pytz.timezone(self.local_tzname)).isoformat()] = (time.time()-start)*1000
             for tag in data.keys():
                 sqlreq = "insert into realtimedata (tag,value,timestampz) values ('"
                 value = data[tag][0]
@@ -197,13 +198,14 @@ class ModeBusDevice(Device):
     '''dfInstr should be loaded with loaddfInstr before calling this constructor'''
     def __init__(self,device_name,ipdevice,port,confFolder,plc_dict=None):
         self.ip     = ipdevice
-        self.port   = port
+        self.port   = int(port)
         self.confFolder = confFolder
-        Device.__init__(self,device_name)
+        self.device_name=device_name
         if not plc_dict is None:
             self.file_plc = self.confFolder + 'plc_' + device_name + plc_dict['version'] + '.csv'
             self.file_instr=self.confFolder + 'dfInstr_' + device_name + plc_dict['version']+'.pkl'
             self.build_plc_fromDevice(plc_dict)
+        Device.__init__(self,device_name)
         self.loaddfInstr()
         self.allTCPid = list(self.dfInstr.addrTCP.unique())
         self.client = ModbusClient(host=self.ip,port=self.port)
@@ -227,7 +229,6 @@ class ModeBusDevice(Device):
                 # sys.exit()
             else:
                 unit = units[currentTag['unit']]
-                # print(t)
                 description = fullCompteurName['description'] + ' - ' + variables.loc[variable,'description']
                 tag     = fullCompteurName.fullname + '-' + currentTag['description'] + '-' + unit
                 tags[tag] = {'DESCRIPTION' :description,'UNITE':unit}
@@ -318,7 +319,6 @@ class ModeBusDevice(Device):
         # df=df[df['scale']==0.1]
 
         return df
-
 
     def decodeRegisters(self,regs,block,bo='='):
         d={}
@@ -746,6 +746,7 @@ class Configurator(Streamer):
         - dbTimeWindow : how many minimum seconds before now are in the database
         - parkingTime : how often data are parked and db flushed in seconds
         '''
+        Streamer.__init__(self)
         self.folderPkl = folderPkl##in seconds
         self.confFolder = confFolder##in seconds
         self.dbTimeWindow = dbTimeWindow##in seconds
@@ -757,12 +758,11 @@ class Configurator(Streamer):
         self.variables = pd.read_excel(self.compteurFile,index_col=0,sheet_name='variables')
         self.compteurs = pd.read_excel(self.compteurFile,index_col=0,sheet_name='compteurs')
         dictCat = self.df_devices.category.to_dict()
-        self.compteurs['fullname']=self.compteurs.reset_index().apply(lambda x: x['pointComptage']+'-' + dictCat[x['device']],axis=1)
+        self.compteurs['fullname']=list(self.compteurs.reset_index().apply(lambda x:dictCat[x['device']]+'-'+ x['pointComptage']+'-',axis=1))
         for device in [d for  d in self.df_devices.index if not d=='meteo']:
             catCompteur = self.compteurs.loc[self.compteurs.device==device].reset_index()
-            fullnames=dictCat[device] + catCompteur.index.to_series().apply(lambda x:'{:x}'.format(x+1).zfill(8))
+            fullnames=dictCat[device] + catCompteur.index.to_series().apply(lambda x:'{:x}'.format(x+1).zfill(8))+'-'+catCompteur['pointComptage']
             self.compteurs.loc[self.compteurs.device==device,'fullname'] =list(fullnames)
-
         self.devices = EmptyClass()
         for device_name in self.df_devices.index[self.df_devices.statut=='actif']:
             device=self.df_devices.loc[device_name]
@@ -790,7 +790,6 @@ class Configurator(Streamer):
             self.usefulTags.index = self.utils.uniformListStrings(list(self.usefulTags.index))
         except :
             self.usefulTags = pd.DataFrame()
-        Streamer.__init__(self)
         dfplcs=[]
         for device_name,device in self.devices.__dict__.items():
             # print(device)
@@ -799,10 +798,30 @@ class Configurator(Streamer):
             dfplcs.append(dfplc)
         self.dfplc=pd.concat(dfplcs)
 
-class SuperDumper(Streamer):
+class SuperDumper(Configurator):
+    def __init__(self,*args,**kwargs):
+        Configurator.__init__(self,*args,**kwargs)
+        self.streaming = Streamer()
+        self.fs = FileSystem()
+        self.logsFolder='/home/dorian/sylfen/exploreSmallPower/src/logs/'
+        # self.timeOutReconnexion = 3
+        # self.reconnectionThread = SetInterval(self.timeOutReconnexion,self.checkConnection)
+        # self.reconnectionThread.start()
+        self.connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
+        self.freq = 5
+        self.dumpIntervalInit,self.dumpInterval = {},{}
+        self.alltags=list(self.dfplc.index)
 
+        for device_name,device in self.devices.__dict__.items():
+            self.dumpIntervalInit[device_name] = SetInterval(self.freq,device.insert_intodb,self.dbParameters)
+            self.dumpInterval[device_name] = SetInterval(self.freq,device.insert_intodb,self.dbParameters)
+        self.parkInterval = SetInterval(self.parkingTime,self.parkallfromdb)
+    # ########################
+    #       WORKING WITH     #
+    #    POSTGRES DATABASE   #
+    # ########################
     def parkallfromdb(self):
-        listTags = list(self.dfplc.index)
+        listTags=self.alltags
         start = time.time()
         timenow = pd.Timestamp.now(tz=self.local_tzname)
         t1 = timenow-dt.timedelta(seconds=self.dbTimeWindow)
@@ -835,7 +854,7 @@ class SuperDumper(Streamer):
         # with Pool() as p:
         #     dfs=p.starmap(self.parktagfromdb,[(t0,t1,df,tag) for tag in listTags])
         dfs=[]
-        for tag in self.allTags:
+        for tag in listTags:
             dfs.append(self.parktagfromdb(t0,t1,df,tag))
         print(timenow.strftime('%H:%M:%S,%f') + ''' ===> database parked in {:.2f} milliseconds'''.format((time.time()-start)*1000))
         self.parkingTimes[timenow.isoformat()] = (time.time()-start)*1000
@@ -846,23 +865,6 @@ class SuperDumper(Streamer):
 
     def connect2db(self):
         return psycopg2.connect(self.connReq)
-
-    def __init__(self):
-        # self.configCom = configCom
-        self.streaming = Streamer()
-        self.fs = FileSystem()
-        self.logsFolder='/home/dorian/sylfen/exploreSmallPower/src/logs/'
-        self.insertingTimes = {}
-        self.collectingTimes = {}
-        self.parkingTimes = {}
-        self.timeOutReconnexion = 3
-        self.reconnectionThread = SetInterval(self.timeOutReconnexion,self.checkConnection)
-        self.reconnectionThread.start()
-
-    # ########################
-    #       WORKING WITH     #
-    #    POSTGRES DATABASE   #
-    # ########################
 
     def flushdb(self,t,full=False):
         dbconn = psycopg2.connect(self.connReq)
@@ -908,7 +910,7 @@ class SuperDumper(Streamer):
         return self.streaming.foldersaction(t0,t1,self.folderPkl,self.streaming.parktagminute,dftag=dftag)
 
     def parkallfromdb(self):
-        listTags = self.allTags
+        listTags = self.alltags
         start = time.time()
         timenow = pd.Timestamp.now(tz=self.local_tzname)
         t1 = timenow-dt.timedelta(seconds=self.dbTimeWindow)
@@ -1075,6 +1077,54 @@ class SuperDumper(Streamer):
         #empty buffer
         self.bufferData={k:[] for k in self.dfInstr['id']}
         print(timenow.isoformat() + ' ===> data parked in {:.2f} milliseconds'.format((time.time()-start)*1000))
+
+    # ########################
+    #   CHECK ACQUISITION    #
+    #       TIMES            #
+    # ########################
+    def checkTimes():
+        dict2pdf = lambda d:pd.DataFrame.from_dict(d,orient='index').squeeze().sort_values()
+        s_collect = dict2pdf(vmucDumpingClient.collectingTimes)
+        s_insert  = dict2pdf(vmucDumpingClient.insertingTimes)
+
+        p = 1. * np.arange(len(s_collect))
+        ## first x axis :
+        tr1 = go.Scatter(x=p,y=df,name='collectingTime',col=1,row=1)
+        ## second axis
+        tr2 = go.Scatter(x=p,y=df,name='collectingTime',col=1,row=2)
+        title1='cumulative probability density '
+        title2='histogramm computing times '
+        # fig.update_layout(titles=)
+    # ########################
+    #   SCHEDULERS           #
+    # ########################
+    def start_dumping(self):
+        ## start the schedulers at H:M:S:00 pétante while letting the database grows until it reaches timer size    ! #####
+        now = dt.datetime.now().astimezone()
+        # print(now)
+        rab = 59-now.second
+        time.sleep(1-now.microsecond/1000000)
+        timer = rab
+        print('start dumping at :')
+        print(dt.datetime.now().astimezone())
+        for device in self.dumpIntervalInit.keys():
+            self.dumpIntervalInit[device].start()
+
+        time.sleep(timer)
+        print('start parking at :')
+        print(dt.datetime.now().astimezone())
+        ######## start parking first
+        for device in self.dumpIntervalInit.keys():
+            self.dumpIntervalInit[device].stop()
+            self.dumpInterval[device].start()
+        self.parkInterval.start()
+
+    def stop_dumping():
+        for device in devices.keys():
+            dumpIntervalInit[device].stop()
+            dumpInterval[device].stop()
+            parkInterval[device].stop()
+            vmucDumpingClient.reconnectionThread.stop()
 
 
 # #######################
