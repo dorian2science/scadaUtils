@@ -1065,7 +1065,7 @@ class SuperDumper(Configurator):
         ##### determine minimum time for parking folders
         t0 = df.set_index('timestampz').sort_index().index[0].tz_convert(self.local_tzname)
         #### create Folders
-        self.createFolders(t0,t1)
+        self.createFolders(t0,t1,self.folderPkl)
 
         #################################
         #           park now            #
