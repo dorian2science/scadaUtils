@@ -969,6 +969,7 @@ class SuperDumper(Configurator):
 
     def parktagfromdb(self,t0,t1,df,tag,compression='reduce'):
         dftag = df[df.tag==tag].set_index('timestampz')
+        # print(dftag)
         dftag.index=dftag.index.tz_convert(self.local_tzname)
         if dftag.empty:
             return dftag

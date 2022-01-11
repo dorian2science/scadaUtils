@@ -7,9 +7,9 @@ class VersionsManager():
         self.scriptDir    = os.path.dirname(os.path.realpath(__file__))
         if baseDir is None:baseDir=self.scriptDir
         self.baseDir      = baseDir
-        self.plcDir       = self.baseDir + '/PLC_config/'
+        self.plcDir       = self.baseDir + 'PLC_config/'
         self.folderData   = folderData
-        self.versionFiles = glob.glob(self.plcDir+'/*.xlsm')
+        self.versionFiles = glob.glob(self.plcDir+pattern_plcFiles)
         self.dicVersions  = {f:re.findall('\d+\.\d+',f)[0] for f in self.versionFiles}
         self.listVersions = list(self.dicVersions.values())
         self.listVersions.sort()
@@ -21,8 +21,8 @@ class VersionsManager():
         self.transitions = pd.ExcelFile(self.transitionFile).sheet_names
 
 
-        self.load_dfPLCs()
-        self.load_misingTagsMap()
+        # self.load_dfPLCs()
+        # self.load_misingTagsMap()
 
     def flattenList(self,l):
         return [item for sublist in l for item in sublist]
@@ -269,3 +269,25 @@ class VersionsManager():
             transition = self.listVersions[k] + '_' + self.listVersions[k+1]
             print(transition)
             self.makeDayTagsCompatible(jour,transition)
+
+class Monitoring_VM(VersionsManager):
+    def readAll_PLC_versions(self):
+        print('Start reading all .csv files....')
+        df_plcs = {}
+        for f,v in self.dicVersions.items():
+            print(f)
+            # df_plcs[v] = pickle.load(open(f,'rb'))
+            df_plcs[v] = pd.read_csv(f)
+        pickle.dump(df_plcs,open(self.pkldf_plcs,'wb'))
+        print(self.pkldf_plcs + ' saved')
+        print('==============================================')
+        print('')
+        try:
+            self.df_plcs = pickle.load(open(self.pkldf_plcs,'rb'))
+            self.all_ds_tags_history = list(pd.concat([dfplc.TAG[dfplc.DATASCIENTISM] for dfplc in self.df_plcs.values()]).unique())
+        except:
+            print('self.df_plcs could not be loaded because file ',self.pkldf_plcs,' does not exist')
+            print('start reading allfiles with function readAll_PLC_versions')
+            self.readAll_PLC_versions()
+            self.load_dfPLCs()
+            print('==============================================')
