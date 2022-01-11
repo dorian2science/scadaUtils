@@ -89,14 +89,6 @@ class Device():
         now = dt.datetime.now().astimezone()
         self.local_tzname = now.tzinfo.tzname(now)
         self.utils= Utils()
-        self.dataTypes = {
-          'REAL':'float',
-          'BOOL':'bool',
-          'WORD':'int',
-          'DINT':'int',
-          'INT':'int',
-          'STRING(40)':'str'
-        }
         self.loadPLC_file()
         self.allTags = list(self.dfPLC.index)
         self.listUnits = self.dfPLC.UNITE.dropna().unique().tolist()
@@ -528,7 +520,7 @@ class Meteo_Client(Device):
         dfMinutely = pd.DataFrame.from_dict(dictMeteo)
 
 # #######################
-# #  DUMPING CLIENTS    #
+# #  SUPER INSTANCES    #
 # #######################
 class Streamer():
     '''Streamer enables to perform action on parked Day/Hour/Minute folders.
@@ -756,6 +748,17 @@ class Configurator(Streamer):
         self.folderPkl = folderPkl##in seconds
         self.confFolder = confFolder##in seconds
         self.dbTimeWindow = dbTimeWindow##in seconds
+        self.dbParameters=dbParameters
+        self.connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
+        self.dataTypes = {
+          'REAL':'float',
+          'BOOL':'bool',
+          'WORD':'int',
+          'DINT':'int',
+          'INT':'int',
+          'STRING(40)':'str'
+        }
+
         self.parkingTime = parkingTime##seconds
         listFiles = glob.glob(self.confFolder + '*compteurs*.ods')
         self.compteurFile=listFiles[0]
@@ -789,7 +792,6 @@ class Configurator(Streamer):
             elif device['protocole']=='opcua':
                 device=Opcua()
             setattr(self.devices,device_name,device)
-        self.dbParameters=dbParameters
         self.parkedDays = [k.split('/')[-1] for k in glob.glob(self.folderPkl+'/*')]
         self.parkedDays.sort()
         try :
@@ -804,6 +806,10 @@ class Configurator(Streamer):
             dfplc['device']=device_name
             dfplcs.append(dfplc)
         self.dfPLC=pd.concat(dfplcs)
+        self.alltags=list(self.dfPLC.index)
+
+    def connect2db(self):
+        return psycopg2.connect(self.connReq)
 
     def getUsefulTags(self,usefulTag):
         category = self.usefulTags.loc[usefulTag]
@@ -839,13 +845,12 @@ class Configurator(Streamer):
 class SuperDumper(Configurator):
     def __init__(self,*args,**kwargs):
         Configurator.__init__(self,*args,**kwargs)
+        self.parkingTimes={}
         self.streaming = Streamer()
         self.fs = FileSystem()
         self.logsFolder='/home/dorian/sylfen/exploreSmallPower/src/logs/'
         self.timeOutReconnexion = 3
-        self.connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
         self.dumpIntervalInit,self.dumpInterval,self.reconnexionThread = {},{},{}
-        self.alltags=list(self.dfPLC.index)
 
         for device_name,device in self.devices.__dict__.items():
             freq = device.dfPLC['FREQUENCE_ECHANTILLONNAGE'].unique()[0]
@@ -931,9 +936,6 @@ class SuperDumper(Configurator):
         start=time.time()
         self.flushdb(t1.isoformat())
         return dfs
-
-    def connect2db(self):
-        return psycopg2.connect(self.connReq)
 
     def flushdb(self,t,full=False):
         dbconn = psycopg2.connect(self.connReq)
@@ -1042,8 +1044,12 @@ class SuperDumper(Configurator):
         # close connection
         dbconn.close()
 
-    def parkalltagsDF(self,df,listTags=None,poolTags=True):
-        if listTags is None : listTags = self.allTags
+    # ########################
+    # GENERATE STATIC DATA
+    # ########################
+    def park_alltagsDF(self,df,listTags=None,poolTags=True):
+        # print(self)
+        if listTags is None : listTags = self.alltags
         #### create Folders
         t0 = df.index.min()
         t1 = df.index.max()
@@ -1066,9 +1072,7 @@ class SuperDumper(Configurator):
                 for tag in listTags:
                     dfs.append(self.parktagfromdb(tm1,tm2,dfloc,tag))
             print('done in {:.2f} s'.format((time.time()-start)))
-    # ########################
-    # GENERATE STATIC DATA
-    # ########################
+
     def generateRandomParkedData(self,t0,t1,vol=1.5,listTags=None):
         valInits = self.createRandomInitalTagValues()
         if listTags==None:listTags=self.allTags
@@ -1151,10 +1155,11 @@ class SuperDumper(Configurator):
     #   CHECK ACQUISITION    #
     #       TIMES            #
     # ########################
-    def checkTimes():
+    def checkTimes(self,name_device):
         dict2pdf = lambda d:pd.DataFrame.from_dict(d,orient='index').squeeze().sort_values()
-        s_collect = dict2pdf(vmucDumpingClient.collectingTimes)
-        s_insert  = dict2pdf(vmucDumpingClient.insertingTimes)
+        device = self.devices.__dict__[name_device]
+        s_collect = dict2pdf(device.collectingTimes)
+        s_insert  = dict2pdf(device.insertingTimes)
 
         p = 1. * np.arange(len(s_collect))
         ## first x axis :
@@ -1164,16 +1169,18 @@ class SuperDumper(Configurator):
         title1='cumulative probability density '
         title2='histogramm computing times '
         # fig.update_layout(titles=)
+        return fig
 # #######################
 # #      VISU STREAMER  #
 # #######################
 import plotly.express as px
-class StreamerVisualisationMaster():
+class StreamerVisualisationMaster(Configurator):
     ''' can only be used with a children class inheritating from a class that has
     attributes and methods of Device.
     ex : class StreamVisuSpecial(ComConfigSpecial,StreamerVisualisationMaster)
     '''
-    def __init__(self):
+    def __init__(self,*args,**kwargs):
+        Configurator.__init__(self,*args,**kwargs)
         self.streaming = Streamer()
         methods={}
         methods['forwardfill']= "df.ffill().resample(rs).ffill()"
@@ -1186,9 +1193,6 @@ class StreamerVisualisationMaster():
         methods['meanrightInterpolated'] = "pd.concat([df.resample('100ms').asfreq(),df]).sort_index().interpolate('time').resample(rs,label='right',closed='right').mean()"
         methods['rolling_mean']="df.ffill().resample(rs).ffill().rolling(rmwindow).mean()"
         self.methods=methods
-
-    def connect2db(self):
-        return psycopg2.connect(''.join([k + "=" + v + " " for k,v in self.dbParameters.items()]))
 
     def loadparkedtag(self,t0,t1,tag):
         # print(tag)
