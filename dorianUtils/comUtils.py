@@ -8,6 +8,7 @@ import threading
 from multiprocessing import Pool
 import traceback
 from dorianUtils.utilsD import Utils
+from dateutil.tz import tzlocal
 
 # #######################
 # #      BASIC Utils    #
@@ -75,12 +76,17 @@ class Device():
         - a function <collectData> should be written  to collect data from the device.
         - a function <connectDevice> to connect to the device.
     '''
-    def __init__(self,device_name):
+    def __init__(self,confFolder,device_name,plc_dict=None):
+        self.plc_dict = plc_dict
+        self.confFolder=confFolder
+        if not self.plc_dict is None:
+            self.file_plc = self.confFolder + 'plc_' + device_name + plc_dict['version'] + '.csv'
+            self.file_instr=self.confFolder + 'dfInstr_' + device_name + plc_dict['version']+'.pkl'
+            self.build_plc_fromDevice(plc_dict)
         self.fs = FileSystem()
         self.device_name = device_name
         self.isConnected = True
         now = dt.datetime.now().astimezone()
-        from dateutil.tz import tzlocal
         self.local_tzname = now.tzinfo.tzname(now)
         self.utils= Utils()
         self.dataTypes = {
@@ -96,6 +102,61 @@ class Device():
         self.listUnits = self.dfPLC.UNITE.dropna().unique().tolist()
         self.collectingTimes={}
         self.insertingTimes={}
+
+    def loadPLC_file(self):
+        patternPLC=self.confFolder + 'plc*' + self.device_name
+        listPLC = glob.glob(patternPLC + '*.pkl')
+        if len(listPLC)<1:
+            listPLC_csv = glob.glob(patternPLC+'*.csv')
+            plcfile = listPLC_csv[0]
+            print(plcfile,' is read and converted into .pkl')
+            dfPLC = pd.read_csv(plcfile,index_col=0)
+            dfPLC = dfPLC[dfPLC.DATASCIENTISM]
+            pickle.dump(dfPLC,open(plcfile[:-4]+'.pkl','wb'))
+            listPLC = glob.glob(patternPLC + '*.pkl')
+        self.file_plc = listPLC[0]
+        self.dfPLC = pickle.load(open(self.file_plc,'rb'))
+
+    def build_plc_fromDevice(self,plc_dict):
+        print('building PLC configuration file of ' + self.device_name  +' from dfInstr')
+        dfInstr=self.loaddfInstr()
+        units = {'kW':'JTW','kWh':'JTWH','kVA':'JTVA','kvar':'JTVar','kvarh':'JTVarH','kVAh':'JTVAH'}
+        tags  = {}
+        variables=plc_dict['variables']
+        compteurs=plc_dict['compteurs']
+        for t in dfInstr.index:
+            currentTag = dfInstr.loc[t]
+            variable = currentTag['description']
+            fullCompteurName = compteurs.loc[currentTag['point de comptage']]
+            if variable not in list(variables.index):
+                print('variable ',variable, 'not describe in compteurs.ods/variables')
+                # print('         exit        ')
+                # print('=========================')
+                print('')
+                # sys.exit()
+            else:
+                unit = units[currentTag['unit']]
+                description = fullCompteurName['description'] + ' - ' + variables.loc[variable,'description']
+                tag     = fullCompteurName.fullname + '-' + currentTag['description'] + '-' + unit
+                tags[tag] = {'DESCRIPTION' :description,'UNITE':unit}
+                dfInstr.loc[t,'tag'] = tag
+        dfplc = pd.DataFrame.from_dict(tags).T
+        dfplc.index.name  = 'TAG'
+        dfplc['MIN']      = -200000
+        dfplc['MAX']      = 200000
+        dfplc['DATATYPE'] = 'REAL'
+        dfplc['DATASCIENTISM'] = True
+        dfplc['PRECISION'] = 0.01
+        dfplc['FREQUENCE_ECHANTILLONNAGE'] = 5
+        dfplc['VAL_DEF'] = 0
+        dfplc.to_csv(self.file_plc)
+        print()
+        print(self.file_plc +' saved.')
+        dfInstr = dfInstr[~dfInstr['tag'].isna()].set_index('tag')
+        pickle.dump(dfInstr,open(self.file_instr,'wb'))
+        print(self.file_instr +' saved.')
+        print('=======================================')
+        print('')
 
     def checkConnection(self):
         if not self.isConnected:
@@ -151,37 +212,6 @@ class Device():
         cur.close()
         dbconn.close()
 
-    def getUsefulTags(self,usefulTag):
-        category = self.usefulTags.loc[usefulTag]
-        return self.getTagsTU(category.Pattern,category.Unit)
-
-    def getUnitofTag(self,tag):
-        unit=self.dfPLC.loc[tag].UNITE
-        # print(unit)
-        if not isinstance(unit,str):
-            unit='u.a'
-        return unit
-
-    def getTagsTU(self,patTag,units=None,onCol='index',cols='tag'):
-        #patTag
-        if onCol=='index':
-            df = self.dfPLC[self.dfPLC.index.str.contains(patTag,case=False)]
-        else:
-            df = self.dfPLC[self.dfPLC[onCol].str.contains(patTag,case=False)]
-
-        #units
-        if not units : units = self.listUnits
-        if isinstance(units,str):units = [units]
-        df = df[df['UNITE'].isin(units)]
-
-        #return
-        if cols=='tdu' :
-            return df[['DESCRIPTION','UNITE']]
-        elif cols=='tag':
-            return list(df.index)
-        else :
-            return df
-
     def createRandomInitalTagValues(self):
         valueInit={}
         for tag in self.allTags:
@@ -196,74 +226,14 @@ from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 import xml.etree.ElementTree as ET
 class ModeBusDevice(Device):
     '''dfInstr should be loaded with loaddfInstr before calling this constructor'''
-    def __init__(self,device_name,ipdevice,port,confFolder,plc_dict=None):
+    def __init__(self,device_name,ipdevice,port,*args,**kwargs):
         self.ip     = ipdevice
         self.port   = int(port)
-        self.confFolder = confFolder
         self.device_name=device_name
-        if not plc_dict is None:
-            self.file_plc = self.confFolder + 'plc_' + device_name + plc_dict['version'] + '.csv'
-            self.file_instr=self.confFolder + 'dfInstr_' + device_name + plc_dict['version']+'.pkl'
-            self.build_plc_fromDevice(plc_dict)
-        Device.__init__(self,device_name)
+        Device.__init__(self,device_name=device_name,*args,**kwargs)
         self.loaddfInstr()
         self.allTCPid = list(self.dfInstr.addrTCP.unique())
         self.client = ModbusClient(host=self.ip,port=self.port)
-
-    def build_plc_fromDevice(self,plc_dict):
-        print('building PLC configuration file of ' + self.device_name  +' from dfInstr')
-        dfInstr=self.loaddfInstr()
-        units = {'kW':'JTW','kWh':'JTWH','kVA':'JTVA','kvar':'JTVar','kvarh':'JTVarH','kVAh':'JTVAH'}
-        tags  = {}
-        variables=plc_dict['variables']
-        compteurs=plc_dict['compteurs']
-        for t in dfInstr.index:
-            currentTag = dfInstr.loc[t]
-            variable = currentTag['description']
-            fullCompteurName = compteurs.loc[currentTag['point de comptage']]
-            if variable not in list(variables.index):
-                print('variable ',variable, 'not describe in compteurs.ods/variables')
-                # print('         exit        ')
-                # print('=========================')
-                print('')
-                # sys.exit()
-            else:
-                unit = units[currentTag['unit']]
-                description = fullCompteurName['description'] + ' - ' + variables.loc[variable,'description']
-                tag     = fullCompteurName.fullname + '-' + currentTag['description'] + '-' + unit
-                tags[tag] = {'DESCRIPTION' :description,'UNITE':unit}
-                dfInstr.loc[t,'tag'] = tag
-        dfplc = pd.DataFrame.from_dict(tags).T
-        dfplc.index.name  = 'TAG'
-        dfplc['MIN']      = -200000
-        dfplc['MAX']      = 200000
-        dfplc['DATATYPE'] = 'REAL'
-        dfplc['DATASCIENTISM'] = True
-        dfplc['PRECISION'] = 0.01
-        dfplc['FREQUENCE_ECHANTILLONNAGE'] = 5
-        dfplc['VAL_DEF'] = 0
-        dfplc.to_csv(self.file_plc)
-        print()
-        print(self.file_plc +' saved.')
-        dfInstr = dfInstr[~dfInstr['tag'].isna()].set_index('tag')
-        pickle.dump(dfInstr,open(self.file_instr,'wb'))
-        print(self.file_instr +' saved.')
-        print('=======================================')
-        print('')
-
-    def loadPLC_file(self):
-        patternPLC=self.confFolder + 'plc*' + self.device_name
-        listPLC = glob.glob(patternPLC + '*.pkl')
-        if len(listPLC)<1:
-            listPLC_csv = glob.glob(patternPLC+'*.csv')
-            plcfile = listPLC_csv[0]
-            print(plcfile,' is read and converted into .pkl')
-            dfPLC = pd.read_csv(plcfile,index_col=0)
-            dfPLC = dfPLC[dfPLC.DATASCIENTISM]
-            pickle.dump(dfPLC,open(plcfile[:-4]+'.pkl','wb'))
-            listPLC = glob.glob(patternPLC + '*.pkl')
-        self.file_plc = listPLC[0]
-        self.dfPLC = pickle.load(open(self.file_plc,'rb'))
 
     def _makeDfInstrUnique(self,dfInstr):
         uniqueDfInstr = []
@@ -378,6 +348,7 @@ class ModeBusDevice(Device):
 
 class ModeBusDeviceXML(ModeBusDevice):
     def loaddfInstr(self):
+        print(self.confFolder+self.device_name + '*ModbusTCP*.xml')
         self.file_xml  = glob.glob(self.confFolder+self.device_name + '*ModbusTCP*.xml')[0]
         patternDFinstr = self.confFolder + 'dfInstr*' + self.device_name+'*.pkl'
         listdfInstr    = glob.glob(patternDFinstr)
@@ -469,35 +440,70 @@ class Opcua(Device):
         data = {tag:[val,ts] for tag,val in zip(nodes.keys(),values)}
         return data
 
-
-class Meteo_Client():
-    def __init__(self,city):
-        self.cities = pd.DataFrame({'leCheylas':{'lat' : '45.387','lon':'6.0000'},
-        'champet':{'lat':'45.466393','lon':'5.656045'},
-        'stJoachim':{'lat':'47.382074','lon':'-2.196835'}})
+import urllib.request, json
+class Meteo_Client(Device):
+    def __init__(self):
+        self.device_name='meteo'
+        self.cities = pd.DataFrame({'le_cheylas':{'lat' : '45.387','lon':'6.0000'}})
+        # self.cities = pd.DataFrame({'leCheylas':{'lat' : '45.387','lon':'6.0000'},
+        #     'champet':{'lat':'45.466393','lon':'5.656045'},
+        #     'stJoachim':{'lat':'47.382074','lon':'-2.196835'}})
         self.baseurl = 'https://api.openweathermap.org/data/2.5/'
         self.apitoken = '79e8bbe89ac67324c6a6cdbf76a450c0'
         # apitoken = '2baff0505c3177ad97ec1b648b504621'# Marc
-        self.device_name='meteo'
         self.t0 = dt.datetime(1970,1,1,1,0).astimezone(tz = pytz.timezone('Etc/GMT-3'))
-    # baseFolder = '/home/dorian/data/sylfenData/'
+        Device.__init__(self,None,None)
 
-    def get_data(self):
-        return pd.concat([self.get_dfMeteo(city) for city in self.cities],axis=1)
+    def loadPLC_file(self):
+        vars = ['temp','pressure','humidity','clouds','wind_speed']
+        tags=['XM_'+ city+'_' + var for var in vars for city in self.cities]
+        descriptions=[var +' '+city for var in vars for city in self.cities]
+        dfplc=pd.DataFrame()
+        dfplc.index=tags
+        dfplc.loc[[k for k in dfplc.index if 'temp' in k],'MIN']=-50
+        dfplc.loc[[k for k in dfplc.index if 'temp' in k],'MAX']=50
+        dfplc.loc[[k for k in dfplc.index if 'temp' in k],'UNITE']='°C'
+        dfplc.loc[[k for k in dfplc.index if 'pressure' in k],'MIN']=-250
+        dfplc.loc[[k for k in dfplc.index if 'pressure' in k],'MAX']=250
+        dfplc.loc[[k for k in dfplc.index if 'pressure' in k],'UNITE']='mbar'
+        dfplc.loc[[k for k in dfplc.index if 'humidity' in k or 'clouds' in k],'MIN']=0
+        dfplc.loc[[k for k in dfplc.index if 'humidity' in k or 'clouds' in k],'MAX']=100
+        dfplc.loc[[k for k in dfplc.index if 'humidity' in k or 'clouds' in k],'UNITE']='%'
+        dfplc.loc[[k for k in dfplc.index if 'wind_speed' in k],'MIN']=0
+        dfplc.loc[[k for k in dfplc.index if 'wind_speed' in k],'MAX']=250
+        dfplc.loc[[k for k in dfplc.index if 'wind_speed' in k],'UNITE']='km/h'
+        dfplc['DESCRIPTION'] = descriptions
+        dfplc['DATATYPE'] = 'REAL'
+        dfplc['DATASCIENTISM'] = True
+        dfplc['PRECISION'] = 0.01
+        dfplc['FREQUENCE_ECHANTILLONNAGE'] = 60
+        dfplc['VAL_DEF'] = 0
+        self.dfPLC=dfplc
+
+    def connectDevice():
+        return True
+
+    def collectData(self):
+        df=pd.concat([self.get_dfMeteo(city) for city in self.cities])
+        df = df.loc[self.dfPLC.index]
+        # return df
+        return {k:[v,df.name] for k,v in zip(df.index,df)}
 
     def get_dfMeteo(self,city):
-        url = self.baseurl + 'weather?lat='+self.gps.lat+'&lon=' + gps.lon + '&units=metric&appid=' + self.apitoken
+        gps=self.cities[city]
+        url = self.baseurl + 'weather?lat='+gps.lat+'&lon=' + gps.lon + '&units=metric&appid=' + self.apitoken
         response = urllib.request.urlopen(url)
         data = json.loads(response.read())
         t0 = dt.datetime(1970,1,1,1,0).astimezone(tz = pytz.timezone('Etc/GMT-3'))
-        dfmain=pd.DataFrame(data['main'],index=[t0 + dt.timedelta(seconds=data['dt'])])
+        timeCur=t0 + dt.timedelta(seconds=data['dt'])
+        dfmain=pd.DataFrame(data['main'],index=[timeCur.isoformat()])
         dfmain['clouds']=data['clouds']['all']
         dfmain['visibility']=data['visibility']
         dfmain['main']=data['weather'][0]['description']
-        dfwind=pd.DataFrame(data['wind'],index=[t0 + dt.timedelta(seconds=data['dt'])])
-        dfwind.columns = [self.city + '_wind_' + k  for k in dfwind.columns]
-        dfmain.columns = [self.city + '_' + k  for k in dfmain.columns]
-        return pd.concat([dfmain,dfwind],axis=1)
+        dfwind=pd.DataFrame(data['wind'],index=[timeCur.isoformat()])
+        dfwind.columns = ['XM_' + city + '_wind_' + k  for k in dfwind.columns]
+        dfmain.columns = ['XM_' + city + '_' + k  for k in dfmain.columns]
+        return pd.concat([dfmain,dfwind],axis=1).squeeze()
 
     def dfMeteoForecast():
         url = baseurl + 'onecall?lat='+lat+'&lon=' + lon + '&units=metric&appid=' + apitoken ## prediction
@@ -777,8 +783,9 @@ class Configurator(Streamer):
                 device=ModeBusDeviceXML(device_name,device['IP'],device['port'],self.confFolder,plc_dict=plc_dict)
             elif device['protocole']=='modebus_single':
                 device=ModeBusDeviceSingleRegisters(device_name,device['IP'],device['port'],self.confFolder,plc_dict=plc_dict)
-            elif device['protocole']=='Meteo_Client':
-                device=Meteo_Client(device_name)
+            elif device['protocole']=='meteo':
+                device=Meteo_Client()
+                print(self.confFolder)
             elif device['protocole']=='opcua':
                 device=Opcua()
             setattr(self.devices,device_name,device)
@@ -794,9 +801,40 @@ class Configurator(Streamer):
         for device_name,device in self.devices.__dict__.items():
             # print(device)
             dfplc=device.dfPLC
-            dfplc['device']=device
+            dfplc['device']=device_name
             dfplcs.append(dfplc)
-        self.dfplc=pd.concat(dfplcs)
+        self.dfPLC=pd.concat(dfplcs)
+
+    def getUsefulTags(self,usefulTag):
+        category = self.usefulTags.loc[usefulTag]
+        return self.getTagsTU(category.Pattern,category.Unit)
+
+    def getUnitofTag(self,tag):
+        unit=self.dfPLC.loc[tag].UNITE
+        # print(unit)
+        if not isinstance(unit,str):
+            unit='u.a'
+        return unit
+
+    def getTagsTU(self,patTag,units=None,onCol='index',cols='tag'):
+        #patTag
+        if onCol=='index':
+            df = self.dfPLC[self.dfPLC.index.str.contains(patTag,case=False)]
+        else:
+            df = self.dfPLC[self.dfPLC[onCol].str.contains(patTag,case=False)]
+
+        #units
+        if not units : units = self.listUnits
+        if isinstance(units,str):units = [units]
+        df = df[df['UNITE'].isin(units)]
+
+        #return
+        if cols=='tdu' :
+            return df[['DESCRIPTION','UNITE']]
+        elif cols=='tag':
+            return list(df.index)
+        else :
+            return df
 
 class SuperDumper(Configurator):
     def __init__(self,*args,**kwargs):
@@ -804,18 +842,49 @@ class SuperDumper(Configurator):
         self.streaming = Streamer()
         self.fs = FileSystem()
         self.logsFolder='/home/dorian/sylfen/exploreSmallPower/src/logs/'
-        # self.timeOutReconnexion = 3
-        # self.reconnectionThread = SetInterval(self.timeOutReconnexion,self.checkConnection)
-        # self.reconnectionThread.start()
+        self.timeOutReconnexion = 3
         self.connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
-        self.freq = 5
-        self.dumpIntervalInit,self.dumpInterval = {},{}
-        self.alltags=list(self.dfplc.index)
+        self.dumpIntervalInit,self.dumpInterval,self.reconnexionThread = {},{},{}
+        self.alltags=list(self.dfPLC.index)
 
         for device_name,device in self.devices.__dict__.items():
-            self.dumpIntervalInit[device_name] = SetInterval(self.freq,device.insert_intodb,self.dbParameters)
-            self.dumpInterval[device_name] = SetInterval(self.freq,device.insert_intodb,self.dbParameters)
+            freq = device.dfPLC['FREQUENCE_ECHANTILLONNAGE'].unique()[0]
+            print(device_name,' : ',freq)
+            self.dumpIntervalInit[device_name] = SetInterval(freq,device.insert_intodb,self.dbParameters)
+            self.dumpInterval[device_name] = SetInterval(freq,device.insert_intodb,self.dbParameters)
+            self.reconnexionThread[device_name] = SetInterval(self.timeOutReconnexion,device.checkConnection)
         self.parkInterval = SetInterval(self.parkingTime,self.parkallfromdb)
+    # ########################
+    #   SCHEDULERS           #
+    # ########################
+    def start_dumping(self):
+        ## start the schedulers at H:M:S:00 pétante while letting the database grows until it reaches timer size    ! #####
+        now = dt.datetime.now().astimezone()
+        # print(now)
+        rab = 59-now.second
+        time.sleep(1-now.microsecond/1000000)
+        timer = rab
+        print('start dumping at :')
+        print(dt.datetime.now().astimezone())
+        for device in self.dumpIntervalInit.keys():
+            self.dumpIntervalInit[device].start()
+
+        time.sleep(timer)
+        print('start parking at :')
+        print(dt.datetime.now().astimezone())
+        ######## start parking first
+        for device in self.dumpIntervalInit.keys():
+            self.dumpIntervalInit[device].stop()
+            self.dumpInterval[device].start()
+            self.reconnexionThread[device].start()
+        self.parkInterval.start()
+
+    def stop_dumping(self):
+        for device in self.dumpInterval.keys():
+            self.dumpIntervalInit[device].stop()
+            self.dumpInterval[device].stop()
+            self.reconnexionThread[device].stop()
+        self.parkInterval.stop()
     # ########################
     #       WORKING WITH     #
     #    POSTGRES DATABASE   #
@@ -943,7 +1012,7 @@ class SuperDumper(Configurator):
         # with Pool() as p:
         #     dfs=p.starmap(self.parktagfromdb,[(t0,t1,df,tag) for tag in listTags])
         dfs=[]
-        for tag in self.allTags:
+        for tag in listTags:
             dfs.append(self.parktagfromdb(t0,t1,df,tag))
         print(timenow.strftime('%H:%M:%S,%f') + ''' ===> database parked in {:.2f} milliseconds'''.format((time.time()-start)*1000))
         self.parkingTimes[timenow.isoformat()] = (time.time()-start)*1000
@@ -994,7 +1063,7 @@ class SuperDumper(Configurator):
                     dfs=p.starmap(self.parktagfromdb,[(tm1,tm2,dfloc,tag) for tag in listTags])
             else:
                 dfs=[]
-                for tag in self.allTags:
+                for tag in listTags:
                     dfs.append(self.parktagfromdb(tm1,tm2,dfloc,tag))
             print('done in {:.2f} s'.format((time.time()-start)))
     # ########################
@@ -1095,38 +1164,6 @@ class SuperDumper(Configurator):
         title1='cumulative probability density '
         title2='histogramm computing times '
         # fig.update_layout(titles=)
-    # ########################
-    #   SCHEDULERS           #
-    # ########################
-    def start_dumping(self):
-        ## start the schedulers at H:M:S:00 pétante while letting the database grows until it reaches timer size    ! #####
-        now = dt.datetime.now().astimezone()
-        # print(now)
-        rab = 59-now.second
-        time.sleep(1-now.microsecond/1000000)
-        timer = rab
-        print('start dumping at :')
-        print(dt.datetime.now().astimezone())
-        for device in self.dumpIntervalInit.keys():
-            self.dumpIntervalInit[device].start()
-
-        time.sleep(timer)
-        print('start parking at :')
-        print(dt.datetime.now().astimezone())
-        ######## start parking first
-        for device in self.dumpIntervalInit.keys():
-            self.dumpIntervalInit[device].stop()
-            self.dumpInterval[device].start()
-        self.parkInterval.start()
-
-    def stop_dumping():
-        for device in devices.keys():
-            dumpIntervalInit[device].stop()
-            dumpInterval[device].stop()
-            parkInterval[device].stop()
-            vmucDumpingClient.reconnectionThread.stop()
-
-
 # #######################
 # #      VISU STREAMER  #
 # #######################
