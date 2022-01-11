@@ -1,5 +1,5 @@
 # import importlib
-import datetime as dt, time, pytz
+import datetime as dt, time, pytz,sys
 from time import sleep
 import os,re,threading,struct, glob, pickle,struct
 import numpy as np, pandas as pd
@@ -91,7 +91,6 @@ class Device():
         self.utils= Utils()
         self.loadPLC_file()
         self.allTags = list(self.dfPLC.index)
-        self.listUnits = self.dfPLC.UNITE.dropna().unique().tolist()
         self.collectingTimes={}
         self.insertingTimes={}
 
@@ -468,7 +467,7 @@ class Meteo_Client(Device):
         dfplc['DATATYPE'] = 'REAL'
         dfplc['DATASCIENTISM'] = True
         dfplc['PRECISION'] = 0.01
-        dfplc['FREQUENCE_ECHANTILLONNAGE'] = 60
+        dfplc['FREQUENCE_ECHANTILLONNAGE'] = 30
         dfplc['VAL_DEF'] = 0
         self.dfPLC=dfplc
 
@@ -568,7 +567,24 @@ class Streamer():
             print('no folder : ',folderminute)
             return []
 
+    def lenFilesMinute(self,folderminute):
+        listFiles=[]
+        if os.path.exists(folderminute):
+            listFiles = os.listdir(folderminute)
+        # return listFiles,folderminute
+        return listFiles
+
+    def actionMinutes_pooled(self,t0,t1,folderPkl,actionminute,*args):
+        minutes=pd.date_range(t0,t1,freq='1T')
+        minutefolders =[folderPkl + k.strftime('%Y-%m-%d/%H/%M/') for k in minutes]
+        with Pool() as p:
+            dfs = p.starmap(actionminute,[(folderminute,*args) for folderminute in minutefolders])
+        return {minute.strftime('%Y-%m-%d/%H/%M/'):df for minute,df in zip(minutes,dfs)}
+
     def foldersaction(self,t0,t1,folderPkl,actionminute,pooldays=False,**kwargs):
+        '''
+        -t0,t1 are timestamps
+        '''
         def actionMinutes(minutes,folderhour):
             dfs = []
             for m in minutes:
@@ -653,6 +669,52 @@ class Streamer():
         #park tag-minute
         pickle.dump(dfminute,open(folderminute + tag + '.pkl', "wb" ))
         return tag + ' parked in : ' + folderminute
+
+    def park_df_minute(self,folderminute,df_minute,listTags):
+        if not os.path.exists(folderminute):os.mkdir(folderminute)
+        # print(df_minute,folderminute)
+        # sys.exit()
+        for tag in listTags:
+            df_minute[df_minute.tag==tag].to_pickle(folderminute + tag + '.pkl')
+        return tag + ' parked in : ' + folderminute
+
+    # ########################
+    #   HIGH LEVEL FUNCTIONS #
+    # ########################
+    def park_alltagsDF(self,df,folderpkl):
+        # check if the format of the file is correct
+        correctColumns=['tag','timestampz','value']
+        if not list(df.columns.sort_values())==correctColumns:
+            print('PROBLEM: the df dataframe should have the following columns : ',correctColumns,'''
+            or your columns are ''',list(df.columns.sort_values()))
+            return
+        df=df.set_index('timestampz')
+        listTags=df.tag.unique()
+        t0 = df.index.min()
+        t1 = df.index.max()
+        self.createFolders(t0,t1,folderpkl)
+        nbHours=int((t1-t0).total_seconds()//3600)+1
+        ### cut file into hours because otherwise file is to big
+        for h in range(nbHours):
+        # for h in range(nbHours)[3:4]:
+            tm1=t0+dt.timedelta(hours=h)
+            tm2=tm1+dt.timedelta(hours=1)
+            tm2=min(tm2,t1)
+            # print(tm1,tm2)
+            dfhour=df[(df.index>tm1)&(df.index<tm2)]
+            print('start for :', dfhour.index[-1])
+            start=time.time()
+            minutes=pd.date_range(tm1,tm2,freq='1T')
+            df_minutes=[dfhour[(dfhour.index>a)&(dfhour.index<a+dt.timedelta(minutes=1))] for a in minutes]
+            minutefolders =[folderpkl + k.strftime('%Y-%m-%d/%H/%M/') for k in minutes]
+            # print(minutefolders)
+            # sys.exit()
+            with Pool() as p:
+                dfs = p.starmap(self.park_df_minute,[(fm,dfm,listTags) for fm,dfm in zip(minutefolders,df_minutes)])
+            print('done in {:.2f} s'.format((time.time()-start)))
+
+    def createFolders(self,t0,t1,folderPkl):
+        return self.foldersaction(t0,t1,folderPkl,self.createminutefolder)
 
     # ########################
     #   STATIC COMPRESSION   #
@@ -807,6 +869,7 @@ class Configurator(Streamer):
             dfplcs.append(dfplc)
         self.dfPLC=pd.concat(dfplcs)
         self.alltags=list(self.dfPLC.index)
+        self.listUnits = self.dfPLC.UNITE.dropna().unique().tolist()
 
     def connect2db(self):
         return psycopg2.connect(self.connReq)
@@ -964,9 +1027,6 @@ class SuperDumper(Configurator):
         dbconn.commit()
         dbconn.close()
 
-    def createFolders(self,t0,t1):
-        return self.streaming.foldersaction(t0,t1,self.folderPkl,self.streaming.createminutefolder)
-
     def parktagfromdb(self,t0,t1,df,tag,compression='reduce'):
         dftag = df[df.tag==tag].set_index('timestampz')
         # print(dftag)
@@ -1045,10 +1105,7 @@ class SuperDumper(Configurator):
         # close connection
         dbconn.close()
 
-    # ########################
-    # GENERATE STATIC DATA
-    # ########################
-    def park_alltagsDF(self,df,listTags=None,poolTags=True):
+    def park_alltagsDF(self,df,listTags=None,poolTags=True,*args,**kwargs):
         # print(self)
         if listTags is None : listTags = self.alltags
         #### create Folders
@@ -1073,7 +1130,9 @@ class SuperDumper(Configurator):
                 for tag in listTags:
                     dfs.append(self.parktagfromdb(tm1,tm2,dfloc,tag))
             print('done in {:.2f} s'.format((time.time()-start)))
-
+    # ########################
+    # GENERATE STATIC DATA
+    # ########################
     def generateRandomParkedData(self,t0,t1,vol=1.5,listTags=None):
         valInits = self.createRandomInitalTagValues()
         if listTags==None:listTags=self.allTags

@@ -1,13 +1,10 @@
-import pandas as pd, glob,os,sys
+import pandas as pd, glob,os,sys,datetime as dt
 import pickle,re,time
 from functools import reduce
-
+from .comUtils import Streamer
 class VersionsManager():
-    def __init__(self,folderData,baseDir=None,pattern_plcFiles='*plc*.pkl'):
-        self.scriptDir    = os.path.dirname(os.path.realpath(__file__))
-        if baseDir is None:baseDir=self.scriptDir
-        self.baseDir      = baseDir
-        self.plcDir       = self.baseDir + 'PLC_config/'
+    def __init__(self,folderData,plcDir=None,pattern_plcFiles='*plc*.csv'):
+        self.plcDir       = plcDir
         self.folderData   = folderData
         self.versionFiles = glob.glob(self.plcDir+pattern_plcFiles)
         self.dicVersions  = {f:re.findall('\d+\.\d+',f)[0] for f in self.versionFiles}
@@ -19,61 +16,80 @@ class VersionsManager():
         self.pkldf_missingTagsmap  = self.plcDir + 'mapMissingTags_map.pkl'
         self.transitionFile = self.plcDir + 'versionnageTags.ods'
         self.transitions = pd.ExcelFile(self.transitionFile).sheet_names
+        self.streaming=Streamer()
+        # self.df_days = pd.DataFrame({d:self.checkDayHomogeneous(d) for d in self.allDays},
+        #     index = ['homogeneous','nb_tags_moyen','nb_tags_std','nb_minutes','list_minutes','randomMinuteSelected','listTags']).T
 
-
-        # self.load_dfPLCs()
+        self.load_dfPLCs()
         # self.load_misingTagsMap()
 
     def flattenList(self,l):
         return [item for sublist in l for item in sublist]
 
-    def readAll_PLC_versions(self):
-        print('Start reading all .xlsm files....')
-        sheetnames ={f:pd.ExcelFile(f).sheet_names for f in self.versionFiles}
-        confJulesNotInV = {f:False if 'FichierConf_Jules' in v else True for f,v in sheetnames.items()}
-        confJulesNotInV = pd.DataFrame.from_dict(confJulesNotInV,orient='index').squeeze()
-        confJulesNotInV = list(confJulesNotInV[confJulesNotInV].index)
-        if len(confJulesNotInV)>0:
-            oldDir = self.plcDir + 'old/'
-            if not os.path.exists(oldDir):os.mkdir(oldDir)
-            print('no FichierConf_Jules sheet in files : ')
-            print()
-            for k in confJulesNotInV:
-                print(k)
-                os.rename(k,oldDir+k.split('/')[-1])
-            print()
-            print('those files were moved in directory ',oldDir)
-            print('==============================================')
+    def checkDayHomogeneous(self,day):
+        t0 = pd.Timestamp(day +' 00:00')
+        t1 = t0+dt.timedelta(days=1)
+        ## get lenghts
+        res=self.streaming.foldersaction(t0,t1,self.folderData,self.streaming.lenFilesMinute)
+        res=pd.DataFrame(res).set_index(0).squeeze()
+        ## get check if homogeneous
+        print(res)
+        homogeneous = False
+        if res.count()==1440 and res.std()==0:
+            homogeneous = True
+        listMinutes     = [k.strftime('%H:%M') for k in res.index]
+        randomMinuteSelected  = pd.Series(listMinutes).sample(n=1).squeeze()
+        folderminute = self.folderData +day+ '/'+ '/'.join(randomMinuteSelected.split(':'))
+        listTags = [k.split('/')[-1].split('.pkl')[0] for k in glob.glob(folderminute +'/*')]
+        # print(listTags)
+        return homogeneous,res.mean(),res.maxres.std(),res.count(),listMinutes,randomMinuteSelected,listTags
 
-        df_plcs = {}
-        for f,v in self.dicVersions.items():
-            print(f)
-            df_plcs[v] = pd.read_excel(f,sheet_name='FichierConf_Jules')
-        pickle.dump(df_plcs,open(self.pkldf_plcs,'wb'))
-        print(self.pkldf_plcs + ' saved')
-        print('==============================================')
-        print('')
+    def checkCompatiblityVersion_folder(self,folderminute):
+        print('\n=====================',jour,'===============\n')
+        listDayTags = [k.split('/')[-1][:-4] for k in os.listdir(folderminute)]
+        #               remove all pkl files that are
+        #           not a datascientism file(cleaning a bit)
+        listTagsNotDs=[k for k in listDayTags if k not in self.all_ds_tags_history]
+        try:
+            [os.remove(folderJour + tag + '.pkl') for tag in listTagsNotDs]
+        except:
+            print('couldnot remove tag')
+
+        #     check if all tag_files are found in day_folder
+        listTags_ds = [k for k in listDayTags if k in self.all_ds_tags_history]
+        dfs, tagNotInVersion, tagNotInDay={},{},{}
+        for version,dfplc in self.df_plcs.items():
+            listTagsVersion = list(dfplc.index[dfplc.DATASCIENTISM])
+            listTagsVersion.sort()
+            tagNotInVersion[version] = [k for k in listTags_ds if k not in listTagsVersion]
+            tagNotInDay[version] = [k for k in listTagsVersion if k not in listTags_ds]
+            dfs[version] = listTagsVersion
+            dayCompatibleVersions[jour][version] = tagNotInDay[version]
+
+        dfs = pd.DataFrame.from_dict({**dfs,'daytags':listTags_ds},orient='index').T
 
     def computeMapOfCompatibleVersions(self):
         dayCompatibleVersions={jour:{} for jour in self.allDays}
         # for jour in self.allDays:
         listLengths={}
-        # for jour in self.allDays[-2:]:
-        for jour in self.allDays:
+        for jour in self.allDays[:1]:
+        # for jour in self.allDays:
             folderJour = self.folderData+jour+'/'
             print('\n=====================',jour,'===============\n')
             listDayTags = [k.split('/')[-1][:-4] for k in glob.glob(folderJour + '*')]
-            listDayTags.sort()
             #               remove all pkl files that are
             #           not a datascientism file(cleaning a bit)
             listTagsNotDs=[k for k in listDayTags if k not in self.all_ds_tags_history]
-            [os.remove(folderJour + tag + '.pkl') for tag in listTagsNotDs]
+            try:
+                [os.remove(folderJour + tag + '.pkl') for tag in listTagsNotDs]
+            except:
+                print('couldnot remove tag')
 
             #     check if all tag_files are found in day_folder
             listTags_ds = [k for k in listDayTags if k in self.all_ds_tags_history]
             dfs, tagNotInVersion, tagNotInDay={},{},{}
             for version,dfplc in self.df_plcs.items():
-                listTagsVersion = list(dfplc.TAG[dfplc.DATASCIENTISM])
+                listTagsVersion = list(dfplc.index[dfplc.DATASCIENTISM])
                 listTagsVersion.sort()
                 tagNotInVersion[version] = [k for k in listTags_ds if k not in listTagsVersion]
                 tagNotInDay[version] = [k for k in listTagsVersion if k not in listTags_ds]
@@ -96,12 +112,11 @@ class VersionsManager():
     def load_dfPLCs(self):
         try:
             self.df_plcs = pickle.load(open(self.pkldf_plcs,'rb'))
-            self.all_ds_tags_history = list(pd.concat([dfplc.TAG[dfplc.DATASCIENTISM] for dfplc in self.df_plcs.values()]).unique())
         except:
             print('self.df_plcs could not be loaded because file ',self.pkldf_plcs,' does not exist')
             print('start reading allfiles with function readAll_PLC_versions')
             self.readAll_PLC_versions()
-            self.load_dfPLCs()
+            self.df_plcs = pickle.load(open(self.pkldf_plcs,'rb'))
             print('==============================================')
 
     def load_misingTagsMap(self):
@@ -112,7 +127,7 @@ class VersionsManager():
             print()
             print('run first computeMapOfCompatibleVersions')
             self.computeMapOfCompatibleVersions()
-            self.load_misingTagsMap()
+            self.df_missingTags_map,self.df_missingTags_lenmap_ = pickle.load(open(self.pkldf_missingTagsmap,'rb'))
             print('==============================================')
 
     def intersec(self,a,b):
@@ -269,25 +284,3 @@ class VersionsManager():
             transition = self.listVersions[k] + '_' + self.listVersions[k+1]
             print(transition)
             self.makeDayTagsCompatible(jour,transition)
-
-class Monitoring_VM(VersionsManager):
-    def readAll_PLC_versions(self):
-        print('Start reading all .csv files....')
-        df_plcs = {}
-        for f,v in self.dicVersions.items():
-            print(f)
-            # df_plcs[v] = pickle.load(open(f,'rb'))
-            df_plcs[v] = pd.read_csv(f)
-        pickle.dump(df_plcs,open(self.pkldf_plcs,'wb'))
-        print(self.pkldf_plcs + ' saved')
-        print('==============================================')
-        print('')
-        try:
-            self.df_plcs = pickle.load(open(self.pkldf_plcs,'rb'))
-            self.all_ds_tags_history = list(pd.concat([dfplc.TAG[dfplc.DATASCIENTISM] for dfplc in self.df_plcs.values()]).unique())
-        except:
-            print('self.df_plcs could not be loaded because file ',self.pkldf_plcs,' does not exist')
-            print('start reading allfiles with function readAll_PLC_versions')
-            self.readAll_PLC_versions()
-            self.load_dfPLCs()
-            print('==============================================')
