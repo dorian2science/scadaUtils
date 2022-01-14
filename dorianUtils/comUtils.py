@@ -380,7 +380,6 @@ class ModeBusDeviceXML(ModeBusDevice):
 
         self.dfInstr = pickle.load(open(self.fileDfInstr,'rb'))
 
-
 class ModeBusDeviceSingleRegisters(ModeBusDevice):
     def loaddfInstr(self):
         patternDFinstr=self.confFolder + 'dfInstr*' + self.device_name+'*.pkl'
@@ -412,7 +411,6 @@ class ModeBusDeviceSingleRegisters(ModeBusDevice):
             regs = self.client.read_holding_registers(val['intAddress'],val['size(mots)'],unit=val['addrTCP']).registers
             data.update(self.decodeRegisters(regs,ptComptage,bo='!'))
         return data
-
 
 class Opcua(Device):
     def __init__(self,folderPkl,confFolder,dbParameters,
@@ -697,18 +695,18 @@ class Streamer():
 
     def park_df_minute(self,folderminute,df_minute,listTags):
         if not os.path.exists(folderminute):os.mkdir(folderminute)
-        # print(df_minute,folderminute)
-        # sys.exit()
+        # print(folderminute)
+        # print(df_minute)
         for tag in listTags:
-            df_minute=df_minute[df_minute.tag==tag][['value']]
-            df_minute.columns=[tag]
-            df_minute.to_pickle(folderminute + tag + '.pkl')
+            df_tag=df_minute[df_minute['tag']==tag][['value']]
+            # df_tag.columns=[tag]
+            df_tag.to_pickle(folderminute + tag + '.pkl')
         return tag + ' parked in : ' + folderminute
 
     # ########################
     #   HIGH LEVEL FUNCTIONS #
     # ########################
-    def park_alltagsDF(self,df,folderpkl):
+    def park_alltagsDF(self,df,folderpkl,pool=True):
         # check if the format of the file is correct
         correctColumns=['tag','timestampz','value']
         if not list(df.columns.sort_values())==correctColumns:
@@ -736,8 +734,11 @@ class Streamer():
             minutefolders =[folderpkl + k.strftime('%Y-%m-%d/%H/%M/') for k in minutes]
             # print(minutefolders)
             # sys.exit()
-            with Pool() as p:
-                dfs = p.starmap(self.park_df_minute,[(fm,dfm,listTags) for fm,dfm in zip(minutefolders,df_minutes)])
+            if pool:
+                with Pool() as p:
+                    dfs = p.starmap(self.park_df_minute,[(fm,dfm,listTags) for fm,dfm in zip(minutefolders,df_minutes)])
+            else:
+                dfs = [self.park_df_minute(fm,dfm,listTags) for fm,dfm in zip(minutefolders,df_minutes)]
             print('done in {:.2f} s'.format((time.time()-start)))
 
     def createFolders(self,t0,t1,folderPkl):
@@ -1233,9 +1234,7 @@ class SuperDumper(Configurator):
         title2='histogramm computing times '
         # fig.update_layout(titles=)
         return fig
-# #######################
-# #      VISU STREAMER  #
-# #######################
+
 import plotly.express as px
 class StreamerVisualisationMaster(Configurator):
     ''' can only be used with a children class inheritating from a class that has
@@ -1261,10 +1260,8 @@ class StreamerVisualisationMaster(Configurator):
         print(folderminute)
         if os.path.exists(folderminute):
             dfs=[pickle.load(open(folderminute + tag + '.pkl', "rb" )) for tag in tags]
-            # df=pd.concat(dfs,axis=1)
-            # df.columns=tags
-            # return pd.concat(dfs)
-            return dfs
+            df=pd.concat(dfs,axis=1)
+            return df
         else :
             print('no folder : ',folderminute)
             return pd.DataFrame()
