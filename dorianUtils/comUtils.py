@@ -97,13 +97,16 @@ class Device():
         - a function <collectData> should be written  to collect data from the device.
         - a function <connectDevice> to connect to the device.
     '''
-    def __init__(self,confFolder,device_name,plc_dict=None):
-        self.plc_dict = plc_dict
-        self.confFolder=confFolder
-        if not self.plc_dict is None:
-            self.file_plc = self.confFolder + 'plc_' + device_name + plc_dict['version'] + '.csv'
-            self.file_instr=self.confFolder + 'dfInstr_' + device_name + plc_dict['version']+'.pkl'
-            self.build_plc_fromDevice(plc_dict)
+    def __init__(self,device_name,endpointUrl,port,confFolder,info_device=None):
+        self.endpointUrl = endpointUrl
+        self.port        = port
+        self.device_name = device_name
+        self.confFolder  = confFolder
+        self.info_device = info_device
+        if not self.info_device is None:
+            self.file_plc = self.confFolder + 'plc_' + device_name + info_device['version'] + '.csv'
+            self.file_instr=self.confFolder + 'dfInstr_' + device_name + info_device['version']+'.pkl'
+            self.build_plc_fromDevice(info_device)
         self.fs = FileSystem()
         self.device_name = device_name
         self.isConnected = True
@@ -129,13 +132,13 @@ class Device():
         self.file_plc = listPLC[0]
         self.dfPLC = pickle.load(open(self.file_plc,'rb'))
 
-    def build_plc_fromDevice(self,plc_dict):
+    def build_plc_fromDevice(self,info_device):
         print('building PLC configuration file of ' + self.device_name  +' from dfInstr')
         dfInstr=self.loaddfInstr()
         units = {'kW':'JTW','kWh':'JTWH','kVA':'JTVA','kvar':'JTVar','kvarh':'JTVarH','kVAh':'JTVAH'}
         tags  = {}
-        variables=plc_dict['variables']
-        compteurs=plc_dict['compteurs']
+        variables=info_device['variables']
+        compteurs=info_device['compteurs']
         for t in dfInstr.index:
             currentTag = dfInstr.loc[t]
             variable = currentTag['description']
@@ -238,14 +241,11 @@ from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 import xml.etree.ElementTree as ET
 class ModeBusDevice(Device):
     '''dfInstr should be loaded with loaddfInstr before calling this constructor'''
-    def __init__(self,device_name,ipdevice,port,*args,**kwargs):
-        self.ip     = ipdevice
-        self.port   = int(port)
-        self.device_name=device_name
-        Device.__init__(self,device_name=device_name,*args,**kwargs)
+    def __init__(self,*args,**kwargs):
+        Device.__init__(self,*args,**kwargs)
         self.loaddfInstr()
         self.allTCPid = list(self.dfInstr.addrTCP.unique())
-        self.client = ModbusClient(host=self.ip,port=self.port)
+        self.client = ModbusClient(host=self.endpointUrl,port=self.port)
 
     def _makeDfInstrUnique(self,dfInstr):
         uniqueDfInstr = []
@@ -412,15 +412,13 @@ class ModeBusDeviceSingleRegisters(ModeBusDevice):
             data.update(self.decodeRegisters(regs,ptComptage,bo='!'))
         return data
 
+import opcua
 class Opcua(Device):
-    def __init__(self,folderPkl,confFolder,dbParameters,
-                    endpointUrl,port=4843,nameSpace="ns=4;s=GVL.",**kwargs):
-        Device.__init__(self,folderPkl,confFolder,dbParameters,**kwargs)
-        self.endpointUrl = endpointUrl
-        self.ip   = endpointUrl
-        self.port = port
+    def __init__(self,*args,nameSpace,**kwargs):
+        Device.__init__(self,*args,**kwargs)
         self.nameSpace   = nameSpace
-        self.client      = opcua.Client(endpointUrl)
+        self.endpointUrl= self.endpointUrl+":"+str(self.port)
+        self.client      = opcua.Client(self.endpointUrl)
         self.certif_path = self.confFolder + 'my_cert.pem'
         self.key_path    = self.confFolder + 'my_private_key.pem'
         ####### load nodes
@@ -855,8 +853,8 @@ class Streamer():
         return timelens
 
 class Configurator(Streamer):
-    def __init__(self,folderPkl,confFolder,dbParameters,
-                    dbTimeWindow = 60*10,parkingTime=60*1,device_infos=None):
+    def __init__(self,folderPkl,confFolder,dbParameters,device_infos,
+                    dbTimeWindow = 60*10,parkingTime=60*1):
         '''
         - dbTimeWindow : how many minimum seconds before now are in the database
         - parkingTime : how often data are parked and db flushed in seconds
@@ -892,15 +890,15 @@ class Configurator(Streamer):
             device=self.df_devices.loc[device_name]
             # print(self.df_devices)
             print(device_name)
-            plc_dict=device_infos[device_name]
+            info_device=device_infos[device_name]
             if device['protocole']=='modebus_xml':
-                device=ModeBusDeviceXML(device_name,device['IP'],device['port'],self.confFolder,plc_dict=plc_dict)
+                device=ModeBusDeviceXML(device_name,device['IP'],device['port'],self.confFolder,info_device=info_device)
             elif device['protocole']=='modebus_single':
-                device=ModeBusDeviceSingleRegisters(device_name,device['IP'],device['port'],self.confFolder,plc_dict=plc_dict)
+                device=ModeBusDeviceSingleRegisters(device_name,device['IP'],device['port'],self.confFolder,info_device=info_device)
             elif device['protocole']=='meteo':
                 device=Meteo_Client()
             elif device['protocole']=='opcua':
-                device=Opcua(device_name,device['IP'],device['port'],self.confFolder,plc_dict=plc_dict)
+                device=Opcua(device_name,device['IP'],device['port'],self.confFolder,nameSpace=info_device['namespace'])
             setattr(self.devices,device_name,device)
             dfplc=device.dfPLC
             dfplc['device']=device_name
@@ -909,11 +907,10 @@ class Configurator(Streamer):
         #####
         self.parkedDays = [k.split('/')[-1] for k in glob.glob(self.folderPkl+'/*')]
         self.parkedDays.sort()
-        try :
-            self.usefulTags = pd.read_csv(self.confFolder+'/predefinedCategories.csv',index_col=0)
-            self.usefulTags.index = self.utils.uniformListStrings(list(self.usefulTags.index))
-        except :
-            self.usefulTags = pd.DataFrame()
+        list_special_configfiles = glob.glob(self.confFolder + '/*configfiles*')
+        if len(list_special_configfiles)>0:
+            self.file_special_cfg = list_special_configfiles[0]
+            self.usefulTags = pd.read_excel(self.file_special_cfg,index_col=0)
         self.alltags=list(self.dfPLC.index)
         self.listUnits = self.dfPLC.UNITE.dropna().unique().tolist()
         self.to_folderminute=lambda x:self.folderPkl+x.strftime(self.format_folderminute)
