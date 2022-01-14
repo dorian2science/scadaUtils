@@ -548,6 +548,7 @@ class Streamer():
     def __init__(self):
         self.fs = FileSystem()
         self.dayFolderFormat='%Y-%m-%d'
+        self.format_folderminute='%Y-%m-%d/%H/%M/'
         now = dt.datetime.now().astimezone()
         self.local_tzname = now.tzinfo.tzname(now)
 
@@ -597,13 +598,13 @@ class Streamer():
 
     def actionMinutes_pooled(self,t0,t1,folderPkl,actionminute,*args,pool=True):
         minutes=pd.date_range(t0,t1,freq='1T')
-        minutefolders =[folderPkl + k.strftime('%Y-%m-%d/%H/%M/') for k in minutes]
+        minutefolders =[folderPkl + k.strftime(self.format_folderminute) for k in minutes]
         if pool:
             with Pool() as p:
                 dfs = p.starmap(actionminute,[(folderminute,*args) for folderminute in minutefolders])
         else:
             dfs = [actionminute(folderminute,*args) for folderminute in minutefolders]
-        return {minute.strftime('%Y-%m-%d/%H/%M/'):df for minute,df in zip(minutes,dfs)}
+        return {minute.strftime(self.format_folderminute):df for minute,df in zip(minutes,dfs)}
 
     def foldersaction(self,t0,t1,folderPkl,actionminute,pooldays=False,**kwargs):
         '''
@@ -699,7 +700,9 @@ class Streamer():
         # print(df_minute,folderminute)
         # sys.exit()
         for tag in listTags:
-            df_minute[df_minute.tag==tag][['value']].to_pickle(folderminute + tag + '.pkl')
+            df_minute=df_minute[df_minute.tag==tag][['value']]
+            df_minute.columns=[tag]
+            df_minute.to_pickle(folderminute + tag + '.pkl')
         return tag + ' parked in : ' + folderminute
 
     # ########################
@@ -894,6 +897,7 @@ class Configurator(Streamer):
         self.dfPLC=pd.concat(dfplcs)
         self.alltags=list(self.dfPLC.index)
         self.listUnits = self.dfPLC.UNITE.dropna().unique().tolist()
+        self.to_folderminute=lambda x:self.folderPkl+x.strftime(self.format_folderminute)
 
     def connect2db(self):
         return psycopg2.connect(self.connReq)
@@ -1129,31 +1133,6 @@ class SuperDumper(Configurator):
         # close connection
         dbconn.close()
 
-    def park_alltagsDF(self,df,listTags=None,poolTags=True,*args,**kwargs):
-        # print(self)
-        if listTags is None : listTags = self.alltags
-        #### create Folders
-        t0 = df.index.min()
-        t1 = df.index.max()
-        self.createFolders(t0,t1)
-        nbHours=int((t1-t0).total_seconds()//3600)
-        for h in range(nbHours):
-        # for h in range(1):
-            tm1=t0+dt.timedelta(hours=h)
-            tm2=tm1+dt.timedelta(hours=1)
-            tm2=min(tm2,t1)
-            dfloc=df[(df.index>tm1)&(df.index<tm2)]
-            print('start for :', dfloc.index[-1])
-            dfloc=dfloc.reset_index()
-            start=time.time()
-            if poolTags:
-                with Pool() as p:
-                    dfs=p.starmap(self.parktagfromdb,[(tm1,tm2,dfloc,tag) for tag in listTags])
-            else:
-                dfs=[]
-                for tag in listTags:
-                    dfs.append(self.parktagfromdb(tm1,tm2,dfloc,tag))
-            print('done in {:.2f} s'.format((time.time()-start)))
     # ########################
     # GENERATE STATIC DATA
     # ########################
@@ -1282,8 +1261,10 @@ class StreamerVisualisationMaster(Configurator):
         print(folderminute)
         if os.path.exists(folderminute):
             dfs=[pickle.load(open(folderminute + tag + '.pkl', "rb" )) for tag in tags]
-            return pd.concat(dfs)
-            # return dfs
+            # df=pd.concat(dfs,axis=1)
+            # df.columns=tags
+            # return pd.concat(dfs)
+            return dfs
         else :
             print('no folder : ',folderminute)
             return pd.DataFrame()
