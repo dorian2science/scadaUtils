@@ -856,10 +856,13 @@ class Streamer():
 
 class Configurator(Streamer):
     def __init__(self,folderPkl,confFolder,dbParameters,
-                    dbTimeWindow = 60*10,parkingTime=60*1):
+                    dbTimeWindow = 60*10,parkingTime=60*1,device_infos=None):
         '''
         - dbTimeWindow : how many minimum seconds before now are in the database
         - parkingTime : how often data are parked and db flushed in seconds
+        - device_infos: dictionnary of dictionnary where keys are device_names with
+            necessary informations  to automatically generate PLC_config file.
+            see devices classes(modebus,OPCUA...) for which dictionnary is expected
         '''
         Streamer.__init__(self)
         self.folderPkl = folderPkl##in seconds
@@ -876,41 +879,26 @@ class Configurator(Streamer):
           'STRING(40)':'str'
         }
         self.parkingTime = parkingTime##seconds
-
-        listFiles = glob.glob(self.confFolder + '*compteurs*.ods')
-        self.compteurFile=listFiles[0]
-        self.v_compteur=re.findall('_v\d+',self.compteurFile)[0]
-        self.df_devices = pd.read_excel(self.compteurFile,index_col=0,sheet_name='devices')
-        self.variables = pd.read_excel(self.compteurFile,index_col=0,sheet_name='variables')
-        self.compteurs = pd.read_excel(self.compteurFile,index_col=0,sheet_name='compteurs')
-        dictCat = self.df_devices.category.to_dict()
-        self.compteurs['fullname']=list(self.compteurs.reset_index().apply(lambda x:dictCat[x['device']]+'-'+ x['pointComptage']+'-',axis=1))
-        for device in [d for  d in self.df_devices.index if not d=='meteo']:
-            catCompteur = self.compteurs.loc[self.compteurs.device==device].reset_index()
-            print(catCompteur)
-            fullnames   = dictCat[device] + catCompteur.index.to_series().apply(lambda x:'{:x}'.format(x+1).zfill(8))+'-'+catCompteur['pointComptage']
-            self.compteurs.loc[self.compteurs.device==device,'fullname'] =list(fullnames)
         self.devices = EmptyClass()
         ######################################
         ##### INITIALIZATION OF DEVICES ######
         ######################################
+        listFiles = glob.glob(self.confFolder + '*devices*.ods')
+        self.file_devices = listFiles[0]
+        self.df_devices = pd.read_excel(self.file_devices,index_col=0,sheet_name='devices')
+
         dfplcs =[]
         for device_name in self.df_devices.index[self.df_devices.statut=='actif']:
             device=self.df_devices.loc[device_name]
             # print(self.df_devices)
-            plc_dict={
-                'variables':self.variables[self.variables.device==device_name],
-                'compteurs':self.compteurs[self.compteurs.device==device_name],
-                'version':self.v_compteur
-            }
             print(device_name)
+            plc_dict=device_infos[device_name]
             if device['protocole']=='modebus_xml':
                 device=ModeBusDeviceXML(device_name,device['IP'],device['port'],self.confFolder,plc_dict=plc_dict)
             elif device['protocole']=='modebus_single':
                 device=ModeBusDeviceSingleRegisters(device_name,device['IP'],device['port'],self.confFolder,plc_dict=plc_dict)
             elif device['protocole']=='meteo':
                 device=Meteo_Client()
-                print(self.confFolder)
             elif device['protocole']=='opcua':
                 device=Opcua(device_name,device['IP'],device['port'],self.confFolder,plc_dict=plc_dict)
             setattr(self.devices,device_name,device)
