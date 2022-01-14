@@ -2,133 +2,32 @@ import pandas as pd, glob,os,sys,datetime as dt
 import pickle,re,time
 from functools import reduce
 from .comUtils import Streamer
+sort_list=lambda x:list(pd.Series(x).sort_values())
 class VersionsManager():
     def __init__(self,folderData,plcDir=None,pattern_plcFiles='*plc*.csv'):
+        self.streamer     = Streamer()
         self.plcDir       = plcDir
         self.folderData   = folderData
         self.versionFiles = glob.glob(self.plcDir+pattern_plcFiles)
         self.dicVersions  = {f:re.findall('\d+\.\d+',f)[0] for f in self.versionFiles}
-        self.listVersions = list(self.dicVersions.values())
-        self.listVersions.sort()
-        self.allDays      = [k.split('/')[-1] for k in glob.glob(self.folderData+'*')]
-        self.allDays.sort()
-        self.pkldf_plcs = self.plcDir + 'alldfsPLC.pkl'
-        self.pkldf_missingTagsmap  = self.plcDir + 'mapMissingTags_map.pkl'
+        self.listVersions = sort_list(self.dicVersions.values())
+        self.tmin,self.tmax = self.get_tminmax()
         self.transitionFile = self.plcDir + 'versionnageTags.ods'
         self.transitions = pd.ExcelFile(self.transitionFile).sheet_names
-        self.streaming=Streamer()
-        # self.df_days = pd.DataFrame({d:self.checkDayHomogeneous(d) for d in self.allDays},
-        #     index = ['homogeneous','nb_tags_moyen','nb_tags_std','nb_minutes','list_minutes','randomMinuteSelected','listTags']).T
 
-        self.load_dfPLCs()
-        # self.load_misingTagsMap()
+    def get_tminmax(self):
+        minFolder=lambda x:pd.Series(os.listdir(x)).min()
+        maxFolder=lambda x:pd.Series(os.listdir(x)).max()
 
-    def flattenList(self,l):
-        return [item for sublist in l for item in sublist]
-
-    def checkDayHomogeneous(self,day):
-        t0 = pd.Timestamp(day +' 00:00')
-        t1 = t0+dt.timedelta(days=1)
-        ## get lenghts
-        res=self.streaming.foldersaction(t0,t1,self.folderData,self.streaming.lenFilesMinute)
-        res=pd.DataFrame(res).set_index(0).squeeze()
-        ## get check if homogeneous
-        print(res)
-        homogeneous = False
-        if res.count()==1440 and res.std()==0:
-            homogeneous = True
-        listMinutes     = [k.strftime('%H:%M') for k in res.index]
-        randomMinuteSelected  = pd.Series(listMinutes).sample(n=1).squeeze()
-        folderminute = self.folderData +day+ '/'+ '/'.join(randomMinuteSelected.split(':'))
-        listTags = [k.split('/')[-1].split('.pkl')[0] for k in glob.glob(folderminute +'/*')]
-        # print(listTags)
-        return homogeneous,res.mean(),res.maxres.std(),res.count(),listMinutes,randomMinuteSelected,listTags
-
-    def checkCompatiblityVersion_folder(self,folderminute):
-        print('\n=====================',jour,'===============\n')
-        listDayTags = [k.split('/')[-1][:-4] for k in os.listdir(folderminute)]
-        #               remove all pkl files that are
-        #           not a datascientism file(cleaning a bit)
-        listTagsNotDs=[k for k in listDayTags if k not in self.all_ds_tags_history]
-        try:
-            [os.remove(folderJour + tag + '.pkl') for tag in listTagsNotDs]
-        except:
-            print('couldnot remove tag')
-
-        #     check if all tag_files are found in day_folder
-        listTags_ds = [k for k in listDayTags if k in self.all_ds_tags_history]
-        dfs, tagNotInVersion, tagNotInDay={},{},{}
-        for version,dfplc in self.df_plcs.items():
-            listTagsVersion = list(dfplc.index[dfplc.DATASCIENTISM])
-            listTagsVersion.sort()
-            tagNotInVersion[version] = [k for k in listTags_ds if k not in listTagsVersion]
-            tagNotInDay[version] = [k for k in listTagsVersion if k not in listTags_ds]
-            dfs[version] = listTagsVersion
-            dayCompatibleVersions[jour][version] = tagNotInDay[version]
-
-        dfs = pd.DataFrame.from_dict({**dfs,'daytags':listTags_ds},orient='index').T
-
-    def computeMapOfCompatibleVersions(self):
-        dayCompatibleVersions={jour:{} for jour in self.allDays}
-        # for jour in self.allDays:
-        listLengths={}
-        for jour in self.allDays[:1]:
-        # for jour in self.allDays:
-            folderJour = self.folderData+jour+'/'
-            print('\n=====================',jour,'===============\n')
-            listDayTags = [k.split('/')[-1][:-4] for k in glob.glob(folderJour + '*')]
-            #               remove all pkl files that are
-            #           not a datascientism file(cleaning a bit)
-            listTagsNotDs=[k for k in listDayTags if k not in self.all_ds_tags_history]
-            try:
-                [os.remove(folderJour + tag + '.pkl') for tag in listTagsNotDs]
-            except:
-                print('couldnot remove tag')
-
-            #     check if all tag_files are found in day_folder
-            listTags_ds = [k for k in listDayTags if k in self.all_ds_tags_history]
-            dfs, tagNotInVersion, tagNotInDay={},{},{}
-            for version,dfplc in self.df_plcs.items():
-                listTagsVersion = list(dfplc.index[dfplc.DATASCIENTISM])
-                listTagsVersion.sort()
-                tagNotInVersion[version] = [k for k in listTags_ds if k not in listTagsVersion]
-                tagNotInDay[version] = [k for k in listTagsVersion if k not in listTags_ds]
-                dfs[version] = listTagsVersion
-                dayCompatibleVersions[jour][version] = tagNotInDay[version]
-
-            dfs = pd.DataFrame.from_dict({**dfs,'daytags':listTags_ds},orient='index').T
-            # listLengths[jour] = dfs.apply(lambda x:len(x.dropna())).sort_values()
-
-        df_missingTags_map = pd.DataFrame.from_dict(dayCompatibleVersions,orient='index')
-        df_missingTags_map = df_missingTags_map[df_missingTags_map.columns.sort_values()]
-        dfmapLen = df_missingTags_map.applymap(lambda x:len(x))
-        # reduce(self.intersec,list(tagNotInVersion.values())[:3])
-        # reduce(set,list(tagNotInVersion.values()))
-        pickle.dump([df_missingTags_map,dfmapLen],open(self.pkldf_missingTagsmap,'wb'))
-        print(self.pkldf_missingTagsmap + ' saved')
-        print('==============================================')
-        print('')
-
-    def load_dfPLCs(self):
-        try:
-            self.df_plcs = pickle.load(open(self.pkldf_plcs,'rb'))
-        except:
-            print('self.df_plcs could not be loaded because file ',self.pkldf_plcs,' does not exist')
-            print('start reading allfiles with function readAll_PLC_versions')
-            self.readAll_PLC_versions()
-            self.df_plcs = pickle.load(open(self.pkldf_plcs,'rb'))
-            print('==============================================')
-
-    def load_misingTagsMap(self):
-        try:
-            self.df_missingTags_map,self.df_missingTags_lenmap_ = pickle.load(open(self.pkldf_missingTagsmap,'rb'))
-        except:
-            print('df_plcs could not be loaded because file ',self.pkldf_plcs,' does not exist')
-            print()
-            print('run first computeMapOfCompatibleVersions')
-            self.computeMapOfCompatibleVersions()
-            self.df_missingTags_map,self.df_missingTags_lenmap_ = pickle.load(open(self.pkldf_missingTagsmap,'rb'))
-            print('==============================================')
+        dmin=minFolder(self.folderData)
+        hmin=minFolder(self.folderData+dmin)
+        mmin=minFolder(self.folderData+dmin+'/'+hmin)
+        tmin=pd.Timestamp(dmin + ' '+hmin+':'+mmin)
+        dmax=maxFolder(self.folderData)
+        hmax=maxFolder(self.folderData+dmax)
+        mmax=maxFolder(self.folderData+dmax+'/'+hmax)
+        tmax=pd.Timestamp(dmax + ' '+hmax+':'+mmax)
+        return tmin,tmax
 
     def intersec(self,a,b):
         return set(a)&set(b)
@@ -231,7 +130,6 @@ class VersionsManager():
         plcold = plcold[plcold.DATASCIENTISM==True]
         plcnew = self.df_plcs[vnew]
         plcnew = plcnew[plcnew.DATASCIENTISM==True]
-
 
         tagsAdded = [t for t in list(plcnew.TAG) if t not in list(plcold.TAG)]
         # tags that were renamed should not be added

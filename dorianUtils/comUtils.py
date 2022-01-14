@@ -17,6 +17,27 @@ from dateutil.tz import tzlocal
 class EmptyClass():pass
 
 class FileSystem():
+    def load_confFile(self,filename,loadFunction,loadAnyway=False):
+        start    = time.time()
+        if not os.path.exists(filename) or loadAnyway:
+            print(filename, 'not present. Start generating the file with function : ')
+            print(loadFunction)
+            print('')
+            # try:
+            plcObj = loadFunction()
+            pickle.dump(plcObj,open(filename,'wb'))
+            print('')
+            print(filename + ' saved')
+            print('')
+            # except:
+            #     print('failed to build plc file with filename :',filename)
+            #     raise SystemExit
+        plcObj = pickle.load(open(filename,'rb'))
+        print(filename.split('/')[-1] + ' loaded in {:.2f} seconds'.format((time.time()-start)))
+        print('==============================================')
+        print('')
+        return plcObj
+
     def getParentDir(self,folder):
         if folder[-1]=='/':
             folder=folder[:-1]
@@ -523,14 +544,14 @@ class Meteo_Client(Device):
 # #######################
 class Streamer():
     '''Streamer enables to perform action on parked Day/Hour/Minute folders.
-    It comes with basic functions like loaddataminute/createminutefolder/parktagminute.'''
+    It comes with basic functions like loaddata_minutefolder/create_minutefolder/parktagminute.'''
     def __init__(self):
         self.fs = FileSystem()
         self.dayFolderFormat='%Y-%m-%d'
         now = dt.datetime.now().astimezone()
         self.local_tzname = now.tzinfo.tzname(now)
 
-    def createminutefolder(self,folderminute):
+    def create_minutefolder(self,folderminute):
         # print(folderminute)
         if not os.path.exists(folderminute):
             folderhour=self.fs.getParentDir(folderminute)
@@ -551,7 +572,7 @@ class Streamer():
         else :
             return folderminute +' already exists '
 
-    def deleteminutefolder(self,folderminute):
+    def delete_minutefolder(self,folderminute):
         # print(folderminute)
         if os.path.exists(folderminute):
             os.rmdir(folderminute)
@@ -559,7 +580,7 @@ class Streamer():
         else :
             return folderminute +' does not exist '
 
-    def loaddataminute(self,folderminute,tag):
+    def loaddata_minutefolder(self,folderminute,tag):
         if os.path.exists(folderminute):
             # print(folderminute)
             return pickle.load(open(folderminute + tag + '.pkl', "rb" ))
@@ -567,18 +588,21 @@ class Streamer():
             print('no folder : ',folderminute)
             return []
 
-    def lenFilesMinute(self,folderminute):
+    def listfilesminutes(self,folderminute):
         listFiles=[]
         if os.path.exists(folderminute):
             listFiles = os.listdir(folderminute)
         # return listFiles,folderminute
         return listFiles
 
-    def actionMinutes_pooled(self,t0,t1,folderPkl,actionminute,*args):
+    def actionMinutes_pooled(self,t0,t1,folderPkl,actionminute,*args,pool=True):
         minutes=pd.date_range(t0,t1,freq='1T')
         minutefolders =[folderPkl + k.strftime('%Y-%m-%d/%H/%M/') for k in minutes]
-        with Pool() as p:
-            dfs = p.starmap(actionminute,[(folderminute,*args) for folderminute in minutefolders])
+        if pool:
+            with Pool() as p:
+                dfs = p.starmap(actionminute,[(folderminute,*args) for folderminute in minutefolders])
+        else:
+            dfs = [actionminute(folderminute,*args) for folderminute in minutefolders]
         return {minute.strftime('%Y-%m-%d/%H/%M/'):df for minute,df in zip(minutes,dfs)}
 
     def foldersaction(self,t0,t1,folderPkl,actionminute,pooldays=False,**kwargs):
@@ -675,7 +699,7 @@ class Streamer():
         # print(df_minute,folderminute)
         # sys.exit()
         for tag in listTags:
-            df_minute[df_minute.tag==tag].to_pickle(folderminute + tag + '.pkl')
+            df_minute[df_minute.tag==tag][['value']].to_pickle(folderminute + tag + '.pkl')
         return tag + ' parked in : ' + folderminute
 
     # ########################
@@ -714,7 +738,7 @@ class Streamer():
             print('done in {:.2f} s'.format((time.time()-start)))
 
     def createFolders(self,t0,t1,folderPkl):
-        return self.foldersaction(t0,t1,folderPkl,self.createminutefolder)
+        return self.foldersaction(t0,t1,folderPkl,self.create_minutefolder)
 
     # ########################
     #   STATIC COMPRESSION   #
@@ -1254,9 +1278,26 @@ class StreamerVisualisationMaster(Configurator):
         methods['rolling_mean']="df.ffill().resample(rs).ffill().rolling(rmwindow).mean()"
         self.methods=methods
 
+    def loadtags_minutefolder(self,folderminute,tags):
+        print(folderminute)
+        if os.path.exists(folderminute):
+            dfs=[pickle.load(open(folderminute + tag + '.pkl', "rb" )) for tag in tags]
+            return pd.concat(dfs)
+            # return dfs
+        else :
+            print('no folder : ',folderminute)
+            return pd.DataFrame()
+
+    def load_parkedtags_period(self,tags,period,pool=True):
+        t0,t1=period[0],period[1]
+        if t1 - t0 -dt.timedelta(hours=3)<pd.Timedelta(seconds=0):
+            pool=False
+        dfs=self.streaming.actionMinutes_pooled(t0,t1,self.folderPkl,self.loadtags_minutefolder,tags,pool=pool)
+        return pd.concat(dfs)
+
     def loadparkedtag(self,t0,t1,tag):
         # print(tag)
-        dfs = self.streaming.foldersaction(t0,t1,self.folderPkl,self.streaming.loaddataminute,tag=tag)
+        dfs = self.streaming.foldersaction(t0,t1,self.folderPkl,self.streaming.loaddata_minutefolder,tag=tag)
         if len(dfs)>0:
             return pd.concat(dfs)
         else:
@@ -1276,8 +1317,8 @@ class StreamerVisualisationMaster(Configurator):
             ptCurve=totalPts/len(df.columns)
             deltat=(df.index[-1]-df.index[0]).total_seconds()//ptCurve+1
             rs = '{:.0f}'.format(deltat) + 's'
-        # print(df)
         df.index = df.index.tz_convert(timezone)
+        print(df)
         start=time.time()
         dtypes = self.dfPLC.loc[df.columns].DATATYPE.apply(lambda x:self.dataTypes[x]).to_dict()
         # df = df.dropna().astype(dtypes)
@@ -1315,7 +1356,7 @@ class StreamerVisualisationMaster(Configurator):
         df = pd.concat(dfs).sort_index()
         print('finish loading the parked data in {:.2f} ms'.format((time.time()-start)*1000))
         start=time.time()
-        df = self.processdf(df,*args,**kwargs)
+        # df = self.processdf(df,*args,**kwargs)
         print('processing the data in {:.2f} ms'.format((time.time()-start)*1000))
         # if df.duplicated().any():
         #     print("==========================================")

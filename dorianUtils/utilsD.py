@@ -29,7 +29,6 @@ class Utils:
         from PIL import Image # new import
         self.sylfenlogo  = Image.open(self.confDir +  '/logo_sylfen.png')
 
-
     # ==========================================================================
     #                               DEBUG
     # ==========================================================================
@@ -380,6 +379,7 @@ class Utils:
                                    fill_color='lavender',
                                    align='left'))
                     ])
+        fig.show()
         return fig
 
     def updateColorMap(self,fig,colmap=None):
