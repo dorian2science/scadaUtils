@@ -167,7 +167,7 @@ class Device():
         dfInstr = dfInstr[~dfInstr['tag'].isna()].set_index('tag')
         pickle.dump(dfInstr,open(self.file_instr,'wb'))
         print(self.file_instr +' saved.')
-        print('=======================================')
+        print('*****************************************')
         print('')
 
     def checkConnection(self):
@@ -703,6 +703,21 @@ class Streamer():
             df_tag.to_pickle(folderminute + tag + '.pkl')
         return tag + ' parked in : ' + folderminute
 
+    def dumy_minute(self,folderminute):
+        print(folderminute)
+        return 'ici'
+
+    def loadtags_minutefolder(self,folderminute,tags):
+        if os.path.exists(folderminute):
+            # print(folderminute)
+            dfs=[pickle.load(open(folderminute + tag + '.pkl', "rb" )) for tag in tags]
+            for df,tag in zip(dfs,tags):df.columns=[tag]
+            df=pd.concat(dfs,axis=1)
+            return df
+        else :
+            print('NO FOLDER : ',folderminute)
+            return pd.DataFrame()
+
     # ########################
     #   HIGH LEVEL FUNCTIONS #
     # ########################
@@ -717,7 +732,7 @@ class Streamer():
         listTags=df.tag.unique()
         t0 = df.index.min()
         t1 = df.index.max()
-        self.createFolders(t0,t1,folderpkl)
+        self.createFolders_period(t0,t1,folderpkl)
         nbHours=int((t1-t0).total_seconds()//3600)+1
         ### cut file into hours because otherwise file is to big
         for h in range(nbHours):
@@ -741,8 +756,20 @@ class Streamer():
                 dfs = [self.park_df_minute(fm,dfm,listTags) for fm,dfm in zip(minutefolders,df_minutes)]
             print('done in {:.2f} s'.format((time.time()-start)))
 
-    def createFolders(self,t0,t1,folderPkl):
+    def createFolders_period(self,t0,t1,folderPkl):
         return self.foldersaction(t0,t1,folderPkl,self.create_minutefolder)
+
+    def dumy_period(self,period,folderpkl,pool=True):
+        t0,t1=period[0],period[1]
+        return self.actionMinutes_pooled(t0,t1,folderpkl,self.dumy_minute,pool=pool)
+
+    def load_parkedtags_period(self,tags,period,folderpkl,pool=True):
+        t0,t1=period[0],period[1]
+        # if t1 - t0 -dt.timedelta(hours=3)<pd.Timedelta(seconds=0):
+        #     pool=False
+        dfs=self.actionMinutes_pooled(t0,t1,folderpkl,self.loadtags_minutefolder,tags,pool=pool)
+        return pd.concat(dfs.values())
+        # return dfs
 
     # ########################
     #   STATIC COMPRESSION   #
@@ -848,8 +875,8 @@ class Configurator(Streamer):
           'INT':'int',
           'STRING(40)':'str'
         }
-
         self.parkingTime = parkingTime##seconds
+
         listFiles = glob.glob(self.confFolder + '*compteurs*.ods')
         self.compteurFile=listFiles[0]
         self.v_compteur=re.findall('_v\d+',self.compteurFile)[0]
@@ -860,16 +887,21 @@ class Configurator(Streamer):
         self.compteurs['fullname']=list(self.compteurs.reset_index().apply(lambda x:dictCat[x['device']]+'-'+ x['pointComptage']+'-',axis=1))
         for device in [d for  d in self.df_devices.index if not d=='meteo']:
             catCompteur = self.compteurs.loc[self.compteurs.device==device].reset_index()
-            fullnames=dictCat[device] + catCompteur.index.to_series().apply(lambda x:'{:x}'.format(x+1).zfill(8))+'-'+catCompteur['pointComptage']
+            print(catCompteur)
+            fullnames   = dictCat[device] + catCompteur.index.to_series().apply(lambda x:'{:x}'.format(x+1).zfill(8))+'-'+catCompteur['pointComptage']
             self.compteurs.loc[self.compteurs.device==device,'fullname'] =list(fullnames)
         self.devices = EmptyClass()
+        ######################################
+        ##### INITIALIZATION OF DEVICES ######
+        ######################################
+        dfplcs =[]
         for device_name in self.df_devices.index[self.df_devices.statut=='actif']:
             device=self.df_devices.loc[device_name]
             # print(self.df_devices)
             plc_dict={
-            'variables':self.variables[self.variables.device==device_name],
-            'compteurs':self.compteurs[self.compteurs.device==device_name],
-            'version':self.v_compteur
+                'variables':self.variables[self.variables.device==device_name],
+                'compteurs':self.compteurs[self.compteurs.device==device_name],
+                'version':self.v_compteur
             }
             print(device_name)
             if device['protocole']=='modebus_xml':
@@ -880,8 +912,13 @@ class Configurator(Streamer):
                 device=Meteo_Client()
                 print(self.confFolder)
             elif device['protocole']=='opcua':
-                device=Opcua()
+                device=Opcua(device_name,device['IP'],device['port'],self.confFolder,plc_dict=plc_dict)
             setattr(self.devices,device_name,device)
+            dfplc=device.dfPLC
+            dfplc['device']=device_name
+            dfplcs.append(dfplc)
+        self.dfPLC=pd.concat(dfplcs)
+        #####
         self.parkedDays = [k.split('/')[-1] for k in glob.glob(self.folderPkl+'/*')]
         self.parkedDays.sort()
         try :
@@ -889,16 +926,12 @@ class Configurator(Streamer):
             self.usefulTags.index = self.utils.uniformListStrings(list(self.usefulTags.index))
         except :
             self.usefulTags = pd.DataFrame()
-        dfplcs=[]
-        for device_name,device in self.devices.__dict__.items():
-            # print(device)
-            dfplc=device.dfPLC
-            dfplc['device']=device_name
-            dfplcs.append(dfplc)
-        self.dfPLC=pd.concat(dfplcs)
         self.alltags=list(self.dfPLC.index)
         self.listUnits = self.dfPLC.UNITE.dropna().unique().tolist()
         self.to_folderminute=lambda x:self.folderPkl+x.strftime(self.format_folderminute)
+        print('FINISH LOADING CONFIGURATOR')
+        print('==============================')
+        print()
 
     def connect2db(self):
         return psycopg2.connect(self.connReq)
@@ -1010,7 +1043,7 @@ class SuperDumper(Configurator):
         ##### determine minimum time for parking folders
         t0 = df.set_index('timestampz').sort_index().index[0].tz_convert(self.local_tzname)
         #### create Folders
-        self.createFolders(t0,t1)
+        self.createFolders_period(t0,t1)
 
         #################################
         #           park now            #
@@ -1094,7 +1127,7 @@ class SuperDumper(Configurator):
         ##### determine minimum time for parking folders
         t0 = df.set_index('timestampz').sort_index().index[0].tz_convert(self.local_tzname)
         #### create Folders
-        self.createFolders(t0,t1,self.folderPkl)
+        self.createFolders_period(t0,t1,self.folderPkl)
 
         #################################
         #           park now            #
@@ -1255,23 +1288,6 @@ class StreamerVisualisationMaster(Configurator):
         methods['meanrightInterpolated'] = "pd.concat([df.resample('100ms').asfreq(),df]).sort_index().interpolate('time').resample(rs,label='right',closed='right').mean()"
         methods['rolling_mean']="df.ffill().resample(rs).ffill().rolling(rmwindow).mean()"
         self.methods=methods
-
-    def loadtags_minutefolder(self,folderminute,tags):
-        print(folderminute)
-        if os.path.exists(folderminute):
-            dfs=[pickle.load(open(folderminute + tag + '.pkl', "rb" )) for tag in tags]
-            df=pd.concat(dfs,axis=1)
-            return df
-        else :
-            print('no folder : ',folderminute)
-            return pd.DataFrame()
-
-    def load_parkedtags_period(self,tags,period,pool=True):
-        t0,t1=period[0],period[1]
-        if t1 - t0 -dt.timedelta(hours=3)<pd.Timedelta(seconds=0):
-            pool=False
-        dfs=self.streaming.actionMinutes_pooled(t0,t1,self.folderPkl,self.loadtags_minutefolder,tags,pool=pool)
-        return pd.concat(dfs)
 
     def loadparkedtag(self,t0,t1,tag):
         # print(tag)
