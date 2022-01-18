@@ -534,10 +534,11 @@ class Streamer():
     It comes with basic functions like loaddata_minutefolder/create_minutefolder/parktagminute.'''
     def __init__(self):
         self.fs = FileSystem()
-        self.dayFolderFormat='%Y-%m-%d'
+        self.format_dayFolder='%Y-%m-%d'
         self.format_folderminute='%Y-%m-%d/%H/%M/'
         now = dt.datetime.now().astimezone()
         self.local_tzname = now.tzinfo.tzname(now)
+        self.to_folderday = lambda x:x.strftime(self.format_dayFolder)+'/'
 
     def create_minutefolder(self,folderminute):
         # print(folderminute)
@@ -624,7 +625,7 @@ class Streamer():
 
         dfs=[]
         # first day
-        folderDay0 = folderPkl + t0.strftime(self.dayFolderFormat) + '/'
+        folderDay0 = folderPkl + t0.strftime(self.format_dayFolder) + '/'
         # first hour
         folderhour00 = folderDay0 + '{:02d}'.format(t0.hour) + '/'
         # single day-hour
@@ -648,10 +649,10 @@ class Streamer():
                 #next days
                 #in-between days
                 daysBetween = [k for k in range(1,(t1-t0).days)]
-                days = [(t1-dt.timedelta(days=d)).strftime(self.dayFolderFormat) for d in daysBetween]
+                days = [(t1-dt.timedelta(days=d)).strftime(self.format_dayFolder) for d in daysBetween]
                 dfs.append(actionDays(days,folderPkl,pooldays))
                 #last day
-                folderDayLast = folderPkl + t1.strftime(self.dayFolderFormat) + '/'
+                folderDayLast = folderPkl + t1.strftime(self.format_dayFolder) + '/'
                 #first hours of last day
                 if not t1.hour==0:
                     dfs.append(actionHours(range(0,t1.hour),folderDayLast))
@@ -753,7 +754,7 @@ class Streamer():
             return
         dfday = dfday.set_index('timestampz')
         listTags = dfday.tag.unique()
-        folderday = folderpkl +'/'+ dfday.index[0].strftime(self.dayFolderFormat)+'/'
+        folderday = folderpkl +'/'+ dfday.index[0].strftime(self.format_dayFolder)+'/'
         if not os.path.exists(folderday): os.mkdir(folderday)
         #park tag-day
         if pool :
@@ -772,7 +773,7 @@ class Streamer():
         dfs={}
         t=t0
         while t<t1:
-            filename=folderpkl+t.strftime(self.dayFolderFormat)+'/'+tag+'.pkl'
+            filename=folderpkl+t.strftime(self.format_dayFolder)+'/'+tag+'.pkl'
             if os.path.exists(filename):
                 print(filename,t.isoformat())
                 dfs[filename]=pickle.load(open(filename,'rb'))
@@ -786,13 +787,11 @@ class Streamer():
         dftags={}
         for tag in tags:
             dfs=self.load_tag_daily(tag,t0,t1,folderpkl)
-            # print(dfs)
-            # dftags[tag]=pd.concat(dfs.values()).set_index('timestampUTC').sort_index()
-            # dftags[tag]=pd.concat(dfs.values()).set_index('timestampUTC').sort_index()
-            dftags[tag]=dfs
-        # df=pd.concat(dftags.values())
-        # return df
-        return dftags
+            dftag=pd.DataFrame(pd.concat(dfs.values()),columns=['value'])
+            dftag['tag']=tag
+            dftags[tag]=dftag
+        df=pd.concat(dftags.values(),axis=0)
+        return df
 
     def createFolders_period(self,t0,t1,folderPkl,frequence='day'):
         if frequence=='minute':
@@ -800,7 +799,7 @@ class Streamer():
         elif frequence=='day':
             createfolderday=lambda x:os.mkdir(folderday)
             listDays = pd.date_range(t0,t1,freq='1D')
-            listfolderdays = [folderPkl +'/'+ d.strftime(self.dayFolderFormat) for d in listDays]
+            listfolderdays = [folderPkl +'/'+ d.strftime(self.format_dayFolder) for d in listDays]
             with Pool() as p:
                 dfs=p.starmap(createfolderday,[(d) for d in listfolderdays])
             return dfs
