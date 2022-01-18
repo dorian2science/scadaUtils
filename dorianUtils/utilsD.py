@@ -779,7 +779,7 @@ class Utils:
         fig=px.scatter(df.transpose(),color_discrete_sequence=cols)
         fig.update_traces(line_width=20,mode='lines').show()
 
-class DataBase():
+class DataBase:
     def __init__(self):
         try :
             import psycopg3 as psycopg

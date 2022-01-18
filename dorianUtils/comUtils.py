@@ -926,7 +926,8 @@ class Configurator(Streamer):
           'STRING(40)':'str'
         }
         self.parkingTime = parkingTime##seconds
-        self.devices = EmptyClass()
+        # self.devices = EmptyClass()
+        self.devices = {}
         ######################################
         ##### INITIALIZATION OF DEVICES ######
         ######################################
@@ -948,14 +949,15 @@ class Configurator(Streamer):
                 device=Meteo_Client(self.confFolder)
             elif device['protocole']=='opcua':
                 device=Opcua(device_name,device['IP'],device['port'],self.confFolder,nameSpace=info_device['namespace'],info_device=info_device)
-            setattr(self.devices,device_name,device)
+            # setattr(self.devices,device_name,device)
+            self.devices[device_name]=device
             dfplc=device.dfPLC
             dfplc['device']=device_name
             dfplcs.append(dfplc)
         self.dfPLC=pd.concat(dfplcs)
         #####
         self.parkedDays = [k.split('/')[-1] for k in glob.glob(self.folderPkl+'/*')]
-        self.parkedDays.sort()
+        self.parkeddays = pd.Series([pd.Timestamp(k,tz='CET') for k in self.parkedDays]).sort_values()
         list_special_configfiles = glob.glob(self.confFolder + '/*configfiles*')
         if len(list_special_configfiles)>0:
             self.file_special_cfg = list_special_configfiles[0]
@@ -963,6 +965,12 @@ class Configurator(Streamer):
         self.alltags=list(self.dfPLC.index)
         self.listUnits = self.dfPLC.UNITE.dropna().unique().tolist()
         self.to_folderminute=lambda x:self.folderPkl+x.strftime(self.format_folderminute)
+
+        compteurs_all = {}
+        for device_name,device in self.devices.items():
+            if 'compteurs' in device.info_device.keys():
+                compteurs_all[device_name]=device.info_device['compteurs']
+        self.compteurs=pd.concat(compteurs_all.values())
         print('FINISH LOADING CONFIGURATOR')
         print('==============================')
         print()
