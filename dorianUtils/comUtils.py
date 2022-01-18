@@ -429,7 +429,7 @@ class Opcua(Device):
 
         self.file_plc = listPLC[0]
         dfPLC = pickle.load(open(self.file_plc,'rb'))
-        return dfPLC 
+        return dfPLC
 
     def connectDevice(self):
         self.client.connect()
@@ -745,7 +745,7 @@ class Streamer():
                 dfs = [self.park_df_minute(fm,dfm,listTags) for fm,dfm in zip(minutefolders,df_minutes)]
             print('done in {:.2f} s'.format((time.time()-start)))
 
-    def park_DFday(self,dfday,folderpkl):
+    def park_DFday(self,dfday,folderpkl,pool=False):
         correctColumns=['tag','timestampz','value']
         if not list(dfday.columns.sort_values())==correctColumns:
             print('PROBLEM: the df dataframe should have the following columns : ',correctColumns,'''
@@ -754,13 +754,12 @@ class Streamer():
         dfday = dfday.set_index('timestampz')
         listTags = dfday.tag.unique()
         folderday = folderpkl +'/'+ dfday.index[0].strftime(self.dayFolderFormat)+'/'
-        if not os.path.exists(folderday):
-            os.mkdir(folderday)
+        if not os.path.exists(folderday): os.mkdir(folderday)
         #park tag-day
-
-        with Pool() as p:
-            dfs=p.starmap(self.parkdaytag,[(dfday,tag,folderday) for tag in listTags])
-        # dfs=[parkdaytag(dfday,tag,folderday) for tag in listTags]
+        if pool :
+            with Pool() as p:dfs=p.starmap(self.parkdaytag,[(dfday,tag,folderday) for tag in listTags])
+        else :
+            dfs=[self.parkdaytag(dfday,tag,folderday) for tag in listTags]
         return dfs
 
     def parkdaytag(self,dfday,tag,folderday):
