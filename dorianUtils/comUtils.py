@@ -745,7 +745,7 @@ class Streamer():
                 dfs = [self.park_df_minute(fm,dfm,listTags) for fm,dfm in zip(minutefolders,df_minutes)]
             print('done in {:.2f} s'.format((time.time()-start)))
 
-    def park_DFday(self,dfday,folderpkl,pool=False):
+    def park_DFday(self,dfday,folderpkl,pool=False,showtag=False):
         correctColumns=['tag','timestampz','value']
         if not list(dfday.columns.sort_values())==correctColumns:
             print('PROBLEM: the df dataframe should have the following columns : ',correctColumns,'''
@@ -757,13 +757,13 @@ class Streamer():
         if not os.path.exists(folderday): os.mkdir(folderday)
         #park tag-day
         if pool :
-            with Pool() as p:dfs=p.starmap(self.parkdaytag,[(dfday,tag,folderday) for tag in listTags])
+            with Pool() as p:dfs=p.starmap(self.parkdaytag,[(dfday,tag,folderday,showtag) for tag in listTags])
         else :
-            dfs=[self.parkdaytag(dfday,tag,folderday) for tag in listTags]
+            dfs=[self.parkdaytag(dfday,tag,folderday,showtag) for tag in listTags]
         return dfs
 
-    def parkdaytag(self,dfday,tag,folderday):
-        print(tag)
+    def parkdaytag(self,dfday,tag,folderday,showtag=False):
+        if showtag:print(tag)
         dftag=dfday[dfday.tag==tag]['value']
         pickle.dump(dftag,open(folderday + tag + '.pkl', "wb" ))
         return tag + 'parked'
