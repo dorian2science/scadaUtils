@@ -17,14 +17,14 @@ from dateutil.tz import tzlocal
 class EmptyClass():pass
 
 class FileSystem():
-    def load_confFile(self,filename,loadFunction,loadAnyway=False):
+    def load_confFile(self,filename,generate_func,generateAnyway=False):
         start    = time.time()
-        if not os.path.exists(filename) or loadAnyway:
+        if not os.path.exists(filename) or generateAnyway:
             print(filename, 'not present. Start generating the file with function : ')
-            print(loadFunction)
+            print(' '.ljust(20),generate_func)
             print('')
             # try:
-            plcObj = loadFunction()
+            plcObj = generate_func()
             pickle.dump(plcObj,open(filename,'wb'))
             print('')
             print(filename + ' saved')
@@ -93,52 +93,40 @@ class SetInterval:
 # basic utilities for Streamer and DumpingClientMaster
 class Device():
     ''' for inheritance :
-        - a function <loadPLC_file> should be written to load the data frame of info on tags.
+        - a function <loadPLC_file> should be written to load the data frame of info on tags
         - a function <collectData> should be written  to collect data from the device.
         - a function <connectDevice> to connect to the device.
     '''
-    def __init__(self,device_name,endpointUrl,port,confFolder,info_device=None):
+    def __init__(self,device_name,endpointUrl,port,confFolder,info_device,generateAnyway=False):
         self.endpointUrl = endpointUrl
         self.port        = port
         self.device_name = device_name
         self.confFolder  = confFolder
         self.info_device = info_device
-        if not self.info_device is None:
-            self.file_plc = self.confFolder + 'plc_' + device_name + info_device['version'] + '.csv'
-            self.file_instr=self.confFolder + 'dfInstr_' + device_name + info_device['version']+'.pkl'
-            self.build_plc_fromDevice(info_device)
+        self._generateAnyway=generateAnyway
+        self.file_plc = self.confFolder + 'plc_' + device_name + info_device['version'] + '.pkl'
         self.fs = FileSystem()
         self.device_name = device_name
         self.isConnected = True
         now = dt.datetime.now().astimezone()
         self.local_tzname = now.tzinfo.tzname(now)
-        self.utils= Utils()
-        self.loadPLC_file()
+        self.utils   = Utils()
+        self.dfPLC   = self.loadPLC_file()
         self.allTags = list(self.dfPLC.index)
         self.collectingTimes={}
         self.insertingTimes={}
 
     def loadPLC_file(self):
-        patternPLC=self.confFolder + 'plc*' + self.device_name
-        listPLC = glob.glob(patternPLC + '*.pkl')
-        if len(listPLC)<1:
-            listPLC_csv = glob.glob(patternPLC+'*.csv')
-            plcfile = listPLC_csv[0]
-            print(plcfile,' is read and converted into .pkl')
-            dfPLC = pd.read_csv(plcfile,index_col=0)
-            dfPLC = dfPLC[dfPLC.DATASCIENTISM]
-            pickle.dump(dfPLC,open(plcfile[:-4]+'.pkl','wb'))
-            listPLC = glob.glob(patternPLC + '*.pkl')
-        self.file_plc = listPLC[0]
-        self.dfPLC = pickle.load(open(self.file_plc,'rb'))
+        return self.fs.load_confFile(self.file_plc,self.build_plc_fromDevice,self._generateAnyway)
 
-    def build_plc_fromDevice(self,info_device):
+    def build_plc_fromDevice(self):
+        self.file_instr=self.confFolder + 'dfInstr_' + self.device_name + self.info_device['version']+'.pkl'
         print('building PLC configuration file of ' + self.device_name  +' from dfInstr')
-        dfInstr=self.loaddfInstr()
+        dfInstr = self.loaddfInstr()
         units = {'kW':'JTW','kWh':'JTWH','kVA':'JTVA','kvar':'JTVar','kvarh':'JTVarH','kVAh':'JTVAH'}
         tags  = {}
-        variables=info_device['variables']
-        compteurs=info_device['compteurs']
+        variables=self.info_device['variables']
+        compteurs=self.info_device['compteurs']
         for t in dfInstr.index:
             currentTag = dfInstr.loc[t]
             variable = currentTag['description']
@@ -164,14 +152,17 @@ class Device():
         dfplc['PRECISION'] = 0.01
         dfplc['FREQUENCE_ECHANTILLONNAGE'] = 5
         dfplc['VAL_DEF'] = 0
-        dfplc.to_csv(self.file_plc)
+        file_plc_csv = self.file_plc.replace('.pkl','.csv')
+        print(dfplc)
+        dfplc.to_csv(file_plc_csv)
         print()
-        print(self.file_plc +' saved.')
+        print(file_plc_csv +' saved.')
         dfInstr = dfInstr[~dfInstr['tag'].isna()].set_index('tag')
         pickle.dump(dfInstr,open(self.file_instr,'wb'))
         print(self.file_instr +' saved.')
         print('*****************************************')
         print('')
+        return dfplc
 
     def checkConnection(self):
         if not self.isConnected:
@@ -437,7 +428,8 @@ class Opcua(Device):
             listPLC = glob.glob(self.confFolder + '*Instrum*.pkl')
 
         self.file_plc = listPLC[0]
-        self.dfPLC = pickle.load(open(self.file_plc,'rb'))
+        dfPLC = pickle.load(open(self.file_plc,'rb'))
+        return dfPLC 
 
     def connectDevice(self):
         self.client.connect()
@@ -450,17 +442,16 @@ class Opcua(Device):
 
 import urllib.request, json
 class Meteo_Client(Device):
-    def __init__(self):
-        self.device_name='meteo'
+    def __init__(self,confFolder):
         self.cities = pd.DataFrame({'le_cheylas':{'lat' : '45.387','lon':'6.0000'}})
         # self.cities = pd.DataFrame({'leCheylas':{'lat' : '45.387','lon':'6.0000'},
         #     'champet':{'lat':'45.466393','lon':'5.656045'},
         #     'stJoachim':{'lat':'47.382074','lon':'-2.196835'}})
         self.baseurl = 'https://api.openweathermap.org/data/2.5/'
+        Device.__init__(self,'meteo',self.baseurl,None,confFolder,{'version':'0'})
         self.apitoken = '79e8bbe89ac67324c6a6cdbf76a450c0'
         # apitoken = '2baff0505c3177ad97ec1b648b504621'# Marc
         self.t0 = dt.datetime(1970,1,1,1,0).astimezone(tz = pytz.timezone('Etc/GMT-3'))
-        Device.__init__(self,None,None)
 
     def loadPLC_file(self):
         vars = ['temp','pressure','humidity','clouds','wind_speed']
@@ -486,7 +477,7 @@ class Meteo_Client(Device):
         dfplc['PRECISION'] = 0.01
         dfplc['FREQUENCE_ECHANTILLONNAGE'] = 30
         dfplc['VAL_DEF'] = 0
-        self.dfPLC=dfplc
+        return dfplc
 
     def connectDevice():
         return True
@@ -670,8 +661,8 @@ class Streamer():
         return self.fs.flatten(dfs)
 
     def parktagminute(self,folderminute,dftag):
-        #get only the data for that minute
         tag = dftag.tag[0]
+        #get only the data for that minute
         minute = folderminute.split('/')[-2]
         hour   = folderminute.split('/')[-3]
         day    = folderminute.split('/')[-4]
@@ -719,7 +710,7 @@ class Streamer():
     # ########################
     #   HIGH LEVEL FUNCTIONS #
     # ########################
-    def park_alltagsDF(self,df,folderpkl,pool=True):
+    def park_alltagsDF_minutely(self,df,folderpkl,pool=True):
         # check if the format of the file is correct
         correctColumns=['tag','timestampz','value']
         if not list(df.columns.sort_values())==correctColumns:
@@ -730,7 +721,7 @@ class Streamer():
         listTags=df.tag.unique()
         t0 = df.index.min()
         t1 = df.index.max()
-        self.createFolders_period(t0,t1,folderpkl)
+        self.createFolders_period(t0,t1,folderpkl,'minute')
         nbHours=int((t1-t0).total_seconds()//3600)+1
         ### cut file into hours because otherwise file is to big
         for h in range(nbHours):
@@ -744,7 +735,7 @@ class Streamer():
             start=time.time()
             minutes=pd.date_range(tm1,tm2,freq='1T')
             df_minutes=[dfhour[(dfhour.index>a)&(dfhour.index<a+dt.timedelta(minutes=1))] for a in minutes]
-            minutefolders =[folderpkl + k.strftime('%Y-%m-%d/%H/%M/') for k in minutes]
+            minutefolders =[folderpkl + k.strftime(self.format_folderminute) for k in minutes]
             # print(minutefolders)
             # sys.exit()
             if pool:
@@ -754,8 +745,66 @@ class Streamer():
                 dfs = [self.park_df_minute(fm,dfm,listTags) for fm,dfm in zip(minutefolders,df_minutes)]
             print('done in {:.2f} s'.format((time.time()-start)))
 
-    def createFolders_period(self,t0,t1,folderPkl):
-        return self.foldersaction(t0,t1,folderPkl,self.create_minutefolder)
+    def park_DFday(self,dfday,folderpkl):
+        correctColumns=['tag','timestampz','value']
+        if not list(dfday.columns.sort_values())==correctColumns:
+            print('PROBLEM: the df dataframe should have the following columns : ',correctColumns,'''
+            or your columns are ''',list(dfday.columns.sort_values()))
+            return
+        dfday = dfday.set_index('timestampz')
+        listTags = dfday.tag.unique()
+        folderday = folderpkl +'/'+ dfday.index[0].strftime(self.dayFolderFormat)+'/'
+        if not os.path.exists(folderday):
+            os.mkdir(folderday)
+        #park tag-day
+
+        with Pool() as p:
+            dfs=p.starmap(self.parkdaytag,[(dfday,tag,folderday) for tag in listTags])
+        # dfs=[parkdaytag(dfday,tag,folderday) for tag in listTags]
+        return dfs
+
+    def parkdaytag(self,dfday,tag,folderday):
+        print(tag)
+        dftag=dfday[dfday.tag==tag]['value']
+        pickle.dump(dftag,open(folderday + tag + '.pkl', "wb" ))
+        return tag + 'parked'
+
+    def load_tag_daily(self,tag,t0,t1,folderpkl):
+        dfs={}
+        t=t0
+        while t<t1:
+            filename=folderpkl+t.strftime(self.dayFolderFormat)+'/'+tag+'.pkl'
+            if os.path.exists(filename):
+                print(filename,t.isoformat())
+                dfs[filename]=pickle.load(open(filename,'rb'))
+            else :
+                print('no file : ',filename)
+                dfs[filename]=pd.DataFrame()
+            t = t+pd.Timedelta(days=1)
+        return dfs
+
+    def load_parkedtags_daily(self,tags,t0,t1,folderpkl):
+        dftags={}
+        for tag in tags:
+            dfs=self.load_tag_daily(tag,t0,t1,folderpkl)
+            # print(dfs)
+            # dftags[tag]=pd.concat(dfs.values()).set_index('timestampUTC').sort_index()
+            # dftags[tag]=pd.concat(dfs.values()).set_index('timestampUTC').sort_index()
+            dftags[tag]=dfs
+        # df=pd.concat(dftags.values())
+        # return df
+        return dftags
+
+    def createFolders_period(self,t0,t1,folderPkl,frequence='day'):
+        if frequence=='minute':
+            return self.foldersaction(t0,t1,folderPkl,self.create_minutefolder)
+        elif frequence=='day':
+            createfolderday=lambda x:os.mkdir(folderday)
+            listDays = pd.date_range(t0,t1,freq='1D')
+            listfolderdays = [folderPkl +'/'+ d.strftime(self.dayFolderFormat) for d in listDays]
+            with Pool() as p:
+                dfs=p.starmap(createfolderday,[(d) for d in listfolderdays])
+            return dfs
 
     def dumy_period(self,period,folderpkl,pool=True):
         t0,t1=period[0],period[1]
@@ -854,7 +903,7 @@ class Streamer():
 
 class Configurator(Streamer):
     def __init__(self,folderPkl,confFolder,dbParameters,device_infos,
-                    dbTimeWindow = 60*10,parkingTime=60*1):
+                    dbTimeWindow = 60*10,parkingTime=60*1,generateConfFiles=False):
         '''
         - dbTimeWindow : how many minimum seconds before now are in the database
         - parkingTime : how often data are parked and db flushed in seconds
@@ -892,13 +941,13 @@ class Configurator(Streamer):
             print(device_name)
             info_device=device_infos[device_name]
             if device['protocole']=='modebus_xml':
-                device=ModeBusDeviceXML(device_name,device['IP'],device['port'],self.confFolder,info_device=info_device)
+                device=ModeBusDeviceXML(device_name,device['IP'],device['port'],self.confFolder,info_device=info_device,generateAnyway=generateConfFiles)
             elif device['protocole']=='modebus_single':
-                device=ModeBusDeviceSingleRegisters(device_name,device['IP'],device['port'],self.confFolder,info_device=info_device)
+                device=ModeBusDeviceSingleRegisters(device_name,device['IP'],device['port'],self.confFolder,info_device=info_device,generateAnyway=generateConfFiles)
             elif device['protocole']=='meteo':
-                device=Meteo_Client()
+                device=Meteo_Client(self.confFolder)
             elif device['protocole']=='opcua':
-                device=Opcua(device_name,device['IP'],device['port'],self.confFolder,nameSpace=info_device['namespace'])
+                device=Opcua(device_name,device['IP'],device['port'],self.confFolder,nameSpace=info_device['namespace'],info_device=info_device)
             setattr(self.devices,device_name,device)
             dfplc=device.dfPLC
             dfplc['device']=device_name
