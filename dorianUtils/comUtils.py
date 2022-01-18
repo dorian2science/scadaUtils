@@ -771,7 +771,7 @@ class Streamer():
 
     def load_tag_daily(self,tag,t0,t1,folderpkl):
         dfs={}
-        t=t0
+        t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
         while t<t1:
             filename=folderpkl+t.strftime(self.format_dayFolder)+'/'+tag+'.pkl'
             if os.path.exists(filename):
@@ -779,7 +779,7 @@ class Streamer():
                 dfs[filename]=pickle.load(open(filename,'rb'))
             else :
                 print('no file : ',filename)
-                dfs[filename]=pd.DataFrame()
+                dfs[filename]=pd.Series()
             t = t+pd.Timedelta(days=1)
         return dfs
 
@@ -791,6 +791,8 @@ class Streamer():
             dftag['tag']=tag
             dftags[tag]=dftag
         df=pd.concat(dftags.values(),axis=0)
+        df=df[df.index>=t0]
+        df=df[df.index<=t1]
         return df
 
     def createFolders_period(self,t0,t1,folderPkl,frequence='day'):
@@ -1354,7 +1356,7 @@ class StreamerVisualisationMaster(Configurator):
         print(rsMethod + ' data in {:.2f} ms'.format((time.time()-start)*1000))
         return df
 
-    def _dfLoadparkedTags(self,listTags,timeRange,poolTags,*args,**kwargs):
+    def _load_parked_tags(self,listTags,timeRange,poolTags,*args,**kwargs):
         '''
         - timeRange:should be a vector of 2 datetimes
         '''
@@ -1392,7 +1394,7 @@ class StreamerVisualisationMaster(Configurator):
         #     df = df.drop_duplicates()
         return df
 
-    def _dfLoadDataBaseTags(self,tags,timeRange,*args,**kwargs):
+    def _load_database_tags(self,t0,t1,tags,timeRange,*args,**kwargs):
         '''
         - timeRange:should be a vector of 2 datetimes strings.
         '''
@@ -1420,26 +1422,29 @@ class StreamerVisualisationMaster(Configurator):
             df = self.processdf(df,*args,**kwargs)
         return df
 
-    def df_loadtagsrealtime(self,tags,timeRange,poolTags=False,*args,**kwargs):
+    def loadtags_period(self,t0,t1,tags,*args,**kwargs):
         '''
         - timeRange:should be a vector of 2 datetimes strings.
         '''
         # print(tags,timeRange,poolTags,*args,**kwargs)
         start=time.time()
-        df = self._dfLoadDataBaseTags(tags,timeRange,*args,**kwargs)
+        df = self._load_database_tags(tags,timeRange,*args,**kwargs)
         print('finish loading and processing the database  in {:.2f} ms'.format((time.time()-start)*1000))
         # return df
         t0,t1 = [pd.Timestamp(t,tz=self.local_tzname) for t in timeRange]
         t1_max = pd.Timestamp.now(tz=self.local_tzname)- dt.timedelta(seconds=self.dbTimeWindow)
 
         t1=min(t1,t1_max)
-        dfp = self._dfLoadparkedTags(tags,[t0,t1],poolTags,*args,**kwargs)
+        dfp = self._load_parked_tags(tags,[t0,t1],poolTags,*args,**kwargs)
         # return dfp
         if len(df)>0:
             df = pd.concat([df,dfp])
         else:
             df = dfp
         return df.sort_index()
+    # #######################
+    # #  STANDARD GRAPHICS  #
+    # #######################
 
     def standardLayout(self,fig,ms=5,h=750):
         fig.update_yaxes(showgrid=False)
