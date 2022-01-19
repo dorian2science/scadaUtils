@@ -769,13 +769,13 @@ class Streamer():
         pickle.dump(dftag,open(folderday + tag + '.pkl', "wb" ))
         return tag + 'parked'
 
-    def load_tag_daily(self,tag,t0,t1,folderpkl):
+    def load_tag_daily(self,tag,t0,t1,folderpkl,showTag=False):
         dfs={}
         t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
         while t<t1:
             filename=folderpkl+t.strftime(self.format_dayFolder)+'/'+tag+'.pkl'
             if os.path.exists(filename):
-                print(filename,t.isoformat())
+                if showTag: print(filename,t.isoformat())
                 dfs[filename]=pickle.load(open(filename,'rb'))
             else :
                 print('no file : ',filename)
