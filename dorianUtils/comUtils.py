@@ -1,7 +1,7 @@
 # import importlib
 import datetime as dt, time, pytz,sys
 from time import sleep
-import os,re,threading,struct, glob, pickle,struct
+import os,re,threading,struct, glob, pickle,struct,subprocess as sp
 import numpy as np, pandas as pd
 import psycopg2
 import threading
@@ -61,6 +61,15 @@ class FileSystem():
 
         t0      = (pd.Timestamp(t1)-dt.timedelta(hours=8)).isoformat()
         return [t0,t1]
+
+    def get_parked_days_not_empty(self,folderPkl,minSize=3,dict_size=3):
+        print(folderPkl)
+        folders=[k.split('\t') for k in sp.check_output('du -h --max-depth=1 '+ folderPkl + ' | sort -h',shell=True).decode().split('\n')][:-2]
+        folders={v.split('/')[-1]:float(k[:-1].replace(',','.')) for k,v in folders}
+        daysnotempty = pd.Series(folders)
+        daysnotempty = [k for k in daysnotempty[daysnotempty>dict_size].index]
+        daysnotempty = pd.Series([pd.Timestamp(k) for k in daysnotempty]).sort_values()
+        return daysnotempty
 
 class SetInterval:
     '''demarre sur un multiple de interval.
@@ -588,7 +597,12 @@ class Streamer():
         listFiles=[]
         if os.path.exists(folder):
             listFiles = os.listdir(folder)
-        # return listFiles,folderminute
+        return listFiles
+
+    def listfiles_pattern_folder(self,folder,pattern):
+        listFiles=[]
+        if os.path.exists(folder):
+            listFiles = [k.split('/')[-1] for k in glob.glob(folder+'/*'+pattern+'*')]
         return listFiles
 
     def actionMinutes_pooled(self,t0,t1,folderPkl,actionminute,*args,pool=True):
@@ -601,7 +615,7 @@ class Streamer():
             dfs = [actionminute(folderminute,*args) for folderminute in minutefolders]
         return {minute.strftime(self.format_folderminute):df for minute,df in zip(minutes,dfs)}
 
-    def days_pooled(self,t0,t1,folderPkl,action,*args,pool=True):
+    def actiondays(self,t0,t1,folderPkl,action,*args,pool=True):
         days=pd.date_range(t0,t1,freq='1D')
         dayfolders =[folderPkl + k.strftime(self.format_dayFolder)+'/' for k in days]
         if pool:
@@ -786,13 +800,13 @@ class Streamer():
         pickle.dump(dftag,open(folderday + tag + '.pkl', "wb" ))
         return tag + 'parked'
 
-    def load_tag_daily(self,tag,t0,t1,folderpkl,showTag=False):
+    def load_tag_daily(self,tag,t0,t1,folderpkl,showDay=False):
         dfs={}
         t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
         while t<t1:
             filename=folderpkl+t.strftime(self.format_dayFolder)+'/'+tag+'.pkl'
             if os.path.exists(filename):
-                if showTag: print(filename,t.isoformat())
+                if showDay: print(filename,t.isoformat())
                 dfs[filename]=pickle.load(open(filename,'rb'))
             else :
                 print('no file : ',filename)
@@ -837,6 +851,8 @@ class Streamer():
         return pd.concat(dfs.values())
         # return dfs
 
+    def listfiles_pattern_period(self,t0,t1,pattern,folderpkl,pool=True):
+        return self.actiondays(t0,t1,folderpkl,self.listfiles_pattern_folder,pattern,pool=pool)
     # ########################
     #   STATIC COMPRESSION   #
     # ########################
@@ -920,6 +936,7 @@ class Streamer():
         fig.show()
         return timelens
 
+
 class Configurator(Streamer):
     def __init__(self,folderPkl,confFolder,dbParameters,device_infos,
                     dbTimeWindow = 60*10,parkingTime=60*1,generateConfFiles=False):
@@ -944,6 +961,7 @@ class Configurator(Streamer):
           'INT':'int',
           'STRING(40)':'str'
         }
+        self.streamer=Streamer()
         self.parkingTime = parkingTime##seconds
         # self.devices = EmptyClass()
         self.devices = {}
@@ -975,8 +993,7 @@ class Configurator(Streamer):
             dfplcs.append(dfplc)
         self.dfPLC=pd.concat(dfplcs)
         #####
-        self.parkedDays = [k.split('/')[-1] for k in glob.glob(self.folderPkl+'/*')]
-        self.parkeddays = pd.Series([pd.Timestamp(k,tz='CET') for k in self.parkedDays]).sort_values()
+        self.daysnotempty = self.streamer.fs.get_parked_days_not_empty(self.folderPkl)
         list_special_configfiles = glob.glob(self.confFolder + '/*configfiles*')
         if len(list_special_configfiles)>0:
             self.file_special_cfg = list_special_configfiles[0]
@@ -998,8 +1015,8 @@ class Configurator(Streamer):
         return psycopg2.connect(self.connReq)
 
     def getUsefulTags(self,usefulTag):
-        category = self.usefulTags.loc[usefulTag]
-        return self.getTagsTU(category.Pattern,category.Unit)
+        category = self.usefulTags.loc[usefulTag,'Pattern']
+        return self.getTagsTU(category)
 
     def getUnitofTag(self,tag):
         unit=self.dfPLC.loc[tag].UNITE
@@ -1032,7 +1049,7 @@ class SuperDumper(Configurator):
     def __init__(self,*args,**kwargs):
         Configurator.__init__(self,*args,**kwargs)
         self.parkingTimes={}
-        self.streaming = Streamer()
+        self.streamer = Streamer()
         self.fs = FileSystem()
         self.logsFolder='/home/dorian/sylfen/exploreSmallPower/src/logs/'
         self.timeOutReconnexion = 3
@@ -1161,8 +1178,8 @@ class SuperDumper(Configurator):
             precision = self.dfPLC.loc[tag,'PRECISION']
             dftag = dftag.replace('null',np.nan)
             dftag.value = dftag.value.astype(self.dataTypes[self.dfPLC.loc[tag,'DATATYPE']])
-            dftag.value = self.streaming.staticCompressionTag(dftag.value,precision,compression)
-        return self.streaming.foldersaction(t0,t1,self.folderPkl,self.streaming.parktagminute,dftag=dftag)
+            dftag.value = self.streamer.staticCompressionTag(dftag.value,precision,compression)
+        return self.streamer.foldersaction(t0,t1,self.folderPkl,self.streamer.parktagminute,dftag=dftag)
 
     def parkallfromdb(self):
         listTags = self.alltags
@@ -1250,7 +1267,7 @@ class SuperDumper(Configurator):
             else:
                 values  = initval + precision*vol*np.random.randn(len(timestampz))
                 stag = pd.Series(values,index=timestampz)
-                # stag = self.streaming.staticCompressionTag(stag,precision,method='reduce')
+                # stag = self.streamer.staticCompressionTag(stag,precision,method='reduce')
                 df[tag] = pd.DataFrame(stag).reset_index()
                 df[tag].columns=['timestampz','value']
             df[tag]['tag'] = tag
@@ -1296,7 +1313,7 @@ class SuperDumper(Configurator):
     def park_all_buffer(self):
         start   = time.time()
         timenow = dt.datetime.now(tz=pytz.timezone(self.local_tzname))-dt.timedelta(minutes=1)
-        folderDay = self.folderPkl + timenow.strftime(self.streaming.dayFolderFormat)+'/'
+        folderDay = self.folderPkl + timenow.strftime(self.streamer.dayFolderFormat)+'/'
         if not os.path.exists(folderDay):os.mkdir(folderDay)
         folderHour = folderDay + timenow.strftime('%H/')
         if not os.path.exists(folderHour):os.mkdir(folderHour)
@@ -1329,15 +1346,15 @@ class SuperDumper(Configurator):
         # fig.update_layout(titles=)
         return fig
 
-import plotly.express as px
-class StreamerVisualisationMaster(Configurator):
+import plotly.graph_objects as go, plotly.express as px
+
+class VisualisationMaster(Configurator):
     ''' can only be used with a children class inheritating from a class that has
     attributes and methods of Device.
     ex : class StreamVisuSpecial(ComConfigSpecial,StreamerVisualisationMaster)
     '''
     def __init__(self,*args,**kwargs):
         Configurator.__init__(self,*args,**kwargs)
-        self.streaming = Streamer()
         methods={}
         methods['forwardfill']= "df.ffill().resample(rs).ffill()"
         methods['raw']= None
@@ -1352,7 +1369,7 @@ class StreamerVisualisationMaster(Configurator):
 
     def loadparkedtag(self,t0,t1,tag):
         # print(tag)
-        dfs = self.streaming.foldersaction(t0,t1,self.folderPkl,self.streaming.loaddata_minutefolder,tag=tag)
+        dfs = self.streamer.foldersaction(t0,t1,self.folderPkl,self.streamer.loaddata_minutefolder,tag=tag)
         if len(dfs)>0:
             return pd.concat(dfs)
         else:
@@ -1520,7 +1537,7 @@ class StreamerVisualisationMaster(Configurator):
 # #  VERISON MANAGER    #
 # #######################
 sort_list=lambda x:list(pd.Series(x).sort_values())
-class Monitoring_VM():
+class VersionManager():
     def __init__(self,folderData,plcDir,loadAnyway=False,pattern_plcFiles='*plc*.csv'):
         self.streamer     = Streamer()
         self.plcDir       = plcDir
@@ -1528,9 +1545,8 @@ class Monitoring_VM():
         self.versionFiles = glob.glob(self.plcDir+pattern_plcFiles)
         self.dicVersions  = {f:re.findall('\d+\.\d+',f)[0] for f in self.versionFiles}
         self.listVersions = sort_list(self.dicVersions.values())
-        self.parkedDays = [k.split('/')[-1] for k in glob.glob(self.folderData+'/*')]
-        self.parkeddays = pd.Series([pd.Timestamp(k,tz='CET') for k in self.parkedDays]).sort_values()
-        self.tmin,self.tmax = self.parkeddays.min(),self.parkeddays.max()
+        self.daysnotempty = pd.Series([pd.Timestamp(k) for k in self.streamer.fs.get_parked_days_not_empty(folderData)])
+        self.tmin,self.tmax = self.daysnotempty.min(),self.daysnotempty.max()
         # self.tmin=pd.Timestamp('2021-12-20 5:00')
         # self.tmax=self.tmin + dt.timedelta(hours=12)
         self.transitionFile = self.plcDir + 'versionnageTags.ods'
@@ -1564,6 +1580,17 @@ class Monitoring_VM():
             tagInplc[tag]=[True if tag in list(v.index) else False for k,v in df_plcs.items()]
         return pd.DataFrame.from_dict(tagInplc,orient='index',columns=df_plcs.keys()).T.sort_index()
 
+    def get_patterntags_inPLCs(self,pattern,ds=True):
+        df_plcs = self.df_plcs
+        if not not ds:
+            df_plcs = {k:v[v.DATASCIENTISM==ds] for k,v in self.df_plcs.items()}
+        patterntags_plcs={}
+        # print(df_plcs.keys())
+        for v,dfplc in df_plcs.items():
+            # return pd.DataFrame.from_dict(tagInplc,orient='index',columns=df_plcs.keys()).T.sort_index()
+            patterntags_plcs[v]=list(dfplc.index[dfplc.index.str.contains(pattern)])
+        return pd.DataFrame.from_dict(patterntags_plcs,orient='index').sort_index().T
+
     def get_listTags_folder(self,folder):
         return self.streamer.listfiles_folder(folder)
 
@@ -1572,20 +1599,13 @@ class Monitoring_VM():
 
     def get_presenceTags_folder(self,folder,tags=None):
         if tags is None : tags=self.all_tags_history
-        print(folder)
+        # print(folder)
         listTags = [k.split('.pkl')[0] for k in self.streamer.listfiles_folder(folder)]
         # print(listTags)
         return {t:True if t in listTags else False for t in tags}
 
-    def get_presencepatterntags(self,period,pattern):
-        cols=pd.Series(self.map_presenceTags.columns)
-        cols=cols[cols.str.contains(pattern)]
-        idx=self.map_presenceTags.index
-        idxFilter = (idx>period[0])&(idx<period[1])
-        return self.map_presenceTags.loc[idxFilter,cols]
-
     def get_missing_tags_versions(self,folder):
-        print(folder)
+        # print(folder)
         listTags = [k.split('.pkl')[0] for k in self.get_listTags_folder(folder)]
         # keep only valid tags
         listTags = [k for k in listTags if k in self.all_tags_history]
@@ -1599,6 +1619,7 @@ class Monitoring_VM():
             dfs[version] = tagsVersion
             dayCompatibleVersions[version] = tagNotInFolder[version]
         return dayCompatibleVersions
+
 
     #######################
     # GENERATE DATAFRAMES #
@@ -1618,32 +1639,6 @@ class Monitoring_VM():
     ######################
     # MAKE IT COMPATIBLE #
     ######################
-    def get_renameTag_map_v0_to_v1_screenBuilding(self):
-        df_renametagsmap = {}
-        oldtags=list(self.df_plcs['0.0'].index)
-        for oldtag in oldtags:
-        # for tag in oldtags[:1]:
-            tagsplit = oldtag.split('-')
-            newtag   = oldtag
-            if not re.match('C[0-9a-f]{8}',oldtag) is None:
-                newtag = '-'.join(tagsplit[0:2]+tagsplit[3:])
-            newtag = newtag.replace('C00000016-GENERAL_ADMINISTRATIF','C00000014-A007')
-            newtag = newtag.replace('-B008','-F003')
-            newtag = newtag.replace('C00000014-F001','C00000012-F001')
-            newtag = newtag.replace('C00000012-E001','C00000010-E001')
-            newtag= newtag.replace('PV00000001-centrale SLS 80kWc-JTW-00','PV00000001-centrale SLS 80kWc-kW-JTW')
-            newtag= newtag.replace('PV00000001-centrale SLS 80kWc-JTWH-00','PV00000001-centrale SLS 80kWc-kWh-JTWH')
-            if len([k for k in ['-B005-','-EM_VIRTUAL-','SIS-'] if k in oldtag])>0:
-                newtag=None
-            df_renametagsmap[oldtag] = newtag
-        df_renametagsmap=pd.DataFrame({'oldtag':df_renametagsmap.keys(),'newtag':df_renametagsmap.values()})
-
-        newtags=list(self.df_plcs['1.0'].index)
-        brand_newtags = [t for t in newtags if t not in list(df_renametagsmap['newtag'])]
-        brand_newtags = pd.DataFrame([(None,k) for k in brand_newtags],columns=['oldtag','newtag'])
-        df_renametagsmap=pd.concat([df_renametagsmap,brand_newtags])
-        return df_renametagsmap
-
     ##### load the right version to version correspondance
     def getCorrectVersionCorrespondanceSheet(self,transition):
         if transition not in self.transitions:
@@ -1674,17 +1669,6 @@ class Monitoring_VM():
         tagsAdded = [k for k in tagsAdded if k not in list(dfRenameTagsMap.newTags)]
         return dfRenameTagsMap,tagsAdded
 
-    def get_patterntags_inPLCs(self,pattern,ds=True):
-        df_plcs = self.df_plcs
-        if not not ds:
-            df_plcs = {k:v[v.DATASCIENTISM==ds] for k,v in self.df_plcs.items()}
-        patterntags_plcs={}
-        # print(df_plcs.keys())
-        for v,dfplc in df_plcs.items():
-            # return pd.DataFrame.from_dict(tagInplc,orient='index',columns=df_plcs.keys()).T.sort_index()
-            patterntags_plcs[v]=list(dfplc.TAG[dfplc.TAG.str.contains(pattern)])
-        return pd.DataFrame.from_dict(patterntags_plcs,orient='index').sort_index()
-
     def get_rename_tags_newpattern(self,oldPattern,newPattern,df_plc,debug=False):
         ''' replace only pattern occurence '''
         df_renametagsmap=pd.DataFrame(df_plc.index,columns=['oldtag'])
@@ -1701,19 +1685,19 @@ class Monitoring_VM():
             # print('could not remove tags in',list_invalidTags)
 
     def get_replace_tags_folder(self,folder,tag2replace):
-        print(folder)
+        # print(folder)
         result={}
         for oldtag,newtag in zip(tag2replace['oldtag'],tag2replace['newtag']):
             try:
                 os.rename(folder + oldtag+'.pkl',folder+newtag+'.pkl')
                 result[oldtag]='replace by ' + newtag
             except:
-                result[oldtag]=' not in  folder'
+                result[oldtag]=' not in folder'
         return result
 
-    def get_createnewtag_folder(self,folder,alltagsversion):
-        print(folder)
-        df = pd.DataFrame(columns=['value'])
+    def get_createnewtags_folder(self,folder,alltagsversion):
+        # print(folder)
+        df = pd.Series(name='value')
         df_tagAdded={}
         for tag in alltagsversion:
             tagpkl=folder + tag + '.pkl'
@@ -1763,7 +1747,7 @@ class Monitoring_VM():
         fig.update_layout(font_color="blue",font_size=15)
         fig.show()
         return fig
-class Monitoring_VM_minutely(Monitoring_VM):
+class VersionManager_minutely(VersionManager):
     #######################
     # GENERATE DATAFRAMES #
     #######################
@@ -1832,19 +1816,19 @@ class Monitoring_VM_minutely(Monitoring_VM):
         print(brand_newtags)
         print()
         new_version_tags = map_renametag.newtag[~map_renametag.newtag.isna()]
-        map_createTags   = self._compute_all_minutefolders(self.get_createnewtag_folder,list(new_version_tags),period=period)
+        map_createTags   = self._compute_all_minutefolders(self.get_createnewtags_folder,list(new_version_tags),period=period)
         print()
         print('TAGS ADDED'.rjust(75))
         print(map_createTags)
         print()
         return replacedmap,map_createTags
-class Monitoring_VM_daily(Monitoring_VM):
+class VersionManager_daily(VersionManager):
     #######################
     # GENERATE DATAFRAMES #
     #######################
     def __init__(self,*args,**kwargs):
-        Monitoring_VM.__init__(self,*args,**kwargs)
-        self.streamer.days_pooled(self.tmin,self.tmax,self.folderData,self.streamer.create_dayfolder,pool=False)
+        VersionManager.__init__(self,*args,**kwargs)
+        self.streamer.actiondays(self.tmin,self.tmax,self.folderData,self.streamer.create_dayfolder,pool=False)
 
     def _compute_all_dayfolders(self,function,*args,period=None,pool=False):
         '''-period : [tmin,tmax] timestamps'''
@@ -1855,7 +1839,7 @@ class Monitoring_VM_daily(Monitoring_VM):
             tmin,tmax=period
         if tmax - tmin - dt.timedelta(days=20)<pd.Timedelta(seconds=0):
             pool=False
-        df = self.streamer.days_pooled(tmin,tmax,self.folderData,function,*args,pool=pool)
+        df = self.streamer.actiondays(tmin,tmax,self.folderData,function,*args,pool=pool)
         # print(df)
         df = pd.DataFrame(df).T
         df.index=[pd.Timestamp(x,tz='CET') for x in df.index]
@@ -1874,13 +1858,13 @@ class Monitoring_VM_daily(Monitoring_VM):
         return df_plcs,all_tags_history
 
     def load_nbTags_folders(self):
-        df_nbtags=self.streamer.days_pooled(self.tmin,self.tmax,self.folderData,self.get_lentags,pool=False)
+        df_nbtags=self.streamer.actiondays(self.tmin,self.tmax,self.folderData,self.get_lentags,pool=False)
         return pd.DataFrame.from_dict(df_nbtags,orient='index')
 
     def load_missingTags_versions(self,period=None,pool=False):
         '''-period : [tmin,tmax] timestamps'''
         map_missingTags = self._compute_all_dayfolders(self.get_missing_tags_versions,period=period,pool=pool)
-        map_missingTags = pd.DataFrame(map_missingTags).T
+        map_missingTags = pd.DataFrame(map_missingTags).T.sort_index()
         map_missingTags_len = map_missingTags.applymap(lambda x:len(x))
         return map_missingTags,map_missingTags_len
 
@@ -1907,21 +1891,12 @@ class Monitoring_VM_daily(Monitoring_VM):
         print()
         print('MAP OF REPLACED TAGS '.rjust(75))
         print(replacedmap)
+        return replacedmap
 
+    def create_emptytags_version(self,period,dfplc):
         ## add tags as emptydataframes in folder if they are missing
-        ## (unnecessary and dangerous to remove tags that have been deleted in new version in case we want to go back to a previous version)
         print('---------------------------------------------------------------')
         print();print();print()
-
-        brand_newtags=map_renametag.loc[map_renametag['oldtag'].isna(),'newtag']
-        print('BRAND NEW TAGS'.rjust(75))
-        print('ADDING MISSING TAGS IF MISSING'.rjust(75))
-        print(brand_newtags)
-        print()
-        new_version_tags = map_renametag.newtag[~map_renametag.newtag.isna()]
-        map_createTags   = self._compute_all_dayfolders(self.get_createnewtag_folder,list(new_version_tags),period=period)
-        print()
-        print('TAGS ADDED'.rjust(75))
-        print(map_createTags)
-        print()
-        return replacedmap,map_createTags
+        alltags = list(dfplc.index)
+        map_createTags   = self._compute_all_dayfolders(self.get_createnewtags_folder,alltags,period=period)
+        return map_createTags

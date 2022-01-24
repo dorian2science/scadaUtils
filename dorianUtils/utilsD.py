@@ -370,6 +370,10 @@ class Utils:
         for i in range(cmap.N):colorList.append(mtpcl.rgb2hex(cmap(i)))
         return colorList
 
+    def popup_dfexcel(self,df):
+        df.to_excel('/tmp/test.xlsx')
+        sp.Popen(['libreoffice','/tmp/test.xlsx'])
+
     def showdf_as_table(self,df):
         fig = go.Figure(data=[go.Table(
                         header=dict(values=list(df.columns),
