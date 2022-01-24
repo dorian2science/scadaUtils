@@ -1543,7 +1543,7 @@ class VersionManager():
         self.plcDir       = plcDir
         self.folderData   = folderData
         self.versionFiles = glob.glob(self.plcDir+pattern_plcFiles)
-        self.dicVersions  = {f:re.findall('\d+\.\d+',f)[0] for f in self.versionFiles}
+        self.dicVersions  = {f:re.findall('\d+\.\d+',f.split('/')[-1])[0] for f in self.versionFiles}
         self.listVersions = sort_list(self.dicVersions.values())
         self.daysnotempty = pd.Series([pd.Timestamp(k) for k in self.streamer.fs.get_parked_days_not_empty(folderData)])
         self.tmin,self.tmax = self.daysnotempty.min(),self.daysnotempty.max()
