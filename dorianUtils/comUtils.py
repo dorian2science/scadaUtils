@@ -68,7 +68,7 @@ class FileSystem():
         folders={v.split('/')[-1]:float(k[:-1].replace(',','.')) for k,v in folders}
         daysnotempty = pd.Series(folders)
         daysnotempty = [k for k in daysnotempty[daysnotempty>dict_size].index]
-        daysnotempty = pd.Series([pd.Timestamp(k) for k in daysnotempty]).sort_values()
+        daysnotempty = pd.Series([pd.Timestamp(k,tz='CET') for k in daysnotempty]).sort_values()
         return daysnotempty
 
 class SetInterval:
