@@ -431,7 +431,7 @@ class ModeBusDeviceSingleRegisters(ModeBusDevice):
         return data
 
 import opcua
-class Opcua(Device):
+class Opcua_Client(Device):
     def __init__(self,*args,nameSpace,**kwargs):
         Device.__init__(self,*args,**kwargs)
         self.nameSpace   = nameSpace
@@ -848,9 +848,9 @@ class Streamer():
             dftag['tag']=tag
             dftags[tag]=dftag
         df = pd.concat(dftags.values(),axis=0)
-        # print(df)
         df=df[df.index>=t0]
         df=df[df.index<=t1]
+        df.index.name='timestampz'
         return df
 
     def createFolders_period(self,t0,t1,folderPkl,frequence='day'):
@@ -961,7 +961,7 @@ class Streamer():
         fig.show()
         return timelens
 
-class Configurator(Streamer):
+class Configurator():
     def __init__(self,folderPkl,confFolder,dbParameters,device_infos,
                     dbTimeWindow,parkingTime,generateConfFiles=False):
         '''
@@ -1010,7 +1010,7 @@ class Configurator(Streamer):
             elif device['protocole']=='meteo':
                 device=Meteo_Client(self.confFolder,freq=info_device['freq'])
             elif device['protocole']=='opcua':
-                device=Opcua(device_name,device['IP'],device['port'],self.confFolder,nameSpace=info_device['namespace'],info_device=info_device)
+                device=Opcua_Client(device_name,device['IP'],device['port'],self.confFolder,nameSpace=info_device['namespace'],info_device=info_device)
             # setattr(self.devices,device_name,device)
             self.devices[device_name]=device
             dfplc=device.dfPLC
@@ -1381,7 +1381,7 @@ class VisualisationMaster(Configurator):
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
         dbconn.close()
         if len(df)==0:
-            return df
+            return df.set_index('timestampz')
         if df.duplicated().any():
             print("WARNING : duplicates in database")
             print(df[df.duplicated(keep=False)])
@@ -1398,9 +1398,10 @@ class VisualisationMaster(Configurator):
         '''
         if df.empty:
             return df
-        # remove duplicated index
         start=time.time()
-        df = df.dropna().pivot(values='value',columns='tag')
+        # remove duplicated index and pivot
+        # print(df)
+        df = df.reset_index().drop_duplicates().dropna().set_index('timestampz').pivot(values='value',columns='tag')
         if checkTime:printtime('pivot data',start)
         dtypes = self.dfPLC.loc[df.columns].DATATYPE.apply(lambda x:self.dataTypes[x]).to_dict()
         df = df.astype(dtypes)
@@ -1430,6 +1431,7 @@ class VisualisationMaster(Configurator):
         start=time.time()
         dfparked = self._load_parked_tags(t0,t1,tags)
         if checkTime:printtime('loading the parked data',start)
+        # if not dfdb.isempty:
         df = pd.concat([dfdb,dfparked]).sort_index()
         # print(df)
         ######### process the data
@@ -1494,7 +1496,7 @@ class VisualisationMaster_daily(VisualisationMaster):
         '''
         if not isinstance(tags,list) or len(tags)==0:
             print('tags is not a list or is empty')
-            return pd.DataFrame()
+            return pd.DataFrame(columns=['value','timestampz','tag']).set_index('timestampz')
         df = self.streamer.load_parkedtags_daily(tags,t0,t1,self.folderPkl,*args,**kwargs)
         # if df.duplicated().any():
         #     print("==========================================")
@@ -1535,12 +1537,12 @@ class VisualisationMaster_minutely(VisualisationMaster):
         if len(dfs)==0:
             return pd.DataFrame()
         df = pd.concat(dfs).sort_index()
-        # if df.duplicated().any():
-        #     print("==========================================")
-        #     print("attention il y a des doublons dans les donnees parkes : ")
-        #     print(df[df.duplicated(keep=False)])
-        #     print("==========================================")
-        #     df = df.drop_duplicates()
+        if df.duplicated().any():
+            print("==========================================")
+            print("attention il y a des doublons dans les donnees parkes : ")
+            print(df[df.duplicated(keep=False)])
+            print("==========================================")
+            df = df.drop_duplicates()
         return df
 
 # #######################
