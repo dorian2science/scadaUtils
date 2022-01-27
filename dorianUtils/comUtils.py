@@ -1485,8 +1485,6 @@ class VisualisationMaster(Configurator):
         # fig.update_yaxes(showticklabels=False)
         fig.update_yaxes(showgrid=False)
         fig.update_xaxes(matches='x')
-        self.updatecolorAxes(fig)
-        self.updatecolortraces(fig)
         self.standardLayout(fig,h=None)
         return fig
 

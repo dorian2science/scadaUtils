@@ -259,6 +259,7 @@ class DccExtended:
                     dbc.Row([dbc.Col(dcc.Input(id = baseId + wid_key + 'Start',type='text',value = '09:00',size='13',style={'font-size' : 13})),
                             dbc.Col(dcc.Input(id = baseId + wid_key + 'End',type='text',value = '18:00',size='13',style={'font-size' : 13}))
                         ]),
+                        #update every hour
                     dcc.Interval(id=baseId + wid_key + 'Interval',n_intervals=0,interval=60*60*1000)
                 ])]
 

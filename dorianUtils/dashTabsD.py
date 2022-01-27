@@ -16,7 +16,6 @@ class TabMaster():
     def __init__(self,app,cfg,loadData,plotData,tabname,update_fig=None,baseId='tab_'):
         self.utils = Utils()
         self.dccE = DccExtended()
-        self.initialDateMethod = 'parkedData'
         self.app = app
         self.cfg = cfg
         self.loadData   = loadData
@@ -92,6 +91,7 @@ class TabMaster():
                 df,filename =  self.utils.exportDataOnClick(fig)
                 return dcc.send_data_frame(df.to_csv, filename+'.csv')
 
+        # update datetime picker
         if 'datePickerRange' in categories:
             # initial visible month tuned to selection
             @self.app.callback(
@@ -116,24 +116,9 @@ class TabMaster():
             Input(self.baseId + 'pdr_timeInterval','n_intervals'),
             )
             def updateInitialDateTime(n):
-                if self.initialDateMethod == 'time':
-                    now = dt.datetime.now().astimezone()
-                    t0 = now- dt.timedelta(hours=8)
-                    return t0.strftime('%Y-%m-%d'),t0.strftime('%H:%M'),now.strftime('%Y-%m-%d'),now.strftime('%H:%M')
-                if self.initialDateMethod == 'parkedData':
-                    # dangerous => better use localtimezone
-                    listDates = [pd.Timestamp(k,tz='CET') for k in self.cfg.parkedDays]
-                    lastDate = max(listDates)
-                    t0=t1=lastDate
-                    # if hours/minute parked take the last 8 hours:
-                    # folderLastDay = self.cfg.folderPkl+'parkedData/'+lastDate.strftime('%Y-%m-%d')+'/*'
-                    # listHours=glob.glob(folderLastDay)
-                    # lastHour = max([float(k) for k in listHours])
-                    # t1 = lastDate+dt.timedelta(hours=lastHour)
-                    # t0 = t1-dt.timedelta(hours=8)
-                    # return t0,t0.strftime('%H:%M'),t1,t1.strftime('%H:%M')
-                    return t0.strftime('%Y-%m-%d'),t0.strftime('9:00'),t1.strftime('%Y-%m-%d'),t1.strftime('18:00')
-                    # return t0,t0.strftime('9:00'),t1,t1.strftime('18:00')
+                t1 = pd.Timestamp.now()
+                t0 = t1-pd.Timedelta(hours=15)
+                return t0.strftime('%Y-%m-%d'),t0.strftime('%H:%M'),t1.strftime('%Y-%m-%d'),t1.strftime('%H:%M')
 
         if 'modalTagsTxt' in categories:
             @self.app.callback(
@@ -160,7 +145,7 @@ class TabMaster():
         if not realTime:
             dicWidgets = {
                 'pdr_time' : {'tmin':self.cfg.tmin,'tmax':self.cfg.tmax},
-                'in_timeRes':'5s','dd_resampleMethod' : {'value':'forwardfill','methods':list(self.cfg.methods.keys())},
+                'in_timeRes':'60s','dd_resampleMethod' : {'value':'forwardfill','methods':list(self.cfg.methods.keys())},
                 'dd_style':'default',
                 'btn_export':0,
                     }
@@ -443,11 +428,13 @@ class TabMultiUnits(TabMaster):
         TabMaster.__init__(self,*args,**kwargs,tabname='multi unit',baseId=baseId)
         dicSpecialWidgets = {'dd_tag':defaultTags,'modalListTags':None,'btn_legend':0}
         self._buildLayout(dicSpecialWidgets,realTime=realtime)
+        self.wids=self.dccE.parseLayoutIds(self.tabLayout)
+        self.wids[self.baseId + 'pdr_timeInterval'].interval=60*1000
         if realtime:
             self._define_basicCallbacks(['legendtoogle','export','modalTagsTxt','refreshWindow','ts_freeze'])
         else:
-            # self._define_basicCallbacks(['legendtoogle','export','datePickerRange','modalTagsTxt'])
-            self._define_basicCallbacks(['legendtoogle','export','modalTagsTxt'])
+            self._define_basicCallbacks(['legendtoogle','export','datePickerRange','modalTagsTxt'])
+            # self._define_basicCallbacks(['legendtoogle','export','modalTagsTxt'])
         inputTuples = [
             ('dd_tag','value'),
             ('btn_legend','children'),
@@ -456,11 +443,11 @@ class TabMultiUnits(TabMaster):
         self._defineCallbackGraph(realtime,inputTuples,prepareTags,['dd_tag'],[],['dd_style'])
 
 class TabMultiUnitSelectedTags(TabMaster):
-    def __init__(self,*args,realtime=False,defaultCat=[],baseId='muts0_',**kwargs):
+    def __init__(self,*args,realtime=False,defaultCat=[],ddtag=[],baseId='muts0_',**kwargs):
         TabMaster.__init__(self,*args,**kwargs,
                     update_fig = self.update_fig,
                     tabname='multi-unit +',baseId=baseId)
-        dicSpecialWidgets = {'dd_typeTags':defaultCat,'dd_tag':[],'btn_legend':0}
+        dicSpecialWidgets = {'dd_typeTags':defaultCat,'dd_tag':ddtag,'btn_legend':0}
         self._buildLayout(dicSpecialWidgets,realTime=realtime)
         if realtime:
             self._define_basicCallbacks(['legendtoogle','export','ts_freeze','refreshWindow'])
