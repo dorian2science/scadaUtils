@@ -159,7 +159,7 @@ class TabMaster():
     def _buildLayout(self,specialWidDic,realTime=False,widthG=85,*args):
         if not realTime:
             dicWidgets = {
-                'pdr_time' : {'tmin':self.cfg.parkedDays[0],'tmax':self.cfg.parkedDays[-1]},
+                'pdr_time' : {'tmin':self.cfg.tmin,'tmax':self.cfg.tmax},
                 'in_timeRes':'5s','dd_resampleMethod' : {'value':'forwardfill','methods':list(self.cfg.methods.keys())},
                 'dd_style':'default',
                 'btn_export':0,
@@ -396,11 +396,11 @@ class TabMaster():
             else:
                 t0 = la['pdr_date_start_date'] + ' ' + la['pdr_timeStart_value']
                 t1 = la['pdr_date_end_date'] + ' ' + la['pdr_timeEnd_value']
-                timeRange=[t0,t1]
+                t0,t1=[pd.Timestamp(k,tz='CET') for k in [t0,t1]]
                 triggerloadData_ids=['dd_tag','pdr_timeBtn','dd_resampleMethod'] + argsPrepare
 
             fig,errCode = self.updateGraph(previousFig,triggerloadData_ids,
-                [tags,timeRange,False,la['dd_resampleMethod_value'],la['in_timeRes_value']],
+                [t0,t1,tags,la['dd_resampleMethod_value'],la['in_timeRes_value']],
                 [la[k + '_value'] for k in argsPlotGraph],
                 [la[k + '_value'] for k in argsUpdateGraph]
             )
@@ -446,7 +446,8 @@ class TabMultiUnits(TabMaster):
         if realtime:
             self._define_basicCallbacks(['legendtoogle','export','modalTagsTxt','refreshWindow','ts_freeze'])
         else:
-            self._define_basicCallbacks(['legendtoogle','export','datePickerRange','modalTagsTxt'])
+            # self._define_basicCallbacks(['legendtoogle','export','datePickerRange','modalTagsTxt'])
+            self._define_basicCallbacks(['legendtoogle','export','modalTagsTxt'])
         inputTuples = [
             ('dd_tag','value'),
             ('btn_legend','children'),

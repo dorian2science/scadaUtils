@@ -976,8 +976,7 @@ class Configurator():
         self.folderPkl = folderPkl##in seconds
         self.confFolder = confFolder##in seconds
         self.dbTimeWindow = dbTimeWindow##in seconds
-        self.dbParameters=dbParameters
-        self.connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
+        self.dbParameters = dbParameters
         self.dataTypes = {
           'REAL':'float',
           'BOOL':'bool',
@@ -1019,6 +1018,7 @@ class Configurator():
         self.dfPLC=pd.concat(dfplcs)
         #####
         self.daysnotempty = self.fs.get_parked_days_not_empty(self.folderPkl)
+        self.tmin,self.tmax = self.daysnotempty.min(),self.daysnotempty.max()
         list_special_configfiles = glob.glob(self.confFolder + '/*configfiles*')
         if len(list_special_configfiles)>0:
             self.file_special_cfg = list_special_configfiles[0]
@@ -1037,7 +1037,8 @@ class Configurator():
         print()
 
     def connect2db(self):
-        return psycopg2.connect(self.connReq)
+        connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
+        return psycopg2.connect(connReq)
 
     def getUsefulTags(self,usefulTag):
         category = self.usefulTags.loc[usefulTag,'Pattern']
@@ -1098,7 +1099,8 @@ class SuperDumper(Configurator):
             self.dumpInterval[device_name] = SetInterval(freq,device.insert_intodb,self.dbParameters)
 
     def flushdb(self,t,full=False):
-        dbconn = psycopg2.connect(self.connReq)
+        connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
+        dbconn = psycopg2.connect(connReq)
         cur  = dbconn.cursor()
         if full:
             cur.execute("DELETE from realtimedata;")
@@ -1414,6 +1416,7 @@ class VisualisationMaster(Configurator):
             rs = '{:.0f}'.format(deltat) + 's'
         start  = time.time()
         if not rsMethod=='raw':
+            print('rsMethod:',rsMethod)
             df = eval(self.methods[rsMethod])
         if checkTime:printtime(rsMethod + ' data',start)
         df.index = df.index.tz_convert(timezone)

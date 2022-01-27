@@ -240,28 +240,21 @@ class DccExtended:
                 widgetObj = [dcc.Interval(id=baseId + wid_key,interval=wid_val*1000,n_intervals=0)]
 
             elif 'pdr_time'==wid_key :
-                if not wid_val :
-                    wid_val={}
-                    tmax = dt.datetime.now()
-                    tmin = tmax-dt.timedelta(days=2*30)
-                else :
-                    tmax = self.utils.findDateInFilename(wid_val['tmax'])-dt.timedelta(seconds=1)
-                    tmin = self.utils.findDateInFilename(wid_val['tmin'])
-                t1 = tmax
-                t0 = t1
+                tmin,tmax = wid_val['tmin'],wid_val['tmax']
                 timeFormat='%Y-%m-%d'
-                t0 = t0.strftime(timeFormat)
-                t1 = t1.strftime(timeFormat)
+                t0 = tmin.strftime(timeFormat)
+                t1 = tmax.strftime(timeFormat)
                 widgetObj = [
                 html.Div([
                     dbc.Row([dbc.Col(html.P('select start and end time : ')),
                         dbc.Col(html.Button(id  = baseId + wid_key + 'Btn',children='update'))]),
 
                     dbc.Row([dbc.Col(dcc.DatePickerRange(id = baseId + 'pdr_date',
-                                # max_date_allowed = t1,
-                                initial_visible_month = t0,
+                                min_date_allowed = t0,
+                                max_date_allowed = t1,
+                                initial_visible_month = t1,
                                 display_format = 'D-MMM-YY',minimum_nights=0,persistence=False,
-                                start_date = t0, end_date = t1))]),
+                                start_date = t1, end_date = t1))]),
 
                     dbc.Row([dbc.Col(dcc.Input(id = baseId + wid_key + 'Start',type='text',value = '09:00',size='13',style={'font-size' : 13})),
                             dbc.Col(dcc.Input(id = baseId + wid_key + 'End',type='text',value = '18:00',size='13',style={'font-size' : 13}))
@@ -439,7 +432,7 @@ class DccExtended:
                     errorBody = html.Div([
                         html.P('''no available data for that time range,
                             please select among the available dates : ''')]+
-                        [html.P(k) for k in cfg.parkedDays[::-1]]
+                        [html.P(k.strftime('%Y-%m-%d')) for k in cfg.daysnotempty]
                             )
                 elif d==2:
                     errorHeader = 'NO TAGS'
