@@ -65,8 +65,9 @@ class FileSystem():
         return [t0,t1]
 
     def get_parked_days_not_empty(self,folderPkl,minSize=3,dict_size=3):
-        print(folderPkl)
-        folders=[k.split('\t') for k in sp.check_output('du -h --max-depth=1 '+ folderPkl + ' | sort -h',shell=True).decode().split('\n')][:-2]
+        folders=[k.split('\t') for k in sp.check_output('du -h --max-depth=1 '+ folderPkl + ' | sort -h',shell=True).decode().split('\n')]
+        folders = [k for k in folders if len(k)==2]
+        folders = [k for k in folders if len(re.findall('\d{4}-\d{2}-\d',k[1].split('/')[-1]))>0 ]
         folders={v.split('/')[-1]:float(k[:-1].replace(',','.')) for k,v in folders}
         daysnotempty = pd.Series(folders)
         daysnotempty = [k for k in daysnotempty[daysnotempty>dict_size].index]
@@ -691,6 +692,7 @@ class Streamer():
         '''
         -t0,t1:timestamps
         '''
+        print(t0,t1)
         days=pd.date_range(t0,t1,freq='1D')
         dayfolders =[folderPkl + k.strftime(self.format_dayFolder)+'/' for k in days]
         if pool:
