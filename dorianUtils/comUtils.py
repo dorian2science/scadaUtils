@@ -566,7 +566,7 @@ class Streamer():
         methods['rolling_mean']="df.ffill().resample(rs).ffill().rolling(rmwindow).mean()"
         self.methods = methods
 
-    def to_folderday(d):
+    def to_folderday(self,d):
         return d.strftime(self.format_dayFolder)+'/'
 
     # ########################
