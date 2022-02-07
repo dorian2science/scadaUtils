@@ -22,7 +22,7 @@ class FileSystem():
     def load_confFile(self,filename,generate_func,generateAnyway=False):
         start    = time.time()
         if not os.path.exists(filename) or generateAnyway:
-            print(filename, 'not present. Start generating the file with function : ')
+            print('Start generating the file '+filename+' with function : ')
             print(' '.ljust(20),generate_func)
             print('')
             # try:
@@ -34,10 +34,9 @@ class FileSystem():
             # except:
             #     print('failed to build plc file with filename :',filename)
             #     raise SystemExit
-        print(filename)
         # sys.exit()
         plcObj = pickle.load(open(filename,'rb'))
-        printtime(filename.split('/')[-1],start)
+        printtime(filename.split('/')[-1] + ' loaded',start)
         print('---------------------------------------')
         print('')
         return plcObj
@@ -98,6 +97,27 @@ class FileSystem():
             listFiles = [k.split('/')[-1] for k in glob.glob(folder+'/*'+pattern+'*')]
         return listFiles
 
+    def getUnitofTag(self,tag,dfplc):
+        unit=dfplc.loc[tag].UNITE
+        # print(unit)
+        if not isinstance(unit,str):
+            unit='u.a'
+        return unit
+
+    def getTagsTU(self,patTag,dfplc,units,onCol='index',cols='tag',ds=True):
+        if ds:dfplc=dfplc[dfplc.DATASCIENTISM]
+        if onCol=='index':
+            df = dfplc[dfplc.index.str.contains(patTag,case=False)]
+        else:
+            df = dfplc[dfplc[onCol].str.contains(patTag,case=False)]
+        if isinstance(units,str):units = [units]
+        df = df[df['UNITE'].isin(units)]
+        if cols=='tdu' :
+            return df[['DESCRIPTION','UNITE']]
+        elif cols=='tag':
+            return list(df.index)
+        else :
+            return df
 class SetInterval:
     '''demarre sur un multiple de interval.
     Saute donc les données intermédiaires si la tâche prends plus de temps
@@ -126,141 +146,8 @@ class SetInterval:
 # #######################
 # #      DEVICES        #
 # #######################
-# basic utilities for Streamer and DumpingClientMaster
 class Device():
     ''' for inheritance :
-        - a function <loadPLC_file> should be written to load the data frame of info on tags
-        - a function <collectData> should be written  to collect data from the device.
-        - a function <connectDevice> to connect to the device.
-    '''
-    def __init__(self,device_name,endpointUrl,port,confFolder,info_device,generateAnyway=False):
-        self.endpointUrl = endpointUrl
-        self.port        = port
-        self.device_name = device_name
-        self.confFolder  = confFolder
-        self.info_device = info_device
-        self._generateAnyway=generateAnyway
-        self.file_plc = self.confFolder + 'plc_' + device_name + info_device['version'] + '.pkl'
-        self.fs = FileSystem()
-        self.device_name = device_name
-        self.isConnected = True
-        now = dt.datetime.now().astimezone()
-        self.local_tzname = now.tzinfo.tzname(now)
-        self.utils   = Utils()
-        self.dfplc   = self.loadPLC_file()
-        self.alltags = list(self.dfplc.index)
-        self.collectingTimes={}
-        self.insertingTimes={}
-
-    def loadPLC_file(self):
-        return self.fs.load_confFile(self.file_plc,self.build_plc_fromDevice,self._generateAnyway)
-
-    def build_plc_fromDevice(self):
-        self.file_instr=self.confFolder + 'dfInstr_' + self.device_name + self.info_device['version']+'.pkl'
-        print('building PLC configuration file of ' + self.device_name  +' from dfInstr')
-        dfInstr = self.loaddfInstr()
-        units = {'kW':'JTW','kWh':'JTWH','kVA':'JTVA','kvar':'JTVar','kvarh':'JTVarH','kVAh':'JTVAH'}
-        tags  = {}
-        variables=self.info_device['variables']
-        compteurs=self.info_device['compteurs']
-        for t in dfInstr.index:
-            currentTag = dfInstr.loc[t]
-            variable = currentTag['description']
-            fullCompteurName = compteurs.loc[currentTag['point de comptage']]
-            if variable not in list(variables.index):
-                print('variable ',variable, 'not describe in compteurs.ods/variables')
-                # print('         exit        ')
-                # print('=========================')
-                print('')
-                # sys.exit()
-            else:
-                unit = units[currentTag['unit']]
-                description = fullCompteurName['description'] + ' - ' + variables.loc[variable,'description']
-                tag     = fullCompteurName.fullname + '-' + currentTag['description'] + '-' + unit
-                tags[tag] = {'DESCRIPTION' :description,'UNITE':unit}
-                dfInstr.loc[t,'tag'] = tag
-        dfplc = pd.DataFrame.from_dict(tags).T
-        dfplc.index.name  = 'TAG'
-        dfplc['MIN']      = -200000
-        dfplc['MAX']      = 200000
-        dfplc['DATATYPE'] = 'REAL'
-        dfplc['DATASCIENTISM'] = True
-        dfplc['PRECISION'] = 0.01
-        dfplc['FREQUENCE_ECHANTILLONNAGE'] = 5
-        dfplc['VAL_DEF'] = 0
-        file_plc_csv = self.file_plc.replace('.pkl','.csv')
-        print(dfplc)
-        dfplc.to_csv(file_plc_csv)
-        print()
-        print(file_plc_csv +' saved.')
-        dfInstr = dfInstr[~dfInstr['tag'].isna()].set_index('tag')
-        pickle.dump(dfInstr,open(self.file_instr,'wb'))
-        print(self.file_instr +' saved.')
-        print('*****************************************')
-        print('')
-        return dfplc
-
-    def checkConnection(self):
-        if not self.isConnected:
-            print('+++++++++++++++++++++++++++')
-            print(dt.datetime.now(tz=pytz.timezone(self.local_tzname)))
-            print('try new connection ...')
-            try:
-                self.connectDevice()
-                print('connexion established again.')
-                self.isConnected=True
-            except Exception:
-                print(dt.datetime.now().astimezone().isoformat() + '''--> problem connecting to
-                                                device with endpointUrl''' + self.endpointUrl + '''
-                                                on port ''' + str(self.port))
-                print('sleep for ' + ' seconds')
-            print('+++++++++++++++++++++++++++')
-            print('')
-
-    def insert_intodb(self,dbParameters,*args):
-        '''
-        - dbParameters:dictionnary of database connection parameters
-        - *args : arguments of self.collectData
-        '''
-        data={}
-        try :
-            connReq = ''.join([k + "=" + v + " " for k,v in dbParameters.items()])
-            dbconn = psycopg2.connect(connReq)
-        except :
-            print('problem connecting to database ',self.dbParameters )
-            return
-        cur  = dbconn.cursor()
-        start=time.time()
-        ts = dt.datetime.now(tz=pytz.timezone(self.local_tzname))
-        if self.isConnected:
-            try :
-                data = self.collectData(*args)
-                # print(data)
-            except:
-                print('souci connexion at ' + ts.isoformat())
-                self.isConnected = False
-                print('waiting for the connexion to be re-established...')
-            self.collectingTimes[dt.datetime.now(tz=pytz.timezone(self.local_tzname)).isoformat()] = (time.time()-start)*1000
-            for tag in data.keys():
-                sqlreq = "insert into realtimedata (tag,value,timestampz) values ('"
-                value = data[tag][0]
-                if value==None:
-                    value = 'null'
-                value=str(value)
-                sqlreq+= tag +"','" + value + "','" + data[tag][1]  + "');"
-                sqlreq=sqlreq.replace('nan','null')
-                cur.execute(sqlreq)
-            self.insertingTimes[dt.datetime.now(tz=pytz.timezone(self.local_tzname)).isoformat()]=(time.time()-start)*1000
-            dbconn.commit()
-        cur.close()
-        dbconn.close()
-
-    def createRandomInitalTagValues(self):
-        return self.fs.createRandomInitalTagValues(self.alltags,self.dfplc)
-
-class Device_v2():
-    ''' for inheritance :
-        - a function <loadPLC_file> should be written to load the data frame of info on tags
         - a function <collectData> should be written  to collect data from the device.
         - a function <connectDevice> to connect to the device.
     '''
@@ -274,6 +161,8 @@ class Device_v2():
         now = dt.datetime.now().astimezone()
         self.local_tzname = now.tzinfo.tzname(now)
         self.dfplc   = dfplc
+        # print(dfplc)
+        self.listUnits = self.dfplc.UNITE.dropna().unique().tolist()
         self.alltags = list(self.dfplc.index)
         self.collectingTimes = {}
         self.insertingTimes  = {}
@@ -304,19 +193,19 @@ class Device_v2():
             connReq = ''.join([k + "=" + v + " " for k,v in dbParameters.items()])
             dbconn = psycopg2.connect(connReq)
         except :
-            print('problem connecting to database ',self.dbParameters )
+            print('problem connecting to database ',dbParameters )
             return
         cur  = dbconn.cursor()
         start=time.time()
         ts = dt.datetime.now(tz=pytz.timezone(self.local_tzname))
         if self.isConnected:
-            try :
-                data = self.collectData(*args)
+            # try :
+            data = self.collectData(*args)
                 # print(data)
-            except:
-                print('souci connexion at ' + ts.isoformat())
-                self.isConnected = False
-                print('waiting for the connexion to be re-established...')
+            # except:
+            #     print('souci connexion at ' + ts.isoformat())
+            #     self.isConnected = False
+            #     print('waiting for the connexion to be re-established...')
             self.collectingTimes[dt.datetime.now(tz=pytz.timezone(self.local_tzname)).isoformat()] = (time.time()-start)*1000
             for tag in data.keys():
                 sqlreq = "insert into realtimedata (tag,value,timestampz) values ('"
@@ -335,6 +224,12 @@ class Device_v2():
     def createRandomInitalTagValues(self):
         return self.fs.createRandomInitalTagValues(self.alltags,self.dfplc)
 
+    def getUnitofTag(self,tag):
+        return self.fs.getUnitofTag(tag,self.dfplc)
+
+    def getTagsTU(self,patTag,units=None,*args,**kwargs):
+        if not units : units = self.listUnits
+        return self.fs.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
 
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 import xml.etree.ElementTree as ET
@@ -342,9 +237,109 @@ class ModeBusDevice(Device):
     '''dfInstr should be loaded with loaddfInstr before calling this constructor'''
     def __init__(self,*args,**kwargs):
         Device.__init__(self,*args,**kwargs)
-        self.loaddfInstr()
         self.allTCPid = list(self.dfInstr.addrTCP.unique())
         self.client = ModbusClient(host=self.endpointUrl,port=int(self.port))
+
+    def decodeRegisters(self,regs,block,bo='='):
+        d={}
+        firstReg = block['intAddress'][0]
+        for tag in block.index:
+            row = block.loc[tag]
+            #### in order to make it work even if block is not continuous.
+            curReg = int(row['intAddress'])-firstReg
+            if row.type == 'INT32' or row.type == 'UINT32':
+                # print(curReg)
+                valueShorts = [regs[curReg+k] for k in [0,1]]
+                # conversion of 2 shorts(=DWORD=word) into long(=INT32)
+                value = struct.unpack(bo + 'i',struct.pack(bo + "2H",*valueShorts))[0]
+                # curReg+=2
+            if row.type == 'IEEE754':
+                valueShorts = [regs[curReg+k] for k in [0,1]]
+                value = struct.unpack(bo + 'f',struct.pack(bo + "2H",*valueShorts))[0]
+                # curReg+=2
+            elif row.type == 'INT64':
+                valueShorts = [regs[curReg+k] for k in [0,1,2,3]]
+                value = struct.unpack(bo + 'q',struct.pack(bo + "4H",*valueShorts))[0]
+                # curReg+=4
+            d[tag]=[value*row.scale,dt.datetime.now().astimezone().isoformat()]
+        return d
+
+    def checkRegisterValueTag(self,tag,**kwargs):
+        # self.connectDevice()
+        tagid = self.dfInstr.loc[tag]
+        regs  = self.client.read_holding_registers(tagid.intAddress,tagid['size(mots)'],unit=tagid.addrTCP).registers
+        return self.decodeRegisters(regs,pd.DataFrame(tagid).T,**kwargs)
+
+    def getPtComptageValues(self,unit_id,**kwargs):
+        ptComptage = self.dfInstr[self.dfInstr['addrTCP']==unit_id].sort_values(by='intAddress')
+        lastReg  = ptComptage['intAddress'][-1]
+        firstReg = ptComptage['intAddress'][0]
+        nbregs   = lastReg-firstReg + ptComptage['size(mots)'][-1]
+        #read all registers in a single command for better performances
+        regs = self.client.read_holding_registers(firstReg,nbregs,unit=unit_id).registers
+        return self.decodeRegisters(regs,ptComptage,**kwargs)
+
+    def connectDevice(self):
+        return self.client.connect()
+
+    def getModeBusRegistersValues(self,*args,**kwargs):
+        d={}
+        for idTCP in self.allTCPid:
+            d.update(self.getPtComptageValues(unit_id=idTCP,*args,**kwargs))
+        return d
+
+    def quickmodebus2dbint32(self,conn,add):
+        regs  = conn.read_holding_registers(add,2)
+        return struct.unpack(bo + 'i',struct.pack(bo + "2H",*regs))[0]
+
+    def collectData(self,tags=None):
+        data = self.getModeBusRegistersValues()
+        return data
+
+class ModeBusDFInstr(ModeBusDevice):
+    def __init__(self,device_name,endpointUrl,port,compteurs,variables,file_plc,generatePLC=False):
+        self.device_name = device_name
+        self.compteurs   = compteurs[compteurs.device==device_name]
+        self.variables   = variables[variables.device==device_name]
+        self.dfInstr,dfplc = FileSystem().load_confFile(file_plc,self.build_plc_fromDFinstr,generatePLC)
+        ModeBusDevice.__init__(self,device_name,endpointUrl,port,dfplc)
+
+    def build_plc_fromDFinstr(self):
+        print('building PLC configuration file of ' + self.device_name  +' from dfInstr')
+        units = {'kW':'JTW','kWh':'JTWH','kVA':'JTVA','kvar':'JTVar','kvarh':'JTVarH','kVAh':'JTVAH'}
+        tags  = {}
+        for t in self.dfInstr.index:
+            currentTag = self.dfInstr.loc[t]
+            variable = currentTag['description']
+            fullCompteurName = self.compteurs.loc[currentTag['point de comptage']]
+            if variable not in list(self.variables.index):
+                print('variable ',variable, 'not describe in compteurs.ods/variables')
+                print('')
+            else:
+                unit = units[currentTag['unit']]
+                description = fullCompteurName['description'] + ' - ' + self.variables.loc[variable,'description']
+                tag     = fullCompteurName.fullname + '-' + currentTag['description'] + '-' + unit
+                tags[tag] = {'DESCRIPTION' :description,'UNITE':unit}
+                self.dfInstr.loc[t,'tag'] = tag
+        dfplc = pd.DataFrame.from_dict(tags).T
+        dfplc.index.name  = 'TAG'
+        dfplc['MIN']      = -200000
+        dfplc['MAX']      = 200000
+        dfplc['DATATYPE'] = 'REAL'
+        dfplc['DATASCIENTISM'] = True
+        dfplc['PRECISION'] = 0.01
+        dfplc['FREQUENCE_ECHANTILLONNAGE'] = 5
+        dfplc['VAL_DEF'] = 0
+        self.dfInstr=self.dfInstr.set_index('tag')
+        self.dfInstr=self.dfInstr.loc[~self.dfInstr.index.isna()]
+        return self.dfInstr,dfplc
+
+class ModeBusDeviceXML(ModeBusDFInstr):
+    def __init__(self,*args,file_xml,build_dfInstr=False,file_dfInstr=None,**kwargs):
+        self.file_xml = file_xml
+        self.file_dfinstr = file_dfInstr
+        self.dfInstr = FileSystem().load_confFile(self.file_dfinstr,self.build_dfInstr,build_dfInstr)
+        ModeBusDFInstr.__init__(self,*args,**kwargs)
 
     def _makeDfInstrUnique(self,dfInstr):
         uniqueDfInstr = []
@@ -401,106 +396,15 @@ class ModeBusDevice(Device):
 
         return df
 
-    def decodeRegisters(self,regs,block,bo='='):
-        d={}
-        firstReg = block['intAddress'][0]
-        for tag in block.index:
-            row = block.loc[tag]
-            #### in order to make it work even if block is not continuous.
-            curReg = int(row['intAddress'])-firstReg
-            if row.type == 'INT32':
-                # print(curReg)
-                valueShorts = [regs[curReg+k] for k in [0,1]]
-                # conversion of 2 shorts(=DWORD=word) into long(=INT32)
-                value = struct.unpack(bo + 'i',struct.pack(bo + "2H",*valueShorts))[0]
-                # curReg+=2
-            if row.type == 'IEEE754':
-                valueShorts = [regs[curReg+k] for k in [0,1]]
-                value = struct.unpack(bo + 'f',struct.pack(bo + "2H",*valueShorts))[0]
-                # curReg+=2
-            elif row.type == 'INT64':
-                valueShorts = [regs[curReg+k] for k in [0,1,2,3]]
-                value = struct.unpack(bo + 'q',struct.pack(bo + "4H",*valueShorts))[0]
-                # curReg+=4
-            d[tag]=[value*row.scale,dt.datetime.now().astimezone().isoformat()]
-        return d
+    def build_dfInstr(self):
+        print('building dfInstr from ' + self.file_xml)
+        dfInstr = self._findInstruments(self.file_xml)
+        return self._makeDfInstrUnique(dfInstr)
 
-    def checkRegisterValueTag(self,tag,**kwargs):
-        # self.connectDevice()
-        tagid = self.dfInstr.loc[tag]
-        regs  = self.client.read_holding_registers(tagid.intAddress,tagid['size(mots)'],unit=tagid.addrTCP).registers
-        return self.decodeRegisters(regs,pd.DataFrame(tagid).T,**kwargs)
-
-    def getPtComptageValues(self,unit_id,**kwargs):
-        ptComptage = self.dfInstr[self.dfInstr['addrTCP']==unit_id].sort_values(by='intAddress')
-        lastReg  = ptComptage['intAddress'][-1]
-        firstReg = ptComptage['intAddress'][0]
-        nbregs   = lastReg-firstReg + ptComptage['size(mots)'][-1]
-        #read all registers in a single command for better performances
-        regs = self.client.read_holding_registers(firstReg,nbregs,unit=unit_id).registers
-        return self.decodeRegisters(regs,ptComptage,**kwargs)
-
-    def connectDevice(self):
-        return self.client.connect()
-
-    def getModeBusRegistersValues(self,*args,**kwargs):
-        d={}
-        for idTCP in self.allTCPid:
-            d.update(self.getPtComptageValues(unit_id=idTCP,*args,**kwargs))
-        return d
-
-    def quickmodebus2dbint32(self,conn,add):
-        regs  = conn.read_holding_registers(add,2)
-        return struct.unpack(bo + 'i',struct.pack(bo + "2H",*regs))[0]
-
-    def collectData(self):
-        data = self.getModeBusRegistersValues()
-        return data
-
-class ModeBusDeviceXML(ModeBusDevice):
-    def loaddfInstr(self):
-        print(self.confFolder+self.device_name + '*ModbusTCP*.xml')
-        self.file_xml  = glob.glob(self.confFolder+self.device_name + '*ModbusTCP*.xml')[0]
-        patternDFinstr = self.confFolder + 'dfInstr*' + self.device_name+'*.pkl'
-        listdfInstr    = glob.glob(patternDFinstr)
-        if len(listdfInstr)==0:
-            print('building dfInstr from '+ self.file_xml)
-            try:
-                dfInstr = self._findInstruments(self.file_xml)
-                dfInstr = self._makeDfInstrUnique(dfInstr)
-                self.dfInstr = dfInstr
-            except:
-                print('no xml file found in ',self.confFolder)
-                raise SystemExit
-        else :
-            self.file_dfInstr = listdfInstr[0]
-            self.dfInstr=pickle.load(open(self.file_dfInstr,'rb'))
-        return self.dfInstr
-
-        self.dfInstr = pickle.load(open(self.fileDfInstr,'rb'))
-
-class ModeBusDeviceSingleRegisters(ModeBusDevice):
-    def loaddfInstr(self):
-        patternDFinstr=self.confFolder + 'dfInstr*' + self.device_name+'*.pkl'
-        listdfInstr = glob.glob(patternDFinstr)
-        if len(listdfInstr)==0:
-            dfInstr=pd.DataFrame()
-            dfInstr['adresse']     = [40525,40560]
-            dfInstr['intAddress']  =[40525,40560]
-            dfInstr['type']        = ['INT32']*2
-            dfInstr['size(mots)']  = [2]*2
-            dfInstr['size(bytes)'] = [4]*2
-            dfInstr['description'] = ['kW','kWh']
-            dfInstr['scale']       = [1/1000,1/10]
-            dfInstr['unit']        = ['kW','kWh']
-            dfInstr['addrTCP']     = [1]*2
-            dfInstr['point de comptage'] = ['centrale SLS 80kWc']*2
-            dfInstr.index = dfInstr['point de comptage']+'-'+dfInstr['description']
-            self.dfInstr = dfInstr
-        else :
-            self.file_dfInstr = listdfInstr[0]
-            self.dfInstr=pickle.load(open(self.file_dfInstr,'rb'))
-        return self.dfInstr
+class ModeBusDeviceSingleRegisters(ModeBusDFInstr):
+    def __init__(self,*args,dfInstr,**kwargs):
+        self.dfInstr  = dfInstr
+        ModeBusDFInstr.__init__(self,*args,**kwargs)
 
     def getModeBusRegistersValues(self):
         data={}
@@ -508,13 +412,14 @@ class ModeBusDeviceSingleRegisters(ModeBusDevice):
             ptComptage = self.dfInstr.loc[[tag]]
             val = self.dfInstr.loc[tag]
             regs = self.client.read_holding_registers(val['intAddress'],val['size(mots)'],unit=val['addrTCP']).registers
+            # print('==THERE==='.rjust(50))
             data.update(self.decodeRegisters(regs,ptComptage,bo='!'))
         return data
 
 import opcua
-class Opcua_Client(Device_v2):
+class Opcua_Client(Device):
     def __init__(self,*args,nameSpace,**kwargs):
-        Device_v2.__init__(self,*args,**kwargs)
+        Device.__init__(self,*args,**kwargs)
         self.nameSpace   = nameSpace
         self.endpointUrl= self.endpointUrl+":"+str(self.port)
         self.client      = opcua.Client(self.endpointUrl)
@@ -549,7 +454,7 @@ class Opcua_Client(Device_v2):
 
 import urllib.request, json
 class Meteo_Client(Device):
-    def __init__(self,confFolder,freq=30):
+    def __init__(self,freq=30):
         '''-freq: acquisition time in seconds '''
         self.freq=freq
         self.cities = pd.DataFrame({'le_cheylas':{'lat' : '45.387','lon':'6.0000'}})
@@ -557,12 +462,13 @@ class Meteo_Client(Device):
         #     'champet':{'lat':'45.466393','lon':'5.656045'},
         #     'stJoachim':{'lat':'47.382074','lon':'-2.196835'}})
         self.baseurl = 'https://api.openweathermap.org/data/2.5/'
-        Device.__init__(self,'meteo',self.baseurl,None,confFolder,{'version':'0'})
+        dfplc = self.build_plcmeteo(self.freq)
+        Device.__init__(self,'meteo',self.baseurl,None,dfplc)
         self.apitoken = '79e8bbe89ac67324c6a6cdbf76a450c0'
-        # apitoken = '2baff0505c3177ad97ec1b648b504621'# Marc
+        # self.apitoken = '2baff0505c3177ad97ec1b648b504621'# Marc
         self.t0 = dt.datetime(1970,1,1,1,0).astimezone(tz = pytz.timezone('Etc/GMT-3'))
 
-    def loadPLC_file(self):
+    def build_plcmeteo(self,freq):
         vars = ['temp','pressure','humidity','clouds','wind_speed']
         tags=['XM_'+ city+'_' + var for var in vars for city in self.cities]
         descriptions=[var +' '+city for var in vars for city in self.cities]
@@ -584,14 +490,14 @@ class Meteo_Client(Device):
         dfplc['DATATYPE'] = 'REAL'
         dfplc['DATASCIENTISM'] = True
         dfplc['PRECISION'] = 0.01
-        dfplc['FREQUENCE_ECHANTILLONNAGE'] = self.freq
+        dfplc['FREQUENCE_ECHANTILLONNAGE'] = freq
         dfplc['VAL_DEF'] = 0
         return dfplc
 
     def connectDevice():
         return True
 
-    def collectData(self):
+    def collectData(self,tags=None):
         df=pd.concat([self.get_dfMeteo(city) for city in self.cities])
         df = df.loc[self.dfplc.index]
         # return df
@@ -765,12 +671,14 @@ class Streamer():
             rs = '{:.0f}'.format(deltat) + 's'
         start  = time.time()
         if not rsMethod=='raw':
+            # print(df,rsMethod,rs,timezone)
             df = eval(self.methods[rsMethod])
         if checkTime:printtime(rsMethod + ' data',start)
         df.index = df.index.tz_convert(timezone)
         return df
 
-    def load_tag_daily(self,t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow='3000s',showDay=False):
+    def load_tag_daily(self,t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow='3000s',showTag=False,showDay=False):
+        if showTag:print(tag)
         dfs={}
         t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
         while t<t1:
@@ -788,7 +696,7 @@ class Streamer():
         dftag['tag'] = tag
         return dftag
 
-    def load_parkedtags_daily(self,t0,t1,tags,folderpkl,rsMethod='forwardfill',rs='auto',timezone='CET',rmwindow='3000s',pool=False):
+    def load_parkedtags_daily(self,t0,t1,tags,folderpkl,rsMethod='forwardfill',rs='auto',timezone='CET',rmwindow='3000s',pool=False,showTag=False):
         '''
         - rsMethod,rs,timezone,rmwindow of Streamer.process_tag
         - pool : on tags
@@ -797,9 +705,9 @@ class Streamer():
             return pd.DataFrame()
         if pool:
             with Pool() as p:
-                dftags=p.starmap(self.load_tag_daily,[(t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow) for tag in tags])
+                dftags=p.starmap(self.load_tag_daily,[(t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow,showTag) for tag in tags])
         else:
-            dftags=[self.load_tag_daily(t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow) for tag in tags]
+            dftags=[self.load_tag_daily(t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow,showTag) for tag in tags]
         df = pd.concat(dftags,axis=0)
         df = df[df.index>=t0]
         df = df[df.index<=t1]
@@ -1145,13 +1053,16 @@ class Configurator():
         self.dfplc = self.dfplc[self.dfplc.DATASCIENTISM==True]
         self.alltags    = list(self.dfplc.index)
 
-        self.daysnotempty = self.fs.get_parked_days_not_empty(self.folderPkl)
+        self.daysnotempty = self.getdaysnotempty()
         self.tmin,self.tmax = self.daysnotempty.min(),self.daysnotempty.max()
         self.listUnits = self.dfplc.UNITE.dropna().unique().tolist()
         self.to_folderminute=lambda x:self.folderPkl+x.strftime(self.format_folderminute)
         print('FINISH LOADING CONFIGURATOR')
         print('==============================')
         print()
+
+    def getdaysnotempty(self):
+        return self.fs.get_parked_days_not_empty(self.folderPkl)
 
     def connect2db(self):
         connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
@@ -1161,35 +1072,15 @@ class Configurator():
         category = self.usefulTags.loc[usefulTag,'Pattern']
         return self.getTagsTU(category)
 
-    def getUnitofTag(self,tag):
-        unit=self.dfplc.loc[tag].UNITE
-        # print(unit)
-        if not isinstance(unit,str):
-            unit='u.a'
-        return unit
-
-    def getTagsTU(self,patTag,units=None,onCol='index',cols='tag'):
-        #patTag
-        if onCol=='index':
-            df = self.dfplc[self.dfplc.index.str.contains(patTag,case=False)]
-        else:
-            df = self.dfplc[self.dfplc[onCol].str.contains(patTag,case=False)]
-
-        #units
-        if not units : units = self.listUnits
-        if isinstance(units,str):units = [units]
-        df = df[df['UNITE'].isin(units)]
-
-        #return
-        if cols=='tdu' :
-            return df[['DESCRIPTION','UNITE']]
-        elif cols=='tag':
-            return list(df.index)
-        else :
-            return df
-
     def createRandomInitalTagValues(self):
         return self.fs.createRandomInitalTagValues(self.alltags,self.dfplc)
+
+    def getUnitofTag(self,tag):
+        return self.fs.getUnitofTag(tag,self.dfplc)
+
+    def getTagsTU(self,patTag,units=None,*args,**kwargs):
+        if not units : units = self.listUnits
+        return self.fs.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
 
 class SuperDumper(Configurator):
     def __init__(self,*args,**kwargs):
@@ -1465,17 +1356,21 @@ class SuperDumper_minutely(SuperDumper):
         return dfs
 
 import plotly.graph_objects as go, plotly.express as px
+
+
 class VisualisationMaster(Configurator):
     def __init__(self,*args,**kwargs):
         Configurator.__init__(self,*args,**kwargs)
         self.methods = self.streamer.methods
         self.methods_list = list(self.methods.keys())
 
-    def _load_database_tags(self,t0,t1,tags,*args,**kwargs):
+
+    def _load_database_tags(self,t0,t1,tags,*args,pool=True,**kwargs):
         '''
         - tags : list of tags
         - t0,t1 : timestamps
         '''
+        # for k in t0,t1,tags,args,kwargs:print(k)
         dbconn = self.connect2db()
         if not isinstance(tags,list) or len(tags)==0:
                 print('no tags selected for database')
@@ -1486,7 +1381,9 @@ class VisualisationMaster(Configurator):
         sqlQ += " and timestampz < '" + t1.isoformat() + "'"
         sqlQ +=";"
         # print(sqlQ)
+        start=time.time()
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
+        printtime('database read ',start)
         dbconn.close()
         if len(df)==0:
             return df.set_index('timestampz')
@@ -1496,14 +1393,14 @@ class VisualisationMaster(Configurator):
             df = df.drop_duplicates()
         df.loc[df.value=='null','value']=np.nan
         df = df.set_index('timestampz')
-        def format_tag(tag):
-            dftag=df[df.tag==tag]['value']
+        def process_dbtag(df,tag,*args,**kwargs):
+            dftag = df[df.tag==tag]['value']
             dftag = self.streamer.process_tag(dftag,*args,**kwargs)
             dftag['tag'] = tag
             return dftag
-        dftags = [format_tag(tag) for tag in tags]
+        dftags = [process_dbtag(df,tag,*args,**kwargs) for tag in tags]
         df = pd.concat(dftags,axis=0)
-        df = df[df.index>t0]
+        df = df[df.index>=t0]
         df = df[df.index<=t1]
         return df
 
@@ -1512,21 +1409,19 @@ class VisualisationMaster(Configurator):
         - t0,t1 : timestamps
         - *args,**kwargs of Streamer.processdf
         '''
-        # print(t0,t1,tags,*args,**kwargs)
+        # for k in t0,t1,tags,args,kwargs:print(k)
         start=time.time()
         dfdb = self._load_database_tags(t0,t1,tags,*args,**kwargs)
         if checkTime:printtime('loading the database',start)
         start=time.time()
-        dfparked = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,*args,**kwargs)
+        dfparked = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,pool=True,*args,**kwargs)
         # print(df)
         if checkTime:printtime('loading the parked data',start)
-        df = pd.concat([dfdb,dfparked]).sort_index()
+        df = pd.concat([df.pivot(values='value',columns='tag') for df in [dfdb,dfparked]]).sort_index()
         start=time.time()
-        df = df.pivot(values='value',columns='tag')
-        return df
         if checkTime:printtime('pivot data',start)
         dtypes = self.dfplc.loc[df.columns].DATATYPE.apply(lambda x:self.dataTypes[x]).to_dict()
-        df = df.astype(dtypes)
+        df = df.dropna().astype(dtypes)
         return df
 
     # #######################
@@ -1557,7 +1452,7 @@ class VisualisationMaster(Configurator):
         fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
         return fig
 
-    def doubleMultiUnitGraph(self,df,*listtags,axSP=0.05):
+    def multiMultiUnitGraph(self,df,*listtags,axSP=0.05):
         hs=0.002
         dictdictGroups={'graph'+str(k):{t:self.getUnitofTag(t) for t in tags} for k,tags in enumerate(listtags)}
         fig = self.utils.multiUnitGraphSubPlots(df,dictdictGroups,axisSpace=axSP)
@@ -1648,8 +1543,8 @@ class VersionManager():
         self.versions     = sort_list(self.dicVersions.values())
         self.daysnotempty = pd.Series([pd.Timestamp(k) for k in self.fs.get_parked_days_not_empty(folderData)])
         self.tmin,self.tmax = self.daysnotempty.min(),self.daysnotempty.max()
-        self.transitionFile = self.plcDir + 'versionnageTags.xlsx'
-        # self.transitionFile = self.plcDir + 'versionnageTags.ods'
+        # self.transitionFile = self.plcDir + 'versionnageTags.xlsx'
+        self.transitionFile = self.plcDir + 'versionnageTags.ods'
         self.transitions    = pd.ExcelFile(self.transitionFile).sheet_names
         self.file_df_plcs    = self.plcDir + 'alldfsPLC.pkl'
         self.file_df_nbTags  = self.plcDir + 'nbTags.pkl'

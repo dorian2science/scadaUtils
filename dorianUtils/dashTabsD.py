@@ -10,8 +10,14 @@ from dorianUtils.utilsD import Utils
 
 class TabMaster():
     '''
-    - cfg: ConfigFiles object
-    - loadData,plotgraph and updateLayoutGraph are functions
+    - cfg: ConfigFiles object generated from configFilesD class
+    - loadData : function with at least following arguments :
+        - t0,t1 : timestamps for period to be showed
+        - tags : tags to be plot
+        - rsMethod : resampling method ('raw','forwardfill'....)
+        - rs : resampling time for pd.resample
+    - plotgraph  function to plot the data
+    - updateLayoutGraph function to update the graph
     '''
     def __init__(self,app,cfg,loadData,plotData,tabname,update_fig=None,baseId='tab_'):
         self.utils = Utils()
@@ -71,13 +77,13 @@ class TabMaster():
             @self.app.callback(Output(self.baseId + 'btn_legend', 'children'),
                                 Input(self.baseId + 'btn_legend','n_clicks'))
             def updateLgdBtn(legendType):
-                    if legendType%3==0 :
-                        buttonMessage = 'tag'
-                    elif legendType%3==1 :
-                        buttonMessage = 'description'
-                    elif legendType%3==2:
-                        buttonMessage = 'unvisible'
-                    return buttonMessage
+                if legendType%3==0 :
+                    buttonMessage = 'tag'
+                elif legendType%3==1 :
+                    buttonMessage = 'description'
+                elif legendType%3==2:
+                    buttonMessage = 'unvisible'
+                return buttonMessage
 
         # call the export button
         if 'export' in categories:
@@ -107,19 +113,30 @@ class TabMaster():
                 else :
                     return enddate
 
-            # update inital datetime regularly
+            # update datetimepickerrange options
             @self.app.callback(
-            Output(self.baseId + 'pdr_date','start_date'),
-            Output(self.baseId + 'pdr_timeStart','value'),
-            Output(self.baseId + 'pdr_date','end_date'),
-            Output(self.baseId + 'pdr_timeEnd','value'),
-            Input(self.baseId + 'pdr_timeInterval','n_intervals'),
+                Output(self.baseId + 'pdr_date','start_date'),
+                Output(self.baseId + 'pdr_timeStart','value'),
+                Output(self.baseId + 'pdr_date','end_date'),
+                Output(self.baseId + 'pdr_timeEnd','value'),
+                Output(self.baseId + 'pdr_date','min_date_allowed'),
+                Output(self.baseId + 'pdr_date','max_date_allowed'),
+                Input(self.baseId + 'pdr_timeInterval','n_intervals'),
             )
             def updateInitialDateTime(n):
                 t1 = pd.Timestamp.now()
-                t0 = t1-pd.Timedelta(hours=15)
-                return t0.strftime('%Y-%m-%d'),t0.strftime('%H:%M'),t1.strftime('%Y-%m-%d'),t1.strftime('%H:%M')
+                t0 = t1-pd.Timedelta(hours=12)
+                startdate=t0.strftime('%Y-%m-%d')
+                starttime=t0.strftime('%H:%M')
+                enddate=t1.strftime('%Y-%m-%d')
+                endtime=t1.strftime('%H:%M')
 
+                min_date_folders = self.cfg.getdaysnotempty().min()
+                min_date = min_date_folders.strftime('%Y-%m-%d')
+                max_date=t1.strftime('%Y-%m-%d')
+                return startdate,starttime,enddate,endtime,min_date,max_date
+
+        # pop up modal error
         if 'modalTagsTxt' in categories:
             @self.app.callback(
                 Output(self.baseId + "modalListTags", "is_open"),
@@ -141,11 +158,12 @@ class TabMaster():
                 listTags = [k.strip().upper() for k in txt.split('\n')]
                 return listTags
 
-    def _buildLayout(self,specialWidDic,realTime=False,widthG=85,*args):
+    def _buildLayout(self,specialWidDic,realTime=False,widthG=85,timeres='60s'):
         if not realTime:
             dicWidgets = {
-                'pdr_time' : {'tmin':self.cfg.tmin,'tmax':self.cfg.tmax},
-                'in_timeRes':'60s','dd_resampleMethod' : {'value':'forwardfill','methods':list(self.cfg.methods.keys())},
+                'pdr_time' : {'tmin':self.cfg.tmin,'tmax':self.cfg.tmax,'interval':60*1000},
+                'in_timeRes':timeres,
+                'dd_resampleMethod' : {'value':'forwardfill','methods':list(self.cfg.methods.keys())},
                 'dd_style':'default',
                 'btn_export':0,
                     }
@@ -282,7 +300,6 @@ class TabMaster():
         fig = go.Figure(previousFig)
         ## load data in that case
         if trigId in [self.baseId+k for k in listTrigs]:
-            # print('*argsLoad:')
             # print(*argsLoad)
             start=time.time()
             df_tuple = self.loadData(*argsLoad)
@@ -298,6 +315,7 @@ class TabMaster():
                 fig = self.plotData(*df_tuple,*argsPlot)
         ###### update style of graph
         start=time.time()
+        print(*argsUpdateGraph)
         self.update_fig(fig,*argsUpdateGraph)
         print('figure generated in {:.2f} ms'.format((time.time()-start)*1000))
         print("====================================")
@@ -383,7 +401,8 @@ class TabMaster():
                 t1 = la['pdr_date_end_date'] + ' ' + la['pdr_timeEnd_value']
                 t0,t1=[pd.Timestamp(k,tz='CET') for k in [t0,t1]]
                 triggerloadData_ids=['dd_tag','pdr_timeBtn','dd_resampleMethod'] + argsPrepare
-
+            # print(la.keys())
+            # print(argsUpdateGraph)
             fig,errCode = self.updateGraph(previousFig,triggerloadData_ids,
                 [t0,t1,tags,la['dd_resampleMethod_value'],la['in_timeRes_value']],
                 [la[k + '_value'] for k in argsPlotGraph],
