@@ -15,7 +15,6 @@ from dateutil.tz import tzlocal
 # #######################
 # basic utilities for Streamer and DumpingClientMaster
 printtime=lambda x,y:print(x + ' in {:.2f} ms'.format((time.time()-y)*1000))
-
 class EmptyClass():pass
 
 class FileSystem():
@@ -119,7 +118,7 @@ class FileSystem():
         else :
             return df
 class SetInterval:
-    '''demarre sur un multiple de interval.
+    '''demarre sur un multiple de interval.col
     Saute donc les données intermédiaires si la tâche prends plus de temps
     que l'intervalle pour démarrer sur à pile.'''
     def __init__(self,interval,action,*args):
