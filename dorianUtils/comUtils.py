@@ -172,13 +172,12 @@ class Device():
     def checkConnection(self):
         if not self.isConnected:
             print('+++++++++++++++++++++++++++')
-            print(timenowstd(),' : ',self.device_name,'--> try new connection in',self.timeOUTreconnect,'seconds')
-            time.sleep(self.timeOUTreconnect)
             self.isConnected = self.connectDevice()
             if self.isConnected:
                 print(timenowstd(),' : ',self.device_name,'--> connexion established again!!')
             else :
-                print(timenowstd(),' : ',self.device_name,'--> impossible to connect to device.')
+                print(timenowstd(),' : ',self.device_name,'--> impossible to connect to device.',
+                                    'try new connection in',self.timeOUTreconnect,'seconds')
             print('+++++++++++++++++++++++++++')
             print('')
 
@@ -441,7 +440,11 @@ class Opcua_Client(Device):
         return dfplc
 
     def connectDevice(self):
-        self.client.connect()
+        try:
+            self.client.connect()
+            return True
+        except:
+            return False
 
     def collectData(self,tags):
         nodes = {t:self.nodesDict[t] for t in tags}
@@ -492,8 +495,14 @@ class Meteo_Client(Device):
         dfplc['VAL_DEF'] = 0
         return dfplc
 
-    def connectDevice():
-        return True
+    def connectDevice(self):
+        try:
+            request = urllib.request.urlopen('https://www.google.com')
+            print("Connected to the Internet")
+            return True
+        except:
+            print("No internet connection.")
+            return False
 
     def collectData(self,tags=None):
         df = pd.concat([self.get_dfMeteo(city) for city in self.cities])
@@ -501,15 +510,11 @@ class Meteo_Client(Device):
         return {k:[v,df.name] for k,v in zip(df.index,df)}
 
     def get_dfMeteo(self,city):
-        gps=self.cities[city]
+        gps = self.cities[city]
         url = self.baseurl + 'weather?lat='+gps.lat+'&lon=' + gps.lon + '&units=metric&appid=' + self.apitoken
-        # try :
         response = urllib.request.urlopen(url)
-        # except:
-        #     print('impossible to connect to url')
-        #     return pd.Series()
         data = json.loads(response.read())
-        t0 = dt.datetime(1970,1,1,1,0).astimezone(tz = pytz.timezone('Etc/GMT-3'))
+        t0   = dt.datetime(1970,1,1,1,0).astimezone(tz = pytz.timezone('Etc/GMT-3'))
         timeCur=t0 + dt.timedelta(seconds=data['dt'])
         dfmain=pd.DataFrame(data['main'],index=[timeCur.isoformat()])
         dfmain['clouds']=data['clouds']['all']
@@ -1257,8 +1262,7 @@ class SuperDumper_daily(SuperDumper):
         sqlQ ="select * from realtimedata where timestampz < '" + now.isoformat() +"'"
         # df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'],dtype={'value':'float'})
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        computetimeshow('database read',start)
-        print('for data <' + t_parking.isoformat())
+        computetimeshow('database for data <' + t_parking.isoformat() +' read',start)
         # check if database not empty
         if not len(df)>0:
             print('database ' + self.dbParameters['dbname'] + ' empty')
