@@ -14,8 +14,8 @@ from dateutil.tz import tzlocal
 # #      BASIC Utils    #
 # #######################
 # basic utilities for Streamer and DumpingClientMaster
-computetimeshow=lambda x,y:print(x + ' in {:.2f} ms'.format((time.time()-y)*1000))
-timenowshow=lambda :pd.Timestamp.now().strftime('%d %b %H:%M:%S')
+timenowstd=lambda :pd.Timestamp.now().strftime('%d %b %H:%M:%S')
+computetimeshow=lambda x,y:print(timenowstd() + ' : ' + x + ' in {:.2f} ms'.format((time.time()-y)*1000))
 class EmptyClass():pass
 
 class FileSystem():
@@ -152,7 +152,7 @@ class Device():
         - a function <collectData> should be written  to collect data from the device.
         - a function <connectDevice> to connect to the device.
     '''
-    def __init__(self,device_name,endpointUrl,port,dfplc):
+    def __init__(self,device_name,endpointUrl,port,dfplc,timeoutreconnect=3):
         self.fs          = FileSystem()
         self.utils       = Utils()
         self.device_name = device_name
@@ -167,18 +167,18 @@ class Device():
         self.alltags = list(self.dfplc.index)
         self.collectingTimes = {}
         self.insertingTimes  = {}
-        self.timeOUTreconnect = 1
+        self.timeOUTreconnect = timeoutreconnect
 
     def checkConnection(self):
         if not self.isConnected:
             print('+++++++++++++++++++++++++++')
-            print(timenowshow(),' : ',self.device_name,'--> try new connection in', self.timeOUTreconnect,' seconds')
+            print(timenowstd(),' : ',self.device_name,'--> try new connection in',self.timeOUTreconnect,'seconds')
             time.sleep(self.timeOUTreconnect)
             self.isConnected = self.connectDevice()
             if self.isConnected:
-                print(timenowshow(),' : ',self.device_name,'--> connexion established again!!')
+                print(timenowstd(),' : ',self.device_name,'--> connexion established again!!')
             else :
-                print(timenowshow(),' : ',self.device_name,'--> impossible to connect to device.')
+                print(timenowstd(),' : ',self.device_name,'--> impossible to connect to device.')
             print('+++++++++++++++++++++++++++')
             print('')
 
@@ -201,7 +201,7 @@ class Device():
                 data = self.collectData(*args)
                 # print(data)
             except:
-                print(timenowshow(),' : ',self.device_name,' --> connexion t0 device impossible.')
+                print(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.')
                 self.isConnected = False
             self.collectingTimes[dt.datetime.now(tz=pytz.timezone(self.local_tzname)).isoformat()] = (time.time()-start)*1000
             for tag in data.keys():
@@ -294,12 +294,14 @@ class ModeBusDevice(Device):
         return data
 
 class ModeBusDFInstr(ModeBusDevice):
-    def __init__(self,device_name,endpointUrl,port,compteurs,variables,file_plc,generatePLC=False):
+    def __init__(self,device_name,endpointUrl,port,compteurs,variables,file_plc,freq,generatePLC=False):
         self.device_name = device_name
+        self.freq = freq
         self.compteurs   = compteurs[compteurs.device==device_name]
         self.variables   = variables[variables.device==device_name]
         self.dfInstr,dfplc = FileSystem().load_confFile(file_plc,self.build_plc_fromDFinstr,generatePLC)
-        ModeBusDevice.__init__(self,device_name,endpointUrl,port,dfplc)
+        ModeBusDevice.__init__(self,device_name,endpointUrl,port,dfplc,timeoutreconnect=self.freq)
+        dfplc['FREQUENCE_ECHANTILLONNAGE'] = self.freq
 
     def build_plc_fromDFinstr(self):
         print('building PLC configuration file of ' + self.device_name  +' from dfInstr')
@@ -325,14 +327,13 @@ class ModeBusDFInstr(ModeBusDevice):
         dfplc['DATATYPE'] = 'REAL'
         dfplc['DATASCIENTISM'] = True
         dfplc['PRECISION'] = 0.01
-        dfplc['FREQUENCE_ECHANTILLONNAGE'] = 5
         dfplc['VAL_DEF'] = 0
         self.dfInstr=self.dfInstr.set_index('tag')
         self.dfInstr=self.dfInstr.loc[~self.dfInstr.index.isna()]
         return self.dfInstr,dfplc
 
 class ModeBusDeviceXML(ModeBusDFInstr):
-    def __init__(self,*args,file_xml,build_dfInstr=False,file_dfInstr=None,**kwargs):
+    def __init__(self,*args,file_xml,file_dfInstr,build_dfInstr=False,**kwargs):
         self.file_xml = file_xml
         self.file_dfinstr = file_dfInstr
         self.dfInstr = FileSystem().load_confFile(self.file_dfinstr,self.build_dfInstr,build_dfInstr)
@@ -451,7 +452,7 @@ class Opcua_Client(Device):
 
 import urllib.request, json
 class Meteo_Client(Device):
-    def __init__(self,freq=30):
+    def __init__(self,freq=30,**kwargs):
         '''-freq: acquisition time in seconds '''
         self.freq=freq
         self.cities = pd.DataFrame({'le_cheylas':{'lat' : '45.387','lon':'6.0000'}})
@@ -460,7 +461,7 @@ class Meteo_Client(Device):
         #     'stJoachim':{'lat':'47.382074','lon':'-2.196835'}})
         self.baseurl = 'https://api.openweathermap.org/data/2.5/'
         dfplc = self.build_plcmeteo(self.freq)
-        Device.__init__(self,'meteo',self.baseurl,None,dfplc)
+        Device.__init__(self,'meteo',self.baseurl,None,dfplc,timeoutreconnect=self.freq)
         self.apitoken = '79e8bbe89ac67324c6a6cdbf76a450c0'
         # self.apitoken = '2baff0505c3177ad97ec1b648b504621'# Marc
         self.t0 = dt.datetime(1970,1,1,1,0).astimezone(tz = pytz.timezone('Etc/GMT-3'))
@@ -1026,18 +1027,15 @@ class Streamer():
         return timelens
 
 class Configurator():
-    def __init__(self,folderPkl,dbParameters,devices,
-                    dbTimeWindow,parkingTime):
+    def __init__(self,folderPkl,dbParameters,devices,parkingTime):
         '''
         - parkedFolder : day or minute.
-        - dbTimeWindow : how many minimum seconds before now are in the database
         - parkingTime : how often data are parked and db flushed in seconds
         - devices: dictionnary of devices where keys are device_names and values
         are devices instances generated from children classes of Device.
         '''
         Streamer.__init__(self)
         self.folderPkl = folderPkl##in seconds
-        self.dbTimeWindow = dbTimeWindow##in seconds
         self.dbParameters = dbParameters
         self.dataTypes = {
           'REAL':'float',
@@ -1090,12 +1088,11 @@ class SuperDumper(Configurator):
         self.parkingTimes={}
         self.streamer = Streamer()
         self.fs = FileSystem()
-        self.timeOutReconnexion = 3
         self.dumpInterval,self.reconnexionThread = {},{}
         self.parkInterval = SetInterval(self.parkingTime,self.park_database)
         ###### DOUBLE LOOP of setIntervals for devices/acquisition-frequencies
         for device_name,device in self.devices.items():
-            self.reconnexionThread[device_name] = SetInterval(self.timeOutReconnexion,device.checkConnection)
+            self.reconnexionThread[device_name] = SetInterval(device.timeOUTreconnect,device.checkConnection)
             dfplc = device.dfplc[device.dfplc.DATASCIENTISM==True]
             freqs = dfplc['FREQUENCE_ECHANTILLONNAGE'].unique()
             device_dumps={}
@@ -1114,7 +1111,6 @@ class SuperDumper(Configurator):
         if full:
             cur.execute("DELETE from realtimedata;")
         else :
-            # cur.execute("DELETE from realtimedata where timestampz < NOW() - interval '" + str(self.dbTimeWindow) + "' SECOND;")
             cur.execute("DELETE from realtimedata where timestampz < '" + t + "';")
         cur.close()
         dbconn.commit()
@@ -1217,8 +1213,7 @@ class SuperDumper(Configurator):
         time.sleep(1-now.microsecond/1000000)
 
         ######## start dumping
-        print('start dumping at :')
-        print(pd.Timestamp.now(tz='CET'))
+        print(timenowstd(),': START DUMPING')
         for device,dictIntervals in self.dumpInterval.items():
             self.reconnexionThread[device].start()
             for freq in dictIntervals.keys():
@@ -1226,13 +1221,11 @@ class SuperDumper(Configurator):
 
         ######## start parking on time
         now = pd.Timestamp.now(tz='CET')
+        # now = pd.Timestamp.now('2022-02-10 16:52:15',tz='CET')
         timer = 60-now.second
-        if parkedFolder=='day':
-            ######## start parking at H:00:00
-            timer+= 60*(60-now.minute-1)
+        print('parking should start at ',now +pd.Timedelta(seconds=timer))
         time.sleep(timer)
-        print('start parking at :')
-        print(pd.Timestamp.now(tz='CET'))
+        print(timenowstd(),': START PARKING')
         self.parkInterval.start()
 
     def stop_dumping(self):
@@ -1257,15 +1250,15 @@ class SuperDumper_daily(SuperDumper):
         listTags = self.alltags
         start = time.time()
         now = pd.Timestamp.now(tz=self.local_tzname)
-        t1 = now-dt.timedelta(seconds=self.dbTimeWindow)
+        t_parking = now
 
         ### read database
         dbconn = self.connect2db()
-        sqlQ ="select * from realtimedata where timestampz < '" + t1.isoformat() +"'"
+        sqlQ ="select * from realtimedata where timestampz < '" + now.isoformat() +"'"
         # df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'],dtype={'value':'float'})
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        computetimeshow(now.strftime('%H:%M:%S,%f') + ''' ===> database read''',start)
-        print('for data <' + t1.isoformat())
+        computetimeshow('database read',start)
+        print('for data <' + t_parking.isoformat())
         # check if database not empty
         if not len(df)>0:
             print('database ' + self.dbParameters['dbname'] + ' empty')
@@ -1274,26 +1267,33 @@ class SuperDumper_daily(SuperDumper):
         df = df.set_index('timestampz').sort_index()
         df.loc[df.value=='null','value']=np.nan
         dbconn.close()
-        t0 = df.index[0]
 
-        folderday=self.folderPkl + t0.strftime(self.format_dayFolder)+'/'
-        #### create folder if necessary
-        if not os.path.exists(folderday):os.mkdir(folderday)
-        #################################
-        #           park now            #
-        #################################
-        start=time.time()
-        # with Pool() as p:
-        #     dfs=p.starmap(self.parktagfromdb,[(t0,t1,df,tag) for tag in listTags])
-        dfs=[]
-        for tag in listTags:
-            dftag = df[df.tag==tag]['value'] #### dump a pd.series
-            self.parktagfromdb(tag,dftag,folderday)
+        tmin,tmax = df.index.min().tz_convert('CET'),df.index.max().tz_convert('CET')
+        listdays = list(np.unique([k.strftime(self.format_dayFolder)[:-1] for k in [tmin,tmax]]))
+        for d in listdays:#### in case they are 2 days around midnight
+            t0=pd.Timestamp(d + ' 00:00:00',tz='CET')
+            dfday=df[df.index>=t0]
+            dfday=dfday[df.index<t0+pd.Timedelta(days=1)]
+            folderday=self.folderPkl + d +'/'
+            # print(folderday)
+            #### create folder if necessary
+            if not os.path.exists(folderday):os.mkdir(folderday)
+            #################################
+            #           park now            #
+            #################################
+            start=time.time()
+            # dftags=[dfday[dfday.tag==tag]['value'] for tag in listTags]
+            # with Pool() as p:
+            #     dfs=p.starmap(self.parktagfromdb,[(tag,dftag,folderday) for tag,dftag in zip(listTags,dftags)])
+            dfs=[]
+            for tag in listTags:
+                dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
+                self.parktagfromdb(tag,dftag,folderday)
 
-        computetimeshow(now.strftime('%H:%M:%S,%f') + ''' ===> database parked''',start)
+        computetimeshow('database parked',start)
         self.parkingTimes[now.isoformat()] = (time.time()-start)*1000
         # #FLUSH DATABASE
-        self.flushdb(t1.isoformat())
+        self.flushdb(t_parking.isoformat())
         return
 
 class SuperDumper_minutely(SuperDumper):
@@ -1318,7 +1318,7 @@ class SuperDumper_minutely(SuperDumper):
         listTags=self.alltags
         start = time.time()
         timenow = pd.Timestamp.now(tz=self.local_tzname)
-        t1 = timenow-dt.timedelta(seconds=self.dbTimeWindow)
+        t1 = timenow
 
         ### read database
         dbconn = self.connect2db()
@@ -1358,8 +1358,6 @@ class SuperDumper_minutely(SuperDumper):
         return dfs
 
 import plotly.graph_objects as go, plotly.express as px
-
-
 class VisualisationMaster(Configurator):
     def __init__(self,*args,**kwargs):
         Configurator.__init__(self,*args,**kwargs)
