@@ -14,7 +14,8 @@ from dateutil.tz import tzlocal
 # #      BASIC Utils    #
 # #######################
 # basic utilities for Streamer and DumpingClientMaster
-printtime=lambda x,y:print(x + ' in {:.2f} ms'.format((time.time()-y)*1000))
+computetimeshow=lambda x,y:print(x + ' in {:.2f} ms'.format((time.time()-y)*1000))
+timenowshow=lambda :pd.Timestamp.now().strftime('%d %b %H:%M:%S')
 class EmptyClass():pass
 
 class FileSystem():
@@ -35,7 +36,7 @@ class FileSystem():
             #     raise SystemExit
         # sys.exit()
         plcObj = pickle.load(open(filename,'rb'))
-        printtime(filename.split('/')[-1] + ' loaded',start)
+        computetimeshow(filename.split('/')[-1] + ' loaded',start)
         print('---------------------------------------')
         print('')
         return plcObj
@@ -117,6 +118,7 @@ class FileSystem():
             return list(df.index)
         else :
             return df
+
 class SetInterval:
     '''demarre sur un multiple de interval.col
     Saute donc les données intermédiaires si la tâche prends plus de temps
@@ -165,21 +167,18 @@ class Device():
         self.alltags = list(self.dfplc.index)
         self.collectingTimes = {}
         self.insertingTimes  = {}
+        self.timeOUTreconnect = 1
 
     def checkConnection(self):
         if not self.isConnected:
             print('+++++++++++++++++++++++++++')
-            print(dt.datetime.now(tz=pytz.timezone(self.local_tzname)))
-            print('try new connection ...')
-            try:
-                self.connectDevice()
-                print('connexion established again.')
-                self.isConnected=True
-            except Exception:
-                print(dt.datetime.now().astimezone().isoformat() + '''--> problem connecting to
-                                                device with endpointUrl''' + self.endpointUrl + '''
-                                                on port ''' + str(self.port))
-                print('sleep for ' + ' seconds')
+            print(timenowshow(),' : ',self.device_name,'--> try new connection in', self.timeOUTreconnect,' seconds')
+            time.sleep(self.timeOUTreconnect)
+            self.isConnected = self.connectDevice()
+            if self.isConnected:
+                print(timenowshow(),' : ',self.device_name,'--> connexion established again!!')
+            else :
+                print(timenowshow(),' : ',self.device_name,'--> impossible to connect to device.')
             print('+++++++++++++++++++++++++++')
             print('')
 
@@ -198,13 +197,12 @@ class Device():
         start=time.time()
         ts = dt.datetime.now(tz=pytz.timezone(self.local_tzname))
         if self.isConnected:
-            # try :
-            data = self.collectData(*args)
+            try :
+                data = self.collectData(*args)
                 # print(data)
-            # except:
-            #     print('souci connexion at ' + ts.isoformat())
-            #     self.isConnected = False
-            #     print('waiting for the connexion to be re-established...')
+            except:
+                print(timenowshow(),' : ',self.device_name,' --> connexion t0 device impossible.')
+                self.isConnected = False
             self.collectingTimes[dt.datetime.now(tz=pytz.timezone(self.local_tzname)).isoformat()] = (time.time()-start)*1000
             for tag in data.keys():
                 sqlreq = "insert into realtimedata (tag,value,timestampz) values ('"
@@ -497,15 +495,18 @@ class Meteo_Client(Device):
         return True
 
     def collectData(self,tags=None):
-        df=pd.concat([self.get_dfMeteo(city) for city in self.cities])
-        df = df.loc[self.dfplc.index]
-        # return df
+        df = pd.concat([self.get_dfMeteo(city) for city in self.cities])
+        # df = df.abs
         return {k:[v,df.name] for k,v in zip(df.index,df)}
 
     def get_dfMeteo(self,city):
         gps=self.cities[city]
         url = self.baseurl + 'weather?lat='+gps.lat+'&lon=' + gps.lon + '&units=metric&appid=' + self.apitoken
+        # try :
         response = urllib.request.urlopen(url)
+        # except:
+        #     print('impossible to connect to url')
+        #     return pd.Series()
         data = json.loads(response.read())
         t0 = dt.datetime(1970,1,1,1,0).astimezone(tz = pytz.timezone('Etc/GMT-3'))
         timeCur=t0 + dt.timedelta(seconds=data['dt'])
@@ -516,7 +517,9 @@ class Meteo_Client(Device):
         dfwind=pd.DataFrame(data['wind'],index=[timeCur.isoformat()])
         dfwind.columns = ['XM_' + city + '_wind_' + k  for k in dfwind.columns]
         dfmain.columns = ['XM_' + city + '_' + k  for k in dfmain.columns]
-        return pd.concat([dfmain,dfwind],axis=1).squeeze()
+        df = pd.concat([dfmain,dfwind],axis=1).squeeze()
+        df = df.loc[self.dfplc.index]
+        return df
 
     def dfMeteoForecast():
         url = baseurl + 'onecall?lat='+lat+'&lon=' + lon + '&units=metric&appid=' + apitoken ## prediction
@@ -662,7 +665,7 @@ class Streamer():
         start=time.time()
         # remove duplicated index and pivot
         df = df.reset_index().drop_duplicates().dropna().set_index('timestampz').sort_index()
-        if checkTime:printtime('drop dupplicates ',start)
+        if checkTime:computetimeshow('drop dupplicates ',start)
         ##### auto resample
         if rs=='auto' and not rsMethod=='raw':
             ptsCurve = 500
@@ -672,7 +675,7 @@ class Streamer():
         if not rsMethod=='raw':
             # print(df,rsMethod,rs,timezone)
             df = eval(self.methods[rsMethod])
-        if checkTime:printtime(rsMethod + ' data',start)
+        if checkTime:computetimeshow(rsMethod + ' data',start)
         df.index = df.index.tz_convert(timezone)
         return df
 
@@ -977,17 +980,17 @@ class Streamer():
 
         start = time.time()
         s1=self.staticCompressionTag(s=s,precision=prec,method='diff')
-        res['diff ms']=printtime('',start)
+        res['diff ms']=computetimeshow('',start)
         res['diff len']=len(s1)
 
         start = time.time()
         s2=self.staticCompressionTag(s=s,precision=prec,method='dynamic')
-        res['dynamic ms']=printtime('',start)
+        res['dynamic ms']=computetimeshow('',start)
         res['dynamic len']=len(s2)
 
         start = time.time()
         s3=self.staticCompressionTag(s=s,precision=prec,method='reduce')
-        res['reduce ms']=printtime('',start)
+        res['reduce ms']=computetimeshow('',start)
         res['reduce len']=len(s3)
 
         df=pd.concat([s,s1,s2,s3],axis=1)
@@ -1152,7 +1155,7 @@ class SuperDumper(Configurator):
         # df.to_csv(namefile)
         # zipObj = ZipFile(namefile.replace('.csv','.zip'), 'w')
         # zipObj.write(namefile,namefile.replace('.csv','.zip'))
-        printtime(pd.Timestamp.now().strftime('%H:%M:%S,%f') + ' ===> database read',start)
+        computetimeshow(pd.Timestamp.now().strftime('%H:%M:%S,%f') + ' ===> database read',start)
         namefile = namefile.replace('.csv','.pkl')
         pickle.dump(df,open(namefile,'wb'))
         print(namefile,' saved')
@@ -1186,7 +1189,7 @@ class SuperDumper(Configurator):
         df=pd.concat(df.values(),axis=0)
         start = time.time()
         # df.timestampz = [t.isoformat() for t in df.timestampz]
-        printtime('timestampz to str',start)
+        computetimeshow('timestampz to str',start)
         df=df.set_index('timestampz')
         return df
 
@@ -1261,7 +1264,7 @@ class SuperDumper_daily(SuperDumper):
         sqlQ ="select * from realtimedata where timestampz < '" + t1.isoformat() +"'"
         # df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'],dtype={'value':'float'})
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        printtime(now.strftime('%H:%M:%S,%f') + ''' ===> database read''',start)
+        computetimeshow(now.strftime('%H:%M:%S,%f') + ''' ===> database read''',start)
         print('for data <' + t1.isoformat())
         # check if database not empty
         if not len(df)>0:
@@ -1287,7 +1290,7 @@ class SuperDumper_daily(SuperDumper):
             dftag = df[df.tag==tag]['value'] #### dump a pd.series
             self.parktagfromdb(tag,dftag,folderday)
 
-        printtime(now.strftime('%H:%M:%S,%f') + ''' ===> database parked''',start)
+        computetimeshow(now.strftime('%H:%M:%S,%f') + ''' ===> database parked''',start)
         self.parkingTimes[now.isoformat()] = (time.time()-start)*1000
         # #FLUSH DATABASE
         self.flushdb(t1.isoformat())
@@ -1322,7 +1325,7 @@ class SuperDumper_minutely(SuperDumper):
         sqlQ ="select * from realtimedata where timestampz < '" + t1.isoformat() +"'"
         # df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'],dtype={'value':'float'})
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        printtime(now.strftime('%H:%M:%S,%f') + ''' ===> database read''',start)
+        computetimeshow(now.strftime('%H:%M:%S,%f') + ''' ===> database read''',start)
         print('for data <' + t1.isoformat())
         # close connection
         dbconn.close()
@@ -1347,7 +1350,7 @@ class SuperDumper_minutely(SuperDumper):
         dfs=[]
         for tag in listTags:
             dfs.append(self.parktagfromdb(t0,t1,df,tag))
-        printtime(now.strftime('%H:%M:%S,%f') + ''' ===> database parked''',start)
+        computetimeshow(now.strftime('%H:%M:%S,%f') + ''' ===> database parked''',start)
         self.parkingTimes[timenow.isoformat()] = (time.time()-start)*1000
         # #FLUSH DATABASE
         start=time.time()
@@ -1367,7 +1370,7 @@ class VisualisationMaster(Configurator):
     def _load_database_tags(self,t0,t1,tags,*args,pool=True,**kwargs):
         '''
         - tags : list of tags
-        - t0,t1 : timestamps
+        - t0,t1 : timestamps with timezone
         '''
         # for k in t0,t1,tags,args,kwargs:print(k)
         dbconn = self.connect2db()
@@ -1382,7 +1385,7 @@ class VisualisationMaster(Configurator):
         # print(sqlQ)
         start=time.time()
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        printtime('database read ',start)
+        computetimeshow('database read ',start)
         dbconn.close()
         if len(df)==0:
             return df.set_index('timestampz')
@@ -1411,14 +1414,14 @@ class VisualisationMaster(Configurator):
         # for k in t0,t1,tags,args,kwargs:print(k)
         start=time.time()
         dfdb = self._load_database_tags(t0,t1,tags,*args,**kwargs)
-        if checkTime:printtime('loading the database',start)
+        if checkTime:computetimeshow('loading the database',start)
         start=time.time()
         dfparked = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,pool=True,*args,**kwargs)
         # print(df)
-        if checkTime:printtime('loading the parked data',start)
+        if checkTime:computetimeshow('loading the parked data',start)
         df = pd.concat([df.pivot(values='value',columns='tag') for df in [dfdb,dfparked]]).sort_index()
         start=time.time()
-        if checkTime:printtime('pivot data',start)
+        if checkTime:computetimeshow('pivot data',start)
         dtypes = self.dfplc.loc[df.columns].DATATYPE.apply(lambda x:self.dataTypes[x]).to_dict()
         df = df.dropna().astype(dtypes)
         return df

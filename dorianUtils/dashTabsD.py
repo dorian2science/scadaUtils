@@ -115,26 +115,26 @@ class TabMaster():
 
             # update datetimepickerrange options
             @self.app.callback(
-                Output(self.baseId + 'pdr_date','start_date'),
-                Output(self.baseId + 'pdr_timeStart','value'),
-                Output(self.baseId + 'pdr_date','end_date'),
-                Output(self.baseId + 'pdr_timeEnd','value'),
                 Output(self.baseId + 'pdr_date','min_date_allowed'),
                 Output(self.baseId + 'pdr_date','max_date_allowed'),
+                Output(self.baseId + 'pdr_date','end_date'),
+                Output(self.baseId + 'pdr_timeEnd','value'),
+                Output(self.baseId + 'pdr_date','start_date'),
+                Output(self.baseId + 'pdr_timeStart','value'),
                 Input(self.baseId + 'pdr_timeInterval','n_intervals'),
             )
-            def updateInitialDateTime(n):
+            def updateDatePickerRange(n):
+                listdays=self.cfg.getdaysnotempty()
+                min_date = listdays.min().strftime('%Y-%m-%d')
+                max_date = listdays.max().strftime('%Y-%m-%d')
+
+                end_date = max_date
                 t1 = pd.Timestamp.now()
-                t0 = t1-pd.Timedelta(hours=12)
+                endtime = t1.strftime('%H:%M')
+                t0 = pd.Timestamp(end_date + ' ' + endtime)-pd.Timedelta(hours=12)
                 startdate=t0.strftime('%Y-%m-%d')
                 starttime=t0.strftime('%H:%M')
-                enddate=t1.strftime('%Y-%m-%d')
-                endtime=t1.strftime('%H:%M')
-
-                min_date_folders = self.cfg.getdaysnotempty().min()
-                min_date = min_date_folders.strftime('%Y-%m-%d')
-                max_date=t1.strftime('%Y-%m-%d')
-                return startdate,starttime,enddate,endtime,min_date,max_date
+                return min_date,max_date,end_date,endtime,startdate,starttime
 
         # pop up modal error
         if 'modalTagsTxt' in categories:
@@ -161,7 +161,7 @@ class TabMaster():
     def _buildLayout(self,specialWidDic,realTime=False,widthG=85,timeres='60s'):
         if not realTime:
             dicWidgets = {
-                'pdr_time' : {'tmin':self.cfg.tmin,'tmax':self.cfg.tmax,'interval':60*1000},
+                'pdr_time' : {'tmin':self.cfg.tmin,'tmax':self.cfg.tmax,'interval':2*60*60*1000},#update every 2hours
                 'in_timeRes':timeres,
                 'dd_resampleMethod' : {'value':'forwardfill','methods':list(self.cfg.methods.keys())},
                 'dd_style':'default',
@@ -315,7 +315,6 @@ class TabMaster():
                 fig = self.plotData(*df_tuple,*argsPlot)
         ###### update style of graph
         start=time.time()
-        print(*argsUpdateGraph)
         self.update_fig(fig,*argsUpdateGraph)
         print('figure generated in {:.2f} ms'.format((time.time()-start)*1000))
         print("====================================")
@@ -389,7 +388,7 @@ class TabMaster():
             if len(tags)==0:
                 return previousFig,2
             if realTime:
-                t1 = pd.Timestamp.now()
+                t1 = pd.Timestamp.now(tz='CET')
                 t0 = t1 - dt.timedelta(seconds=la['in_timeWindow_value']*60)
                 if la['ts_freeze_value']:
                     timeRange = la['st_freeze_data']
@@ -448,10 +447,10 @@ class TabMultiUnits(TabMaster):
         dicSpecialWidgets = {'dd_tag':defaultTags,'modalListTags':None,'btn_legend':0}
         self._buildLayout(dicSpecialWidgets,realTime=realtime)
         self.wids=self.dccE.parseLayoutIds(self.tabLayout)
-        self.wids[self.baseId + 'pdr_timeInterval'].interval=60*1000
         if realtime:
             self._define_basicCallbacks(['legendtoogle','export','modalTagsTxt','refreshWindow','ts_freeze'])
         else:
+            self.wids[self.baseId + 'pdr_timeInterval'].interval=1*60*60*1000 #update every hour
             self._define_basicCallbacks(['legendtoogle','export','datePickerRange','modalTagsTxt'])
             # self._define_basicCallbacks(['legendtoogle','export','modalTagsTxt'])
         inputTuples = [
@@ -482,15 +481,17 @@ class TabMultiUnitSelectedTags(TabMaster):
 
 class TabDoubleMultiUnits(TabMaster):
     def __init__(self,*args,realtime=False,defaultTags1=[],defaultTags2=[],baseId='rtdmu0_',**kwargs):
-        TabMaster.__init__(self,*args,**kwargs,
-                plotData   = self.plotData,
-                update_fig = self.update_fig,
-                tabname    = 'double multi units',baseId=baseId)
+        TabMaster.__init__(self,*args,**kwargs,tabname= 'double multi units',baseId=baseId)
         dicSpecialWidgets = {
             'dd_tag1':defaultTags1,
             'dd_tag2':defaultTags2,
             # 'dd_cmap':'jet',
             'btn_legend':0,'in_axisSp':0.05}
+        if realtime:
+            self._define_basicCallbacks(['legendtoogle','export','modalTagsTxt','refreshWindow','ts_freeze'])
+        else:
+            self._define_basicCallbacks(['legendtoogle','export','datePickerRange','modalTagsTxt'])
+
         self._buildLayout(dicSpecialWidgets,realTime=realtime)
         inputTuples = [
             ('dd_tag1','value'),
@@ -503,9 +504,6 @@ class TabDoubleMultiUnits(TabMaster):
                     ['dd_tag1','dd_tag2'],
                     ['dd_tag1','dd_tag2'],
                     ['dd_style'])
-
-    def plotData(self,*args,**kwargs):
-        return self.cfg.doubleMultiUnitGraph(*args,**kwargs)
 
 class TabUnitSelector(TabMaster):
     def __init__(self,*args,realtime=False,unitInit='mbarg',patTagInit='GFC',baseId='tu0_',**kwargs):
