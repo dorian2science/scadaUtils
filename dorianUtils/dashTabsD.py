@@ -130,10 +130,16 @@ class TabMaster():
 
                 end_date = max_date
                 t1 = pd.Timestamp.now()
-                endtime = t1.strftime('%H:%M')
-                t0 = pd.Timestamp(end_date + ' ' + endtime)-pd.Timedelta(hours=12)
-                startdate=t0.strftime('%Y-%m-%d')
-                starttime=t0.strftime('%H:%M')
+                if t1.strftime('%Y-%m-%d')==max_date:## if the folder of the current day exists make it semi realtime
+                    endtime = t1.strftime('%H:%M')
+                    t0 = pd.Timestamp(end_date + ' ' + endtime)-pd.Timedelta(hours=12)
+                    startdate=t0.strftime('%Y-%m-%d')
+                    starttime=t0.strftime('%H:%M')
+                else: ## if folder of current day doesnot exist there is a problem with the realtime. So 9-18 only
+                    startdate=end_date
+                    starttime='9:00'
+                    endtime = '18:00'
+
                 return min_date,max_date,end_date,endtime,startdate,starttime
 
         # pop up modal error
@@ -423,8 +429,8 @@ class TabMaster():
 #                              TEMPLATE TABS
 # ==============================================================================
 class TabSelectedTags(TabMaster):
-    def __init__(self,*args,realtime=False,defaultCat=[],baseId='ts0_',**kwargs):
-        TabMaster.__init__(self,*args,**kwargs,tabname='pre-selected tags',baseId=baseId)
+    def __init__(self,*args,realtime=False,defaultCat=[],tabname='pre-selected tags',baseId='ts0_',**kwargs):
+        TabMaster.__init__(self,*args,**kwargs,tabname=tabname,baseId=baseId)
         dicSpecialWidgets = {'dd_typeTags':defaultCat,'dd_cmap':'jet','btn_legend':0}
 
         self._buildLayout(dicSpecialWidgets,realTime=realtime)
@@ -441,9 +447,9 @@ class TabSelectedTags(TabMaster):
         self._defineCallbackGraph(realtime,inputTuples,prepareTags,['dd_typeTags'],[],['dd_style','dd_cmap'])
 
 class TabMultiUnits(TabMaster):
-    def __init__(self,*args,realtime=False,defaultTags=[],baseId='tmu0_',**kwargs):
+    def __init__(self,*args,realtime=False,defaultTags=[],baseId='tmu0_',tabname='multi-unit',**kwargs):
         # for k in args:print(k)
-        TabMaster.__init__(self,*args,**kwargs,tabname='multi unit',baseId=baseId)
+        TabMaster.__init__(self,*args,**kwargs,tabname=tabname,baseId=baseId)
         dicSpecialWidgets = {'dd_tag':defaultTags,'modalListTags':None,'btn_legend':0}
         self._buildLayout(dicSpecialWidgets,realTime=realtime)
         self.wids=self.dccE.parseLayoutIds(self.tabLayout)
@@ -461,10 +467,10 @@ class TabMultiUnits(TabMaster):
         self._defineCallbackGraph(realtime,inputTuples,prepareTags,['dd_tag'],[],['dd_style'])
 
 class TabMultiUnitSelectedTags(TabMaster):
-    def __init__(self,*args,realtime=False,defaultCat=[],ddtag=[],baseId='muts0_',**kwargs):
+    def __init__(self,*args,realtime=False,defaultCat=[],ddtag=[],tabname='multi-unit +',baseId='muts0_',**kwargs):
         TabMaster.__init__(self,*args,**kwargs,
                     update_fig = self.update_fig,
-                    tabname='multi-unit +',baseId=baseId)
+                    tabname=tabname,baseId=baseId)
         dicSpecialWidgets = {'dd_typeTags':defaultCat,'dd_tag':ddtag,'btn_legend':0}
         self._buildLayout(dicSpecialWidgets,realTime=realtime)
         if realtime:
@@ -480,8 +486,8 @@ class TabMultiUnitSelectedTags(TabMaster):
         self._defineCallbackGraph(realtime,inputTuples,prepareTags,['dd_typeTags','dd_tag'],[],['dd_style'])
 
 class TabDoubleMultiUnits(TabMaster):
-    def __init__(self,*args,realtime=False,defaultTags1=[],defaultTags2=[],baseId='rtdmu0_',**kwargs):
-        TabMaster.__init__(self,*args,**kwargs,tabname= 'double multi units',baseId=baseId)
+    def __init__(self,*args,realtime=False,defaultTags1=[],defaultTags2=[],baseId='rtdmu0_',tabname='double multi units',**kwargs):
+        TabMaster.__init__(self,*args,**kwargs,tabname=tabname,baseId=baseId)
         dicSpecialWidgets = {
             'dd_tag1':defaultTags1,
             'dd_tag2':defaultTags2,
