@@ -130,15 +130,17 @@ class TabMaster():
 
                 end_date = max_date
                 t1 = pd.Timestamp.now()
-                if t1.strftime('%Y-%m-%d')==max_date:## if the folder of the current day exists make it semi realtime
+                ## if the folder of the current day exists make it semi realtime
+                if t1.strftime('%Y-%m-%d')==max_date:
                     endtime = t1.strftime('%H:%M')
                     t0 = pd.Timestamp(end_date + ' ' + endtime)-pd.Timedelta(hours=12)
                     startdate=t0.strftime('%Y-%m-%d')
                     starttime=t0.strftime('%H:%M')
-                else: ## if folder of current day doesnot exist there is a problem with the realtime. So 9-18 only
+                ## if folder of current day doesnot exist there is a problem with the realtime. So 9-18 only
+                else:
                     startdate=end_date
-                    starttime='9:00'
-                    endtime = '18:00'
+                    starttime='2:00'
+                    endtime = '22:00'
 
                 return min_date,max_date,end_date,endtime,startdate,starttime
 

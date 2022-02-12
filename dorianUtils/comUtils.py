@@ -1414,18 +1414,24 @@ class VisualisationMaster(Configurator):
         - *args,**kwargs of Streamer.processdf
         '''
         # for k in t0,t1,tags,args,kwargs:print(k)
-        start=time.time()
-        dfdb = self._load_database_tags(t0,t1,tags,*args,**kwargs)
-        if checkTime:computetimeshow('loading the database',start)
+        ############ read parked data
         start=time.time()
         dfparked = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,pool=True,*args,**kwargs)
-        # print(df)
         if checkTime:computetimeshow('loading the parked data',start)
-        df = pd.concat([df.pivot(values='value',columns='tag') for df in [dfdb,dfparked]]).sort_index()
         start=time.time()
+        df = dfparked.pivot(values='value',columns='tag').sort_index()
         if checkTime:computetimeshow('pivot data',start)
+        ############ read database
+        if t1>=pd.Timestamp.now(tz='CET')-pd.Timedelta(seconds=self.parkingTime):
+            start=time.time()
+            dfdb = self._load_database_tags(t0,t1,tags,*args,**kwargs)
+            dfdb=dfdb.pivot(values='value',columns='tag').sort_index()
+            if checkTime:computetimeshow('loading the database',start)
+            df = pd.concat([df,dfdb])
+        ############ assign types
         dtypes = self.dfplc.loc[df.columns].DATATYPE.apply(lambda x:self.dataTypes[x]).to_dict()
-        df = df.dropna().astype(dtypes)
+        # df = df.dropna()
+        df = df.astype(dtypes)
         return df
 
     # #######################
