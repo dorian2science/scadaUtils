@@ -66,10 +66,12 @@ class FileSystem():
         return [t0,t1]
 
     def get_parked_days_not_empty(self,folderPkl,minSize=3,dict_size=3):
+        '''dict_size:minimum size in Mo of the folder to be taken into account '''
+        sizes={'G':1000,'K':0.001,'M':1}
         folders=[k.split('\t') for k in sp.check_output('du -h --max-depth=1 '+ folderPkl + ' | sort -h',shell=True).decode().split('\n')]
         folders = [k for k in folders if len(k)==2]
         folders = [k for k in folders if len(re.findall('\d{4}-\d{2}-\d',k[1].split('/')[-1]))>0 ]
-        folders={v.split('/')[-1]:float(k[:-1].replace(',','.')) for k,v in folders}
+        folders={v.split('/')[-1]:float(k[:-1].replace(',','.'))*sizes[k[-1]] for k,v in folders}
         daysnotempty = pd.Series(folders)
         daysnotempty = [k for k in daysnotempty[daysnotempty>dict_size].index]
         daysnotempty = pd.Series([pd.Timestamp(k,tz='CET') for k in daysnotempty]).sort_values()
