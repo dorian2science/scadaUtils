@@ -680,13 +680,13 @@ class Streamer():
             deltat = (df.index.max()-df.index.min()).seconds//ptsCurve+1
             rs = '{:.0f}'.format(deltat) + 's'
         start  = time.time()
-        ############ assign type
-        # df = df.dropna()
-        # df = df.astype(self.dataTypes[self.dfplc.loc[tags[0],'DATATYPE']])
-        # df = df.astype(float)
+        ############ compute resample
         if not rsMethod=='raw':
-            # print(df,rsMethod,rs,timezone)
-            df = eval(self.methods[rsMethod])
+            if df.value.dtype=='O':
+                df=df.resample(rs).ffill()
+            else:
+                df = eval(self.methods[rsMethod])
+        # print(df,rsMethod,rs,timezone)
         if checkTime:computetimeshow(rsMethod + ' data',start)
         df.index = df.index.tz_convert(timezone)
         return df
@@ -1428,7 +1428,7 @@ class VisualisationMaster(Configurator):
         dfparked = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,pool=True,*args,**kwargs)
         if checkTime:computetimeshow('loading the parked data',start)
         start=time.time()
-        print(dfparked)
+        # print(dfparked)
         df = dfparked.pivot(values='value',columns='tag').sort_index()
         if checkTime:computetimeshow('pivot data',start)
         ############ read database
