@@ -144,17 +144,19 @@ class TabMaster():
 
                 return min_date,max_date,end_date,endtime,startdate,starttime
 
-        # pop up modal error
+        # pop up modal list tags
         if 'modalTagsTxt' in categories:
             @self.app.callback(
                 Output(self.baseId + "modalListTags", "is_open"),
+                Output(self.baseId + "txtListTags", "value"),
                 [Input(self.baseId + "btn_omlt", "n_clicks"), Input(self.baseId + "close_omlt", "n_clicks")],
-                [State(self.baseId + "modalListTags", "is_open")],
+                [State(self.baseId + "modalListTags", "is_open"),State(self.baseId + "dd_tag", "value")]
             )
-            def popupModalListTags(n1,n2, is_open):
+            def popupModalListTags(n1,n2, is_open,listTags):
+                listTags='\n'.join(listTags)
                 if n1:
-                    return not is_open
-                return is_open
+                    return not is_open,listTags
+                return is_open,listTags
 
             @self.app.callback(
                 Output(self.baseId + "dd_tag", "value"),
@@ -474,12 +476,12 @@ class TabMultiUnitSelectedTags(TabMaster):
         TabMaster.__init__(self,*args,**kwargs,
                     update_fig = self.update_fig,
                     tabname=tabname,baseId=baseId)
-        dicSpecialWidgets = {'dd_typeTags':defaultCat,'dd_tag':ddtag,'btn_legend':0}
+        dicSpecialWidgets = {'dd_typeTags':defaultCat,'dd_tag':ddtag,'btn_legend':0,'modalListTags':None}
         self._buildLayout(dicSpecialWidgets,realTime=realtime)
         if realtime:
             self._define_basicCallbacks(['legendtoogle','export','ts_freeze','refreshWindow'])
         else:
-            self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
+            self._define_basicCallbacks(['legendtoogle','export','datePickerRange','modalTagsTxt'])
         inputTuples = [
             ('dd_typeTags','value'),
             ('dd_tag','value'),

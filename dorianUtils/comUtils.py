@@ -1253,12 +1253,12 @@ class SuperDumper_daily(SuperDumper):
         return SuperDumper.start_dumping(self,'day')
 
     def parktagfromdb(self,tag,dftag,folderday):
-        df=dftag
-        namefile=folderday + tag + '.pkl'
+        df = dftag
+        namefile = folderday + tag + '.pkl'
         if os.path.exists(namefile):
             df1 = pickle.load(open(namefile,'rb'))
-            df  = pd.concat([df1,dftag])
-        df.to_pickle(namefile)
+            df  = pd.concat([df1,df])
+        df.astype[self.dataTypes[self.dfplc.loc[tag,'DATATYPE']]].to_pickle(namefile)
 
     def park_database(self):
         listTags = self.alltags

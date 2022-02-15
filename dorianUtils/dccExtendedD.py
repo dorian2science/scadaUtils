@@ -170,7 +170,7 @@ class DccExtended:
 
             elif 'dd_resampleMethod'==wid_key:
                 widgetObj = self.dropDownFromList(baseId+wid_key,wid_val['methods'],
-                    'resampling method: ',value=wid_val['value'],multi=False)
+                    'resampling method: ',value=wid_val['value'],multi=False,clearable=False)
 
             elif 'dd_style'==wid_key:
                 widgetObj = self.dropDownFromList(baseId+wid_key,self.line_styles,'style : ',value = wid_val)
