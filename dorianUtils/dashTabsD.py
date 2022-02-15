@@ -167,11 +167,12 @@ class TabMaster():
                 return listTags
 
     def _buildLayout(self,specialWidDic,realTime=False,widthG=85,timeres='60s'):
+        methodsList=[k for k in self.cfg.methods_list if not k=='raw']
         if not realTime:
             dicWidgets = {
-                'pdr_time' : {'tmin':self.cfg.tmin,'tmax':self.cfg.tmax,'interval':2*60*60*1000},#update every 2hours
+                'pdr_time' : {'tmin':self.cfg.tmin,'tmax':self.cfg.tmax,'interval':2*60*60*1000},#update every 2 hours
                 'in_timeRes':timeres,
-                'dd_resampleMethod' : {'value':'forwardfill','methods':list(self.cfg.methods.keys())},
+                'dd_resampleMethod' : {'value':'meanright','methods':methodsList},
                 'dd_style':'default',
                 'btn_export':0,
                     }
@@ -229,7 +230,7 @@ class TabMaster():
 
             elif 'dd_typeTags' in wid_key:
                 widgetObj = self.dccE.dropDownFromList(self.baseId+wid_key,list(self.cfg.usefulTags.index),
-                            'Select categorie : ',value=wid_val,optionHeight=20)
+                            'Select categorie : ',value=wid_val,optionHeight=20,clearable=True)
 
             elif 'btn_legend' in wid_key:
                 widgetObj = [html.Button('tag',id=self.baseId+wid_key, n_clicks=wid_val)]

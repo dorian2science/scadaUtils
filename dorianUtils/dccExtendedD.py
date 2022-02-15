@@ -34,7 +34,7 @@ class DccExtended:
             ddOpt =[{'label': t, 'value': t} for t in listdd]
 
         if 'value' in list(kwargs.keys()):
-            dd = dcc.Dropdown(id=idName,options=ddOpt,clearable=False,**kwargs)
+            dd = dcc.Dropdown(id=idName,options=ddOpt,**kwargs)
         else :
             if not defaultIdx:
                 defaultIdx = 0

@@ -680,6 +680,10 @@ class Streamer():
             deltat = (df.index.max()-df.index.min()).seconds//ptsCurve+1
             rs = '{:.0f}'.format(deltat) + 's'
         start  = time.time()
+        ############ assign type
+        # df = df.dropna()
+        # df = df.astype(self.dataTypes[self.dfplc.loc[tags[0],'DATATYPE']])
+        # df = df.astype(float)
         if not rsMethod=='raw':
             # print(df,rsMethod,rs,timezone)
             df = eval(self.methods[rsMethod])
@@ -1076,8 +1080,11 @@ class Configurator():
         return psycopg2.connect(connReq)
 
     def getUsefulTags(self,usefulTag):
-        category = self.usefulTags.loc[usefulTag,'Pattern']
-        return self.getTagsTU(category)
+        if usefulTag in self.usefulTags.index:
+            category = self.usefulTags.loc[usefulTag,'Pattern']
+            return self.getTagsTU(category)
+        else:
+            return []
 
     def createRandomInitalTagValues(self):
         return self.fs.createRandomInitalTagValues(self.alltags,self.dfplc)
@@ -1421,6 +1428,7 @@ class VisualisationMaster(Configurator):
         dfparked = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,pool=True,*args,**kwargs)
         if checkTime:computetimeshow('loading the parked data',start)
         start=time.time()
+        print(dfparked)
         df = dfparked.pivot(values='value',columns='tag').sort_index()
         if checkTime:computetimeshow('pivot data',start)
         ############ read database
@@ -1430,10 +1438,6 @@ class VisualisationMaster(Configurator):
             dfdb=dfdb.pivot(values='value',columns='tag').sort_index()
             if checkTime:computetimeshow('loading the database',start)
             df = pd.concat([df,dfdb])
-        ############ assign types
-        dtypes = self.dfplc.loc[df.columns].DATATYPE.apply(lambda x:self.dataTypes[x]).to_dict()
-        # df = df.dropna()
-        df = df.astype(dtypes)
         return df
 
     # #######################
