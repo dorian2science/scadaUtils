@@ -33,7 +33,7 @@ class TabMaster():
         self.modalError = self.dccE.addModalError(app,cfg,baseid=self.baseId)
 
     def _define_basicCallbacks(self,categories=[]):
-        #update freeze button
+        # update freeze button
         if 'ts_freeze' in categories:
             @self.app.callback(
                 Output(self.baseId + 'ts_freeze', 'label'),
@@ -65,14 +65,14 @@ class TabMaster():
 
                 return mode_ts, timeRange, freeze
 
-        #update freeze button
+        # update freeze button
         if 'refreshWindow' in categories:
             @self.app.callback(Output(self.baseId + 'interval', 'interval'),
                                 Input(self.baseId + 'in_refreshTime','value'))
             def updateRefreshTime(refreshTime):
                 return refreshTime*1000
 
-        #update legend toogle button
+        # update legend toogle button
         if 'legendtoogle' in categories:
             @self.app.callback(Output(self.baseId + 'btn_legend', 'children'),
                                 Input(self.baseId + 'btn_legend','n_clicks'))
@@ -167,6 +167,19 @@ class TabMaster():
             def getListTagsModal(close,txt):
                 listTags = [k.strip().upper() for k in txt.split('\n')]
                 return listTags
+
+        # update enveloppe dropdown menu
+        if 'mini_maxi_enveloppe' in categories:
+            @self.app.callback(
+                Output(self.baseId + "dd_enveloppe", "options"),
+                Output(self.baseId + "dd_enveloppe", "value"),
+                [Input(self.baseId + "dd_typeTags", "value"),Input(self.baseId + "dd_tag", "value")],
+                State(self.baseId + "dd_enveloppe", "value")
+            )
+            def update_dd_enveloppe(typeTags,tags,curTagEnv):
+                listTags = self.cfg.getUsefulTags(typeTags)+tags
+                if curTagEnv not in listTags: curTagEnv=''
+                return [{'label':t,'value':t} for t in listTags],curTagEnv
 
     def _buildLayout(self,specialWidDic,realTime=False,widthG=85,timeres='60s'):
         methodsList=[k for k in self.cfg.methods_list if not k=='raw']
@@ -272,6 +285,10 @@ class TabMaster():
                         size='xl',
                     )
                 ]
+
+            elif wid_key=='dd_enveloppe':
+                widgetObj = self.dccE.dropDownFromList(self.baseId+wid_key,[''],
+                            'add mini maxi enveloppe : ',optionHeight=20,clearable=True,multi=False)
             else:
                 print('component :' + wid_key +' not found')
                 sys.exit()
@@ -305,7 +322,7 @@ class TabMaster():
                 fig         = self.utils.customLegend(fig,dictNames)
         return fig
 
-    def updateGraph(self,previousFig,listTrigs,argsLoad,argsPlot,argsUpdateGraph):
+    def buildGraph(self,previousFig,listTrigs,argsLoad,argsPlot,argsUpdateGraph):
         ctx = dash.callback_context
         trigId = ctx.triggered[0]['prop_id'].split('.')[0]
         fig = go.Figure(previousFig)
@@ -402,9 +419,7 @@ class TabMaster():
                 t1 = pd.Timestamp.now(tz='CET')
                 t0 = t1 - dt.timedelta(seconds=la['in_timeWindow_value']*60)
                 if la['ts_freeze_value']:
-                    timeRange = la['st_freeze_data']
-                else:
-                    timeRange = [t0.isoformat(),t1.isoformat()]
+                    [t0,t1] = la['st_freeze_data']
                 triggerloadData_ids = ['interval','btn_update','st_freeze','dd_resampleMethod'] + argsPrepare
             else:
                 t0 = la['pdr_date_start_date'] + ' ' + la['pdr_timeStart_value']
@@ -413,7 +428,7 @@ class TabMaster():
                 triggerloadData_ids=['dd_tag','pdr_timeBtn','dd_resampleMethod'] + argsPrepare
             # print(la.keys())
             # print(argsUpdateGraph)
-            fig,errCode = self.updateGraph(previousFig,triggerloadData_ids,
+            fig,errCode = self.buildGraph(previousFig,triggerloadData_ids,
                 [t0,t1,tags,la['dd_resampleMethod_value'],la['in_timeRes_value']],
                 [la[k + '_value'] for k in argsPlotGraph],
                 [la[k + '_value'] for k in argsUpdateGraph]
@@ -476,19 +491,24 @@ class TabMultiUnitSelectedTags(TabMaster):
         TabMaster.__init__(self,*args,**kwargs,
                     update_fig = self.update_fig,
                     tabname=tabname,baseId=baseId)
-        dicSpecialWidgets = {'dd_typeTags':defaultCat,'dd_tag':ddtag,'btn_legend':0,'modalListTags':None}
+        dicSpecialWidgets = {'dd_typeTags':defaultCat,'dd_tag':ddtag,'btn_legend':0,'modalListTags':None,'dd_enveloppe':''}
         self._buildLayout(dicSpecialWidgets,realTime=realtime)
+        listCallbacks = ['legendtoogle','export','modalTagsTxt','mini_maxi_enveloppe']
         if realtime:
-            self._define_basicCallbacks(['legendtoogle','export','ts_freeze','refreshWindow'])
+            listCallbacks+=['ts_freeze','refreshWindow']
         else:
-            self._define_basicCallbacks(['legendtoogle','export','datePickerRange','modalTagsTxt'])
+            listCallbacks+=['datePickerRange']
+        self._define_basicCallbacks(listCallbacks)
+
+
         inputTuples = [
             ('dd_typeTags','value'),
             ('dd_tag','value'),
+            ('dd_enveloppe','value')
         ]
         def prepareTags(tagCat,tags):
             return self.cfg.getUsefulTags(tagCat) + tags
-        self._defineCallbackGraph(realtime,inputTuples,prepareTags,['dd_typeTags','dd_tag'],[],['dd_style'])
+        self._defineCallbackGraph(realtime,inputTuples,prepareTags,['dd_typeTags','dd_tag','dd_enveloppe'],[],['dd_style'])
 
 class TabDoubleMultiUnits(TabMaster):
     def __init__(self,*args,realtime=False,defaultTags1=[],defaultTags2=[],baseId='rtdmu0_',tabname='double multi units',**kwargs):
@@ -663,11 +683,11 @@ class AnalysisTab(TabMaster):
             State(self.baseId + 'pdr_timeStart','value'),
             State(self.baseId + 'pdr_timeEnd','value'),
             )
-        def updateGraph(timeBtn,rsMethod,style,x,y,previousFig,rs,date0,date1,t0,t1):
+        def buildGraph(timeBtn,rsMethod,style,x,y,previousFig,rs,date0,date1,t0,t1):
             triggerList=['pdr_timeBtn','dd_resampleMethod','dd_x','dd_y']
             timeRange = [date0+' '+t0,date1+' '+t1]
 
-            fig,errCode = self.updateGraph(previousFig,triggerList,style,
+            fig,errCode = self.buildGraph(previousFig,triggerList,style,
                 [timeRange,x,y,rs,rsMethod],[]
                 )
             return fig,errCode
@@ -731,7 +751,7 @@ class TabExploreDF(TabMaster):
         [Input(self.baseId + k,v) for k,v in listInputsGraph.items()],
         [State(self.baseId + k,v) for k,v in listStatesGraph.items()],
         )
-        def updateGraph(x,y,upBtn,rsMethod,typeGraph,cmap,style,fig,pts,rsx):
+        def buildGraph(x,y,upBtn,rsMethod,typeGraph,cmap,style,fig,pts,rsx):
             ctx = dash.callback_context
             trigId = ctx.triggered[0]['prop_id'].split('.')[0]
             if not upBtn or trigId in [self.baseId+k for k in ['btn_update','dd_x','dd_y']]:

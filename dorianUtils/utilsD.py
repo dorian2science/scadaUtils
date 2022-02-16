@@ -203,6 +203,12 @@ class Utils:
         else :
             return tmp
 
+    def lowpass(self,x,alpha=0.01):
+        newx=x.copy()
+        for k in range(1,len(x)):
+            newx[k] = (1-alpha)*newx[k-1] + alpha*newx[k]
+        return newx
+
     # ==========================================================================
     #                       lIST AND DICTIONNARIES
     # ==========================================================================
@@ -315,6 +321,7 @@ class Utils:
         dfGroups=dfGroups.dropna().set_index('tag')
         dfGroups.columns=['group','subgroup']
         return dfGroups
+
 
     # ==========================================================================
     #                           GRAPHICS

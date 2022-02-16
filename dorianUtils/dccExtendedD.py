@@ -40,26 +40,7 @@ class DccExtended:
                 defaultIdx = 0
             if 'value' in list(kwargs.keys()):
                 del kwargs['value']
-            dd = dcc.Dropdown(id=idName,options=ddOpt,value=listdd[defaultIdx],clearable=False,**kwargs)
-        return [p,dd]
-
-    def dropDownFromDict(self,idName,listdd,pddPhrase = None,valIdx=None,**kwargs):
-        if not pddPhrase :
-            pddPhrase = 'Select your ... : ' + idName
-        p = html.P(pddPhrase)
-        if isinstance(listdd,dict):
-            keysDict= list(listdd.keys())
-            valDict = list(listdd.values())
-            ddOpt =[{'label': k, 'value': v} for k,v in listdd.items()]
-
-        if 'value' in list(kwargs.keys()):
-            dd = dcc.Dropdown(id=idName,options=ddOpt,clearable=False,**kwargs)
-        elif valIdx:
-            valSel = [list(listdd.values())[k] for k in valIdx]
-            # print(valSel)
-            dd = dcc.Dropdown(id=idName,options=ddOpt,value=valSel,clearable=False,**kwargs)
-        else :
-            dd = dcc.Dropdown(id=idName,options=ddOpt,clearable=False,**kwargs)
+            dd = dcc.Dropdown(id=idName,options=ddOpt,value=listdd[defaultIdx],**kwargs)
         return [p,dd]
 
     def quickInput(self,idName,typeIn='text',pddPhrase = 'input',dftVal=0,**kwargs):
@@ -443,10 +424,3 @@ class DccExtended:
                 return False,'',''
 
         return errorModal
-
-
-    ''' dropdown with a list'''
-    class DropdownFromList(dcc.Dropdown):
-        def __init__(self,listdd,**kwargs):
-            dcc.Dropdown.__init__(self,**kwargs)
-            self.options = [{'label': t, 'value': t} for t in listdd]
