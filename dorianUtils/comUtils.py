@@ -1258,8 +1258,7 @@ class SuperDumper_daily(SuperDumper):
         if os.path.exists(namefile):
             df1 = pickle.load(open(namefile,'rb'))
             df  = pd.concat([df1,df])
-        df.astype[self.dataTypes[self.dfplc.loc[tag,'DATATYPE']]].to_pickle(namefile)
-
+        df.astype(self.dataTypes[self.dfplc.loc[tag,'DATATYPE']]).to_pickle(namefile)
     def park_database(self):
         listTags = self.alltags
         start = time.time()
