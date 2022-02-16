@@ -468,7 +468,7 @@ class TabMaster():
             #   get list of arguments        #
             #   for self.buildGraph function #
             ##################################
-            if realTime:triggerloadData_ids = ['interval','btn_update','st_freeze','dd_resampleMethod'] + t_getTags
+            if realTime:triggerloadData_ids = ['interval','btn_update','st_freeze','dd_resampleMethod'] + [widid for widid,prop  in t_getTags]
             else:triggerloadData_ids=['dd_tag','pdr_timeBtn','dd_resampleMethod'] + [widid for widid,prop  in t_getTags]
             d_args['pdr_'] = get_t0_t1_fromWidgets(realTime,d_args)
             argsLoad       = [*d_args['pdr_'],tags,d_args['dd_resampleMethod_value'],d_args['in_timeRes_value']]
