@@ -1259,6 +1259,7 @@ class SuperDumper_daily(SuperDumper):
             df1 = pickle.load(open(namefile,'rb'))
             df  = pd.concat([df1,df])
         df.astype(self.dataTypes[self.dfplc.loc[tag,'DATATYPE']]).to_pickle(namefile)
+
     def park_database(self):
         listTags = self.alltags
         start = time.time()
@@ -1376,7 +1377,6 @@ class VisualisationMaster(Configurator):
         self.methods = self.streamer.methods
         self.methods_list = list(self.methods.keys())
 
-
     def _load_database_tags(self,t0,t1,tags,*args,pool=True,**kwargs):
         '''
         - tags : list of tags
@@ -1405,6 +1405,7 @@ class VisualisationMaster(Configurator):
             df = df.drop_duplicates()
         df.loc[df.value=='null','value']=np.nan
         df = df.set_index('timestampz')
+
         def process_dbtag(df,tag,*args,**kwargs):
             dftag = df[df.tag==tag]['value']
             dftag = self.streamer.process_tag(dftag,*args,**kwargs)

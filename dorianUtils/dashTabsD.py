@@ -557,13 +557,28 @@ class TabMultiUnitSelectedTags(TabMaster):
         self._defineCallbackGraph(realtime,t_inputs,getTags,t_getTags,t_states,t_outputs,t_updatefig,t_plotdata)
 
         # def update_fig(self,fig,style,lgd,tag_env='',t0=None,t1=None,rs=None):
+
     def update_figure(self,fig,style,tag_env,timerange,rs):
-        '''timerange = [t0,t1]'''
-        # for k in [style,timerange,tag_env,rs]: print(k)
-        # fig = self.update_fig(style,lgd=lgd)
+        '''timerange : [t0,t1]'''
+        #### remove the previous minmax curve
+        idxs=[]
+        print('--------------------')
+        print('try to update figure')
+        for k,trace in enumerate(fig.data):
+            if '_minmax' in trace.name:
+                print('remove : ',trace.name)
+                idxs.append(k)
+
+        fig.data=[fig.data[k] for k in range(len(fig.data)) if k not in idxs]
+
+        #### update style regular curves
         fig = TabMaster.update_fig(self,fig,style)
+        # print(fig.data)
+        #### add the new minmax curve
         if tag_env in self.cfg.alltags:
+            print('add minmax:' ,tag_env)
             fig = self.cfg.addTagEnveloppe(fig,tag_env,*timerange,rs)
+        print('--------------------')
         return fig
 
 class TabDoubleMultiUnits(TabMaster):
