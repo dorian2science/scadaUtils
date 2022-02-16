@@ -322,11 +322,16 @@ class TabMaster():
                 fig         = self.utils.customLegend(fig,dictNames)
         return fig
 
-    def buildGraph(self,previousFig,listTrigs,argsLoad,argsPlot,argsUpdateGraph):
+    def buildGraph(self,previousFig,listTrigs,argsLoad,args_plot,args_updatefig):
+        '''
+        - listTrigs : list of components ids that should trigger the building of the graph
+            (otherwise the figure will just be updated).
+        - argsLoad,args_plot,args_updatefig : list of arguments for the function self.loadData,self.plotData,self.update_fig
+        '''
         ctx = dash.callback_context
         trigId = ctx.triggered[0]['prop_id'].split('.')[0]
         fig = go.Figure(previousFig)
-        ## load data in that case
+        ####### load data in that case
         if trigId in [self.baseId+k for k in listTrigs]:
             # print(*argsLoad)
             start=time.time()
@@ -340,29 +345,52 @@ class TabMaster():
                 ## get error code loading data ==> 1
                 return go.Figure(),1
             else :
-                fig = self.plotData(*df_tuple,*argsPlot)
+                fig = self.plotData(*df_tuple,*args_plot)
         ###### update style of graph
         start=time.time()
-        self.update_fig(fig,*argsUpdateGraph)
+        self.update_fig(fig,*args_updatefig)
         print('figure generated in {:.2f} ms'.format((time.time()-start)*1000))
         print("====================================")
 
-        # keep traces visibility
+        ######### keep traces visibility
         try :
             fig = self.utils.legendPersistant(previousFig,fig)
         except:
             print('problem to make traces visibility persistant.')
         return self.utils.addLogo(fig),0
 
-    def _defineCallbackGraph(self,realTime,inputTuples,prepareTags,argsPrepare,argsPlotGraph=[],argsUpdateGraph=[],outputTuples={},stateTuples={}):
+    def _defineCallbackGraph(self,realTime,t_inputs,getTags,t_getTags,t_states,t_outputs,t_updateFig,t_plotdata):
         '''
-        inputTuples:dictionnary of inputs
+        this function will define the callback to update the graph which will ultimately
+        call the funtion self.buildGraph to generate the figure.In order for inheritance
+        to work the arguements argsload,args_plot,argsUpdate should be generated automatically.
+        *** ALL PROPERTIES OF WIDGETS WILL BE STORED IN A DICTIONNARY
+
+                                    d_args
+
+        where keys are:
+        <widget_id>_<widget_property>. where <widget_id> contains only the extension(not the baseId)
+
+        - realTime    : bool for realtime or not
+        - t_inputs    : list of tuples (widget_id,widget_property) inputs to add to standard inputs
+                            for the callback updateGraph.
+        - getTags     : function to get the list of tags
+        - t_getTags   : list of tuples (widget_id,widget_property) that are used for the function getTags
+        - t_states    : list of tuples (widget_id,widget_property) ststes to add to standard states
+                            for the callback updateGraph.
+        - t_outputs   : list of tuples (widget_id,widget_property) outputs to add to the standard outputs
+                            for the callback updateGraph.
+        - t_plotdata  : list of tuples (widget_id,widget_property) that are used for the function self.plotData
+        - t_updatefig : list of tuples (widget_id,widget_property) that are used for the function self.update_fig
         '''
+        ###################################
+        #  DEFINE INPUTS/STATES/OUTPUTS   #
+        ###################################
         d_outputs = [
             ('graph','figure'),
             ('error_modal_store','data')
         ]
-        d_outputs+=outputTuples
+        d_outputs+=t_outputs
 
         if realTime:
             d_inputs = [
@@ -392,47 +420,61 @@ class TabMaster():
                 ('pdr_timeStart','value'),
                 ('pdr_timeEnd','value'),
             ]
-        d_inputs+=inputTuples
-        d_states+=stateTuples
+        d_inputs+=t_inputs
+        d_states+=t_states
 
         # print(d_inputs)
-        listArgsInputs = [k+'_' + v for k,v in d_inputs]
-        listArgsStates = [k+'_' + v for k,v in d_states]
+        listArgsInputs = [id + '_' + prop for id,prop in d_inputs]
+        listArgsStates = [id + '_' + prop for id,prop in d_states]
         allArgsName = listArgsInputs + listArgsStates
+        ######################
+        #  DEFINE CALLBACK   #
+        ######################
+        def get_t0_t1_fromWidgets(realTime,d_args):
+            if realTime:
+                t1 = pd.Timestamp.now(tz='CET')
+                t0 = t1 - dt.timedelta(seconds=d_args['in_timeWindow_value']*60)
+                if d_args['ts_freeze_value']:
+                    t0,t1 = d_args['st_freeze_data']
+            else:
+                t0 = d_args['pdr_date_start_date'] + ' ' + d_args['pdr_timeStart_value']
+                t1 = d_args['pdr_date_end_date'] + ' ' + d_args['pdr_timeEnd_value']
+                t0,t1 = [pd.Timestamp(k,tz='CET') for k in [t0,t1]]
+            return [t0,t1]
         # print(allArgsName)
         @self.app.callback(
             [Output(self.baseId + k,v) for k,v in d_outputs],
             [Input(self.baseId + k,v) for k,v in d_inputs],
             [State(self.baseId + k,v) for k,v in d_states])
         def updateGraph(*argsCallback):
-            la = {k : v for k,v in zip(allArgsName,argsCallback)}
-            # print(timeRange)
-            # for k in la.keys() : print(k)
+            ###############################
+            #   BUILD THE DICTIONNARY OF  #
+            #   WIDGET PROPERTY VALUES    #
+            ###############################
+            d_args = {k : v for k,v in zip(allArgsName,argsCallback)}
+            # for k in d_args.keys():print(k)
 
-            previousFig = la['graph_figure']
-            corrArgsPrepare=[ la[k+'_value'] for k in argsPrepare]
-            # print(corrArgsPrepare)
-            tags = prepareTags(*corrArgsPrepare)
+            previousFig = d_args['graph_figure']
+            ###############################
+            #   BUILD THE DICTIONNARY OF  #
+            #   WIDGET PROPERTY VALUES    #
+            ###############################
+            args_getTags=[d_args[wid_id + '_' + prop] for wid_id,prop in t_getTags]
+            tags = getTags(*args_getTags)
+
             if len(tags)==0:
                 return previousFig,2
-            if realTime:
-                t1 = pd.Timestamp.now(tz='CET')
-                t0 = t1 - dt.timedelta(seconds=la['in_timeWindow_value']*60)
-                if la['ts_freeze_value']:
-                    [t0,t1] = la['st_freeze_data']
-                triggerloadData_ids = ['interval','btn_update','st_freeze','dd_resampleMethod'] + argsPrepare
-            else:
-                t0 = la['pdr_date_start_date'] + ' ' + la['pdr_timeStart_value']
-                t1 = la['pdr_date_end_date'] + ' ' + la['pdr_timeEnd_value']
-                t0,t1=[pd.Timestamp(k,tz='CET') for k in [t0,t1]]
-                triggerloadData_ids=['dd_tag','pdr_timeBtn','dd_resampleMethod'] + argsPrepare
-            # print(la.keys())
-            # print(argsUpdateGraph)
-            fig,errCode = self.buildGraph(previousFig,triggerloadData_ids,
-                [t0,t1,tags,la['dd_resampleMethod_value'],la['in_timeRes_value']],
-                [la[k + '_value'] for k in argsPlotGraph],
-                [la[k + '_value'] for k in argsUpdateGraph]
-            )
+            ##################################
+            #   get list of arguments        #
+            #   for self.buildGraph function #
+            ##################################
+            if realTime:triggerloadData_ids = ['interval','btn_update','st_freeze','dd_resampleMethod'] + t_getTags
+            else:triggerloadData_ids=['dd_tag','pdr_timeBtn','dd_resampleMethod'] + [widid for widid,prop  in t_getTags]
+            d_args['pdr_'] = get_t0_t1_fromWidgets(realTime,d_args)
+            argsLoad       = [*d_args['pdr_'],tags,d_args['dd_resampleMethod_value'],d_args['in_timeRes_value']]
+            args_plot      = [d_args[wid_id + '_' + prop] for wid_id,prop in t_plotdata]
+            args_updatefig = [d_args[wid_id + '_' + prop] for wid_id,prop in t_updateFig]
+            fig,errCode = self.buildGraph(previousFig,triggerloadData_ids,argsLoad,args_plot,args_updatefig)
             return fig,errCode
 
     def update_fig(self,fig,style,colmap=None,lgd=None):
@@ -458,13 +500,13 @@ class TabSelectedTags(TabMaster):
             self._define_basicCallbacks(['export','ts_freeze','refreshWindow'])
         else:
             self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
-        inputTuples = [
+        t_inputs = [
             ('dd_typeTags','value'),
             ('dd_cmap','value')
             #('btn_legend','children')
             ]
-        def prepareTags(tagCat):return self.cfg.getUsefulTags(tagCat)
-        self._defineCallbackGraph(realtime,inputTuples,prepareTags,['dd_typeTags'],[],['dd_style','dd_cmap'])
+        def getTags(tagCat):return self.cfg.getUsefulTags(tagCat)
+        self._defineCallbackGraph(realtime,t_inputs,getTags,['dd_typeTags'],[],['dd_style','dd_cmap'])
 
 class TabMultiUnits(TabMaster):
     def __init__(self,*args,realtime=False,defaultTags=[],baseId='tmu0_',tabname='multi-unit',**kwargs):
@@ -479,17 +521,17 @@ class TabMultiUnits(TabMaster):
             self.wids[self.baseId + 'pdr_timeInterval'].interval=1*60*60*1000 #update every hour
             self._define_basicCallbacks(['legendtoogle','export','datePickerRange','modalTagsTxt'])
             # self._define_basicCallbacks(['legendtoogle','export','modalTagsTxt'])
-        inputTuples = [
+        t_inputs = [
             ('dd_tag','value'),
             ('btn_legend','children'),
         ]
-        def prepareTags(tags):return tags
-        self._defineCallbackGraph(realtime,inputTuples,prepareTags,['dd_tag'],[],['dd_style'])
+        def getTags(tags):return tags
+        self._defineCallbackGraph(realtime,t_inputs,getTags,['dd_tag'],[],['dd_style'])
 
 class TabMultiUnitSelectedTags(TabMaster):
     def __init__(self,*args,realtime=False,defaultCat=[],ddtag=[],tabname='multi-unit +',baseId='muts0_',**kwargs):
         TabMaster.__init__(self,*args,**kwargs,
-                    update_fig = self.update_fig,
+                    update_fig = self.update_figure,
                     tabname=tabname,baseId=baseId)
         dicSpecialWidgets = {'dd_typeTags':defaultCat,'dd_tag':ddtag,'btn_legend':0,'modalListTags':None,'dd_enveloppe':''}
         self._buildLayout(dicSpecialWidgets,realTime=realtime)
@@ -500,15 +542,29 @@ class TabMultiUnitSelectedTags(TabMaster):
             listCallbacks+=['datePickerRange']
         self._define_basicCallbacks(listCallbacks)
 
-
-        inputTuples = [
+        t_inputs = [
             ('dd_typeTags','value'),
             ('dd_tag','value'),
             ('dd_enveloppe','value')
         ]
-        def prepareTags(tagCat,tags):
-            return self.cfg.getUsefulTags(tagCat) + tags
-        self._defineCallbackGraph(realtime,inputTuples,prepareTags,['dd_typeTags','dd_tag','dd_enveloppe'],[],['dd_style'])
+        def getTags(tagCat,tags):return self.cfg.getUsefulTags(tagCat) + tags
+        t_getTags = [('dd_typeTags','value'),('dd_tag','value')]
+        t_plotdata,t_states,t_outputs = [[]]*3
+        # t_updatefig  = [('graph','figure'),('dd_style','value'),('dd_enveloppe','value'),('pdr',''),('in_timeRes','value')]
+        t_updatefig  = [('dd_style','value'),('dd_enveloppe','value'),('pdr',''),('in_timeRes','value')]
+        # t_updatefig = [('dd_style','value'),('btn_legend','value')]
+
+        self._defineCallbackGraph(realtime,t_inputs,getTags,t_getTags,t_states,t_outputs,t_updatefig,t_plotdata)
+
+        # def update_fig(self,fig,style,lgd,tag_env='',t0=None,t1=None,rs=None):
+    def update_figure(self,fig,style,tag_env,timerange,rs):
+        '''timerange = [t0,t1]'''
+        # for k in [style,timerange,tag_env,rs]: print(k)
+        # fig = self.update_fig(style,lgd=lgd)
+        fig = TabMaster.update_fig(self,fig,style)
+        if tag_env in self.cfg.alltags:
+            fig = self.cfg.addTagEnveloppe(fig,tag_env,*timerange,rs)
+        return fig
 
 class TabDoubleMultiUnits(TabMaster):
     def __init__(self,*args,realtime=False,defaultTags1=[],defaultTags2=[],baseId='rtdmu0_',tabname='double multi units',**kwargs):
@@ -524,14 +580,14 @@ class TabDoubleMultiUnits(TabMaster):
             self._define_basicCallbacks(['legendtoogle','export','datePickerRange','modalTagsTxt'])
 
         self._buildLayout(dicSpecialWidgets,realTime=realtime)
-        inputTuples = [
+        t_inputs = [
             ('dd_tag1','value'),
             ('dd_tag2','value')
             # 'dd_cmap','value'
         ]
-        def prepareTags(tags1,tags2):
+        def getTags(tags1,tags2):
             return tags1 + tags2
-        self._defineCallbackGraph(realtime,inputTuples,prepareTags,
+        self._defineCallbackGraph(realtime,t_inputs,getTags,
                     ['dd_tag1','dd_tag2'],
                     ['dd_tag1','dd_tag2'],
                     ['dd_style'])
@@ -541,7 +597,7 @@ class TabUnitSelector(TabMaster):
         TabMaster.__init__(self,*args,**kwargs,tabname='select Units',baseId=baseId)
 
         dicSpecialWidgets = {'dd_Units':unitInit,'in_patternTag':patTagInit,'dd_cmap':'jet','btn_legend':0}
-        inputTuples = [
+        t_inputs = [
             ('dd_Units','value'),
             ('in_patternTag','value'),
         ]
@@ -550,11 +606,10 @@ class TabUnitSelector(TabMaster):
             self._define_basicCallbacks(['legendtoogle','export','ts_freeze','refreshWindow'])
         else:
             self._define_basicCallbacks(['legendtoogle','export','datePickerRange'])
-        def prepareTags(patTag,unit):
+        def getTags(patTag,unit):
             tags=self.cfg.getTagsTU(patTag,unit)
             return tags
-        self._defineCallbackGraph(realtime,inputTuples,prepareTags,['in_patternTag','dd_Units'],[],['dd_style'])
-
+        self._defineCallbackGraph(realtime,t_inputs,getTags,['in_patternTag','dd_Units'],[],['dd_style'])
 
 class AnalysisTab(TabMaster):
     def __init__(self,app,cfg):
