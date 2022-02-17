@@ -1284,12 +1284,10 @@ class SuperDumper_daily(SuperDumper):
         tmin,tmax = df.index.min().tz_convert('CET'),df.index.max().tz_convert('CET')
         listdays = list(np.unique([k.strftime(self.format_dayFolder)[:-1] for k in [tmin,tmax]]))
         #### in case they are 2 days around midnight
-        for d in listdays[1:]:
-            print(d)
+        for d in listdays:
             t0=pd.Timestamp(d + ' 00:00:00',tz='CET')
             t1=t0+pd.Timedelta(days=1)
             dfday=df[(df.index>=t0)&(df.index<t1)]
-            print(dfday)
             folderday=self.folderPkl + d +'/'
             #### create folder if necessary
             if not os.path.exists(folderday):os.mkdir(folderday)
@@ -1411,6 +1409,10 @@ class VisualisationMaster(Configurator):
         def process_dbtag(df,tag,*args,**kwargs):
             dftag = df[df.tag==tag]['value']
             dftag = self.streamer.process_tag(dftag,*args,**kwargs)
+            ## assign type
+            dtype=self.dataTypes[self.dfplc.loc[tag,'DATATYPE']]
+            print(tag,':',dtype)
+            dftag = dftag.astype(dtype)
             dftag['tag'] = tag
             return dftag
         dftags = [process_dbtag(df,tag,*args,**kwargs) for tag in tags]
@@ -1435,9 +1437,9 @@ class VisualisationMaster(Configurator):
         if checkTime:computetimeshow('pivot data',start)
         ############ read database
         if t1>=pd.Timestamp.now(tz='CET')-pd.Timedelta(seconds=self.parkingTime):
-            start=time.time()
-            dfdb = self._load_database_tags(t0,t1,tags,*args,**kwargs)
-            dfdb=dfdb.pivot(values='value',columns='tag').sort_index()
+            start = time.time()
+            dfdb  = self._load_database_tags(t0,t1,tags,*args,**kwargs)
+            dfdb  = dfdb.pivot(values='value',columns='tag').sort_index()
             if checkTime:computetimeshow('loading the database',start)
             df = pd.concat([df,dfdb])
         return df

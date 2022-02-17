@@ -181,7 +181,7 @@ class TabMaster():
                 if curTagEnv not in listTags: curTagEnv=''
                 return [{'label':t,'value':t} for t in listTags],curTagEnv
 
-    def _buildLayout(self,specialWidDic,realTime=False,widthG=85,timeres='60s'):
+    def _buildLayout(self,specialWidDic,realTime=False,widthG=85,timeres='60s',):
         methodsList=[k for k in self.cfg.methods_list if not k=='raw']
         if not realTime:
             dicWidgets = {
@@ -196,7 +196,7 @@ class TabMaster():
                 'block_refresh':{'val_window':120,'val_refresh':50,
                                     'min_refresh':1,'min_window':2},
                 'btns_refresh':None,
-                'block_resample':{'val_res':'5s','val_method' : 'forwardfill','methods':list(self.cfg.methods.keys())},
+                'block_resample':{'val_res':'5s','val_method' : 'meanright','methods':list(self.cfg.methods.keys())},
                 'dd_style':'default',
                 'btn_export':0,
                 }
@@ -547,7 +547,8 @@ class TabMultiUnitSelectedTags(TabMaster):
             ('dd_tag','value'),
             ('dd_enveloppe','value')
         ]
-        def getTags(tagCat,tags):return self.cfg.getUsefulTags(tagCat) + tags
+        def getTags(tagCat,tags):
+            return list(pd.Series(self.cfg.getUsefulTags(tagCat) + tags).unique())
         t_getTags = [('dd_typeTags','value'),('dd_tag','value')]
         t_plotdata,t_states,t_outputs = [[]]*3
         # t_updatefig  = [('graph','figure'),('dd_style','value'),('dd_enveloppe','value'),('pdr',''),('in_timeRes','value')]
