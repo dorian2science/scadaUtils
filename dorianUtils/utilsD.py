@@ -6,7 +6,6 @@ import plotly.graph_objects as go
 import plotly.express as px
 from pylab import cm
 import matplotlib.colors as mtpcl
-import matplotlib.pyplot as plt
 from plotly.validators.scatter.line import ShapeValidator
 from plotly.validators.scatter.marker import SymbolValidator
 from plotly.validators.scatter.line import DashValidator
@@ -327,35 +326,31 @@ class Utils:
             df.index=[k.isoformat() for k in df.index]
         df.to_excel(filepath)
 
-    # ==========================================================================
-    #                           GRAPHICS
-    # ==========================================================================
-    def getColorHexSeq(self,N,colmap='jet'):
-        cmap        = cm.get_cmap(colmap,N)
-        colorList   = []
-        for i in range(cmap.N):colorList.append(mtpcl.rgb2hex(cmap(i)))
-        return colorList
-
     def popup_dfexcel(self,df):
         if isinstance(df.index,pd.core.indexes.datetimes.DatetimeIndex):
             df.index=[k.isoformat() for k in df.index]
-        df.to_excel('/tmp/test.xlsx')
-        sp.Popen(['libreoffice','/tmp/test.xlsx'])
+            df.to_excel('/tmp/test.xlsx')
+            sp.Popen(['libreoffice','/tmp/test.xlsx'])
 
     def showdf_as_table(self,df):
         fig = go.Figure(data=[go.Table(
-                        header=dict(values=list(df.columns),
-                                    fill_color='paleturquoise',
-                                    align='left'),
-                        cells=dict(values=[df[k] for k in df.columns],
-                                   fill_color='lavender',
-                                   align='left'))
-                    ])
+        header=dict(values=list(df.columns),
+        fill_color='paleturquoise',
+        align='left'),
+        cells=dict(values=[df[k] for k in df.columns],
+        fill_color='lavender',
+        align='left'))
+        ])
         fig.show()
         return fig
+    # ==========================================================================
+    #                           GRAPHICS
+    # ==========================================================================
+    def sample_colorscale(self,N,colorscale='jet'):
+        return px.colors.sample_colorscale(colorscale,np.linspace(0,1,N))
 
     def updateColorMap(self,fig,colmap=None):
-        listCols = self.getColorHexSeq(len(fig.data)+1,colmap=colmap)
+        listCols = self.sample_colorscale(len(fig.data)+1,colmap=colmap)
         k,l=0,0
         listYaxis = [k for k in fig._layout.keys() if 'yax' in k]
         if len(listYaxis)>1:
@@ -447,7 +442,7 @@ class Utils:
         minx = (len(groups)-1)//2*axisSpace
         xdomain =[minx,1-minx]
         sides,positions = self.getAutoYAxes(len(groups),xdomain,inc=axisSpace)
-        colors=self.getColorHexSeq(len(groups),colormap)
+        colors=self.sample_colorscale(len(groups),colormap)
         dfGroups['color']=colors[0]
         dfGroups['symbol'] = 'circle'
         dfGroups['line']   = 'solid'
@@ -536,7 +531,7 @@ class Utils:
         for g,ax,ay1,xs,ys1 in zip(groups,xaxisNames,yaxisNames1,xscales,yscales1):
             # print(ax,' ------ ',ay1,' ------ ',g)
             subgroups=dfGroups[dfGroups.group==g].subgroup.unique()
-            colors=self.getColorHexSeq(len(subgroups),colormap)
+            colors=self.sample_colorscale(len(subgroups),colormap)
             yaxisNames = [ay1 + str(k) for k in range(1,len(subgroups)+1)]
             yscales = [ys1 + str(k) for k in range(1,len(subgroups)+1)]
             sides,positions = self.getAutoYAxes(len(subgroups),fig.layout[ax].domain,inc=axisSpace)
