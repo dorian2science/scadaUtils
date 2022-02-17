@@ -1283,12 +1283,14 @@ class SuperDumper_daily(SuperDumper):
 
         tmin,tmax = df.index.min().tz_convert('CET'),df.index.max().tz_convert('CET')
         listdays = list(np.unique([k.strftime(self.format_dayFolder)[:-1] for k in [tmin,tmax]]))
-        for d in listdays:#### in case they are 2 days around midnight
+        #### in case they are 2 days around midnight
+        for d in listdays[1:]:
+            print(d)
             t0=pd.Timestamp(d + ' 00:00:00',tz='CET')
-            dfday=df[df.index>=t0]
-            dfday=dfday[df.index<t0+pd.Timedelta(days=1)]
+            t1=t0+pd.Timedelta(days=1)
+            dfday=df[(df.index>=t0)&(df.index<t1)]
+            print(dfday)
             folderday=self.folderPkl + d +'/'
-            # print(folderday)
             #### create folder if necessary
             if not os.path.exists(folderday):os.mkdir(folderday)
             #################################
