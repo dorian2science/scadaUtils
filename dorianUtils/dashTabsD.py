@@ -332,6 +332,8 @@ class TabMaster():
                 fig = self.plotData(*df_tuple,*args_plot)
         ###### update style of graph
         start=time.time()
+        print('here'.rjust(50))
+
         self.update_fig(fig,*args_updatefig)
         print('figure generated in {:.2f} ms'.format((time.time()-start)*1000))
         print("====================================")
@@ -549,6 +551,7 @@ class TabMultiUnitSelectedTags(TabMaster):
 
     def update_figure(self,fig,style,tag_env,timerange,rs,lgd):
         '''timerange : [t0,t1]'''
+        # print('here'.rjust(50))
         #### remove the previous minmax curve
         idxs=[]
         # print('--------------------')
@@ -563,7 +566,6 @@ class TabMultiUnitSelectedTags(TabMaster):
         #### update style regular curves
         ### (it is here because minmax should not be present to standard update fig)
         fig = TabMaster.update_fig(self,fig,style,lgd=lgd)
-        # print('here'.rjust(50))
         # print(fig.data)
         #### add the new minmax curve
         if tag_env in self.cfg.alltags:

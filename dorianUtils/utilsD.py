@@ -435,7 +435,7 @@ class Utils:
         positions  = self.flattenList([[xrange[0]-k*inc,xrange[1]+k*inc] for k in range(6)])
         return sides[:N],positions[:N]
 
-    def getLayoutMultiUnit(self,dictGroups,colormap='Dark2_r',axisSpace=0.05):
+    def getLayoutMultiUnit(self,dictGroups,colormap='jet',axisSpace=0.05):
         dfGroups = pd.DataFrame.from_dict(dictGroups,orient='index',columns=['group'])
         groups=dfGroups.group.unique()
 
@@ -509,7 +509,7 @@ class Utils:
                 fig.layout['xaxis' + str(k)].domain=[fig.layout['xaxis'+ str(k)].domain[0],maxx]
         return fig
 
-    def getLayoutMultiUnitSubPlots(self,dictdictGroups,colormap='Dark2_r',axisSpace=0.02,**kwargs):
+    def getLayoutMultiUnitSubPlots(self,dictdictGroups,colormap='jet',axisSpace=0.02,**kwargs):
         dfGroups = self.dictdict2df(dictdictGroups)
         groups = dfGroups.group.unique()
         maxgroups = max([len(dfGroups.groupby('group').get_group(g).subgroup.unique()) for g in groups])
