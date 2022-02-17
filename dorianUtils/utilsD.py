@@ -4,8 +4,6 @@ import subprocess as sp, os
 from dateutil import parser
 import plotly.graph_objects as go
 import plotly.express as px
-from pylab import cm
-import matplotlib.colors as mtpcl
 from plotly.validators.scatter.line import ShapeValidator
 from plotly.validators.scatter.marker import SymbolValidator
 from plotly.validators.scatter.line import DashValidator
@@ -19,10 +17,13 @@ class Utils:
         raw_symbols = pd.Series(SymbolValidator().values[2::3])
         self.raw_symbols = list(pd.concat([raw_symbols[::4],raw_symbols[1::4],raw_symbols[2::4]]))
         self.listLines = 40*DashValidator().values[:-1]
-
         self.lineshapes = ShapeValidator().values
-        # self.cmapNames = pickle.load(open(self.confDir+"/colormaps.pkl",'rb'))[::3]
-        self.cmapNames = [['viridis','tab20','jet','prism','gist_ncar']]
+        allcolors=px.colors.qualitative.Alphabet.copy()
+        allcolors+=px.colors.qualitative.Dark24+px.colors.qualitative.Light24
+        allcolors+=px.colors.qualitative.Set1+px.colors.qualitative.Pastel1
+        allcolors+=px.colors.qualitative.Antique
+        self.colors_mostdistincs = allcolors
+
         from PIL import Image # new import
         self.sylfenlogo  = Image.open(self.confDir +  '/logo_sylfen.png')
 
