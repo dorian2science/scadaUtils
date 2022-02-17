@@ -1146,7 +1146,10 @@ class SuperDumper(Configurator):
         dbconn.close()
 
     def exportdb2zip(self,dbParameters,t0,t1,folder,basename='-00-00-x-RealTimeData.csv'):
-        '''not fully working with zip file. Working with pkl for the moment'''
+        '''
+        Not fully working with zip file. Working with pkl for the moment
+
+        '''
         from zipfile import ZipFile
         start=time.time()
         ### read database
@@ -1155,11 +1158,11 @@ class SuperDumper(Configurator):
         sqlQ +="and timestampz > '" + t0.isoformat() +"'"
         print(sqlQ)
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        df=df[['tag','value','timestampz']]
-        df['timestampz']=pd.to_datetime(df['timestampz'])
-        df=df.set_index('timestampz')
-        df.index=df.index.tz_convert('UTC')
-        df=df.sort_index()
+        df = df[['tag','value','timestampz']]
+        df['timestampz'] = pd.to_datetime(df['timestampz'])
+        df       = df.set_index('timestampz')
+        df.index = df.index.tz_convert('UTC')
+        df = df.sort_index()
 
         namefile=folder + (t0+pd.Timedelta(days=1)).strftime(self.format_dayFolder).split('/')[0] +basename
         # df.to_csv(namefile)
@@ -1443,9 +1446,39 @@ class VisualisationMaster(Configurator):
             df = pd.concat([df,dfdb])
         return df
 
+    def toogle_tag_description(self,tagsOrDescriptions,toogleto='tag'):
+        '''
+        -tagsOrDescriptions:list of tags or description of tags
+        -toogleto: you can force to toogleto description or tags ('tag','description')
+        '''
+        current_names = tagsOrDescriptions
+        ### automatic detection if it is a tag --> so toogle to description
+        areTags = True if current_names[0] in self.dfplc.index else False
+        dictNames=dict(zip(current_names,current_names))
+        if toogleto=='description'and areTags:
+            newNames  = [self.dfplc.loc[k,'DESCRIPTION'] for k in current_names]
+            dictNames = dict(zip(current_names,newNames))
+        elif toogleto=='tag'and not areTags:
+            newNames  = [self.dfplc.index[self.dfplc.DESCRIPTION==k][0] for k in current_names]
+            dictNames = dict(zip(current_names,newNames))
+        return dictNames
+
     # #######################
     # #  STANDARD GRAPHICS  #
     # #######################
+    def addTagEnveloppe(self,fig,tag_env,t0,t1,rs):
+        hex2rgb = lambda h,a:'rgba('+','.join([str(int(h[i:i+2], 16)) for i in (0, 2, 4)])+','+str(a)+')'
+        df     = self.loadtags_period(t0,t1,[tag_env],rsMethod='forwardfill',rs='100ms')
+        dfmin  = df.resample(rs,label='right',closed='right').min()
+        dfmax  = df.resample(rs,label='right',closed='right').max()
+        hexcol = [trace.marker.color for trace in fig.data if trace.name==tag_env][0]
+        col    = hex2rgb(hexcol.strip('#'),0.3)
+        x = list(dfmin.index) + list(np.flip(dfmax.index))
+        y = list(dfmin[tag_env])  + list(np.flip(dfmax[tag_env]))
+        fig.add_trace(go.Scatter(x=x,y=y,fill='toself',fillcolor=col,mode='none',name=tag_env + '_minmax',
+            # line_shape='hv'
+            ))
+        return fig
 
     def standardLayout(self,fig,ms=5,h=750):
         fig.update_yaxes(showgrid=False)
@@ -1456,7 +1489,9 @@ class VisualisationMaster(Configurator):
         fig.update_traces(hovertemplate='     <b>%{y:.2f}<br>     %{x|%H:%M:%S,%f}')
         return fig
 
-    def update_lineshape(self,fig,style='default'):
+    def update_lineshape_fig(self,fig,style='default'):
+        if style == 'default':
+            style='lines+markers'
         if style in ['markers','lines','lines+markers']:
             fig.update_traces(line_shape="linear",mode=style)
         elif style =='stairs':

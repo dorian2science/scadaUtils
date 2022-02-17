@@ -123,24 +123,13 @@ class TabMaster():
                 Input(self.baseId + 'pdr_timeInterval','n_intervals'),
             )
             def updateDatePickerRange(n):
-                listdays=self.cfg.getdaysnotempty()
-                min_date = listdays.min().strftime('%Y-%m-%d')
-                max_date = listdays.max().strftime('%Y-%m-%d')
-
-                end_date = max_date
-                t1 = pd.Timestamp.now()
-                ## if the folder of the current day exists make it semi realtime
-                if t1.strftime('%Y-%m-%d')==max_date:
-                    endtime = t1.strftime('%H:%M')
-                    t0 = pd.Timestamp(end_date + ' ' + endtime)-pd.Timedelta(hours=12)
-                    startdate=t0.strftime('%Y-%m-%d')
-                    starttime=t0.strftime('%H:%M')
-                ## if folder of current day doesnot exist there is a problem with the realtime. So 9-18 only
-                else:
-                    startdate=end_date
-                    starttime='2:00'
-                    endtime = '22:00'
-
+                listdays  = self.cfg.getdaysnotempty()
+                min_date  = listdays.min().strftime('%Y-%m-%d')
+                max_date  = listdays.max().strftime('%Y-%m-%d')
+                end_date  = max_date
+                startdate = end_date
+                starttime ='00:00'
+                endtime   = '23:59'
                 return min_date,max_date,end_date,endtime,startdate,starttime
 
         # pop up modal list tags
@@ -180,9 +169,10 @@ class TabMaster():
                 if curTagEnv not in listTags: curTagEnv=''
                 return [{'label':t,'value':t} for t in listTags],curTagEnv
 
-    def _buildLayout(self,specialWidDic,realTime=False,widthG=85,timeres='60s',):
+    def _buildLayout(self,specialWidDic,realTime=False,widthG=85,timeres=None):
         methodsList=[k for k in self.cfg.methods_list if not k=='raw']
         if not realTime:
+            if timeres is None:timeres='300s'
             dicWidgets = {
                 'pdr_time' : {'tmin':self.cfg.tmin,'tmax':self.cfg.tmax,'interval':2*60*60*1000},#update every 2 hours
                 'in_timeRes':timeres,
@@ -191,6 +181,7 @@ class TabMaster():
                 'btn_export':0,
                     }
         else :
+            if timeres is None:timeres='5s'
             dicWidgets = {
                 'block_refresh':{'val_window':120,'val_refresh':50,
                                     'min_refresh':1,'min_window':2},

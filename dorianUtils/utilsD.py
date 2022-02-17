@@ -322,6 +322,10 @@ class Utils:
         dfGroups.columns=['group','subgroup']
         return dfGroups
 
+    def export2excel(df,filepath):
+        if isinstance(df.index,pd.core.indexes.datetimes.DatetimeIndex):
+            df.index=[k.isoformat() for k in df.index]
+        df.to_excel(filepath)
 
     # ==========================================================================
     #                           GRAPHICS
