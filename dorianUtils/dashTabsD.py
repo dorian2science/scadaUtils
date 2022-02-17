@@ -26,8 +26,7 @@ class TabMaster():
         self.cfg = cfg
         self.loadData   = loadData
         self.plotData   = plotData
-        if not update_fig==None:
-            self.update_fig = update_fig
+        if not update_fig==None:self.update_fig = update_fig
         self.tabname    = tabname
         self.baseId     = baseId
         self.modalError = self.dccE.addModalError(app,cfg,baseid=self.baseId)
@@ -307,19 +306,14 @@ class TabMaster():
         return buttonMessage
 
     def updateLegend(self,fig,lgd):
-        fig.update_layout(showlegend=True)
-        oldNames = [k['name'] for k in fig['data']]
-        if lgd=='description':
-            newNames = [self.cfg.dfPLC.loc[k,'DESCRIPTION'] for k in oldNames]
-            dictNames   = dict(zip(oldNames,newNames))
-            fig         = self.utils.customLegend(fig,dictNames)
-
-        elif lgd=='unvisible': fig.update_layout(showlegend=False)
-        elif lgd=='tag': # get tags
-            if not oldNames[0] in list(self.cfg.dfPLC.index):# for initialization mainly
-                newNames = [self.cfg.dfPLC[self.cfg.dfPLC.DESCRIPTION==k].index[0] for k in oldNames]
-                dictNames   = dict(zip(oldNames,newNames))
-                fig         = self.utils.customLegend(fig,dictNames)
+        if lgd=='unvisible':
+            fig.update_layout(showlegend=False)
+        else:
+            fig.update_layout(showlegend=True)
+            current_names = [k['name'] for k in fig['data']]
+            td  = self.cfg.toogle_tag_description(current_names,lgd)
+            print(td)
+            fig = self.cfg.utils.customLegend(fig,td)
         return fig
 
     def buildGraph(self,previousFig,listTrigs,argsLoad,args_plot,args_updatefig):
@@ -484,7 +478,10 @@ class TabMaster():
             fig = self.utils.updateColorMap(fig,colmap)
         if not lgd==None:
             # print(lgd)
+            # try:
             fig = self.updateLegend(fig,lgd)
+            # except:
+            #     print('impossible to toogle legend')
         return fig
 
 # ==============================================================================
@@ -545,21 +542,22 @@ class TabMultiUnitSelectedTags(TabMaster):
         t_inputs = [
             ('dd_typeTags','value'),
             ('dd_tag','value'),
-            ('dd_enveloppe','value')
+            ('dd_enveloppe','value'),
+            ('btn_legend','children')
         ]
         def getTags(tagCat,tags):
             return list(pd.Series(self.cfg.getUsefulTags(tagCat) + tags).unique())
         t_getTags = [('dd_typeTags','value'),('dd_tag','value')]
         t_plotdata,t_states,t_outputs = [[]]*3
         # t_updatefig  = [('graph','figure'),('dd_style','value'),('dd_enveloppe','value'),('pdr',''),('in_timeRes','value')]
-        t_updatefig  = [('dd_style','value'),('dd_enveloppe','value'),('pdr',''),('in_timeRes','value')]
-        # t_updatefig = [('dd_style','value'),('btn_legend','value')]
+        # t_updatefig  = [('dd_style','value'),('dd_enveloppe','value'),('pdr',''),('in_timeRes','value')]
+        t_updatefig  = [('dd_style','value'),('dd_enveloppe','value'),('pdr',''),('in_timeRes','value'),('btn_legend','children')]
 
         self._defineCallbackGraph(realtime,t_inputs,getTags,t_getTags,t_states,t_outputs,t_updatefig,t_plotdata)
 
         # def update_fig(self,fig,style,lgd,tag_env='',t0=None,t1=None,rs=None):
 
-    def update_figure(self,fig,style,tag_env,timerange,rs):
+    def update_figure(self,fig,style,tag_env,timerange,rs,lgd):
         '''timerange : [t0,t1]'''
         #### remove the previous minmax curve
         idxs=[]
@@ -573,7 +571,9 @@ class TabMultiUnitSelectedTags(TabMaster):
         fig.data=[fig.data[k] for k in range(len(fig.data)) if k not in idxs]
 
         #### update style regular curves
-        fig = TabMaster.update_fig(self,fig,style)
+        ### (it is here because minmax should not be present to standard update fig)
+        fig = TabMaster.update_fig(self,fig,style,lgd=lgd)
+        # print('here'.rjust(50))
         # print(fig.data)
         #### add the new minmax curve
         if tag_env in self.cfg.alltags:
