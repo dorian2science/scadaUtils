@@ -1411,7 +1411,6 @@ class VisualisationMaster(Configurator):
             dftag = self.streamer.process_tag(dftag,*args,**kwargs)
             ## assign type
             dtype=self.dataTypes[self.dfplc.loc[tag,'DATATYPE']]
-            print(tag,':',dtype)
             dftag = dftag.astype(dtype)
             dftag['tag'] = tag
             return dftag

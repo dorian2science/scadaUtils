@@ -312,7 +312,6 @@ class TabMaster():
             fig.update_layout(showlegend=True)
             current_names = [k['name'] for k in fig['data']]
             td  = self.cfg.toogle_tag_description(current_names,lgd)
-            print(td)
             fig = self.cfg.utils.customLegend(fig,td)
         return fig
 
@@ -561,11 +560,11 @@ class TabMultiUnitSelectedTags(TabMaster):
         '''timerange : [t0,t1]'''
         #### remove the previous minmax curve
         idxs=[]
-        print('--------------------')
-        print('try to update figure')
+        # print('--------------------')
+        # print('try to update figure')
         for k,trace in enumerate(fig.data):
             if '_minmax' in trace.name:
-                print('remove : ',trace.name)
+                # print('remove : ',trace.name)
                 idxs.append(k)
 
         fig.data=[fig.data[k] for k in range(len(fig.data)) if k not in idxs]
@@ -577,9 +576,9 @@ class TabMultiUnitSelectedTags(TabMaster):
         # print(fig.data)
         #### add the new minmax curve
         if tag_env in self.cfg.alltags:
-            print('add minmax:' ,tag_env)
+            # print('add minmax:' ,tag_env)
             fig = self.cfg.addTagEnveloppe(fig,tag_env,*timerange,rs)
-        print('--------------------')
+        # print('--------------------')
         return fig
 
 class TabDoubleMultiUnits(TabMaster):
