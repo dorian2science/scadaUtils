@@ -1523,6 +1523,20 @@ class VisualisationMaster(Configurator):
         self.standardLayout(fig,h=None)
         return fig
 
+    def graph_UnitsSubplots(self,df,facet_col_wrap=2):
+        tagMapping = {t:self.getUnitofTag(t) for t in df.columns}
+        allunits   = list(np.unique(list(tagMapping.values())))
+        rows=len(allunits)
+        df = df.melt(ignore_index=False)
+        df['unit']=df.apply(lambda x:tagMapping[x['tag']],axis=1)
+        fig=px.scatter(df,y='value',color='tag',
+                        facet_col='unit',facet_col_wrap=facet_col_wrap,
+                        color_discrete_sequence = self.utils.colors_mostdistincs)
+        fig.update_traces(mode='lines+markers')
+        fig.update_xaxes(matches='x')
+        fig.update_yaxes(matches=None)
+        return fig
+
 class VisualisationMaster_daily(VisualisationMaster):
     def _load_parked_tags(self,t0,t1,tags,pool):
         '''
