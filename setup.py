@@ -29,6 +29,6 @@ include_package_data=True,
 install_requires=['IPython==7.20.0','pandas==1.3.1',
                     'dash==1.20.0','dash-daq==0.5.0','dash_bootstrap_components==0.13.0',
                     'flask_caching','psycopg2-binary','pymodbus==2.5.3','opcua==0.98.13',
-                    'cryptography==2.8','odfpy==1.4.1'],
+                    'cryptography==2.8','odfpy==1.4.1','Pillow==7.0.0',"dash-auth==1.4.1"],
 python_requires=">=3.8"
 )
