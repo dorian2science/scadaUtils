@@ -330,8 +330,8 @@ class Utils:
     def popup_dfexcel(self,df):
         if isinstance(df.index,pd.core.indexes.datetimes.DatetimeIndex):
             df.index=[k.isoformat() for k in df.index]
-            df.to_excel('/tmp/test.xlsx')
-            sp.Popen(['libreoffice','/tmp/test.xlsx'])
+        df.to_excel('/tmp/test.xlsx')
+        sp.Popen(['libreoffice','/tmp/test.xlsx'])
 
     def showdf_as_table(self,df):
         fig = go.Figure(data=[go.Table(

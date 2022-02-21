@@ -1475,9 +1475,9 @@ class VisualisationMaster(Configurator):
         col    = hex2rgb(hexcol.strip('#'),0.3)
         x = list(dfmin.index) + list(np.flip(dfmax.index))
         y = list(dfmin[tag_env])  + list(np.flip(dfmax[tag_env]))
-        fig.add_trace(go.Scatter(x=x,y=y,fill='toself',fillcolor=col,mode='none',name=tag_env + '_minmax',
-            # line_shape='hv'
-            ))
+        correctidx=[k for k in self.toogle_tag_description([k.name for k in fig.data],'tag').values()].index(tag_env)
+        fig.add_trace(go.Scatter(x=x,y=y,fill='toself',fillcolor=col,mode='none',
+                    name=tag_env + '_minmax',yaxis=fig.data[correctidx]['yaxis']))
         return fig
 
     def standardLayout(self,fig,ms=5,h=750):
