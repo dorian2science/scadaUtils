@@ -1429,6 +1429,8 @@ class VisualisationMaster(Configurator):
         - *args,**kwargs of Streamer.processdf
         '''
         # for k in t0,t1,tags,args,kwargs:print(k)
+        tags=list(np.unique(tags))
+        print(tags)
         ############ read parked data
         start=time.time()
         dfparked = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,pool=True,*args,**kwargs)
