@@ -577,8 +577,45 @@ class Streamer():
         methods['rolling_mean']="df.ffill().resample(rs).ffill().rolling(rmwindow).mean()"
         self.methods = methods
 
+
+    # ########################
+    #      HOURS FUNCTIONS   #
+    # ########################
+    def park_tags(self,df,tag,folder,dtype,showtag=False):
+        if showtag:print(tag)
+        dftag=df[df.tag==tag]['value'].astype(dtype)
+        pickle.dump(dftag,open(folder + tag + '.pkl', "wb" ))
+
     def to_folderday(self,d):
         return d.strftime(self.format_dayFolder)+'/'
+    # ########################
+    #      HOURS FUNCTIONS   #
+    # ########################
+    def park_DF_hour(self,dfhour,folderpkl,pool=False,showtag=False):
+        correctColumns=['tag','timestampz','value']
+        if not list(dfhour.columns.sort_values())==correctColumns:
+            print('PROBLEM: the df dataframe should have the following columns : ',correctColumns,'''
+            instead your columns are ''',list(dfhour.columns.sort_values()))
+            return
+
+        dfhour = dfhour.set_index('timestampz')
+        if isinstance(dfhour.index.dtype,pd.DatetimeTZDtype):
+            dfhour.index = dfhour.index.tz_convert('CET')
+        else:### for cases with changing DST 31.10 for example
+            dfhour = [pd.Timestamp(k).astimezone('CET') for k in dfhour.index]
+        listTags = dfhour.tag.unique()
+        mean_time=dfhour.index.mean()
+        folderday  = folderpkl +'/'+ mean_time.strftime(self.format_dayFolder)+'/'
+        if not os.path.exists(folderday): os.mkdir(folderday)
+        folderhour = folderpkl +'/'+ mean_time.strftime(self.format_hourFolder)+'/'
+        if not os.path.exists(folderhour): os.mkdir(folderhour)
+        #park it
+        dtype = 'object'
+        if pool :
+            with Pool() as p:dfs=p.starmap(self.park_tags,[(dfhour,tag,folderhour,dtype,showtag) for tag in listTags])
+        else :
+            dfs=[self.park_tags(dfhour,tag,folderhour,dtype,showtag) for tag in listTags]
+        return dfs
 
     # ########################
     #      DAY FUNCTIONS     #
