@@ -350,8 +350,11 @@ class Utils:
     def sample_colorscale(self,N,colorscale='jet'):
         return px.colors.sample_colorscale(colorscale,np.linspace(0,1,N))
 
-    def updateColorMap(self,fig,colmap=None):
-        listCols = self.sample_colorscale(len(fig.data)+1,colmap=colmap)
+    def updateColorMap(self,fig,listCols=None):
+        if listCols is None:
+            listCols = self.colors_mostdistincs
+        if isinstance(listCols,str):
+            listCols = self.sample_colorscale(len(fig.data)+1,colorscale=listCols)
         k,l=0,0
         listYaxis = [k for k in fig._layout.keys() if 'yax' in k]
         if len(listYaxis)>1:

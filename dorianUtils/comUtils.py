@@ -1,7 +1,7 @@
 # import importlib
 import datetime as dt, time, pytz,sys
 from time import sleep
-import os,re,threading,struct, glob, pickle,struct,subprocess as sp
+import sys,os,re,threading,struct, glob, pickle,struct,subprocess as sp
 import numpy as np, pandas as pd
 import psycopg2
 import threading
@@ -9,6 +9,7 @@ from multiprocessing import Pool
 import traceback
 from dorianUtils.utilsD import Utils
 from dateutil.tz import tzlocal
+from zipfile import ZipFile
 
 # #######################
 # #      BASIC Utils    #
@@ -645,6 +646,23 @@ class Streamer():
 
     def dumy_day(self,day):
         return day
+
+    def zip_day(self,folderday,basename,zipfolder):
+        listtags=glob.glob(folderday+'/*')
+        dfs=[]
+        for tag in listtags:
+            dftag = pickle.load(open(tag,'rb')).reset_index()
+            dftag['tag'] = tag.split('/')[-1].replace('.pkl','')
+            dfs.append(dftag)
+        df = pd.concat(dfs)
+        ### save as zip file
+        filecsv = zipfolder + '/' + folderday.split('/')[-2] +'_'+ basename + '.csv'
+        df.to_csv(filecsv)
+        file_csv_local = filecsv.split('/')[-1]
+        filezip        = file_csv_local.replace('.csv','.zip')
+        # sp.Popen(['libreoffice','/tmp/test.xlsx'])
+        sp.check_output('cd ' + zipfolder + ' && zip '+filezip + ' ' + file_csv_local,shell=True)
+        os.remove(filecsv)
 
     #   HIGH LEVEL FUNCTIONS #
     def dummy_daily(self,days=[],nCores=4):
@@ -1430,7 +1448,6 @@ class VisualisationMaster(Configurator):
         '''
         # for k in t0,t1,tags,args,kwargs:print(k)
         tags=list(np.unique(tags))
-        print(tags)
         ############ read parked data
         start=time.time()
         dfparked = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,pool=True,*args,**kwargs)
