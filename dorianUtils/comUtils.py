@@ -20,6 +20,67 @@ computetimeshow=lambda x,y:print(timenowstd() + ' : ' + x + ' in {:.2f} ms'.form
 class EmptyClass():pass
 
 class FileSystem():
+    ######################
+    # DF_INSTR FUNCTIONS #
+    ######################
+    def _makeDfInstrUnique(self,dfInstr):
+        uniqueDfInstr = []
+        for tag in dfInstr['id'].unique():
+            dup=dfInstr[dfInstr['id']==tag]
+            ### privilege on IEEE754 strcuture if duplicates
+            rowFloat = dup[dup['type']=='IEEE754']
+            if len(rowFloat)==1:
+                uniqueDfInstr.append(rowFloat)
+            else :
+                uniqueDfInstr.append(dup.iloc[[0]])
+        uniqueDfInstr=pd.concat(uniqueDfInstr).set_index('id')
+        return uniqueDfInstr
+
+    def getSizeOf(self,typeVar,f=1):
+        if typeVar == 'IEEE754':return 2*f
+        elif typeVar == 'INT64': return 4*f
+        elif typeVar == 'INT32': return 2*f
+        elif typeVar == 'INT16': return 1*f
+        elif typeVar == 'INT8': return f/2
+
+    def _findInstrument(self,meter):
+        df=[]
+        for var in meter.iter('var'):
+            df.append([var.find('varaddr').text,
+                        int(var.find('varaddr').text[:-1],16),
+                        var.find('vartype').text,
+                        self.getSizeOf(var.find('vartype').text,1),
+                        self.getSizeOf(var.find('vartype').text,2),
+                        var.find('vardesc').text,
+                        var.find('scale').text,
+                        var.find('unit').text])
+        df = pd.DataFrame(df)
+        df.columns=['adresse','intAddress','type','size(mots)','size(bytes)','description','scale','unit']
+        df['addrTCP']=meter.find('addrTCP').text
+        df['point de comptage']=meter.find('desc').text
+        return df
+
+    def parseXML_VMUC(self,xmlpath):
+        tree = ET.parse(xmlpath)
+        root = tree.getroot()
+        dfs=[]
+        for meter in root.iter('meter'):
+            dfs.append(self._findInstrument(meter))
+        df=pd.concat(dfs)
+        # tmp = df.loc[:,['point de comptage','description']].sum(axis=1)
+        # df['id']=[re.sub('\s','_',k) for k in tmp]
+        df['id']=[re.sub('[\( \)]','_',k) + '_' + l for k,l in zip(df['description'],df['point de comptage'])]
+        # df=df[df['type']=='INT32']
+        df['addrTCP'] = pd.to_numeric(df['addrTCP'],errors='coerce')
+        df['scale'] = pd.to_numeric(df['scale'],errors='coerce')
+        # df=df.set_index('adresse')
+        # df=df[df['scale']==0.1]
+
+        return df
+
+    ######################
+    # FILE SYSTEMS  #
+    ######################
     def load_confFile(self,filename,generate_func,generateAnyway=False):
         start    = time.time()
         if not os.path.exists(filename) or generateAnyway:
@@ -233,7 +294,7 @@ class Device():
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 import xml.etree.ElementTree as ET
 class ModeBusDevice(Device):
-    '''dfInstr should be loaded with loaddfInstr before calling this constructor'''
+    '''dfInstr should be loaded to use functions decodeRegisters.'''
     def __init__(self,*args,**kwargs):
         Device.__init__(self,*args,**kwargs)
         self.allTCPid = list(self.dfInstr.addrTCP.unique())
@@ -250,15 +311,15 @@ class ModeBusDevice(Device):
                 # print(curReg)
                 valueShorts = [regs[curReg+k] for k in [0,1]]
                 # conversion of 2 shorts(=DWORD=word) into long(=INT32)
-                value = struct.unpack(bo + 'i',struct.pack(bo + "2H",*valueShorts))[0]
+                value = struct.unpack(bo + 'i',struct.pack("=2H",*valueShorts))[0]
                 # curReg+=2
             if row.type == 'IEEE754':
                 valueShorts = [regs[curReg+k] for k in [0,1]]
-                value = struct.unpack(bo + 'f',struct.pack(bo + "2H",*valueShorts))[0]
+                value = struct.unpack(bo + 'f',struct.pack("=2H",*valueShorts))[0]
                 # curReg+=2
             elif row.type == 'INT64':
                 valueShorts = [regs[curReg+k] for k in [0,1,2,3]]
-                value = struct.unpack(bo + 'q',struct.pack(bo + "4H",*valueShorts))[0]
+                value = struct.unpack(bo + 'q',struct.pack("=4H",*valueShorts))[0]
                 # curReg+=4
             d[tag]=[value*row.scale,dt.datetime.now().astimezone().isoformat()]
         return d
@@ -761,8 +822,12 @@ class Streamer():
             t = t + pd.Timedelta(days=1)
         dftag = pd.DataFrame(pd.concat(dfs.values()),columns=['value'])
         dftag.index.name='timestampz'
-        dftag = self.process_tag(dftag,rsMethod,rs,timezone,rmwindow=rmwindow)
-        dftag['tag'] = tag
+        try:
+            dftag = self.process_tag(dftag,rsMethod,rs,timezone,rmwindow=rmwindow)
+            dftag['tag'] = tag
+        except:
+            print(tag+' could not be processed')
+            dftag=[]
         return dftag
 
     def load_parkedtags_daily(self,t0,t1,tags,folderpkl,rsMethod='forwardfill',rs='auto',timezone='CET',rmwindow='3000s',pool=False,showTag=False):
@@ -777,6 +842,7 @@ class Streamer():
                 dftags=p.starmap(self.load_tag_daily,[(t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow,showTag) for tag in tags])
         else:
             dftags=[self.load_tag_daily(t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow,showTag) for tag in tags]
+        # print(dftags)
         df = pd.concat(dftags,axis=0)
         df = df[df.index>=t0]
         df = df[df.index<=t1]
@@ -1519,9 +1585,9 @@ class VisualisationMaster(Configurator):
             dictNames = dict(zip(current_names,newNames))
         return dictNames
 
-    # #######################
-    # #  STANDARD GRAPHICS  #
-    # #######################
+# #######################
+# #  STANDARD GRAPHICS  #
+# #######################
     def addTagEnveloppe(self,fig,tag_env,t0,t1,rs):
         hex2rgb = lambda h,a:'rgba('+','.join([str(int(h[i:i+2], 16)) for i in (0, 2, 4)])+','+str(a)+')'
         df     = self.loadtags_period(t0,t1,[tag_env],rsMethod='forwardfill',rs='100ms')
