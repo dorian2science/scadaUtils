@@ -298,8 +298,8 @@ class ModeBusDevice(Device):
             return self.decodeRegisters(regs,ptComptage)
         else:
             d={}
-            for tag in ptComptage.index:
-            # for tag in ptComptage.index[:40]:
+            # for tag in ptComptage.index:
+            for tag in ptComptage.index[:40]:
                 tagrow=ptComptage.loc[[tag],:]
                 # print(tagrow)
                 regs = self.client.read_holding_registers(tagrow['intAddress'][0],tagrow['size(mots)'][0],unit=unit_id).registers
