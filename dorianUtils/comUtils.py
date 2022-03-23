@@ -19,65 +19,17 @@ timenowstd=lambda :pd.Timestamp.now().strftime('%d %b %H:%M:%S')
 computetimeshow=lambda x,y:print(timenowstd() + ' : ' + x + ' in {:.2f} ms'.format((time.time()-y)*1000))
 class EmptyClass():pass
 
+class Modebus_utils():
+    def quick_modebus_decoder(self,regs,dtype,bo_out='=',bo_in='='):
+        if dtype=='INT32' or dtype == 'UINT32':
+            value = struct.unpack(bo_out + 'i',struct.pack(bo_in+"2H",*regs))[0]
+        if dtype == 'IEEE754':
+            value = struct.unpack(bo_out + 'f',struct.pack(bo_in+"2H",*regs))[0]
+        elif dtype == 'INT64':
+            value = struct.unpack(bo_out + 'q',struct.pack(bo_in+"4H",*regs))[0]
+        return value
+
 class FileSystem():
-    ######################
-    # DF_INSTR FUNCTIONS #
-    ######################
-    def _makeDfInstrUnique(self,dfInstr):
-        uniqueDfInstr = []
-        for tag in dfInstr['id'].unique():
-            dup=dfInstr[dfInstr['id']==tag]
-            ### privilege on IEEE754 strcuture if duplicates
-            rowFloat = dup[dup['type']=='IEEE754']
-            if len(rowFloat)==1:
-                uniqueDfInstr.append(rowFloat)
-            else :
-                uniqueDfInstr.append(dup.iloc[[0]])
-        uniqueDfInstr=pd.concat(uniqueDfInstr).set_index('id')
-        return uniqueDfInstr
-
-    def getSizeOf(self,typeVar,f=1):
-        if typeVar == 'IEEE754':return 2*f
-        elif typeVar == 'INT64': return 4*f
-        elif typeVar == 'INT32': return 2*f
-        elif typeVar == 'INT16': return 1*f
-        elif typeVar == 'INT8': return f/2
-
-    def _findInstrument(self,meter):
-        df=[]
-        for var in meter.iter('var'):
-            df.append([var.find('varaddr').text,
-                        int(var.find('varaddr').text[:-1],16),
-                        var.find('vartype').text,
-                        self.getSizeOf(var.find('vartype').text,1),
-                        self.getSizeOf(var.find('vartype').text,2),
-                        var.find('vardesc').text,
-                        var.find('scale').text,
-                        var.find('unit').text])
-        df = pd.DataFrame(df)
-        df.columns=['adresse','intAddress','type','size(mots)','size(bytes)','description','scale','unit']
-        df['addrTCP']=meter.find('addrTCP').text
-        df['point de comptage']=meter.find('desc').text
-        return df
-
-    def parseXML_VMUC(self,xmlpath):
-        tree = ET.parse(xmlpath)
-        root = tree.getroot()
-        dfs=[]
-        for meter in root.iter('meter'):
-            dfs.append(self._findInstrument(meter))
-        df=pd.concat(dfs)
-        # tmp = df.loc[:,['point de comptage','description']].sum(axis=1)
-        # df['id']=[re.sub('\s','_',k) for k in tmp]
-        df['id']=[re.sub('[\( \)]','_',k) + '_' + l for k,l in zip(df['description'],df['point de comptage'])]
-        # df=df[df['type']=='INT32']
-        df['addrTCP'] = pd.to_numeric(df['addrTCP'],errors='coerce')
-        df['scale'] = pd.to_numeric(df['scale'],errors='coerce')
-        # df=df.set_index('adresse')
-        # df=df[df['scale']==0.1]
-
-        return df
-
     ######################
     # FILE SYSTEMS  #
     ######################
@@ -260,12 +212,12 @@ class Device():
         start=time.time()
         ts = dt.datetime.now(tz=pytz.timezone(self.local_tzname))
         if self.isConnected:
-            try :
-                data = self.collectData(*args)
+            # try :
+            data = self.collectData(*args)
                 # print(data)
-            except:
-                print(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.')
-                self.isConnected = False
+            # except:
+                # print(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.')
+                # self.isConnected = False
             self.collectingTimes[dt.datetime.now(tz=pytz.timezone(self.local_tzname)).isoformat()] = (time.time()-start)*1000
             for tag in data.keys():
                 sqlreq = "insert into realtimedata (tag,value,timestampz) values ('"
@@ -292,15 +244,20 @@ class Device():
         return self.fs.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
 
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
-import xml.etree.ElementTree as ET
 class ModeBusDevice(Device):
-    '''dfInstr should be loaded to use functions decodeRegisters.'''
-    def __init__(self,*args,**kwargs):
-        Device.__init__(self,*args,**kwargs)
-        self.allTCPid = list(self.dfInstr.addrTCP.unique())
+    '''modebus_map should be loaded to use functions decodeRegisters.'''
+    def __init__(self,device_name,endpointUrl,port,dfplc,modebus_map,multiple,freq,bo_in='=',bo_out='=',**kwargs):
+        Device.__init__(self,device_name,endpointUrl,port,dfplc,**kwargs)
+        self.modebus_map = modebus_map
+        self.freq     = freq
+        self.bo_in,self.bo_out = bo_in,bo_out
+        self.multiple = multiple
+        self.all_slave_ids = list(self.modebus_map.slave_unit.unique())
         self.client = ModbusClient(host=self.endpointUrl,port=int(self.port))
+        dfplc['FREQUENCE_ECHANTILLONNAGE'] = self.freq
 
-    def decodeRegisters(self,regs,block,bo='='):
+    def decodeRegisters(self,regs,block):
+        '''block is dataframe with tags as index and columns intAdress,type(datatype)'''
         d={}
         firstReg = block['intAddress'][0]
         for tag in block.index:
@@ -311,171 +268,52 @@ class ModeBusDevice(Device):
                 # print(curReg)
                 valueShorts = [regs[curReg+k] for k in [0,1]]
                 # conversion of 2 shorts(=DWORD=word) into long(=INT32)
-                value = struct.unpack(bo + 'i',struct.pack("=2H",*valueShorts))[0]
+                value = struct.unpack(self.bo_out+'i',struct.pack(self.bo_in + "2H",*valueShorts))[0]
                 # curReg+=2
             if row.type == 'IEEE754':
                 valueShorts = [regs[curReg+k] for k in [0,1]]
-                value = struct.unpack(bo + 'f',struct.pack("=2H",*valueShorts))[0]
+                value = struct.unpack(self.bo_out+'f',struct.pack(self.bo_in + "2H",*valueShorts))[0]
                 # curReg+=2
             elif row.type == 'INT64':
                 valueShorts = [regs[curReg+k] for k in [0,1,2,3]]
-                value = struct.unpack(bo + 'q',struct.pack("=4H",*valueShorts))[0]
+                value = struct.unpack(self.bo_out+'q',struct.pack(self.bo_in + "4H",*valueShorts))[0]
                 # curReg+=4
             d[tag]=[value*row.scale,dt.datetime.now().astimezone().isoformat()]
         return d
 
     def checkRegisterValueTag(self,tag,**kwargs):
         # self.connectDevice()
-        tagid = self.dfInstr.loc[tag]
-        regs  = self.client.read_holding_registers(tagid.intAddress,tagid['size(mots)'],unit=tagid.addrTCP).registers
+        tagid = self.modebus_map.loc[tag]
+        regs  = self.client.read_holding_registers(tagid.intAddress,tagid['size(mots)'],unit=tagid.slave_unit).registers
         return self.decodeRegisters(regs,pd.DataFrame(tagid).T,**kwargs)
 
-    def getPtComptageValues(self,unit_id,**kwargs):
-        ptComptage = self.dfInstr[self.dfInstr['addrTCP']==unit_id].sort_values(by='intAddress')
-        lastReg  = ptComptage['intAddress'][-1]
-        firstReg = ptComptage['intAddress'][0]
-        nbregs   = lastReg-firstReg + ptComptage['size(mots)'][-1]
-        #read all registers in a single command for better performances
-        regs = self.client.read_holding_registers(firstReg,nbregs,unit=unit_id).registers
-        return self.decodeRegisters(regs,ptComptage,**kwargs)
+    def get_slave_values(self,unit_id):
+        ptComptage = self.modebus_map[self.modebus_map['slave_unit']==unit_id].sort_values(by='intAddress')
+        if self.multiple:
+            lastReg    = ptComptage['intAddress'][-1]
+            firstReg   = ptComptage['intAddress'][0]
+            nbregs     = lastReg - firstReg + ptComptage['size(mots)'][-1]
+            #read all registers in a single command for better performances
+            regs = self.client.read_holding_registers(firstReg,nbregs,unit=unit_id).registers
+            return self.decodeRegisters(regs,ptComptage)
+        else:
+            d={}
+            for tag in ptComptage.index:
+            # for tag in ptComptage.index[:40]:
+                tagrow=ptComptage.loc[[tag],:]
+                # print(tagrow)
+                regs = self.client.read_holding_registers(tagrow['intAddress'][0],tagrow['size(mots)'][0],unit=unit_id).registers
+                d.update(self.decodeRegisters(regs,tagrow))
+            return d
 
     def connectDevice(self):
         return self.client.connect()
 
-    def getModeBusRegistersValues(self,*args,**kwargs):
+    def collectData(self,*args):
         d={}
-        for idTCP in self.allTCPid:
-            d.update(self.getPtComptageValues(unit_id=idTCP,*args,**kwargs))
+        for idTCP in self.all_slave_ids:
+            d.update(self.get_slave_values(unit_id=idTCP))
         return d
-
-    def quickmodebus2dbint32(self,conn,add):
-        regs  = conn.read_holding_registers(add,2)
-        return struct.unpack(bo + 'i',struct.pack(bo + "2H",*regs))[0]
-
-    def collectData(self,tags=None):
-        data = self.getModeBusRegistersValues()
-        return data
-
-class ModeBusDFInstr(ModeBusDevice):
-    def __init__(self,device_name,endpointUrl,port,compteurs,variables,file_plc,freq,generatePLC=False):
-        self.device_name = device_name
-        self.freq = freq
-        self.compteurs   = compteurs[compteurs.device==device_name]
-        self.variables   = variables[variables.device==device_name]
-        self.dfInstr,dfplc = FileSystem().load_confFile(file_plc,self.build_plc_fromDFinstr,generatePLC)
-        ModeBusDevice.__init__(self,device_name,endpointUrl,port,dfplc,timeoutreconnect=self.freq)
-        dfplc['FREQUENCE_ECHANTILLONNAGE'] = self.freq
-
-    def build_plc_fromDFinstr(self):
-        print('building PLC configuration file of ' + self.device_name  +' from dfInstr')
-        units = {'kW':'JTW','kWh':'JTWH','kVA':'JTVA','kvar':'JTVar','kvarh':'JTVarH','kVAh':'JTVAH'}
-        tags  = {}
-        for t in self.dfInstr.index:
-            currentTag = self.dfInstr.loc[t]
-            variable = currentTag['description']
-            fullCompteurName = self.compteurs.loc[currentTag['point de comptage']]
-            if variable not in list(self.variables.index):
-                print('variable ',variable, 'not describe in compteurs.ods/variables')
-                print('')
-            else:
-                unit = units[currentTag['unit']]
-                description = fullCompteurName['description'] + ' - ' + self.variables.loc[variable,'description']
-                tag     = fullCompteurName.fullname + '-' + currentTag['description'] + '-' + unit
-                tags[tag] = {'DESCRIPTION' :description,'UNITE':unit}
-                self.dfInstr.loc[t,'tag'] = tag
-        dfplc = pd.DataFrame.from_dict(tags).T
-        dfplc.index.name  = 'TAG'
-        dfplc['MIN']      = -200000
-        dfplc['MAX']      = 200000
-        dfplc['DATATYPE'] = 'REAL'
-        dfplc['DATASCIENTISM'] = True
-        dfplc['PRECISION'] = 0.01
-        dfplc['VAL_DEF'] = 0
-        self.dfInstr=self.dfInstr.set_index('tag')
-        self.dfInstr=self.dfInstr.loc[~self.dfInstr.index.isna()]
-        return self.dfInstr,dfplc
-
-class ModeBusDeviceXML(ModeBusDFInstr):
-    def __init__(self,*args,file_xml,file_dfInstr,build_dfInstr=False,**kwargs):
-        self.file_xml = file_xml
-        self.file_dfinstr = file_dfInstr
-        self.dfInstr = FileSystem().load_confFile(self.file_dfinstr,self.build_dfInstr,build_dfInstr)
-        ModeBusDFInstr.__init__(self,*args,**kwargs)
-
-    def _makeDfInstrUnique(self,dfInstr):
-        uniqueDfInstr = []
-        for tag in dfInstr['id'].unique():
-            dup=dfInstr[dfInstr['id']==tag]
-            ### privilege on IEEE754 strcuture if duplicates
-            rowFloat = dup[dup['type']=='IEEE754']
-            if len(rowFloat)==1:
-                uniqueDfInstr.append(rowFloat)
-            else :
-                uniqueDfInstr.append(dup.iloc[[0]])
-        uniqueDfInstr=pd.concat(uniqueDfInstr).set_index('id')
-        return uniqueDfInstr
-
-    def getSizeOf(self,typeVar,f=1):
-        if typeVar == 'IEEE754':return 2*f
-        elif typeVar == 'INT64': return 4*f
-        elif typeVar == 'INT32': return 2*f
-        elif typeVar == 'INT16': return 1*f
-        elif typeVar == 'INT8': return f/2
-
-    def _findInstrument(self,meter):
-        df=[]
-        for var in meter.iter('var'):
-            df.append([var.find('varaddr').text,
-                        int(var.find('varaddr').text[:-1],16),
-                        var.find('vartype').text,
-                        self.getSizeOf(var.find('vartype').text,1),
-                        self.getSizeOf(var.find('vartype').text,2),
-                        var.find('vardesc').text,
-                        var.find('scale').text,
-                        var.find('unit').text])
-        df = pd.DataFrame(df)
-        df.columns=['adresse','intAddress','type','size(mots)','size(bytes)','description','scale','unit']
-        df['addrTCP']=meter.find('addrTCP').text
-        df['point de comptage']=meter.find('desc').text
-        return df
-
-    def _findInstruments(self,xmlpath):
-        tree = ET.parse(xmlpath)
-        root = tree.getroot()
-        dfs=[]
-        for meter in root.iter('meter'):
-            dfs.append(self._findInstrument(meter))
-        df=pd.concat(dfs)
-        # tmp = df.loc[:,['point de comptage','description']].sum(axis=1)
-        # df['id']=[re.sub('\s','_',k) for k in tmp]
-        df['id']=[re.sub('[\( \)]','_',k) + '_' + l for k,l in zip(df['description'],df['point de comptage'])]
-        # df=df[df['type']=='INT32']
-        df['addrTCP'] = pd.to_numeric(df['addrTCP'],errors='coerce')
-        df['scale'] = pd.to_numeric(df['scale'],errors='coerce')
-        # df=df.set_index('adresse')
-        # df=df[df['scale']==0.1]
-
-        return df
-
-    def build_dfInstr(self):
-        print('building dfInstr from ' + self.file_xml)
-        dfInstr = self._findInstruments(self.file_xml)
-        return self._makeDfInstrUnique(dfInstr)
-
-class ModeBusDeviceSingleRegisters(ModeBusDFInstr):
-    def __init__(self,*args,dfInstr,**kwargs):
-        self.dfInstr  = dfInstr
-        ModeBusDFInstr.__init__(self,*args,**kwargs)
-
-    def getModeBusRegistersValues(self):
-        data={}
-        for tag in self.dfInstr.index:
-            ptComptage = self.dfInstr.loc[[tag]]
-            val = self.dfInstr.loc[tag]
-            regs = self.client.read_holding_registers(val['intAddress'],val['size(mots)'],unit=val['addrTCP']).registers
-            # print('==THERE==='.rjust(50))
-            data.update(self.decodeRegisters(regs,ptComptage,bo='!'))
-        return data
 
 import opcua
 class Opcua_Client(Device):
@@ -807,24 +645,30 @@ class Streamer():
         df.index = df.index.tz_convert(timezone)
         return df
 
-    def load_tag_daily(self,t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow='3000s',showTag=False,showDay=False):
+    def load_tag_daily(self,t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow='3000s',showTag=False,debug=False):
         if showTag:print(tag)
+        start=time.time()
         dfs={}
         t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
         while t<t1:
             filename=folderpkl+t.strftime(self.format_dayFolder)+'/'+tag+'.pkl'
             if os.path.exists(filename):
-                if showDay: print(filename,t.isoformat())
+                if debug: print(filename,t.isoformat())
                 dfs[filename]=pickle.load(open(filename,'rb'))
             else :
                 print('no file : ',filename)
                 dfs[filename] = pd.Series()
             t = t + pd.Timedelta(days=1)
+        if debug:computetimeshow('raw pkl loaded in ',start)
+        start=time.time()
         dftag = pd.DataFrame(pd.concat(dfs.values()),columns=['value'])
+        if debug:computetimeshow('contatenation done in ',start)
         dftag.index.name='timestampz'
         try:
+            start=time.time()
             dftag = self.process_tag(dftag,rsMethod,rs,timezone,rmwindow=rmwindow)
             dftag['tag'] = tag
+            if debug:computetimeshow('processing done in ',start)
         except:
             print(tag+' could not be processed')
             dftag=[]
