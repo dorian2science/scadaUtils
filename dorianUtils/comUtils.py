@@ -212,12 +212,11 @@ class Device():
         start=time.time()
         ts = dt.datetime.now(tz=pytz.timezone(self.local_tzname))
         if self.isConnected:
-            # try :
-            data = self.collectData(*args)
-                # print(data)
-            # except:
-                # print(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.')
-                # self.isConnected = False
+            try :
+                data = self.collectData(*args)
+            except:
+                print(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.')
+                self.isConnected = False
             self.collectingTimes[dt.datetime.now(tz=pytz.timezone(self.local_tzname)).isoformat()] = (time.time()-start)*1000
             for tag in data.keys():
                 sqlreq = "insert into realtimedata (tag,value,timestampz) values ('"
@@ -227,6 +226,7 @@ class Device():
                 value=str(value)
                 sqlreq+= tag +"','" + value + "','" + data[tag][1]  + "');"
                 sqlreq=sqlreq.replace('nan','null')
+                print(sqlreq)
                 cur.execute(sqlreq)
             self.insertingTimes[dt.datetime.now(tz=pytz.timezone(self.local_tzname)).isoformat()]=(time.time()-start)*1000
             dbconn.commit()
@@ -298,8 +298,9 @@ class ModeBusDevice(Device):
             return self.decodeRegisters(regs,ptComptage)
         else:
             d={}
-            # for tag in ptComptage.index:
-            for tag in ptComptage.index[:40]:
+            self.connectDevice()
+            for tag in ptComptage.index:
+            # for tag in ptComptage.index[:40]:
                 tagrow=ptComptage.loc[[tag],:]
                 # print(tagrow)
                 regs = self.client.read_holding_registers(tagrow['intAddress'][0],tagrow['size(mots)'][0],unit=unit_id).registers
