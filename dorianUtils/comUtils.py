@@ -1,5 +1,5 @@
 # import importlib
-import datetime as dt, time, pytz,sys
+import time, pytz,sys
 from time import sleep
 import sys,os,re,threading,struct, glob, pickle,struct,subprocess as sp
 import numpy as np, pandas as pd
@@ -16,7 +16,7 @@ from zipfile import ZipFile
 # #######################
 # basic utilities for Streamer and DumpingClientMaster
 timenowstd=lambda :pd.Timestamp.now().strftime('%d %b %H:%M:%S')
-computetimeshow=lambda x,y:print(timenowstd() + ' : ' + x + ' in {:.2f} ms'.format((time.time()-y)*1000))
+computetimeshow=lambda x,y:timenowstd() + ' : ' + x + ' in {:.2f} ms'.format((time.time()-y)*1000)
 class EmptyClass():pass
 
 class Modebus_utils():
@@ -37,22 +37,17 @@ class FileSystem():
         start    = time.time()
         if not os.path.exists(filename) or generateAnyway:
             print('Start generating the file '+filename+' with function : ')
-            print(' '.ljust(20),generate_func)
-            print('')
+            print(' '.ljust(20)+'\n',generate_func)
             # try:
             plcObj = generate_func()
             pickle.dump(plcObj,open(filename,'wb'))
-            print('')
-            print(filename + ' saved')
-            print('')
+            print('\n'+filename + ' saved\n')
             # except:
             #     print('failed to build plc file with filename :',filename)
             #     raise SystemExit
         # sys.exit()
         plcObj = pickle.load(open(filename,'rb'))
-        computetimeshow(filename.split('/')[-1] + ' loaded',start)
-        print('---------------------------------------')
-        print('')
+        print(computetimeshow(filename.split('/')[-1] + ' loaded',start),'\n---------------------------------------\n')
         return plcObj
 
     def getParentDir(self,folder):
@@ -175,8 +170,6 @@ class Device():
         self.endpointUrl = endpointUrl
         self.port        = port
         self.isConnected = True
-        now = dt.datetime.now().astimezone()
-        self.local_tzname = now.tzinfo.tzname(now)
         self.dfplc   = dfplc
         # print(dfplc)
         self.listUnits = self.dfplc.UNITE.dropna().unique().tolist()
@@ -194,42 +187,45 @@ class Device():
             else :
                 print(timenowstd(),' : ',self.device_name,'--> impossible to connect to device.',
                                     'try new connection in',self.timeOUTreconnect,'seconds')
-            print('+++++++++++++++++++++++++++')
-            print('')
+            print('+++++++++++++++++++++++++++\n')
 
-    def insert_intodb(self,dbParameters,*args):
-        ''' should have a function that gather data and returns them
-        in form of a dictionnary tag:value.
+    def generate_sql_insert_tag(self,tag,value,timestampz,dbTable):
         '''
-        data={}
+        - dbTable : name of table in database where to insert
+        '''
+        sqlreq = "insert into " + dbTable + " (tag,value,timestampz) values ('"
+        if value==None:value = 'null'
+        value = str(value)
+        sqlreq+= tag +"','" + value + "','" + timestampz  + "');"
+        return sqlreq.replace('nan','null')
+
+    def insert_intodb(self,dbParameters,dbTable,*args):
+        ''' should have a function that gather data and returns a dictionnary tag:value.'''
+        ##### connect to database ########
         try :
             connReq = ''.join([k + "=" + v + " " for k,v in dbParameters.items()])
             dbconn = psycopg2.connect(connReq)
         except :
-            print('problem connecting to database ',dbParameters )
+            print('problem connecting to database ',dbParameters)
             return
         cur  = dbconn.cursor()
         start=time.time()
-        ts = dt.datetime.now(tz=pytz.timezone(self.local_tzname))
-        if self.isConnected:
-            try :
-                data = self.collectData(*args)
-            except:
-                print(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.')
-                self.isConnected = False
-            self.collectingTimes[dt.datetime.now(tz=pytz.timezone(self.local_tzname)).isoformat()] = (time.time()-start)*1000
-            for tag in data.keys():
-                sqlreq = "insert into realtimedata (tag,value,timestampz) values ('"
-                value = data[tag][0]
-                if value==None:
-                    value = 'null'
-                value=str(value)
-                sqlreq+= tag +"','" + value + "','" + data[tag][1]  + "');"
-                sqlreq=sqlreq.replace('nan','null')
-                print(sqlreq)
-                cur.execute(sqlreq)
-            self.insertingTimes[dt.datetime.now(tz=pytz.timezone(self.local_tzname)).isoformat()]=(time.time()-start)*1000
-            dbconn.commit()
+        ##### check that device is connected ########
+        if not self.isConnected:return
+        ##### collect data ########
+        try :
+            data = self.collectData(*args)
+        except:
+            print(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.')
+            self.isConnected = False
+            return
+        self.collectingTimes[timenowstd()] = (time.time()-start)*1000
+        ##### generate sql insertion and insert ########
+        for tag in data.keys():
+            sqlreq=self.generate_sql_insert_tag(tag,data[tag][0],data[tag][1],dbTable)
+            cur.execute(sqlreq)
+        self.insertingTimes[timenowstd()]= (time.time()-start)*1000
+        dbconn.commit()
         cur.close()
         dbconn.close()
 
@@ -320,6 +316,7 @@ import opcua
 class Opcua_Client(Device):
     def __init__(self,*args,nameSpace,**kwargs):
         Device.__init__(self,*args,**kwargs)
+
         self.nameSpace   = nameSpace
         self.endpointUrl= self.endpointUrl+":"+str(self.port)
         self.client      = opcua.Client(self.endpointUrl)
@@ -349,10 +346,10 @@ class Opcua_Client(Device):
         except:
             return False
 
-    def collectData(self,tags):
+    def collectData(self,tags,tz):
         nodes = {t:self.nodesDict[t] for t in tags}
         values = self.client.get_values(nodes.values())
-        ts = dt.datetime.now().astimezone().isoformat()
+        ts = pd.Timestamp.now(tz=tz).isoformat()
         data = {tag:[val,ts] for tag,val in zip(nodes.keys(),values)}
         return data
 
@@ -401,10 +398,10 @@ class Meteo_Client(Device):
     def connectDevice(self):
         try:
             request = urllib.request.urlopen('https://www.google.com')
-            print("Connected to the Internet")
+            print("Meteo : Connected to the Internet")
             return True
         except:
-            print("No internet connection.")
+            print("Meteo : No internet connection.")
             return False
 
     def collectData(self,tags=None):
@@ -463,8 +460,6 @@ class Streamer():
         self.format_dayFolder='%Y-%m-%d/'
         self.format_hourFolder=self.format_dayFolder+'%H/'
         self.format_folderminute=self.format_hourFolder + '/%M/'
-        now = dt.datetime.now().astimezone()
-        self.local_tzname = now.tzinfo.tzname(now)
         methods={}
         methods['forwardfill']= "df.ffill().resample(rs).ffill()"
         methods['raw']= None
@@ -477,7 +472,6 @@ class Streamer():
         methods['rolling_mean']="df.ffill().resample(rs).ffill().rolling(rmwindow).mean()"
         self.methods = methods
 
-
     # ########################
     #      HOURS FUNCTIONS   #
     # ########################
@@ -486,11 +480,6 @@ class Streamer():
         dftag=df[df.tag==tag]['value'].astype(dtype)
         pickle.dump(dftag,open(folder + tag + '.pkl', "wb" ))
 
-    def to_folderday(self,d):
-        return d.strftime(self.format_dayFolder)+'/'
-    # ########################
-    #      HOURS FUNCTIONS   #
-    # ########################
     def park_DF_hour(self,dfhour,folderpkl,pool=False,showtag=False):
         correctColumns=['tag','timestampz','value']
         if not list(dfhour.columns.sort_values())==correctColumns:
@@ -520,6 +509,10 @@ class Streamer():
     # ########################
     #      DAY FUNCTIONS     #
     # ########################
+    def to_folderday(self,d):
+        '''convert timestamp to standard day folder format'''
+        return d.strftime(self.format_dayFolder)+'/'
+
     def create_dayfolder(self,folderday):
         if not os.path.exists(folderday):
             os.mkdir(folderday)
@@ -646,7 +639,7 @@ class Streamer():
         df.index = df.index.tz_convert(timezone)
         return df
 
-    def load_tag_daily(self,t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow='3000s',showTag=False,debug=False):
+    def load_tag_daily(self,t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow='3000s',showTag=False,time_debug=False):
         if showTag:print(tag)
         start=time.time()
         dfs={}
@@ -654,22 +647,22 @@ class Streamer():
         while t<t1:
             filename=folderpkl+t.strftime(self.format_dayFolder)+'/'+tag+'.pkl'
             if os.path.exists(filename):
-                if debug: print(filename,t.isoformat())
+                if time_debug: print(filename,t.isoformat())
                 dfs[filename]=pickle.load(open(filename,'rb'))
             else :
                 print('no file : ',filename)
                 dfs[filename] = pd.Series()
             t = t + pd.Timedelta(days=1)
-        if debug:computetimeshow('raw pkl loaded in ',start)
+        if time_debug:computetimeshow('raw pkl loaded in ',start)
         start=time.time()
         dftag = pd.DataFrame(pd.concat(dfs.values()),columns=['value'])
-        if debug:computetimeshow('contatenation done in ',start)
+        if time_debug:computetimeshow('contatenation done in ',start)
         dftag.index.name='timestampz'
         try:
             start=time.time()
             dftag = self.process_tag(dftag,rsMethod,rs,timezone,rmwindow=rmwindow)
             dftag['tag'] = tag
-            if debug:computetimeshow('processing done in ',start)
+            if time_debug:computetimeshow('processing done in ',start)
         except:
             print(tag+' could not be processed')
             dftag=[]
@@ -817,7 +810,7 @@ class Streamer():
         hour   = folderminute.split('/')[-3]
         day    = folderminute.split('/')[-4]
         time2save = day+' '+hour+':'+minute
-        t1 = pd.to_datetime(time2save).tz_localize(self.local_tzname)
+        t1 = pd.to_datetime(time2save).tz_localize(self.tz_record)
         t2 = t1+dt.timedelta(minutes=1)
         dfminute = dftag[(dftag.index<t2)&(dftag.index>=t1)]
         # if dfminute.empty:
@@ -1004,7 +997,7 @@ class Streamer():
         return timelens
 
 class Configurator():
-    def __init__(self,folderPkl,dbParameters,devices,parkingTime):
+    def __init__(self,folderPkl,dbParameters,devices,parkingTime,tz_record='CET',dbTable='realtimedata'):
         '''
         - parkedFolder : day or minute.
         - parkingTime : how often data are parked and db flushed in seconds
@@ -1014,6 +1007,7 @@ class Configurator():
         Streamer.__init__(self)
         self.folderPkl = folderPkl##in seconds
         self.dbParameters = dbParameters
+        self.dbTable = dbTable
         self.dataTypes = {
           'REAL':'float',
           'BOOL':'bool',
@@ -1022,7 +1016,8 @@ class Configurator():
           'INT':'int',
           'STRING(40)':'str'
         }
-        self.streamer =  Streamer()
+        self.streamer  = Streamer()
+        self.tz_record = tz_record
         self.parkingTime = parkingTime##seconds
         self.devices = devices
         #####################################
@@ -1035,8 +1030,7 @@ class Configurator():
         self.listUnits = self.dfplc.UNITE.dropna().unique().tolist()
         self.to_folderminute=lambda x:self.folderPkl+x.strftime(self.format_folderminute)
         print('FINISH LOADING CONFIGURATOR')
-        print('==============================')
-        print()
+        print('==============================\n')
 
     def getdaysnotempty(self):
         return self.fs.get_parked_days_not_empty(self.folderPkl)
@@ -1080,7 +1074,7 @@ class SuperDumper(Configurator):
                 print(device_name,' : ',freq*1000,'ms')
                 tags = list(dfplc[dfplc['FREQUENCE_ECHANTILLONNAGE']==freq].index)
                 # print(tags)
-                device_dumps[freq] = SetInterval(freq,device.insert_intodb,self.dbParameters,tags)
+                device_dumps[freq] = SetInterval(freq,device.insert_intodb,self.dbParameters,self.dbTable,tags,self.tz_record)
 
             self.dumpInterval[device_name] = device_dumps
 
@@ -1089,9 +1083,9 @@ class SuperDumper(Configurator):
         dbconn = psycopg2.connect(connReq)
         cur  = dbconn.cursor()
         if full:
-            cur.execute("DELETE from realtimedata;")
+            cur.execute("DELETE from " + self.dbTable + ";")
         else :
-            cur.execute("DELETE from realtimedata where timestampz < '" + t + "';")
+            cur.execute("DELETE from " + self.dbTable + " where timestampz < '" + t + "';")
         cur.close()
         dbconn.commit()
         dbconn.close()
@@ -1100,7 +1094,7 @@ class SuperDumper(Configurator):
         df = self.generateRandomParkedData(*args,**kwargs)
         dbconn = self.connect2db()
         cur  = dbconn.cursor()
-        sqlreq = "insert into realtimedata (tag,value,timestampz) values "
+        sqlreq = "insert into " + self.dbTable + " (tag,value,timestampz) values "
         for k in range(len(df)):
             curval=df.iloc[k]
             sqlreq+="('" + curval.tag + "','"+ str(curval.value) +"','" + curval.name.isoformat()  + "'),"
@@ -1120,7 +1114,7 @@ class SuperDumper(Configurator):
         start=time.time()
         ### read database
         dbconn=psycopg2.connect(''.join([k + "=" + v + " " for k,v in dbParameters.items()]))
-        sqlQ ="select * from realtimedata where timestampz < '" + t1.isoformat() +"'"
+        sqlQ ="select * from " + self.dbTable + " where timestampz < '" + t1.isoformat() +"'"
         sqlQ +="and timestampz > '" + t0.isoformat() +"'"
         print(sqlQ)
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
@@ -1134,7 +1128,7 @@ class SuperDumper(Configurator):
         # df.to_csv(namefile)
         # zipObj = ZipFile(namefile.replace('.csv','.zip'), 'w')
         # zipObj.write(namefile,namefile.replace('.csv','.zip'))
-        computetimeshow(pd.Timestamp.now().strftime('%H:%M:%S,%f') + ' ===> database read',start)
+        print(computetimeshow(pd.Timestamp.now().strftime('%H:%M:%S,%f') + ' ===> database read',start))
         namefile = namefile.replace('.csv','.pkl')
         pickle.dump(df,open(namefile,'wb'))
         print(namefile,' saved')
@@ -1168,7 +1162,7 @@ class SuperDumper(Configurator):
         df=pd.concat(df.values(),axis=0)
         start = time.time()
         # df.timestampz = [t.isoformat() for t in df.timestampz]
-        computetimeshow('timestampz to str',start)
+        print(computetimeshow('timestampz to str',start))
         df=df.set_index('timestampz')
         return df
 
@@ -1229,33 +1223,34 @@ class SuperDumper_daily(SuperDumper):
             df  = pd.concat([df1,df])
         df.astype(self.dataTypes[self.dfplc.loc[tag,'DATATYPE']]).to_pickle(namefile)
 
-    def park_database(self):
+    def park_database(self,pool_tag=False):
         listTags = self.alltags
         start = time.time()
-        now = pd.Timestamp.now(tz=self.local_tzname)
+        now = pd.Timestamp.now(tz=self.tz_record)
         t_parking = now
 
         ### read database
         dbconn = self.connect2db()
-        sqlQ ="select * from realtimedata where timestampz < '" + now.isoformat() +"'"
+        sqlQ ="select * from " + self.dbTable + " where timestampz < '" + now.isoformat() +"'"
         # df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'],dtype={'value':'float'})
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        computetimeshow('database for data <' + t_parking.isoformat() +' read',start)
+        print(computetimeshow('database for data <' + now.isoformat() +' read',start))
         # check if database not empty
         if not len(df)>0:
             print('database ' + self.dbParameters['dbname'] + ' empty')
             return
         # close connection
+
         df = df.set_index('timestampz').sort_index()
+        df.index = df.index.tz_convert(self.tz_record)
         df.loc[df.value=='null','value']=np.nan
         dbconn.close()
-
-        tmin,tmax = df.index.min().tz_convert('CET'),df.index.max().tz_convert('CET')
+        tmin,tmax = df.index.min(),df.index.max()
         listdays = list(np.unique([k.strftime(self.format_dayFolder)[:-1] for k in [tmin,tmax]]))
         #### in case they are 2 days around midnight
         for d in listdays:
-            t0=pd.Timestamp(d + ' 00:00:00',tz='CET')
-            t1=t0+pd.Timedelta(days=1)
+            t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
+            t1 = t0 + pd.Timedelta(days=1)
             dfday=df[(df.index>=t0)&(df.index<t1)]
             folderday=self.folderPkl + d +'/'
             #### create folder if necessary
@@ -1264,15 +1259,17 @@ class SuperDumper_daily(SuperDumper):
             #           park now            #
             #################################
             start=time.time()
-            # dftags=[dfday[dfday.tag==tag]['value'] for tag in listTags]
-            # with Pool() as p:
-            #     dfs=p.starmap(self.parktagfromdb,[(tag,dftag,folderday) for tag,dftag in zip(listTags,dftags)])
-            dfs=[]
-            for tag in listTags:
-                dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
-                self.parktagfromdb(tag,dftag,folderday)
+            if pool_tag:
+                dftags=[dfday[dfday.tag==tag]['value'] for tag in listTags]
+                with Pool() as p:
+                    dfs=p.starmap(self.parktagfromdb,[(tag,dftag,folderday) for tag,dftag in zip(listTags,dftags)])
+            else:
+                dfs=[]
+                for tag in listTags:
+                    dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
+                    self.parktagfromdb(tag,dftag,folderday)
 
-        computetimeshow('database parked',start)
+        print(computetimeshow('database parked',start))
         self.parkingTimes[now.isoformat()] = (time.time()-start)*1000
         # #FLUSH DATABASE
         self.flushdb(t_parking.isoformat())
@@ -1285,7 +1282,7 @@ class SuperDumper_minutely(SuperDumper):
     def parktagfromdb(self,t0,t1,df,tag,compression='reduce'):
         dftag = df[df.tag==tag].set_index('timestampz')
         # print(dftag)
-        dftag.index=dftag.index.tz_convert(self.local_tzname)
+        dftag.index=dftag.index.tz_convert(self.tz_record)
         if dftag.empty:
             return dftag
         # print(tag + ' : ',self.dfplc.loc[tag,'DATATYPE'])
@@ -1299,15 +1296,15 @@ class SuperDumper_minutely(SuperDumper):
     def park_database(self):
         listTags=self.alltags
         start = time.time()
-        timenow = pd.Timestamp.now(tz=self.local_tzname)
+        timenow = pd.Timestamp.now(tz=self.tz_record)
         t1 = timenow
 
         ### read database
         dbconn = self.connect2db()
-        sqlQ ="select * from realtimedata where timestampz < '" + t1.isoformat() +"'"
+        sqlQ ="select * from " + self.dbTable + " where timestampz < '" + t1.isoformat() +"'"
         # df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'],dtype={'value':'float'})
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        computetimeshow(now.strftime('%H:%M:%S,%f') + ''' ===> database read''',start)
+        print(computetimeshow(now.strftime('%H:%M:%S,%f') + ''' ===> database read''',start))
         print('for data <' + t1.isoformat())
         # close connection
         dbconn.close()
@@ -1318,7 +1315,7 @@ class SuperDumper_minutely(SuperDumper):
             return []
 
         ##### determine minimum time for parking folders
-        t0 = df.set_index('timestampz').sort_index().index[0].tz_convert(self.local_tzname)
+        t0 = df.set_index('timestampz').sort_index().index[0].tz_convert(self.tz_record)
         #### create Folders
         self.createFolders_period(t0,t1)
 
@@ -1332,7 +1329,7 @@ class SuperDumper_minutely(SuperDumper):
         dfs=[]
         for tag in listTags:
             dfs.append(self.parktagfromdb(t0,t1,df,tag))
-        computetimeshow(now.strftime('%H:%M:%S,%f') + ''' ===> database parked''',start)
+        print(computetimeshow(now.strftime('%H:%M:%S,%f') + ''' ===> database parked''',start))
         self.parkingTimes[timenow.isoformat()] = (time.time()-start)*1000
         # #FLUSH DATABASE
         start=time.time()
@@ -1357,14 +1354,14 @@ class VisualisationMaster(Configurator):
                 print('no tags selected for database')
                 return pd.DataFrame()
 
-        sqlQ = "select * from realtimedata where tag in ('" + "','".join(tags) +"')"
+        sqlQ = "select * from " + self.dbTable + " where tag in ('" + "','".join(tags) +"')"
         sqlQ += " and timestampz > '" + t0.isoformat() + "'"
         sqlQ += " and timestampz < '" + t1.isoformat() + "'"
         sqlQ +=";"
         # print(sqlQ)
         start=time.time()
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        computetimeshow('database read ',start)
+        print(computetimeshow('database read ',start))
         dbconn.close()
         if len(df)==0:
             return df.set_index('timestampz')
