@@ -213,12 +213,12 @@ class Device():
         ##### check that device is connected ########
         if not self.isConnected:return
         ##### collect data ########
-        try :
-            data = self.collectData(*args)
-        except:
-            print(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.')
-            self.isConnected = False
-            return
+        # try :
+        data = self.collectData(*args)
+        # except:
+        #     print(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.')
+        #     self.isConnected = False
+        #     return
         self.collectingTimes[timenowstd()] = (time.time()-start)*1000
         ##### generate sql insertion and insert ########
         for tag in data.keys():
@@ -252,7 +252,7 @@ class ModeBusDevice(Device):
         self.client = ModbusClient(host=self.endpointUrl,port=int(self.port))
         dfplc['FREQUENCE_ECHANTILLONNAGE'] = self.freq
 
-    def decodeRegisters(self,regs,block):
+    def decodeRegisters(self,regs,block,tz):
         '''block is dataframe with tags as index and columns intAdress,type(datatype)'''
         d={}
         firstReg = block['intAddress'][0]
@@ -274,7 +274,7 @@ class ModeBusDevice(Device):
                 valueShorts = [regs[curReg+k] for k in [0,1,2,3]]
                 value = struct.unpack(self.bo_out+'q',struct.pack(self.bo_in + "4H",*valueShorts))[0]
                 # curReg+=4
-            d[tag]=[value*row.scale,dt.datetime.now().astimezone().isoformat()]
+            d[tag]=[value*row.scale,pd.Timestamp.now(tz=tz).isoformat()]
         return d
 
     def checkRegisterValueTag(self,tag,**kwargs):
@@ -283,7 +283,7 @@ class ModeBusDevice(Device):
         regs  = self.client.read_holding_registers(tagid.intAddress,tagid['size(mots)'],unit=tagid.slave_unit).registers
         return self.decodeRegisters(regs,pd.DataFrame(tagid).T,**kwargs)
 
-    def get_slave_values(self,unit_id):
+    def get_slave_values(self,unit_id,tz):
         ptComptage = self.modebus_map[self.modebus_map['slave_unit']==unit_id].sort_values(by='intAddress')
         if self.multiple:
             lastReg    = ptComptage['intAddress'][-1]
@@ -291,7 +291,7 @@ class ModeBusDevice(Device):
             nbregs     = lastReg - firstReg + ptComptage['size(mots)'][-1]
             #read all registers in a single command for better performances
             regs = self.client.read_holding_registers(firstReg,nbregs,unit=unit_id).registers
-            return self.decodeRegisters(regs,ptComptage)
+            return self.decodeRegisters(regs,ptComptage,tz)
         else:
             d={}
             self.connectDevice()
@@ -300,16 +300,16 @@ class ModeBusDevice(Device):
                 tagrow=ptComptage.loc[[tag],:]
                 # print(tagrow)
                 regs = self.client.read_holding_registers(tagrow['intAddress'][0],tagrow['size(mots)'][0],unit=unit_id).registers
-                d.update(self.decodeRegisters(regs,tagrow))
+                d.update(self.decodeRegisters(regs,tagrow,tz))
             return d
 
     def connectDevice(self):
         return self.client.connect()
 
-    def collectData(self,*args):
+    def collectData(self,tz,*args):
         d={}
         for idTCP in self.all_slave_ids:
-            d.update(self.get_slave_values(unit_id=idTCP))
+            d.update(self.get_slave_values(unit_id=idTCP,tz=tz))
         return d
 
 import opcua
@@ -346,7 +346,7 @@ class Opcua_Client(Device):
         except:
             return False
 
-    def collectData(self,tags,tz):
+    def collectData(self,tz,tags):
         nodes = {t:self.nodesDict[t] for t in tags}
         values = self.client.get_values(nodes.values())
         ts = pd.Timestamp.now(tz=tz).isoformat()
@@ -1074,7 +1074,7 @@ class SuperDumper(Configurator):
                 print(device_name,' : ',freq*1000,'ms')
                 tags = list(dfplc[dfplc['FREQUENCE_ECHANTILLONNAGE']==freq].index)
                 # print(tags)
-                device_dumps[freq] = SetInterval(freq,device.insert_intodb,self.dbParameters,self.dbTable,tags,self.tz_record)
+                device_dumps[freq] = SetInterval(freq,device.insert_intodb,self.dbParameters,self.dbTable,self.tz_record,tags)
 
             self.dumpInterval[device_name] = device_dumps
 
