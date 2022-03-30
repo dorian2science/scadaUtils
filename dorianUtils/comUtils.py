@@ -1234,10 +1234,10 @@ class SuperDumper_daily(SuperDumper):
         sqlQ ="select * from " + self.dbTable + " where timestampz < '" + now.isoformat() +"'"
         # df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'],dtype={'value':'float'})
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        print(computetimeshow('database for data <' + now.isoformat() +' read',start))
+        print(computetimeshow(self.dbTable + ' in '+ self.dbParameters['dbname'] +' for data <' + now.isoformat() +' read',start))
         # check if database not empty
         if not len(df)>0:
-            print('database ' + self.dbParameters['dbname'] + ' empty')
+            print('table '+ self.dbTable + ' in ' + self.dbParameters['dbname'] + ' empty')
             return
         # close connection
 
