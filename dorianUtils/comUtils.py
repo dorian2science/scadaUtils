@@ -50,11 +50,6 @@ class FileSystem():
         print(computetimeshow(filename.split('/')[-1] + ' loaded',start),'\n---------------------------------------\n')
         return plcObj
 
-    def getParentDir(self,folder):
-        if folder[-1]=='/':
-            folder=folder[:-1]
-        return '/'.join(folder.split('/')[:-1]) + '/'
-
     def flatten(self,list_of_lists):
         if len(list_of_lists) == 0:
             return list_of_lists
@@ -472,13 +467,52 @@ class Streamer():
         methods['rolling_mean']="df.ffill().resample(rs).ffill().rolling(rmwindow).mean()"
         self.methods = methods
 
-    # ########################
-    #      HOURS FUNCTIONS   #
-    # ########################
     def park_tags(self,df,tag,folder,dtype,showtag=False):
         if showtag:print(tag)
         dftag=df[df.tag==tag]['value'].astype(dtype)
         pickle.dump(dftag,open(folder + tag + '.pkl', "wb" ))
+
+    # ########################
+    #   MODIFY EXISTING DATA #
+    # ########################
+    def applyCorrectFormat_tag(tagpath,dtype,newtz='CET',printag=False,debug=False):
+        '''
+        - format as pd.Series with name values and timestamp as index
+        - remove index duplicates
+        - convert timezone
+        - apply correct datatype if bool,float or string
+        '''
+        if printag:print(tagpath)
+        ##### --- load pkl----
+        try:df=pd.read_pickle(tagpath)
+        except:df=pd.DataFrame();print('pb loading',tagpath)
+        if not df.empty:print('dataframe empty for ',tagpath);return
+
+        ##### --- make them format pd.Series with name values and timestamp as index----
+        if not isinstance(df,pd.core.series.Series):
+            col_timestamp=[k for k in df.columns if 'timestamp' in k]
+            df.set_index(col_timestamp)['value'].to_pickle(tagpath)
+        ##### --- remove index duplicates ----
+        df = df[~df.index.duplicated(keep='first')]
+        ##### --- convert timezone----
+        if isinstance(df.index.dtype,pd.DatetimeTZDtype):
+            df.index = df.index.tz_convert(newtz)
+        else:### for cases with changing DST at 31.10 or if it is a string
+            df.index = [pd.Timestamp(k).astimezone(newtz) for k in df.index]
+        #####----- apply correct datatype ------
+        df = df.astype(dtype)
+        df.to_pickle(tagpath)
+
+    def applyCorrectFormat_day(folder_day,dtypes,**kwargs):
+        # list of dtypes of all tags in folder
+        print(folder_day)
+        tags = os.listdir(folder_day)
+        for tag in tags:applyCorrectFormat_tag(folder_day+'/'+tag,dtypes[tag],**kwargs)
+        # with Pool() as p :p.starmap(self.applyCorrectFormat_tag,[(folder_day+'/'+tag,dtypes[tag],kwargs) for tag in tags])
+
+    # ########################
+    #      HOURS FUNCTIONS   #
+    # ########################
 
     def park_DF_hour(self,dfhour,folderpkl,pool=False,showtag=False):
         correctColumns=['tag','timestampz','value']
@@ -490,7 +524,7 @@ class Streamer():
         dfhour = dfhour.set_index('timestampz')
         if isinstance(dfhour.index.dtype,pd.DatetimeTZDtype):
             dfhour.index = dfhour.index.tz_convert('CET')
-        else:### for cases with changing DST 31.10 for example
+        else:### for cases with changing DST change as 31oct for example
             dfhour = [pd.Timestamp(k).astimezone('CET') for k in dfhour.index]
         listTags = dfhour.tag.unique()
         mean_time=dfhour.index.mean()
@@ -498,7 +532,7 @@ class Streamer():
         if not os.path.exists(folderday): os.mkdir(folderday)
         folderhour = folderpkl +'/'+ mean_time.strftime(self.format_hourFolder)+'/'
         if not os.path.exists(folderhour): os.mkdir(folderhour)
-        #park it
+        ### park it
         dtype = 'object'
         if pool :
             with Pool() as p:dfs=p.starmap(self.park_tags,[(dfhour,tag,folderhour,dtype,showtag) for tag in listTags])
@@ -506,12 +540,50 @@ class Streamer():
             dfs=[self.park_tags(dfhour,tag,folderhour,dtype,showtag) for tag in listTags]
         return dfs
 
+    def park_zip_hour_file(self,filezip_hour,folderparked_hours):
+        '''format of data in the zipFile should be 3 columns tag,value,timestampz with no header.'''
+        #### unzip the file
+        # try:
+        with ZipFile(filezip_hour, 'r') as zipObj:
+           zipObj.extractall(os.path.dirname(filezip_hour))
+        ##### read the file
+        f_csv = filezip_hour.replace('.zip','.csv')
+        start   = time.time()
+        df = pd.read_csv(f_csv,parse_dates=['timestampz'],names=['tag','value','timestampz'])
+        print(computetimeshow('csv read ',start))
+        ##### remove the csv
+        os.remove(f_csv)
+        ##### park the file
+        start   = time.time()
+        message = self.park_DF_hour(df,folderparked_hours,pool=False)
+        print(computetimeshow(filezip_hour+' parked ',start))
+        # except:
+        #     print()
+        #     print('************************************')
+        #     message = filezip_hour+' failed to be parked'
+        #     print(message)
+        #     print('************************************')
+        #     print()
+        return message
+
+    def park_hourly2dayly(self,day,folderparked_hours,folderparked_days,pool_tags=False,showtag=False):
+        """ -day :'ex : 2022-02-15' """
+        listhours=glob.glob(folderparked_hours+day+'/*')
+        listhours.sort()
+        listTags = os.listdir(listhours[0])
+        folderday=folderparked_days +'/'+ day+ '/'
+        if not os.path.exists(folderday):os.mkdir(folderday)
+        for tag in listTags:
+            if showtag:print(tag)
+            dfs = [pd.read_pickle(hour+'/' + tag) for hour in listhours]
+            pd.concat(dfs).to_pickle(folderday + tag)
+        return
     # ########################
     #      DAY FUNCTIONS     #
     # ########################
-    def to_folderday(self,d):
+    def to_folderday(self,timestamp):
         '''convert timestamp to standard day folder format'''
-        return d.strftime(self.format_dayFolder)+'/'
+        return timestamp.strftime(self.format_dayFolder)+'/'
 
     def create_dayfolder(self,folderday):
         if not os.path.exists(folderday):
@@ -692,11 +764,11 @@ class Streamer():
     def create_minutefolder(self,folderminute):
         # print(folderminute)
         if not os.path.exists(folderminute):
-            folderhour=self.fs.getParentDir(folderminute)
+            folderhour=os.paht.dirname(folderminute)
             if not os.path.exists(folderhour):
                 # print(folderhour)
-                folderday=self.fs.getParentDir(folderhour)
-                parentFolder=self.fs.getParentDir(folderday)
+                folderday=os.paht.dirname(folderhour)
+                parentFolder=os.paht.dirname(folderday)
                 if not os.path.exists(parentFolder):
                     print(parentFolder,''' does not exist. Make sure
                     the path of the parent folder exists''')
