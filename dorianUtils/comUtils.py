@@ -702,10 +702,8 @@ class Streamer():
         start  = time.time()
         ############ compute resample
         if not rsMethod=='raw':
-            if df.value.dtype=='O':
-                df=df.resample(rs).ffill()
-            else:
-                df = eval(self.methods[rsMethod])
+            if df.value.dtype=='O':df=df.resample(rs).ffill()
+            else:df = eval(self.methods[rsMethod])
         # print(df,rsMethod,rs,timezone)
         if checkTime:computetimeshow(rsMethod + ' data',start)
         df.index = df.index.tz_convert(timezone)
@@ -732,6 +730,7 @@ class Streamer():
         dftag.index.name='timestampz'
         try:
             start=time.time()
+            dftag=dftag[(dftag.index>=t0)&(dftag.index<=t1)]
             dftag = self.process_tag(dftag,rsMethod,rs,timezone,rmwindow=rmwindow)
             dftag['tag'] = tag
             if time_debug:computetimeshow('processing done in ',start)
