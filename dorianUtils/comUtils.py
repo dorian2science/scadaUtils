@@ -208,12 +208,12 @@ class Device():
         ##### check that device is connected ########
         if not self.isConnected:return
         ##### collect data ########
-        # try :
-        data = self.collectData(*args)
-        # except:
-        #     print(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.')
-        #     self.isConnected = False
-        #     return
+        try :
+            data = self.collectData(*args)
+        except:
+            print(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.')
+            self.isConnected = False
+            return
         self.collectingTimes[timenowstd()] = (time.time()-start)*1000
         ##### generate sql insertion and insert ########
         for tag in data.keys():
@@ -475,7 +475,7 @@ class Streamer():
     # ########################
     #   MODIFY EXISTING DATA #
     # ########################
-    def applyCorrectFormat_tag(tagpath,dtype,newtz='CET',printag=False,debug=False):
+    def applyCorrectFormat_tag(self,tagpath,dtype,newtz='CET',printag=False,debug=False):
         '''
         - format as pd.Series with name values and timestamp as index
         - remove index duplicates
@@ -486,7 +486,7 @@ class Streamer():
         ##### --- load pkl----
         try:df=pd.read_pickle(tagpath)
         except:df=pd.DataFrame();print('pb loading',tagpath)
-        if not df.empty:print('dataframe empty for ',tagpath);return
+        if df.empty:print('dataframe empty for ',tagpath);return
 
         ##### --- make them format pd.Series with name values and timestamp as index----
         if not isinstance(df,pd.core.series.Series):
@@ -503,12 +503,15 @@ class Streamer():
         df = df.astype(dtype)
         df.to_pickle(tagpath)
 
-    def applyCorrectFormat_day(folder_day,dtypes,**kwargs):
+    def applyCorrectFormat_day(self,folder_day,dtypes,*args,**kwargs):
         # list of dtypes of all tags in folder
         print(folder_day)
         tags = os.listdir(folder_day)
-        for tag in tags:applyCorrectFormat_tag(folder_day+'/'+tag,dtypes[tag],**kwargs)
-        # with Pool() as p :p.starmap(self.applyCorrectFormat_tag,[(folder_day+'/'+tag,dtypes[tag],kwargs) for tag in tags])
+        for tag in tags:
+            tag=tag.strip('.pkl')
+            if tag in dtypes.keys():
+                self.applyCorrectFormat_tag(folder_day+'/'+tag+'.pkl',dtypes[tag],*args,**kwargs)
+            else: print('dtypes does not contain tag : ', tag)
 
     # ########################
     #      HOURS FUNCTIONS   #
@@ -612,15 +615,12 @@ class Streamer():
         if pool :
             with Pool() as p:dfs=p.starmap(self.parkdaytag,[(dfday,tag,folderday,showtag) for tag in listTags])
         else :
-            dfs=[self.parkdaytag(dfday,tag,folderday,showtag) for tag in listTags]
-        return dfs
+            for tag in listTags:self.parkdaytag(dfday,tag,folderday,showtag)
 
     def parkdaytag(self,dfday,tag,folderday,showtag=False):
         if showtag:print(tag)
-        '''SHOULD ADD DTYPE ACCORDING TO DTYPE IN DFPLC FOR TAGS '''
-        dftag=dfday[dfday.tag==tag]['value'].astype('float')
+        dftag=dfday[dfday.tag==tag]['value']
         pickle.dump(dftag,open(folderday + tag + '.pkl', "wb" ))
-        return tag + 'parked'
 
     def actiondays(self,t0,t1,folderPkl,action,*args,pool=True):
         '''
@@ -1458,7 +1458,7 @@ class VisualisationMaster(Configurator):
         df = df[df.index<=t1]
         return df
 
-    def loadtags_period(self,t0,t1,tags,*args,checkTime=False,**kwargs):
+    def loadtags_period(self,t0,t1,tags,*args,pool=True,checkTime=False,**kwargs):
         '''
         - t0,t1 : timestamps
         - *args,**kwargs of Streamer.processdf
@@ -1467,7 +1467,7 @@ class VisualisationMaster(Configurator):
         tags=list(np.unique(tags))
         ############ read parked data
         start=time.time()
-        dfparked = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,pool=True,*args,**kwargs)
+        dfparked = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,pool=pool,*args,**kwargs)
         if checkTime:computetimeshow('loading the parked data',start)
         start=time.time()
         # print(dfparked)

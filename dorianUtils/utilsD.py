@@ -23,6 +23,7 @@ class Utils:
         allcolors+=px.colors.qualitative.Set1+px.colors.qualitative.Pastel1
         allcolors+=px.colors.qualitative.Antique
         self.colors_mostdistincs = allcolors
+        self.styles = ['lines+markers','markers','stairs','lines']
 
         from PIL import Image # new import
         self.sylfenlogo  = Image.open(self.confDir +  '/logo_sylfen.png')
@@ -616,7 +617,10 @@ class Utils:
         return df,filename
 
     def updateStyleGraph(self,fig,style='lines+markers',colmap='jet',heightGraph=700):
-        '''style = {'lines+markers','markers','stairs','lines'}'''
+        '''
+        see self.styles
+        '''
+        
         if style=='lines+markers':
             fig.update_traces(mode='lines+markers',line_shape='linear', marker_line_width=0.2, marker_size=6,line=dict(width=3))
         elif style=='markers':
