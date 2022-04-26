@@ -1,7 +1,6 @@
 import pandas as pd, numpy as np, pickle, re, time, datetime as dt,glob
 from datetime import timezone
 import subprocess as sp, os
-from dateutil import parser
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.validators.scatter.line import ShapeValidator
@@ -24,6 +23,7 @@ class Utils:
         allcolors+=px.colors.qualitative.Antique
         self.colors_mostdistincs = allcolors
         self.styles = ['lines+markers','markers','stairs','lines']
+        self.colorPalettes=pd.read_pickle(self.confDir + '/palettes.pkl')
 
         from PIL import Image # new import
         self.sylfenlogo  = Image.open(self.confDir +  '/logo_sylfen.png')
@@ -94,21 +94,6 @@ class Utils:
         dfR = pd.concat(ll)
         dfR.index = df.index[idxForMean]
         return dfR
-
-    def datesBetween2Dates(self,dates,offset=0):
-        times = [parser.parse(k) for k in dates]
-        t0,t1 = [t-dt.timedelta(hours=t.hour,minutes=t.minute,seconds=t.second) for t in times]
-        delta = t1 - t0       # as timedelta
-        return [(t0 + dt.timedelta(days=i+offset)).strftime('%Y-%m-%d') for i in range(delta.days + 1)],times[1]-times[0]
-
-    def dateOffset(self,datum,offset=0):
-        datum = parser.parse(datum)
-        return (datum + dt.timedelta(days=i+offset)).strftime('%Y-%m-%d')
-
-    def timeBetween2Dates(self,dates,N=10):
-        t0,t1 = [parser.parse(k) for k in dates]
-        listSecs = np.linspace(0,(t1-t0).total_seconds(),N)
-        return [(t0 + dt.timedelta(seconds=k)).strftime('%Y-%m-%d %H:%M') for k in listSecs]
 
     def slugify(self,value, allow_unicode=False):
         import unicodedata,re
@@ -268,19 +253,6 @@ class Utils:
                 valToShow   = value.shape
             print(colored(rowTxt, 'red', attrs=['bold']), ' : ', valToShow)
 
-    def convertSecstodHHMM(self,lt,t0=None,formatTime='%d - %H:%M'):
-        if not t0:t0=parser.parse('00:00')
-        if isinstance(t0,str):t0=parser.parse(t0)
-        if isinstance(lt[0],str):
-            lt = [int(t) for t in lt]
-        return [(t0 + dt.timedelta(seconds=k)).strftime(formatTime) for k in lt]
-
-    def convertToSecs(self,lt,t0=None):
-        if not t0:t0=parser.parse('00:00')
-        if isinstance(t0,str):t0=parser.parse(t0)
-        tmp = [parser.parse(k) for k in lt]
-        return [(t-t0).total_seconds() for t in tmp]
-
     def regExpNot(self,regexp):
         if regexp[:2] == '--': regexp = '^((?!' + regexp[2:] + ').)*$'
         return regexp
@@ -295,6 +267,16 @@ class Utils:
     # ==========================================================================
     #                                   DATAFRAMES
     # ==========================================================================
+    def loads_pickle(self,file_pkl):
+        f = open(file_pkl,'rb')
+        objs = []
+        while 1:
+            try:
+                objs.append(pickle.load(f))
+            except EOFError:
+                break
+        return objs
+
     def combineFilter(self,df,columns,filters):
         cf  = [df[col]==f for col,f in zip(columns,filters)]
         dfF = [all([cfR[k] for cfR in cf]) for k in range(len(cf[0]))]
@@ -594,33 +576,11 @@ class Utils:
         pd.set_option('display.max_colwidth',colWidthOri)
         pd.set_option('display.max_rows',rowNbOri)
 
-    def exportDataOnClick(self,fig,baseName=None):
-        dfs = []
-        gofig=go.Figure(fig)
-        for trace in gofig.data :
-            tmp = pd.DataFrame([trace['x'],trace['y']])
-            tmp = tmp.transpose()
-            tmp = tmp.set_index(0)
-            tmp.columns=[trace.name]
-            dfs.append(tmp)
-        df = pd.concat(dfs,axis=1)
-
-        xlims=gofig['layout']['xaxis']['range']
-        trange=[parser.parse(k) for k in xlims]
-        df.index = [parser.parse(k) for k in df.index]
-        df = df[(df.index>xlims[0]) & (df.index<xlims[1])]
-
-        dateF=[k.strftime('%Y-%m-%d %H_%M') for k in trange]
-        if not baseName :baseName = ''
-        filename = baseName +  '_' + dateF[0]+ '_' + dateF[1]
-        filename = self.slugify(filename)
-        return df,filename
-
     def updateStyleGraph(self,fig,style='lines+markers',colmap='jet',heightGraph=700):
         '''
         see self.styles
         '''
-        
+
         if style=='lines+markers':
             fig.update_traces(mode='lines+markers',line_shape='linear', marker_line_width=0.2, marker_size=6,line=dict(width=3))
         elif style=='markers':
@@ -745,7 +705,7 @@ class Utils:
                ])
 
     def showPalettes(self,color):
-        colorPalettes = pickle.load(open(self.confDir + '/palettes.pkl','rb'))
+        colorPalettes = self.colorPalettes
         cols = colorPalettes[color]['hex']
         # cols = cols.loc['Red','Salmon Pink','Cordovan','Tomato','Rosy brown','Scarlet','Bittersweet','Blood red']
         data=[[k,k] for k,c in enumerate(cols)]
