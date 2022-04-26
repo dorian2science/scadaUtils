@@ -5,17 +5,13 @@ with open("README.md", "r", encoding="utf-8") as fh:
 dirParent = "dorianUtils"
 
 setuptools.setup(
-name="dorianUtilsModulaire", # Replace with your own username
-version="4.3.2",
+name="dorianUtils", # Replace with your own username
+version="5.0",
 author="Dorian Drevon",
 author_email="drevondorian@gmail.com",
 description="Utilities package",
 long_description=long_description,
 long_description_content_type="text/markdown",
-# url="https://github.com/pypa/sampleproject",
-# project_urls={
-#     "Bug Tracker": "https://github.com/pypa/sampleproject/issues",
-# },
 classifiers=[
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
