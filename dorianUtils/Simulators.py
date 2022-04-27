@@ -5,6 +5,8 @@ from pymodbus.server.sync import ModbusTcpServer
 from pymodbus.datastore import ModbusSequentialDataBlock, ModbusSlaveContext, ModbusServerContext
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 import opcua
+import numpy as np
+import threading,time
 
 class Simulator():
     ''' for inheritance a simulator should have:
@@ -25,6 +27,7 @@ class Simulator():
         self.feed = True
         self.stopfeed = threading.Event()
         self.feedingThread = threading.Thread(target=self.feedingLoop)
+        # self.feedingThread.daemon = True
 
     def stop(self):
         self.stopfeed.set()
@@ -33,10 +36,12 @@ class Simulator():
 
     def start(self):
         print("Start server...")
-        self.server_thread.start()
+        # self.server_thread.start()
+        self.serve()
         print("Server is online")
-        self.feedingThread.start()
-        print("Server simulator is feeding")
+        # self.feedingLoop()
+        # self.feedingThread.start()
+        # print("Server simulator is feeding")
 
     def stopFeeding(self):
         self.feed=False
@@ -50,7 +55,7 @@ class Simulator():
                 start=time.time()
                 self.writeInRegisters()
                 print('fed in {:.2f} milliseconds'.format((time.time()-start)*1000))
-                sleep(self.speedflowdata/1000 + np.random.randint(0,1)/1000)
+                time.sleep(self.speedflowdata/1000 + np.random.randint(0,1)/1000)
 
     def is_serving(self):
         return self.server_thread.is_alive()
@@ -155,34 +160,53 @@ class SimulatorModeBus(Simulator):
         print("Server simulator is shutdown")
 
 class SimulatorOPCUA(Simulator):
-    ''' can only be used with a children class inheritating from a class that has
-    attributes and methods of Device.
-    ex : class StreamVisuSpecial(ComConfigSpecial,SimulatorOPCUA)
-    with class ComConfigSpecial(Device)
     '''
-    def __init__(self,*args,**kwargs):
+    dfPLC should have columns index as tags, DATATYPE
+    '''
+    def __init__(self,endpointUrl,dfPLC,nameSpace,*args,**kwargs):
+        start=time.time()
+        Simulator.__init__(self,*args,**kwargs)
+        time.time()-start
         self.server=opcua.Server()
-        self.server.set_endpoint(self.endpointUrl)
+        self.endpointUrl=endpointUrl
+        self.nameSpace=nameSpace
+        self.server.set_endpoint(endpointUrl)
+        self.server.register_namespace('room1')
+        self.dfPLC=dfPLC
+        self.dfPLC.MIN=dfPLC.MIN.fillna(-20000)
+        self.dfPLC.MAX=dfPLC.MAX.fillna(20000)
         self.nodeValues = {}
         self.nodeVariables = {}
         self.createNodes()
-        Simulator.__init__(self,*args,**kwargs)
 
     def serve(self):
-        print("start server")
-        self.server.start()
-        print("server Online")
-
+        try:
+            print("start server")
+            self.server.start()
+            print("server Online")
+        finally:
+            self.shutdown_server()
     def shutdown_server(self):
         self.server.stop()
+        print("server Offline")
+
+    def createRandomInitalTagValues(self):
+        valueInit={}
+        for tag in list(self.dfPLC.index.unique()):
+            tagvar=self.dfPLC.loc[tag]
+            if tagvar.DATATYPE=='STRING(40)':
+                valueInit[tag] = 'STRINGTEST'
+            else:
+                valueInit[tag] = np.random.randint(tagvar.MIN,tagvar.MAX)
+        return valueInit
 
     def createNodes(self):
-        objects=self.server.get_objects_node()
-        self.beckhoff = objects.add_object(self.nameSpace,"Beckhoff")
+        objects =self.server.get_objects_node()
+        beckhoff=objects.add_object(self.nameSpace,'beckhof')
         valueInits = self.createRandomInitalTagValues()
         for tag,val in valueInits.items():
             self.nodeValues[tag]    = val
-            self.nodeVariables[tag] = self.beckhoff.add_variable(self.nameSpace+tag,tag,val)
+            self.nodeVariables[tag] = beckhoff.add_variable(self.nameSpace+tag,tag,val)
 
     def writeInRegisters(self):
         for tag,var in self.nodeVariables.items():
@@ -190,7 +214,7 @@ class SimulatorOPCUA(Simulator):
             if tagvar.DATATYPE=='REAL':
                 newValue = self.nodeValues[tag] + self.volatilitySimu*np.random.randn()*tagvar.PRECISION
                 self.nodeVariables[tag].set_value(newValue)
-            if tagvar.DATATYPE=='BOOL':
+            else:
                 newValue = np.random.randint(0,2)
                 self.nodeVariables[tag].set_value(newValue)
             self.nodeValues[tag] = newValue
