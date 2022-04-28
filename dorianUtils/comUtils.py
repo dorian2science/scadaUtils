@@ -77,6 +77,7 @@ class FileSystem():
     def get_parked_days_not_empty(self,folderPkl,minSize=3,dict_size=3):
         '''dict_size:minimum size in Mo of the folder to be taken into account '''
         sizes={'G':1000,'K':0.001,'M':1}
+        print(folderPkl)
         folders=[k.split('\t') for k in sp.check_output('du -h --max-depth=1 '+ folderPkl + ' | sort -h',shell=True).decode().split('\n')]
         folders = [k for k in folders if len(k)==2]
         folders = [k for k in folders if len(re.findall('\d{4}-\d{2}-\d',k[1].split('/')[-1]))>0 ]
@@ -1116,12 +1117,10 @@ class Streamer():
         return timelens
 
 class Configurator():
-    def __init__(self,folderPkl,dbParameters,devices,parkingTime,tz_record='CET',dbTable='realtimedata',log_file=None):
+    def __init__(self,folderPkl,dbParameters,parkingTime,tz_record='CET',dbTable='realtimedata',log_file=None):
         '''
         - parkedFolder : day or minute.
         - parkingTime : how often data are parked and db flushed in seconds
-        - devices: dictionnary of devices where keys are device_names and values
-        are devices instances generated from children classes of Device.
         '''
         Streamer.__init__(self,log_file=log_file)
         self.folderPkl = folderPkl##in seconds
@@ -1138,13 +1137,9 @@ class Configurator():
         self.streamer  = Streamer()
         self.tz_record = tz_record
         self.parkingTime = parkingTime##seconds
-        self.devices = devices
         #####################################
-        self.dfplc           = pd.concat([device.dfplc for device in self.devices.values()])
-        self.alltags         = list(self.dfplc.index)
         self.daysnotempty    = self.getdaysnotempty()
         self.tmin,self.tmax  = self.daysnotempty.min(),self.daysnotempty.max()
-        self.listUnits       = self.dfplc.UNITE.dropna().unique().tolist()
         self.to_folderminute = lambda x:self.folderPkl+x.strftime(self.format_folderminute)
 
     def getdaysnotempty(self):
@@ -1172,10 +1167,11 @@ class Configurator():
         return self.fs.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
 
 class SuperDumper(Configurator):
-    def __init__(self,*args,log_file=None,**kwargs):
+    def __init__(self,devices,*args,log_file=None,**kwargs):
         Configurator.__init__(self,*args,**kwargs,log_file=log_file)
         self.parkingTimes = {}
         self.streamer     = Streamer()
+        self.devices      = devices
         self.fs           = FileSystem()
         self.dumpInterval = {}
         self.parkInterval = SetInterval(self.parkingTime,self.park_database)
