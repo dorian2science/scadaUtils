@@ -15,7 +15,7 @@ class Simulator():
     - a function "writeInRegisters" to feed the data.
     - a function "shutdown_server" to shutdown the server.
     '''
-    def __init__(self,speedflowdata=50,volatilitySimu=5):
+    def __init__(self,speedflowdata=500,volatilitySimu=5):
         '''
         - speedflowdata : single data trigger event in ms
         - volatilitySimu : how much random variation (absolute units)
@@ -219,8 +219,8 @@ class SimulatorOPCUA(Simulator):
                 self.nodeVariables[tag].set_value(newValue)
             self.nodeValues[tag] = newValue
         # tagTest = 'SEH1.STB_STK_03.HER_01_CL01.In.HR26'
-        tagTest = 'SEH1.GWPBH_PMP_05.HO00'
-        # tagTest = 'SEH1.STB_GFC_00_PT_01_HC21'
+        # tagTest = 'SEH1.GWPBH_PMP_05.HO00'
+        tagTest = 'SEH1.STB_GFC_00_PT_01_HC21'
         # tagTest = 'SEH1.STB_STK_01.SN'
         # tagTest = 'SEH1.HPB_STG_01a_HER_03_JT_01.JTVAR_HC20'
         print(tagTest + ': ',self.nodeVariables[tagTest].get_value())

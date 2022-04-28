@@ -16,6 +16,12 @@ from zipfile import ZipFile
 # basic utilities for Streamer and DumpingClientMaster
 timenowstd=lambda :pd.Timestamp.now().strftime('%d %b %H:%M:%S')
 computetimeshow=lambda x,y:timenowstd() + ' : ' + x + ' in {:.2f} ms'.format((time.time()-y)*1000)
+def print_file(*args,filename=None,mode='a',**kwargs):
+    if filename is None :
+        print(*args,**kwargs)
+    else:
+        print(*args,file=open(filename,mode),**kwargs)
+
 class EmptyClass():pass
 
 class Modebus_utils():
@@ -35,18 +41,18 @@ class FileSystem():
     def load_confFile(self,filename,generate_func,generateAnyway=False):
         start    = time.time()
         if not os.path.exists(filename) or generateAnyway:
-            print('Start generating the file '+filename+' with function : ')
-            print(' '.ljust(20)+'\n',generate_func)
+            print_file('Start generating the file '+filename+' with function : ')
+            print_file(' '.ljust(20)+'\n',generate_func)
             # try:
             plcObj = generate_func()
             pickle.dump(plcObj,open(filename,'wb'))
-            print('\n'+filename + ' saved\n')
+            print_file('\n'+filename + ' saved\n')
             # except:
-            #     print('failed to build plc file with filename :',filename)
+            #     print_file('failed to build plc file with filename :',filename)
             #     raise SystemExit
         # sys.exit()
         plcObj = pickle.load(open(filename,'rb'))
-        print(computetimeshow(filename.split('/')[-1] + ' loaded',start),'\n---------------------------------------\n')
+        print_file(computetimeshow(filename.split('/')[-1] + ' loaded',start),'\n---------------------------------------\n')
         return plcObj
 
     def flatten(self,list_of_lists):
@@ -104,7 +110,7 @@ class FileSystem():
 
     def getUnitofTag(self,tag,dfplc):
         unit=dfplc.loc[tag].UNITE
-        # print(unit)
+        # print_file(unit)
         if not isinstance(unit,str):
             unit='u.a'
         return unit
@@ -176,18 +182,17 @@ class Device():
         self.timeOuts_counter  = 0
         self.current_trial     = 0
         self.current_timeOut   = self.time_outs_reconnection[0][1]
-        self.thread_reconnection = threading.Thread(target=self.auto_reconnect)
+        self.__thread_reconnection = threading.Thread(target=self.__auto_reconnect)
 
         self.dfplc             = dfplc
         self.listUnits         = self.dfplc.UNITE.dropna().unique().tolist()
         self.alltags           = list(self.dfplc.index)
         self.collectingTimes,self.insertingTimes  = {},{}
 
-    def auto_reconnect(self):
-        self.thread_reconnection.start()
+    def __auto_reconnect(self):
         while not self.__kill_auto_connect.is_set():
             while self.__auto_connect:
-                self.checkConnection()
+                self.__checkConnection()
                 self.__kill_auto_connect.wait(self.current_timeOut)
 
     def connectDevice(self,state=None):
@@ -196,8 +201,9 @@ class Device():
         return self.isConnected
 
     def start_auto_reconnect(self):
-        self.__auto_connect=True
         self.connectDevice()
+        self.__auto_connect=True
+        self.__thread_reconnection.start()
 
     def stop_auto_reconnect(self):
         self.__auto_connect=False
@@ -205,20 +211,20 @@ class Device():
     def kill_auto_reconnect(self):
         self.__auto_connect=False
         self.__kill_auto_connect.set()
-        self.thread_reconnection.join()
+        self.__thread_reconnection.join()
 
-    def checkConnection(self):
-        # print('checking if device still connected')
+    def __checkConnection(self):
+        # print_file('checking if device still connected')
         if not self.isConnected:
             self.current_trial+=1
             nb_trials,self.current_timeOut = self.time_outs_reconnection[self.timeOuts_counter]
             if self.current_trial>nb_trials:
                 self.timeOuts_counter+=1
                 self.current_trial=0
-                self.checkConnection()
+                self.__checkConnection()
                 return
 
-            print('-'*60+'\n',file=open(self.log_file,'a'))
+            print_file('-'*60+'\n',filename=self.log_file)
             if self.connectDevice():
                 self.timeOuts_counter  = 0
                 self.current_timeOut   = self.time_outs_reconnection[0][1]
@@ -227,8 +233,8 @@ class Device():
             else :
                 msg=timenowstd()+' : --> impossible to connect to device '+self.device_name
                 msg+='. Try new connection in ' + str(self.current_timeOut) + ' seconds'
-            print(msg,file=open(self.log_file,'a'))
-            print('-'*60+'\n',file=open(self.log_file,'a'))
+            print_file(msg,filename=self.log_file)
+            print_file('-'*60+'\n',filename=self.log_file)
 
     def generate_sql_insert_tag(self,tag,value,timestampz,dbTable):
         '''
@@ -247,7 +253,7 @@ class Device():
             connReq = ''.join([k + "=" + v + " " for k,v in dbParameters.items()])
             dbconn = psycopg2.connect(connReq)
         except :
-            print('problem connecting to database ',dbParameters,file=open(self.log_file,'a'))
+            print_file('problem connecting to database ',dbParameters,filename=self.log_file)
             return
         cur  = dbconn.cursor()
         start=time.time()
@@ -257,7 +263,7 @@ class Device():
         try :
             data = self.collectData(*args)
         except:
-            print(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.',file=open(self.log_file,'a'))
+            print_file(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.',filename=self.log_file)
             self.isConnected = False
             return
         self.collectingTimes[timenowstd()] = (time.time()-start)*1000
@@ -302,7 +308,7 @@ class ModeBusDevice(Device):
             #### in order to make it work even if block is not continuous.
             curReg = int(row['intAddress'])-firstReg
             if row.type == 'INT32' or row.type == 'UINT32':
-                # print(curReg)
+                # print_file(curReg)
                 valueShorts = [regs[curReg+k] for k in [0,1]]
                 # conversion of 2 shorts(=DWORD=word) into long(=INT32)
                 value = struct.unpack(self.bo_out+'i',struct.pack(self.bo_in + "2H",*valueShorts))[0]
@@ -339,7 +345,7 @@ class ModeBusDevice(Device):
             for tag in ptComptage.index:
             # for tag in ptComptage.index[:40]:
                 tagrow=ptComptage.loc[[tag],:]
-                # print(tagrow)
+                # print_file(tagrow)
                 regs = self.client.read_holding_registers(tagrow['intAddress'][0],tagrow['size(mots)'][0],unit=unit_id).registers
                 d.update(self.decodeRegisters(regs,tagrow,tz))
             return d
@@ -370,7 +376,7 @@ class Opcua_Client(Device):
         if len(listPLC)<1:
             listPLC_xlsm = glob.glob(self.confFolder + '*Instrum*.xlsm')
             plcfile=listPLC_xlsm[0]
-            print(plcfile,' is read and converted in .pkl')
+            print_file(plcfile,' is read and converted in .pkl')
             dfplc = pd.read_excel(plcfile,sheet_name='FichierConf_Jules',index_col=0)
             pickle.dump(dfplc,open(plcfile[:-5]+'.pkl','wb'))
             listPLC = glob.glob(self.confFolder + '*Instrum*.pkl')
@@ -382,9 +388,10 @@ class Opcua_Client(Device):
     def connectDevice(self):
         try:
             self.client.connect()
-            return True
+            self.isConnected=True
         except:
-            return False
+            self.isConnected=False
+        return self.isConnected
 
     def collectData(self,tz,tags):
         nodes = {t:self.nodesDict[t] for t in tags}
@@ -435,10 +442,10 @@ class Meteo_Client(Device):
     def connectDevice(self):
         try:
             request = urllib.request.urlopen('https://www.google.com')
-            print("Meteo : Connected to the Internet",file=open(self.log_file,'a'))
+            print_file("Meteo : Connected to the Internet",filename=self.log_file)
             return True
         except:
-            print("Meteo : No internet connection.",file=open(self.log_file,'a'))
+            print_file("Meteo : No internet connection.",filename=self.log_file)
             return False
 
     def collectData(self,tags=None):
@@ -511,25 +518,25 @@ class Streamer():
         self.methods = methods
 
     def park_tags(self,df,tag,folder,dtype,showtag=False):
-        if showtag:print(tag)
+        if showtag:print_file(tag)
         dftag=df[df.tag==tag]['value'].astype(dtype)
         pickle.dump(dftag,open(folder + tag + '.pkl', "wb" ))
 
     # ########################
     #   MODIFY EXISTING DATA #
     # ########################
-    def applyCorrectFormat_tag(self,tagpath,dtype,newtz='CET',printag=False,debug=False):
+    def applyCorrectFormat_tag(self,tagpath,dtype,newtz='CET',print_fileag=False,debug=False):
         '''
         - format as pd.Series with name values and timestamp as index
         - remove index duplicates
         - convert timezone
         - apply correct datatype if bool,float or string
         '''
-        if printag:print(tagpath,file=open(self.log_file,'a'))
+        if print_fileag:print_file(tagpath,filename=self.log_file)
         ##### --- load pkl----
         try:df=pd.read_pickle(tagpath)
-        except:df=pd.DataFrame();print('pb loading',tagpath,file=open(self.log_file,'a'))
-        if df.empty:print('dataframe empty for ',tagpath,file=open(self.log_file,'a'));return
+        except:df=pd.DataFrame();print_file('pb loading',tagpath,filename=self.log_file)
+        if df.empty:print_file('dataframe empty for ',tagpath,filename=self.log_file);return
 
         ##### --- make them format pd.Series with name values and timestamp as index----
         if not isinstance(df,pd.core.series.Series):
@@ -548,13 +555,13 @@ class Streamer():
 
     def applyCorrectFormat_day(self,folder_day,dtypes,*args,**kwargs):
         # list of dtypes of all tags in folder
-        print(folder_day,file=open(self.log_file,'a'))
+        print_file(folder_day,filename=self.log_file)
         tags = os.listdir(folder_day)
         for tag in tags:
             tag=tag.strip('.pkl')
             if tag in dtypes.keys():
                 self.applyCorrectFormat_tag(folder_day+'/'+tag+'.pkl',dtypes[tag],*args,**kwargs)
-            else: print('dtypes does not contain tag : ', tag,file=open(self.log_file,'a'))
+            else: print_file('dtypes does not contain tag : ', tag,filename=self.log_file)
 
     # ########################
     #      HOURS FUNCTIONS   #
@@ -563,8 +570,8 @@ class Streamer():
     def park_DF_hour(self,dfhour,folderpkl,pool=False,showtag=False):
         correctColumns=['tag','timestampz','value']
         if not list(dfhour.columns.sort_values())==correctColumns:
-            print('PROBLEM: the df dataframe should have the following columns : ',correctColumns,'''
-            instead your columns are ''',list(dfhour.columns.sort_values()),file=open(self.log_file,'a'))
+            print_file('PROBLEM: the df dataframe should have the following columns : ',correctColumns,'''
+            instead your columns are ''',list(dfhour.columns.sort_values()),filename=self.log_file)
             return
 
         dfhour = dfhour.set_index('timestampz')
@@ -596,18 +603,18 @@ class Streamer():
         f_csv = filezip_hour.replace('.zip','.csv')
         start   = time.time()
         df = pd.read_csv(f_csv,parse_dates=['timestampz'],names=['tag','value','timestampz'])
-        print(computetimeshow('csv read ',start),file=open(self.log_file,'a'))
+        print_file(computetimeshow('csv read ',start),filename=self.log_file)
         ##### remove the csv
         os.remove(f_csv)
         ##### park the file
         start   = time.time()
         message = self.park_DF_hour(df,folderparked_hours,pool=False)
-        print(computetimeshow(filezip_hour+' parked ',start),file=open(self.log_file,'a'))
+        print_file(computetimeshow(filezip_hour+' parked ',start),filename=self.log_file)
         # except:
-        #     print('\n'+'*'*60,file=open(self.log_file,'a'))
+        #     print_file('\n'+'*'*60,filename=self.log_file)
         #     message = filezip_hour+' failed to be parked'
-        #     print(message,file=open(self.log_file,'a'))
-        #     print('\n'+'*'*60,file=open(self.log_file,'a'))
+        #     print_file(message,filename=self.log_file)
+        #     print_file('\n'+'*'*60,filename=self.log_file)
         return message
 
     def park_hourly2dayly(self,day,folderparked_hours,folderparked_days,pool_tags=False,showtag=False):
@@ -618,7 +625,7 @@ class Streamer():
         folderday=folderparked_days +'/'+ day+ '/'
         if not os.path.exists(folderday):os.mkdir(folderday)
         for tag in listTags:
-            if showtag:print(tag)
+            if showtag:print_file(tag)
             dfs = [pd.read_pickle(hour+'/' + tag) for hour in listhours]
             pd.concat(dfs).to_pickle(folderday + tag)
         return
@@ -639,8 +646,8 @@ class Streamer():
     def park_DFday(self,dfday,folderpkl,pool=False,showtag=False):
         correctColumns=['tag','timestampz','value']
         if not list(dfday.columns.sort_values())==correctColumns:
-            print('PROBLEM: the df dataframe should have the following columns : ',correctColumns,'''
-            instead your columns are ''',list(dfday.columns.sort_values()),file=open(self.log_file,'a'))
+            print_file('PROBLEM: the df dataframe should have the following columns : ',correctColumns,'''
+            instead your columns are ''',list(dfday.columns.sort_values()),filename=self.log_file)
             return
 
         dfday = dfday.set_index('timestampz')
@@ -650,7 +657,7 @@ class Streamer():
             dfday = [pd.Timestamp(k).astimezone('UTC') for k in dfday.index]
         listTags = dfday.tag.unique()
         folderday = folderpkl +'/'+ dfday.index.mean().strftime(self.format_dayFolder)+'/'
-        print(file=open(self.log_file,'a'))
+        print_file(filename=self.log_file)
         if not os.path.exists(folderday): os.mkdir(folderday)
         #park tag-day
         if pool :
@@ -659,7 +666,7 @@ class Streamer():
             for tag in listTags:self.parkdaytag(dfday,tag,folderday,showtag)
 
     def parkdaytag(self,dfday,tag,folderday,showtag=False):
-        if showtag:print(tag,file=open(self.log_file,'a'))
+        if showtag:print_file(tag,filename=self.log_file)
         dftag=dfday[dfday.tag==tag]['value']
         pickle.dump(dftag,open(folderday + tag + '.pkl', "wb" ))
 
@@ -667,7 +674,7 @@ class Streamer():
         '''
         -t0,t1:timestamps
         '''
-        print(t0,t1,file=open(self.log_file,'a'))
+        print_file(t0,t1,filename=self.log_file)
         days=pd.date_range(t0,t1,freq='1D')
         dayfolders =[folderPkl + k.strftime(self.format_dayFolder)+'/' for k in days]
         if pool:
@@ -678,14 +685,14 @@ class Streamer():
         return {d.strftime(self.format_dayFolder):df for d,df in zip(days,dfs)}
 
     def remove_tags_day(self,d,tags):
-        print(d,file=open(self.log_file,'a'))
+        print_file(d,filename=self.log_file)
         for t in tags:
             tagpath=d+'/'+t+'.pkl'
             try:
                 os.remove(tagpath)
             except:
                 pass
-                # print('no file :',tagpath)
+                # print_file('no file :',tagpath)
 
     def dumy_day(self,day):
         return day
@@ -745,23 +752,23 @@ class Streamer():
         if not rsMethod=='raw':
             if df.value.dtype=='O':df=df.resample(rs).ffill()
             else:df = eval(self.methods[rsMethod])
-        # print(df,rsMethod,rs,timezone)
+        # print_file(df,rsMethod,rs,timezone)
         if checkTime:computetimeshow(rsMethod + ' data',start)
         df.index = df.index.tz_convert(timezone)
         return df
 
     def load_tag_daily(self,t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow='3000s',showTag=False,time_debug=False):
-        if showTag:print(tag,file=open(self.log_file,'a'))
+        if showTag:print_file(tag,filename=self.log_file)
         start=time.time()
         dfs={}
         t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
         while t<t1:
             filename=folderpkl+t.strftime(self.format_dayFolder)+'/'+tag+'.pkl'
             if os.path.exists(filename):
-                if time_debug: print(filename,t.isoformat(),file=open(self.log_file,'a'))
+                if time_debug: print_file(filename,t.isoformat(),filename=self.log_file)
                 dfs[filename]=pickle.load(open(filename,'rb'))
             else :
-                print('no file : ',filename,file=open(self.log_file,'a'))
+                print_file('no file : ',filename,filename=self.log_file)
                 dfs[filename] = pd.Series()
             t = t + pd.Timedelta(days=1)
         if time_debug:computetimeshow('raw pkl loaded in ',start)
@@ -776,7 +783,7 @@ class Streamer():
             dftag['tag'] = tag
             if time_debug:computetimeshow('processing done in ',start)
         except:
-            print(tag+' could not be processed',file=open(self.log_file,'a'))
+            print_file(tag+' could not be processed',filename=self.log_file)
             dftag=[]
         return dftag
 
@@ -792,7 +799,7 @@ class Streamer():
                 dftags=p.starmap(self.load_tag_daily,[(t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow,showTag) for tag in tags])
         else:
             dftags=[self.load_tag_daily(t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow,showTag) for tag in tags]
-        # print(dftags)
+        # print_file(dftags)
         df = pd.concat(dftags,axis=0)
         df = df[df.index>=t0]
         df = df[df.index<=t1]
@@ -802,19 +809,19 @@ class Streamer():
     #    MINUTE FUNCTIONS    #
     # ########################
     def create_minutefolder(self,folderminute):
-        # print(folderminute)
+        # print_file(folderminute)
         if not os.path.exists(folderminute):
             folderhour=os.paht.dirname(folderminute)
             if not os.path.exists(folderhour):
-                # print(folderhour)
+                # print_file(folderhour)
                 folderday=os.paht.dirname(folderhour)
                 parentFolder=os.paht.dirname(folderday)
                 if not os.path.exists(parentFolder):
-                    print(parentFolder,''' does not exist. Make sure
-                    the path of the parent folder exists''',file=open(self.log_file,'a'))
+                    print_file(parentFolder,''' does not exist. Make sure
+                    the path of the parent folder exists''',filename=self.log_file)
                     raise SystemExit
                 if not os.path.exists(folderday):
-                    # print(folderday)
+                    # print_file(folderday)
                     os.mkdir(folderday)
                 os.mkdir(folderhour)
             os.mkdir(folderminute)
@@ -823,7 +830,7 @@ class Streamer():
             return folderminute +' already exists '
 
     def delete_minutefolder(self,folderminute):
-        # print(folderminute)
+        # print_file(folderminute)
         if os.path.exists(folderminute):
             os.rmdir(folderminute)
             return folderminute +' deleted '
@@ -832,10 +839,10 @@ class Streamer():
 
     def loaddata_minutefolder(self,folderminute,tag):
         if os.path.exists(folderminute):
-            # print(folderminute)
+            # print_file(folderminute)
             return pickle.load(open(folderminute + tag + '.pkl', "rb" ))
         else :
-            print('no folder : ',folderminute,file=open(self.log_file,'a'))
+            print_file('no folder : ',folderminute,filename=self.log_file)
             return []
 
     def actionMinutes_pooled(self,t0,t1,folderPkl,actionminute,*args,pool=True):
@@ -926,8 +933,8 @@ class Streamer():
         t2 = t1+dt.timedelta(minutes=1)
         dfminute = dftag[(dftag.index<t2)&(dftag.index>=t1)]
         # if dfminute.empty:
-        #     print(tag,t1,t2)
-        #     print(dfminute)
+        #     print_file(tag,t1,t2)
+        #     print_file(dfminute)
         #     time.sleep(1)
         #create folder if necessary
         if not os.path.exists(folderminute):
@@ -939,8 +946,8 @@ class Streamer():
 
     def park_df_minute(self,folderminute,df_minute,listTags):
         if not os.path.exists(folderminute):os.mkdir(folderminute)
-        # print(folderminute)
-        # print(df_minute)
+        # print_file(folderminute)
+        # print_file(df_minute)
         for tag in listTags:
             df_tag=df_minute[df_minute['tag']==tag][['value']]
             # df_tag.columns=[tag]
@@ -948,18 +955,18 @@ class Streamer():
         return tag + ' parked in : ' + folderminute
 
     def dumy_minute(self,folderminute):
-        print(folderminute)
+        print_file(folderminute)
         return 'ici'
 
     def loadtags_minutefolder(self,folderminute,tags):
         if os.path.exists(folderminute):
-            # print(folderminute)
+            # print_file(folderminute)
             dfs=[pickle.load(open(folderminute + tag + '.pkl', "rb" )) for tag in tags]
             for df,tag in zip(dfs,tags):df.columns=[tag]
             df=pd.concat(dfs,axis=1)
             return df
         else :
-            print('NO FOLDER : ',folderminute)
+            print_file('NO FOLDER : ',folderminute)
             return pd.DataFrame()
 
     # ########################
@@ -969,8 +976,8 @@ class Streamer():
         # check if the format of the file is correct
         correctColumns=['tag','timestampz','value']
         if not list(df.columns.sort_values())==correctColumns:
-            print('PROBLEM: the df dataframe should have the following columns : ',correctColumns,'''
-            or your columns are ''',list(df.columns.sort_values()),file=open(self.log_file,'a'))
+            print_file('PROBLEM: the df dataframe should have the following columns : ',correctColumns,'''
+            or your columns are ''',list(df.columns.sort_values()),filename=self.log_file)
             return
         df=df.set_index('timestampz')
         listTags=df.tag.unique()
@@ -984,21 +991,21 @@ class Streamer():
             tm1=t0+dt.timedelta(hours=h)
             tm2=tm1+dt.timedelta(hours=1)
             tm2=min(tm2,t1)
-            # print(tm1,tm2)
+            # print_file(tm1,tm2)
             dfhour=df[(df.index>tm1)&(df.index<tm2)]
-            print('start for :', dfhour.index[-1],file=open(self.log_file,'a'))
+            print_file('start for :', dfhour.index[-1],filename=self.log_file)
             start=time.time()
             minutes=pd.date_range(tm1,tm2,freq='1T')
             df_minutes=[dfhour[(dfhour.index>a)&(dfhour.index<a+dt.timedelta(minutes=1))] for a in minutes]
             minutefolders =[folderpkl + k.strftime(self.format_folderminute) for k in minutes]
-            # print(minutefolders)
+            # print_file(minutefolders)
             # sys.exit()
             if pool:
                 with Pool() as p:
                     dfs = p.starmap(self.park_df_minute,[(fm,dfm,listTags) for fm,dfm in zip(minutefolders,df_minutes)])
             else:
                 dfs = [self.park_df_minute(fm,dfm,listTags) for fm,dfm in zip(minutefolders,df_minutes)]
-            print(computetimeshow('',start),file=open(self.log_file,'a'))
+            print_file(computetimeshow('',start),filename=self.log_file)
 
     def createFolders_period(self,t0,t1,folderPkl,frequence='day'):
         if frequence=='minute':
@@ -1174,14 +1181,14 @@ class SuperDumper(Configurator):
         self.parkInterval = SetInterval(self.parkingTime,self.park_database)
         ###### DOUBLE LOOP of setIntervals for devices/acquisition-frequencies
 
-        print(' '*20+'INSTANCIATING OF DUMPER'+'\n',file=open(self.log_file,'w'))
+        print_file(' '*20+'INSTANCIATION OF THE DUMPER'+'\n',filename=self.log_file)
         for device_name,device in self.devices.items():
             freqs = device.dfplc['FREQUENCE_ECHANTILLONNAGE'].unique()
             device_dumps={}
             for freq in freqs:
-                print(device_name,' : ',freq*1000,'ms',file=open(self.log_file,'a'))
+                print_file(device_name,' : ',freq*1000,'ms',filename=self.log_file)
                 tags = list(device.dfplc[device.dfplc['FREQUENCE_ECHANTILLONNAGE']==freq].index)
-                # print(tags)
+                # print_file(tags)
                 device_dumps[freq] = SetInterval(freq,device.insert_intodb,self.dbParameters,self.dbTable,self.tz_record,tags)
 
             self.dumpInterval[device_name] = device_dumps
@@ -1224,7 +1231,7 @@ class SuperDumper(Configurator):
         dbconn=psycopg2.connect(''.join([k + "=" + v + " " for k,v in dbParameters.items()]))
         sqlQ ="select * from " + self.dbTable + " where timestampz < '" + t1.isoformat() +"'"
         sqlQ +="and timestampz > '" + t0.isoformat() +"'"
-        print(sqlQ,file=open(self.log_file,'a'))
+        print_file(sqlQ,filename=self.log_file)
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
         df = df[['tag','value','timestampz']]
         df['timestampz'] = pd.to_datetime(df['timestampz'])
@@ -1236,10 +1243,10 @@ class SuperDumper(Configurator):
         # df.to_csv(namefile)
         # zipObj = ZipFile(namefile.replace('.csv','.zip'), 'w')
         # zipObj.write(namefile,namefile.replace('.csv','.zip'))
-        print(computetimeshow('database read',start),file=open(self.log_file,'a'))
+        print_file(computetimeshow('database read',start),filename=self.log_file)
         namefile = namefile.replace('.csv','.pkl')
         df.to_pickle(namefile)
-        print(namefile,' saved',file=open(self.log_file,'a'))
+        print_file(namefile,' saved',filename=self.log_file)
         # close connection
         dbconn.close()
 
@@ -1266,11 +1273,11 @@ class SuperDumper(Configurator):
                 df[tag] = pd.DataFrame(stag).reset_index()
                 df[tag].columns=['timestampz','value']
             df[tag]['tag'] = tag
-            print(tag + ' generated')
+            print_file(tag + ' generated')
         df=pd.concat(df.values(),axis=0)
         start = time.time()
         # df.timestampz = [t.isoformat() for t in df.timestampz]
-        print(computetimeshow('timestampz to str',start),file=open(self.log_file,'a'))
+        print_file(computetimeshow('timestampz to str',start),filename=self.log_file)
         df=df.set_index('timestampz')
         return df
 
@@ -1298,7 +1305,7 @@ class SuperDumper(Configurator):
         time.sleep(1-now.microsecond/1000000)
 
         ######## start dumping
-        print(timenowstd(),': START DUMPING',file=open(self.log_file,'a'))
+        print_file(timenowstd(),': START DUMPING',filename=self.log_file)
         for device,dictIntervals in self.dumpInterval.items():
             self.devices[device].start_auto_reconnect()
             for freq in dictIntervals.keys():
@@ -1308,9 +1315,9 @@ class SuperDumper(Configurator):
         now = pd.Timestamp.now(tz='CET')
         # now = pd.Timestamp.now('2022-02-10 16:52:15',tz='CET')
         timer = 60-now.second
-        print('parking should start at ',now +pd.Timedelta(seconds=timer),file=open(self.log_file,'a'))
+        print_file('parking should start at ',now +pd.Timedelta(seconds=timer),filename=self.log_file)
         time.sleep(timer)
-        print(timenowstd(),': START PARKING',file=open(self.log_file,'a'))
+        print_file(timenowstd(),': START PARKING',filename=self.log_file)
         self.parkInterval.start()
 
     def stop_dumping(self):
@@ -1342,10 +1349,10 @@ class SuperDumper_daily(SuperDumper):
         sqlQ ="select * from " + self.dbTable + " where timestampz < '" + now.isoformat() +"'"
         # df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'],dtype={'value':'float'})
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        print(computetimeshow(self.dbTable + ' in '+ self.dbParameters['dbname'] +' for data <' + now.isoformat() +' read',start),file=open(self.log_file,'a'))
+        print_file(computetimeshow(self.dbTable + ' in '+ self.dbParameters['dbname'] +' for data <' + now.isoformat() +' read',start),filename=self.log_file)
         # check if database not empty
         if not len(df)>0:
-            print('table '+ self.dbTable + ' in ' + self.dbParameters['dbname'] + ' empty',file=open(self.log_file,'a'))
+            print_file('table '+ self.dbTable + ' in ' + self.dbParameters['dbname'] + ' empty',filename=self.log_file)
             return
         # close connection
 
@@ -1377,7 +1384,7 @@ class SuperDumper_daily(SuperDumper):
                     dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
                     self.parktagfromdb(tag,dftag,folderday)
 
-        print(computetimeshow('database parked',start),file=open(self.log_file,'a'))
+        print_file(computetimeshow('database parked',start),filename=self.log_file)
         self.parkingTimes[now.isoformat()] = (time.time()-start)*1000
         # #FLUSH DATABASE
         self.flushdb(t_parking.isoformat())
@@ -1389,11 +1396,11 @@ class SuperDumper_minutely(SuperDumper):
 
     def parktagfromdb(self,t0,t1,df,tag,compression='reduce'):
         dftag = df[df.tag==tag].set_index('timestampz')
-        # print(dftag)
+        # print_file(dftag)
         dftag.index=dftag.index.tz_convert(self.tz_record)
         if dftag.empty:
             return dftag
-        # print(tag + ' : ',self.dfplc.loc[tag,'DATATYPE'])
+        # print_file(tag + ' : ',self.dfplc.loc[tag,'DATATYPE'])
         if compression in ['reduce','diff','dynamic'] and not self.dfplc.loc[tag,'DATATYPE']=='STRING(40)':
             precision = self.dfplc.loc[tag,'PRECISION']
             dftag = dftag.replace('null',np.nan)
@@ -1412,13 +1419,13 @@ class SuperDumper_minutely(SuperDumper):
         sqlQ ="select * from " + self.dbTable + " where timestampz < '" + t1.isoformat() +"'"
         # df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'],dtype={'value':'float'})
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        print(computetimeshow('database read'+'for data <' + t1.isoformat(),start),file=open(self.log_file,'a'))
+        print_file(computetimeshow('database read'+'for data <' + t1.isoformat(),start),filename=self.log_file)
         # close connection
         dbconn.close()
 
         # check if database not empty
         if not len(df)>0:
-            print('database ' + self.dbParameters['dbname'] + ' empty',file=open(self.log_file,'a'))
+            print_file('database ' + self.dbParameters['dbname'] + ' empty',filename=self.log_file)
             return []
 
         ##### determine minimum time for parking folders
@@ -1436,7 +1443,7 @@ class SuperDumper_minutely(SuperDumper):
         dfs=[]
         for tag in listTags:
             dfs.append(self.parktagfromdb(t0,t1,df,tag))
-        print(computetimeshow('database parked',start),file=open(self.log_file,'a'))
+        print_file(computetimeshow('database parked',start),filename=self.log_file)
         self.parkingTimes[timenow.isoformat()] = (time.time()-start)*1000
         # #FLUSH DATABASE
         start=time.time()
@@ -1455,26 +1462,26 @@ class VisualisationMaster(Configurator):
         - tags : list of tags
         - t0,t1 : timestamps with timezone
         '''
-        # for k in t0,t1,tags,args,kwargs:print(k)
+        # for k in t0,t1,tags,args,kwargs:print_file(k)
         dbconn = self.connect2db()
         if not isinstance(tags,list) or len(tags)==0:
-                print('no tags selected for database',file=open(self.log_file,'a'))
+                print_file('no tags selected for database',filename=self.log_file)
                 return pd.DataFrame()
 
         sqlQ = "select * from " + self.dbTable + " where tag in ('" + "','".join(tags) +"')"
         sqlQ += " and timestampz > '" + t0.isoformat() + "'"
         sqlQ += " and timestampz < '" + t1.isoformat() + "'"
         sqlQ +=";"
-        # print(sqlQ)
+        # print_file(sqlQ)
         start=time.time()
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        print(computetimeshow('database read ',start),file=open(self.log_file,'a'))
+        print_file(computetimeshow('database read ',start),filename=self.log_file)
         dbconn.close()
         if len(df)==0:
             return df.set_index('timestampz')
         if df.duplicated().any():
-            print("WARNING : duplicates in database",file=open(self.log_file,'a'))
-            print(df[df.duplicated(keep=False)],file=open(self.log_file,'a'))
+            print_file("WARNING : duplicates in database",filename=self.log_file)
+            print_file(df[df.duplicated(keep=False)],filename=self.log_file)
             df = df.drop_duplicates()
         df.loc[df.value=='null','value']=np.nan
         df = df.set_index('timestampz')
@@ -1498,14 +1505,14 @@ class VisualisationMaster(Configurator):
         - t0,t1 : timestamps
         - *args,**kwargs of Streamer.processdf
         '''
-        # for k in t0,t1,tags,args,kwargs:print(k)
+        # for k in t0,t1,tags,args,kwargs:print_file(k)
         tags=list(np.unique(tags))
         ############ read parked data
         start=time.time()
         dfparked = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,pool=pool,*args,**kwargs)
         if checkTime:computetimeshow('loading the parked data',start)
         start=time.time()
-        # print(dfparked)
+        # print_file(dfparked)
         df = dfparked.pivot(values='value',columns='tag').sort_index()
         if checkTime:computetimeshow('pivot data',start)
         ############ read database
@@ -1616,20 +1623,20 @@ class VisualisationMaster_daily(VisualisationMaster):
         - pool:if true pool on tags
         '''
         if not isinstance(tags,list) or len(tags)==0:
-            print('tags is not a list or is empty',file=open(self.log_file,'a'))
+            print_file('tags is not a list or is empty',filename=self.log_file)
             return pd.DataFrame(columns=['value','timestampz','tag']).set_index('timestampz')
         df = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,pool)
         # if df.duplicated().any():
-        #     print("==========================================")
-        #     print("WARNING : duplicates in parked data")
-        #     print(df[df.duplicated(keep=False)])
-        #     print("==========================================")
+        #     print_file("==========================================")
+        #     print_file("WARNING : duplicates in parked data")
+        #     print_file(df[df.duplicated(keep=False)])
+        #     print_file("==========================================")
         #     df = df.drop_duplicates()
         return df
 
 class VisualisationMaster_minutely(VisualisationMaster):
     def _loadparkedtag(self,t0,t1,tag):
-        # print(tag)
+        # print_file(tag)
         dfs = self.streamer.foldersaction(t0,t1,self.folderPkl,self.streamer.loaddata_minutefolder,tag=tag)
         if len(dfs)>0:
             return pd.concat(dfs)
@@ -1641,14 +1648,14 @@ class VisualisationMaster_minutely(VisualisationMaster):
             try:
                 tags=list(tags)
             except:
-                print('tags is not a list',file=open(self.log_file,'a'))
+                print_file('tags is not a list',filename=self.log_file)
                 return pd.DataFrame()
         if len(tags)==0:
             return pd.DataFrame()
 
         start=time.time()
         if poolTags:
-            print('pooling the data...',file=open(self.log_file,'a'))
+            print_file('pooling the data...',filename=self.log_file)
             with Pool() as p:
                 dfs = p.starmap(self._loadparkedtag,[(timeRange[0],timeRange[1],tag) for tag in tags])
         else:
@@ -1659,7 +1666,7 @@ class VisualisationMaster_minutely(VisualisationMaster):
             return pd.DataFrame()
         df = pd.concat(dfs).sort_index()
         if df.duplicated().any():
-            print("="*60+'\n'+ "attention il y a des doublons dans les donnees parkes : ",file=open(self.log_file,'a'))
-            print(df[df.duplicated(keep=False)],'\n'+'='*60,file=open(self.log_file,'a'))
+            print_file("="*60+'\n'+ "attention il y a des doublons dans les donnees parkes : ",filename=self.log_file)
+            print_file(df[df.duplicated(keep=False)],'\n'+'='*60,filename=self.log_file)
             df = df.drop_duplicates()
         return df
