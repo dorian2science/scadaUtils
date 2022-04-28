@@ -109,12 +109,13 @@ class FileSystem():
             unit='u.a'
         return unit
 
-    def getTagsTU(self,patTag,dfplc,units,onCol='index',cols='tag',ds=True):
-        if ds:dfplc=dfplc[dfplc.DATASCIENTISM]
+    def getTagsTU(self,patTag,dfplc,units=None,onCol='index',cols='tag'):
         if onCol=='index':
             df = dfplc[dfplc.index.str.contains(patTag,case=False)]
         else:
             df = dfplc[dfplc[onCol].str.contains(patTag,case=False)]
+
+        if units is None:units=list(dfplc['UNITE'].unique())
         if isinstance(units,str):units = [units]
         df = df[df['UNITE'].isin(units)]
         if cols=='tdu' :
@@ -168,14 +169,14 @@ class Device():
         self.__auto_connect      = False
         self.__kill_auto_connect = threading.Event()
         if time_outs_reconnection is None:
-            # time_outs_reconnection=[(2,k) for k in [3,5,10,30,60,60*2,60*5,60*10,60*20,60*30,60*40,60*50,60*60]]
-            time_outs_reconnection=[(1,k) for k in [1,2,3,4,5,10,60*60]]
+            time_outs_reconnection=[(2,k) for k in [3,5,10,30,60,60*2,60*5,60*10,60*20,60*30,60*40,60*50]]
+            # time_outs_reconnection=[(1,k) for k in [1]]
+            time_outs_reconnection.append((100000,60*60))
         self.time_outs_reconnection = time_outs_reconnection
         self.timeOuts_counter  = 0
         self.current_trial     = 0
         self.current_timeOut   = self.time_outs_reconnection[0][1]
         self.thread_reconnection = threading.Thread(target=self.auto_reconnect)
-        self.thread_reconnection.start()
 
         self.dfplc             = dfplc
         self.listUnits         = self.dfplc.UNITE.dropna().unique().tolist()
@@ -183,6 +184,7 @@ class Device():
         self.collectingTimes,self.insertingTimes  = {},{}
 
     def auto_reconnect(self):
+        self.thread_reconnection.start()
         while not self.__kill_auto_connect.is_set():
             while self.__auto_connect:
                 self.checkConnection()
@@ -216,7 +218,7 @@ class Device():
                 self.checkConnection()
                 return
 
-            print('-'*60+'\n',file=self.log_file)
+            print('-'*60+'\n',file=open(self.log_file,'a'))
             if self.connectDevice():
                 self.timeOuts_counter  = 0
                 self.current_timeOut   = self.time_outs_reconnection[0][1]
@@ -225,8 +227,8 @@ class Device():
             else :
                 msg=timenowstd()+' : --> impossible to connect to device '+self.device_name
                 msg+='. Try new connection in ' + str(self.current_timeOut) + ' seconds'
-            print(msg,file=self.log_file)
-            print('-'*60+'\n',file=self.log_file)
+            print(msg,file=open(self.log_file,'a'))
+            print('-'*60+'\n',file=open(self.log_file,'a'))
 
     def generate_sql_insert_tag(self,tag,value,timestampz,dbTable):
         '''
@@ -245,7 +247,7 @@ class Device():
             connReq = ''.join([k + "=" + v + " " for k,v in dbParameters.items()])
             dbconn = psycopg2.connect(connReq)
         except :
-            print('problem connecting to database ',dbParameters,file=self.log_file)
+            print('problem connecting to database ',dbParameters,file=open(self.log_file,'a'))
             return
         cur  = dbconn.cursor()
         start=time.time()
@@ -255,7 +257,7 @@ class Device():
         try :
             data = self.collectData(*args)
         except:
-            print(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.',file=self.log_file)
+            print(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.',file=open(self.log_file,'a'))
             self.isConnected = False
             return
         self.collectingTimes[timenowstd()] = (time.time()-start)*1000
@@ -370,7 +372,6 @@ class Opcua_Client(Device):
             plcfile=listPLC_xlsm[0]
             print(plcfile,' is read and converted in .pkl')
             dfplc = pd.read_excel(plcfile,sheet_name='FichierConf_Jules',index_col=0)
-            dfplc = dfplc[dfplc.DATASCIENTISM]
             pickle.dump(dfplc,open(plcfile[:-5]+'.pkl','wb'))
             listPLC = glob.glob(self.confFolder + '*Instrum*.pkl')
 
@@ -434,10 +435,10 @@ class Meteo_Client(Device):
     def connectDevice(self):
         try:
             request = urllib.request.urlopen('https://www.google.com')
-            print("Meteo : Connected to the Internet",file=self.log_file)
+            print("Meteo : Connected to the Internet",file=open(self.log_file,'a'))
             return True
         except:
-            print("Meteo : No internet connection.",file=self.log_file)
+            print("Meteo : No internet connection.",file=open(self.log_file,'a'))
             return False
 
     def collectData(self,tags=None):
@@ -524,11 +525,11 @@ class Streamer():
         - convert timezone
         - apply correct datatype if bool,float or string
         '''
-        if printag:print(tagpath,file=self.log_file)
+        if printag:print(tagpath,file=open(self.log_file,'a'))
         ##### --- load pkl----
         try:df=pd.read_pickle(tagpath)
-        except:df=pd.DataFrame();print('pb loading',tagpath,file=self.log_file)
-        if df.empty:print('dataframe empty for ',tagpath,file=self.log_file);return
+        except:df=pd.DataFrame();print('pb loading',tagpath,file=open(self.log_file,'a'))
+        if df.empty:print('dataframe empty for ',tagpath,file=open(self.log_file,'a'));return
 
         ##### --- make them format pd.Series with name values and timestamp as index----
         if not isinstance(df,pd.core.series.Series):
@@ -547,13 +548,13 @@ class Streamer():
 
     def applyCorrectFormat_day(self,folder_day,dtypes,*args,**kwargs):
         # list of dtypes of all tags in folder
-        print(folder_day,file=self.log_file)
+        print(folder_day,file=open(self.log_file,'a'))
         tags = os.listdir(folder_day)
         for tag in tags:
             tag=tag.strip('.pkl')
             if tag in dtypes.keys():
                 self.applyCorrectFormat_tag(folder_day+'/'+tag+'.pkl',dtypes[tag],*args,**kwargs)
-            else: print('dtypes does not contain tag : ', tag,file=self.log_file)
+            else: print('dtypes does not contain tag : ', tag,file=open(self.log_file,'a'))
 
     # ########################
     #      HOURS FUNCTIONS   #
@@ -563,7 +564,7 @@ class Streamer():
         correctColumns=['tag','timestampz','value']
         if not list(dfhour.columns.sort_values())==correctColumns:
             print('PROBLEM: the df dataframe should have the following columns : ',correctColumns,'''
-            instead your columns are ''',list(dfhour.columns.sort_values()),file=self.log_file)
+            instead your columns are ''',list(dfhour.columns.sort_values()),file=open(self.log_file,'a'))
             return
 
         dfhour = dfhour.set_index('timestampz')
@@ -595,18 +596,18 @@ class Streamer():
         f_csv = filezip_hour.replace('.zip','.csv')
         start   = time.time()
         df = pd.read_csv(f_csv,parse_dates=['timestampz'],names=['tag','value','timestampz'])
-        print(computetimeshow('csv read ',start),file=self.log_file)
+        print(computetimeshow('csv read ',start),file=open(self.log_file,'a'))
         ##### remove the csv
         os.remove(f_csv)
         ##### park the file
         start   = time.time()
         message = self.park_DF_hour(df,folderparked_hours,pool=False)
-        print(computetimeshow(filezip_hour+' parked ',start),file=self.log_file)
+        print(computetimeshow(filezip_hour+' parked ',start),file=open(self.log_file,'a'))
         # except:
-        #     print('\n'+'*'*60,file=self.log_file)
+        #     print('\n'+'*'*60,file=open(self.log_file,'a'))
         #     message = filezip_hour+' failed to be parked'
-        #     print(message,file=self.log_file)
-        #     print('\n'+'*'*60,file=self.log_file)
+        #     print(message,file=open(self.log_file,'a'))
+        #     print('\n'+'*'*60,file=open(self.log_file,'a'))
         return message
 
     def park_hourly2dayly(self,day,folderparked_hours,folderparked_days,pool_tags=False,showtag=False):
@@ -639,7 +640,7 @@ class Streamer():
         correctColumns=['tag','timestampz','value']
         if not list(dfday.columns.sort_values())==correctColumns:
             print('PROBLEM: the df dataframe should have the following columns : ',correctColumns,'''
-            instead your columns are ''',list(dfday.columns.sort_values()),file=self.log_file)
+            instead your columns are ''',list(dfday.columns.sort_values()),file=open(self.log_file,'a'))
             return
 
         dfday = dfday.set_index('timestampz')
@@ -649,7 +650,7 @@ class Streamer():
             dfday = [pd.Timestamp(k).astimezone('UTC') for k in dfday.index]
         listTags = dfday.tag.unique()
         folderday = folderpkl +'/'+ dfday.index.mean().strftime(self.format_dayFolder)+'/'
-        print(file=self.log_file)
+        print(file=open(self.log_file,'a'))
         if not os.path.exists(folderday): os.mkdir(folderday)
         #park tag-day
         if pool :
@@ -658,7 +659,7 @@ class Streamer():
             for tag in listTags:self.parkdaytag(dfday,tag,folderday,showtag)
 
     def parkdaytag(self,dfday,tag,folderday,showtag=False):
-        if showtag:print(tag,file=self.log_file)
+        if showtag:print(tag,file=open(self.log_file,'a'))
         dftag=dfday[dfday.tag==tag]['value']
         pickle.dump(dftag,open(folderday + tag + '.pkl', "wb" ))
 
@@ -666,7 +667,7 @@ class Streamer():
         '''
         -t0,t1:timestamps
         '''
-        print(t0,t1,file=self.log_file)
+        print(t0,t1,file=open(self.log_file,'a'))
         days=pd.date_range(t0,t1,freq='1D')
         dayfolders =[folderPkl + k.strftime(self.format_dayFolder)+'/' for k in days]
         if pool:
@@ -677,7 +678,7 @@ class Streamer():
         return {d.strftime(self.format_dayFolder):df for d,df in zip(days,dfs)}
 
     def remove_tags_day(self,d,tags):
-        print(d,file=self.log_file)
+        print(d,file=open(self.log_file,'a'))
         for t in tags:
             tagpath=d+'/'+t+'.pkl'
             try:
@@ -750,17 +751,17 @@ class Streamer():
         return df
 
     def load_tag_daily(self,t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow='3000s',showTag=False,time_debug=False):
-        if showTag:print(tag,file=self.log_file)
+        if showTag:print(tag,file=open(self.log_file,'a'))
         start=time.time()
         dfs={}
         t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
         while t<t1:
             filename=folderpkl+t.strftime(self.format_dayFolder)+'/'+tag+'.pkl'
             if os.path.exists(filename):
-                if time_debug: print(filename,t.isoformat(),file=self.log_file)
+                if time_debug: print(filename,t.isoformat(),file=open(self.log_file,'a'))
                 dfs[filename]=pickle.load(open(filename,'rb'))
             else :
-                print('no file : ',filename,file=self.log_file)
+                print('no file : ',filename,file=open(self.log_file,'a'))
                 dfs[filename] = pd.Series()
             t = t + pd.Timedelta(days=1)
         if time_debug:computetimeshow('raw pkl loaded in ',start)
@@ -775,7 +776,7 @@ class Streamer():
             dftag['tag'] = tag
             if time_debug:computetimeshow('processing done in ',start)
         except:
-            print(tag+' could not be processed',file=self.log_file)
+            print(tag+' could not be processed',file=open(self.log_file,'a'))
             dftag=[]
         return dftag
 
@@ -810,7 +811,7 @@ class Streamer():
                 parentFolder=os.paht.dirname(folderday)
                 if not os.path.exists(parentFolder):
                     print(parentFolder,''' does not exist. Make sure
-                    the path of the parent folder exists''',file=self.log_file)
+                    the path of the parent folder exists''',file=open(self.log_file,'a'))
                     raise SystemExit
                 if not os.path.exists(folderday):
                     # print(folderday)
@@ -834,7 +835,7 @@ class Streamer():
             # print(folderminute)
             return pickle.load(open(folderminute + tag + '.pkl', "rb" ))
         else :
-            print('no folder : ',folderminute,file=self.log_file)
+            print('no folder : ',folderminute,file=open(self.log_file,'a'))
             return []
 
     def actionMinutes_pooled(self,t0,t1,folderPkl,actionminute,*args,pool=True):
@@ -969,7 +970,7 @@ class Streamer():
         correctColumns=['tag','timestampz','value']
         if not list(df.columns.sort_values())==correctColumns:
             print('PROBLEM: the df dataframe should have the following columns : ',correctColumns,'''
-            or your columns are ''',list(df.columns.sort_values()),file=self.log_file)
+            or your columns are ''',list(df.columns.sort_values()),file=open(self.log_file,'a'))
             return
         df=df.set_index('timestampz')
         listTags=df.tag.unique()
@@ -985,7 +986,7 @@ class Streamer():
             tm2=min(tm2,t1)
             # print(tm1,tm2)
             dfhour=df[(df.index>tm1)&(df.index<tm2)]
-            print('start for :', dfhour.index[-1],file=self.log_file)
+            print('start for :', dfhour.index[-1],file=open(self.log_file,'a'))
             start=time.time()
             minutes=pd.date_range(tm1,tm2,freq='1T')
             df_minutes=[dfhour[(dfhour.index>a)&(dfhour.index<a+dt.timedelta(minutes=1))] for a in minutes]
@@ -997,7 +998,7 @@ class Streamer():
                     dfs = p.starmap(self.park_df_minute,[(fm,dfm,listTags) for fm,dfm in zip(minutefolders,df_minutes)])
             else:
                 dfs = [self.park_df_minute(fm,dfm,listTags) for fm,dfm in zip(minutefolders,df_minutes)]
-            print(computetimeshow('',start),file=self.log_file)
+            print(computetimeshow('',start),file=open(self.log_file,'a'))
 
     def createFolders_period(self,t0,t1,folderPkl,frequence='day'):
         if frequence=='minute':
@@ -1132,13 +1133,12 @@ class Configurator():
         self.parkingTime = parkingTime##seconds
         self.devices = devices
         #####################################
-        self.dfplc = pd.concat([device.dfplc for device in self.devices.values()])
-        self.dfplc = self.dfplc[self.dfplc.DATASCIENTISM==True]
-        self.alltags    = list(self.dfplc.index)
-        self.daysnotempty = self.getdaysnotempty()
-        self.tmin,self.tmax = self.daysnotempty.min(),self.daysnotempty.max()
-        self.listUnits = self.dfplc.UNITE.dropna().unique().tolist()
-        self.to_folderminute=lambda x:self.folderPkl+x.strftime(self.format_folderminute)
+        self.dfplc           = pd.concat([device.dfplc for device in self.devices.values()])
+        self.alltags         = list(self.dfplc.index)
+        self.daysnotempty    = self.getdaysnotempty()
+        self.tmin,self.tmax  = self.daysnotempty.min(),self.daysnotempty.max()
+        self.listUnits       = self.dfplc.UNITE.dropna().unique().tolist()
+        self.to_folderminute = lambda x:self.folderPkl+x.strftime(self.format_folderminute)
 
     def getdaysnotempty(self):
         return self.fs.get_parked_days_not_empty(self.folderPkl)
@@ -1165,22 +1165,22 @@ class Configurator():
         return self.fs.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
 
 class SuperDumper(Configurator):
-    def __init__(self,*args,**kwargs):
-        Configurator.__init__(self,*args,**kwargs)
-        self.parkingTimes={}
-        self.streamer = Streamer()
-        self.fs = FileSystem()
-        self.dumpInterval,self.reconnexionThread = {},{}
+    def __init__(self,*args,log_file=None,**kwargs):
+        Configurator.__init__(self,*args,**kwargs,log_file=log_file)
+        self.parkingTimes = {}
+        self.streamer     = Streamer()
+        self.fs           = FileSystem()
+        self.dumpInterval = {}
         self.parkInterval = SetInterval(self.parkingTime,self.park_database)
         ###### DOUBLE LOOP of setIntervals for devices/acquisition-frequencies
+
+        print(' '*20+'INSTANCIATING OF DUMPER'+'\n',file=open(self.log_file,'w'))
         for device_name,device in self.devices.items():
-            self.reconnexionThread[device_name] = SetInterval(device.timeOUTreconnect,device.checkConnection)
-            dfplc = device.dfplc[device.dfplc.DATASCIENTISM==True]
-            freqs = dfplc['FREQUENCE_ECHANTILLONNAGE'].unique()
+            freqs = device.dfplc['FREQUENCE_ECHANTILLONNAGE'].unique()
             device_dumps={}
             for freq in freqs:
-                print(device_name,' : ',freq*1000,'ms',file=self.log_file)
-                tags = list(dfplc[dfplc['FREQUENCE_ECHANTILLONNAGE']==freq].index)
+                print(device_name,' : ',freq*1000,'ms',file=open(self.log_file,'a'))
+                tags = list(device.dfplc[device.dfplc['FREQUENCE_ECHANTILLONNAGE']==freq].index)
                 # print(tags)
                 device_dumps[freq] = SetInterval(freq,device.insert_intodb,self.dbParameters,self.dbTable,self.tz_record,tags)
 
@@ -1224,7 +1224,7 @@ class SuperDumper(Configurator):
         dbconn=psycopg2.connect(''.join([k + "=" + v + " " for k,v in dbParameters.items()]))
         sqlQ ="select * from " + self.dbTable + " where timestampz < '" + t1.isoformat() +"'"
         sqlQ +="and timestampz > '" + t0.isoformat() +"'"
-        print(sqlQ,file=self.log_file)
+        print(sqlQ,file=open(self.log_file,'a'))
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
         df = df[['tag','value','timestampz']]
         df['timestampz'] = pd.to_datetime(df['timestampz'])
@@ -1236,10 +1236,10 @@ class SuperDumper(Configurator):
         # df.to_csv(namefile)
         # zipObj = ZipFile(namefile.replace('.csv','.zip'), 'w')
         # zipObj.write(namefile,namefile.replace('.csv','.zip'))
-        print(computetimeshow('database read',start),file=self.log_file)
+        print(computetimeshow('database read',start),file=open(self.log_file,'a'))
         namefile = namefile.replace('.csv','.pkl')
         df.to_pickle(namefile)
-        print(namefile,' saved',file=self.log_file)
+        print(namefile,' saved',file=open(self.log_file,'a'))
         # close connection
         dbconn.close()
 
@@ -1270,7 +1270,7 @@ class SuperDumper(Configurator):
         df=pd.concat(df.values(),axis=0)
         start = time.time()
         # df.timestampz = [t.isoformat() for t in df.timestampz]
-        print(computetimeshow('timestampz to str',start),file=self.log_file)
+        print(computetimeshow('timestampz to str',start),file=open(self.log_file,'a'))
         df=df.set_index('timestampz')
         return df
 
@@ -1298,9 +1298,9 @@ class SuperDumper(Configurator):
         time.sleep(1-now.microsecond/1000000)
 
         ######## start dumping
-        print(timenowstd(),': START DUMPING',file=self.log_file)
+        print(timenowstd(),': START DUMPING',file=open(self.log_file,'a'))
         for device,dictIntervals in self.dumpInterval.items():
-            self.reconnexionThread[device].start()
+            self.devices[device].start_auto_reconnect()
             for freq in dictIntervals.keys():
                 self.dumpInterval[device][freq].start()
 
@@ -1308,9 +1308,9 @@ class SuperDumper(Configurator):
         now = pd.Timestamp.now(tz='CET')
         # now = pd.Timestamp.now('2022-02-10 16:52:15',tz='CET')
         timer = 60-now.second
-        print('parking should start at ',now +pd.Timedelta(seconds=timer),file=self.log_file)
+        print('parking should start at ',now +pd.Timedelta(seconds=timer),file=open(self.log_file,'a'))
         time.sleep(timer)
-        print(timenowstd(),': START PARKING',file=self.log_file)
+        print(timenowstd(),': START PARKING',file=open(self.log_file,'a'))
         self.parkInterval.start()
 
     def stop_dumping(self):
@@ -1342,10 +1342,10 @@ class SuperDumper_daily(SuperDumper):
         sqlQ ="select * from " + self.dbTable + " where timestampz < '" + now.isoformat() +"'"
         # df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'],dtype={'value':'float'})
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        print(computetimeshow(self.dbTable + ' in '+ self.dbParameters['dbname'] +' for data <' + now.isoformat() +' read',start),file=self.log_file)
+        print(computetimeshow(self.dbTable + ' in '+ self.dbParameters['dbname'] +' for data <' + now.isoformat() +' read',start),file=open(self.log_file,'a'))
         # check if database not empty
         if not len(df)>0:
-            print('table '+ self.dbTable + ' in ' + self.dbParameters['dbname'] + ' empty',file=self.log_file)
+            print('table '+ self.dbTable + ' in ' + self.dbParameters['dbname'] + ' empty',file=open(self.log_file,'a'))
             return
         # close connection
 
@@ -1377,7 +1377,7 @@ class SuperDumper_daily(SuperDumper):
                     dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
                     self.parktagfromdb(tag,dftag,folderday)
 
-        print(computetimeshow('database parked',start),file=self.log_file)
+        print(computetimeshow('database parked',start),file=open(self.log_file,'a'))
         self.parkingTimes[now.isoformat()] = (time.time()-start)*1000
         # #FLUSH DATABASE
         self.flushdb(t_parking.isoformat())
@@ -1412,13 +1412,13 @@ class SuperDumper_minutely(SuperDumper):
         sqlQ ="select * from " + self.dbTable + " where timestampz < '" + t1.isoformat() +"'"
         # df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'],dtype={'value':'float'})
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        print(computetimeshow('database read'+'for data <' + t1.isoformat(),start),file=self.log_file)
+        print(computetimeshow('database read'+'for data <' + t1.isoformat(),start),file=open(self.log_file,'a'))
         # close connection
         dbconn.close()
 
         # check if database not empty
         if not len(df)>0:
-            print('database ' + self.dbParameters['dbname'] + ' empty',file=self.log_file)
+            print('database ' + self.dbParameters['dbname'] + ' empty',file=open(self.log_file,'a'))
             return []
 
         ##### determine minimum time for parking folders
@@ -1436,7 +1436,7 @@ class SuperDumper_minutely(SuperDumper):
         dfs=[]
         for tag in listTags:
             dfs.append(self.parktagfromdb(t0,t1,df,tag))
-        print(computetimeshow('database parked',start),file=self.log_file)
+        print(computetimeshow('database parked',start),file=open(self.log_file,'a'))
         self.parkingTimes[timenow.isoformat()] = (time.time()-start)*1000
         # #FLUSH DATABASE
         start=time.time()
@@ -1458,7 +1458,7 @@ class VisualisationMaster(Configurator):
         # for k in t0,t1,tags,args,kwargs:print(k)
         dbconn = self.connect2db()
         if not isinstance(tags,list) or len(tags)==0:
-                print('no tags selected for database',file=self.log_file)
+                print('no tags selected for database',file=open(self.log_file,'a'))
                 return pd.DataFrame()
 
         sqlQ = "select * from " + self.dbTable + " where tag in ('" + "','".join(tags) +"')"
@@ -1468,13 +1468,13 @@ class VisualisationMaster(Configurator):
         # print(sqlQ)
         start=time.time()
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        print(computetimeshow('database read ',start),file=self.log_file)
+        print(computetimeshow('database read ',start),file=open(self.log_file,'a'))
         dbconn.close()
         if len(df)==0:
             return df.set_index('timestampz')
         if df.duplicated().any():
-            print("WARNING : duplicates in database",file=self.log_file)
-            print(df[df.duplicated(keep=False)],file=self.log_file)
+            print("WARNING : duplicates in database",file=open(self.log_file,'a'))
+            print(df[df.duplicated(keep=False)],file=open(self.log_file,'a'))
             df = df.drop_duplicates()
         df.loc[df.value=='null','value']=np.nan
         df = df.set_index('timestampz')
@@ -1616,7 +1616,7 @@ class VisualisationMaster_daily(VisualisationMaster):
         - pool:if true pool on tags
         '''
         if not isinstance(tags,list) or len(tags)==0:
-            print('tags is not a list or is empty',file=self.log_file)
+            print('tags is not a list or is empty',file=open(self.log_file,'a'))
             return pd.DataFrame(columns=['value','timestampz','tag']).set_index('timestampz')
         df = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,pool)
         # if df.duplicated().any():
@@ -1641,14 +1641,14 @@ class VisualisationMaster_minutely(VisualisationMaster):
             try:
                 tags=list(tags)
             except:
-                print('tags is not a list',file=self.log_file)
+                print('tags is not a list',file=open(self.log_file,'a'))
                 return pd.DataFrame()
         if len(tags)==0:
             return pd.DataFrame()
 
         start=time.time()
         if poolTags:
-            print('pooling the data...',file=self.log_file)
+            print('pooling the data...',file=open(self.log_file,'a'))
             with Pool() as p:
                 dfs = p.starmap(self._loadparkedtag,[(timeRange[0],timeRange[1],tag) for tag in tags])
         else:
@@ -1659,376 +1659,7 @@ class VisualisationMaster_minutely(VisualisationMaster):
             return pd.DataFrame()
         df = pd.concat(dfs).sort_index()
         if df.duplicated().any():
-            print("="*60+'\n'+ "attention il y a des doublons dans les donnees parkes : ",file=self.log_file)
-            print(df[df.duplicated(keep=False)],'\n'+'='*60,file=self.log_file)
+            print("="*60+'\n'+ "attention il y a des doublons dans les donnees parkes : ",file=open(self.log_file,'a'))
+            print(df[df.duplicated(keep=False)],'\n'+'='*60,file=open(self.log_file,'a'))
             df = df.drop_duplicates()
         return df
-
-# #######################
-# #  VERISON MANAGER    #
-# #######################
-import collections
-sort_list=lambda x:list(pd.Series(x).sort_values())
-class VersionManager():
-    def __init__(self,folderData,plcDir,buildFiles=[False,False,False],pattern_plcFiles='*plc*.csv'):
-        self.streamer     = Streamer()
-        self.fs           = FileSystem()
-        self.plcDir       = plcDir
-        self.folderData   = folderData
-        self.versionFiles = glob.glob(self.plcDir+pattern_plcFiles)
-        self.dicVersions  = {f:re.findall('\d+\.\d+',f.split('/')[-1])[0] for f in self.versionFiles}
-        self.versions     = sort_list(self.dicVersions.values())
-        self.daysnotempty = pd.Series([pd.Timestamp(k) for k in self.fs.get_parked_days_not_empty(folderData)])
-        self.tmin,self.tmax = self.daysnotempty.min(),self.daysnotempty.max()
-        # self.transitionFile = self.plcDir + 'versionnageTags.xlsx'
-        self.transitionFile = self.plcDir + 'versionnageTags.ods'
-        self.transitions    = pd.ExcelFile(self.transitionFile).sheet_names
-        self.file_df_plcs    = self.plcDir + 'alldfsPLC.pkl'
-        self.file_df_nbTags  = self.plcDir + 'nbTags.pkl'
-        self.file_map_missingTags  = self.plcDir + 'map_missingTags.pkl'
-        self.file_map_presenceTags  = self.plcDir + 'map_presenceTags.pkl'
-        self.load_confFiles(buildFiles)
-        print('FINISH LOADING VERSION MANAGER\n'+'='*60+'\n')
-
-    def load_confFiles(self,buildFiles):
-        loadconfFile = lambda x,y,b:self.fs.load_confFile(x,y,b)
-        self.df_plcs,self.all_tags_history = loadconfFile(self.file_df_plcs,self.load_PLC_versions,buildFiles[0])
-        self.df_nbTagsFolder = loadconfFile(self.file_df_nbTags,self.load_nbTags_folders,buildFiles[1])
-        self.map_missingTags,self.map_missingTags_len = loadconfFile(self.file_map_missingTags,self.load_missingTags_versions,buildFiles[2])
-        # self.map_presenceTags = loadconfFile(self.file_map_presenceTags,self.load_presenceTags)
-
-    #######################
-    #       UTILS         #
-    #######################
-    def totime(self,x):
-        y=x.split('/')
-        return pd.Timestamp(y[0]+' ' +y[1] + ':' + y[2])
-
-    def is_tags_in_PLCs(self,tags,ds=True):
-        df_plcs = self.df_plcs
-        if not not ds:
-            df_plcs = {k:v[v.DATASCIENTISM==ds] for k,v in self.df_plcs.items()}
-        tagInplc={}
-        for tag in tags:
-            tagInplc[tag]=[True if tag in list(v.index) else False for k,v in df_plcs.items()]
-        return pd.DataFrame.from_dict(tagInplc,orient='index',columns=df_plcs.keys()).T.sort_index()
-
-    def get_patterntags_inPLCs(self,pattern,ds=True):
-        df_plcs = self.df_plcs
-        if not not ds:
-            df_plcs = {k:v[v.DATASCIENTISM==ds] for k,v in self.df_plcs.items()}
-        patterntags_plcs={}
-        # print(df_plcs.keys())
-        for v,dfplc in df_plcs.items():
-            # return pd.DataFrame.from_dict(tagInplc,orient='index',columns=df_plcs.keys()).T.sort_index()
-            patterntags_plcs[v]=list(dfplc.index[dfplc.index.str.contains(pattern)])
-            patterntags_plcs = collections.OrderedDict(sorted(patterntags_plcs.items()))
-        return patterntags_plcs
-
-    def get_listTags_folder(self,folder):
-        return self.fs.listfiles_folder(folder)
-
-    def get_lentags(self,folder):
-        return len(self.fs.listfiles_folder(folder))
-
-    def get_presenceTags_folder(self,folder,tags=None):
-        if tags is None : tags=self.all_tags_history
-        # print(folder)
-        listTags = [k.split('.pkl')[0] for k in self.fs.listfiles_folder(folder)]
-        # print(listTags)
-        return {t:True if t in listTags else False for t in tags}
-
-    def get_missing_tags_versions(self,folder):
-        # print(folder)
-        listTags = [k.split('.pkl')[0] for k in self.get_listTags_folder(folder)]
-        # keep only valid tags
-        listTags = [k for k in listTags if k in self.all_tags_history]
-        dfs, tagNotInVersion, tagNotInFolder={},{},{}
-        dayCompatibleVersions = {}
-        for version,dfplc in self.df_plcs.items():
-            # keep only valid tags
-            tagsVersion = list(dfplc.index[dfplc.DATASCIENTISM])
-            tagNotInVersion[version] = [k for k in listTags if k not in tagsVersion]
-            tagNotInFolder[version] = [k for k in tagsVersion if k not in listTags]
-            dfs[version] = tagsVersion
-            dayCompatibleVersions[version] = tagNotInFolder[version]
-        return dayCompatibleVersions
-
-
-    #######################
-    # GENERATE DATAFRAMES #
-    #######################
-    def load_PLC_versions(self):
-        print('Start reading plc files....')
-        df_plcs = {}
-        for f,v in self.dicVersions.items():
-            print(f)
-            df_plcs[v] = pd.read_csv(f,index_col=0)
-
-        print('')
-        print('concatenate tags of all dfplc verion')
-        all_tags_history = list(pd.concat([pd.Series(dfplc.index[dfplc.DATASCIENTISM]) for dfplc in df_plcs.values()]).unique())
-        return df_plcs,all_tags_history
-
-    ######################
-    # MAKE IT COMPATIBLE #
-    ######################
-    ##### load the right version to version correspondance
-    def getCorrectVersionCorrespondanceSheet(self,transition):
-        if transition not in self.transitions:
-            return pd.DataFrame({'old tag':[],'new tag':[]})
-        else:
-            return pd.read_excel(self.transitionFile,sheet_name=transition)
-
-    def get_renametagmap_transition(self,transition):
-        patternsMap = self.getCorrectVersionCorrespondanceSheet(transition)
-        if len(patternsMap)>0:
-            dfRenameTagsMap = patternsMap.apply(lambda x:self._getReplaceTagPatternMap(x[0],x[1],transition),axis=1,result_type='expand')
-            ## remove empty lists for old Tags
-            dfRenameTagsMap = dfRenameTagsMap[dfRenameTagsMap[0].apply(len)>0]
-            ## flatten lists
-            dfRenameTagsMap = dfRenameTagsMap.apply(lambda x:self.flattenList(x))
-        else:
-            dfRenameTagsMap=pd.DataFrame([[],[]]).T
-        dfRenameTagsMap.columns=['oldTags','newTags']
-
-        vold,vnew=transition.split('_')
-        plcold = self.df_plcs[vold]
-        plcold = plcold[plcold.DATASCIENTISM==True]
-        plcnew = self.df_plcs[vnew]
-        plcnew = plcnew[plcnew.DATASCIENTISM==True]
-
-        tagsAdded = [t for t in list(plcnew.TAG) if t not in list(plcold.TAG)]
-        # tags that were renamed should not be added
-        tagsAdded = [k for k in tagsAdded if k not in list(dfRenameTagsMap.newTags)]
-        return dfRenameTagsMap,tagsAdded
-
-    def get_renametagmap_transition_v2(self,transition):
-        patternsMap = self.getCorrectVersionCorrespondanceSheet(transition)
-        patternsMap = patternsMap.set_index('old tag').squeeze(axis=1).to_dict()
-        vold,vnew=transition.split('_')
-        plcold  = self.df_plcs[vold]
-        oldtags = list(plcold[plcold.DATASCIENTISM==True].index)
-        plcnew  = self.df_plcs[vnew]
-        newtags = list(plcnew[plcnew.DATASCIENTISM==True].index)
-        df_renametagsmap = {}
-        for oldtag in oldtags:
-            newtag = oldtag
-            for oldpat,newpat in patternsMap.items():
-                newtag= newtag.replace(oldpat,newpat)
-            df_renametagsmap[oldtag] = newtag
-        df_renametagsmap=pd.DataFrame({'oldtag':df_renametagsmap.keys(),'newtag':df_renametagsmap.values()})
-        df_renametagsmap = df_renametagsmap[df_renametagsmap.apply(lambda x:not x['oldtag']==x['newtag'],axis=1)]
-
-        # brand_newtags = [t for t in newtags if t not in list(df_renametagsmap['newtag'])]
-        # brand_newtags = pd.DataFrame([(None,k) for k in brand_newtags],columns=['oldtag','newtag'])
-        # df_renametagsmap = pd.concat([df_renametagsmap,brand_newtags])
-        return df_renametagsmap
-
-    def get_rename_tags_newpattern(self,oldPattern,newPattern,df_plc,debug=False):
-        ''' replace only pattern occurence '''
-        df_renametagsmap=pd.DataFrame(df_plc.index,columns=['oldtag'])
-        df_renametagsmap['newtag']=df_renametagsmap.apply(lambda x : x.replace(oldPattern,newPattern))
-        return df_renametagsmap
-
-    def removeInvalidTags(self,folderminute):
-        listTags = [k.split('.pkl')[0] for k in os.listdir(folderminute)]
-        list_invalidTags = [k for k in listTags if k not in self.all_tags_history]
-        try:
-            [os.remove(folderminute + tag + '.pkl') for tag in list_invalidTags]
-        except:
-            print('not removed')
-            # print('could not remove tags in',list_invalidTags)
-
-    def get_replace_tags_folder(self,folder,tag2replace):
-        # print(folder)
-        result={}
-        for oldtag,newtag in zip(tag2replace['oldtag'],tag2replace['newtag']):
-            try:
-                os.rename(folder + oldtag+'.pkl',folder+newtag+'.pkl')
-                result[oldtag]='replace by ' + newtag
-            except:
-                result[oldtag]=' not in folder'
-        return result
-
-    def get_createnewtags_folder(self,folder,alltagsversion):
-        # print(folder)
-        df = pd.Series(name='value')
-        df_tagAdded={}
-        for tag in alltagsversion:
-            tagpkl=folder + tag + '.pkl'
-            if os.path.exists(tagpkl):
-                df_tagAdded[tag] = False
-            else:
-                df.to_pickle(folder + tag + '.pkl')
-                df_tagAdded[tag] = True
-        return df_tagAdded
-
-    ###################
-    #       GRAPHS    #
-    ###################
-    def show_map_of_compatibility(self,binaire=False,zmax=None):
-        testdf=self.map_missingTags_len.T
-        if zmax is None:
-            zmax = testdf.max().max()
-        reverse_scale=True
-        # testdf=testdf.applymap(lambda x:np.random.randint(0,zmax))
-        if binaire:
-            testdf=testdf.applymap(lambda x:1 if x==0 else 0)
-            zmax=1
-            reverse_scale=False
-
-        fig=go.Figure(go.Heatmap(z=testdf,x=['v' + k for k in testdf.columns],
-            y=testdf.index,colorscale='RdYlGn',reversescale=reverse_scale,
-            zmin=0,zmax=zmax))
-        fig.update_xaxes(side="top",tickfont_size=35)
-        fig.update_layout(font_color="blue",font_size=15)
-        fig.show()
-        return fig
-
-    def show_nbFolder(self):
-        dfshow = self.df_nbTagsFolder
-        dfshow.columns=['nombre tags']
-        dfshow.index=[self.totime(x) for x in dfshow.index]
-        fig = px.line(dfshow,x=dfshow.index,y='nombre tags')
-        fig.show()
-        return fig
-
-    def show_map_presenceTags(self,tags):
-        dfshow = self.map_presenceTags[tags]
-        dfshow=dfshow.astype(int)
-        fig=go.Figure(go.Heatmap(z=dfshow,x=dfshow.columns,
-                        y=dfshow.index,colorscale='RdYlGn',reversescale=False,
-                        zmin=0,zmax=1))
-        fig.update_xaxes(side="top",tickfont_size=10)
-        fig.update_layout(font_color="blue",font_size=15)
-        fig.show()
-        return fig
-class VersionManager_minutely(VersionManager):
-    #######################
-    # GENERATE DATAFRAMES #
-    #######################
-    def load_nbTags_folders(self):
-        # get_lentags=lambda x:len(self.fs.listfiles_folder(x))
-        df_nbtags=self.streamer.actionMinutes_pooled(self.tmin,self.tmax,self.folderData,self.get_lentags)
-        return pd.DataFrame.from_dict(df_nbtags,orient='index')
-
-    def load_missingTags_versions(self,period=None,pool=True):
-        '''-period : [tmin,tmax] timestamps'''
-        map_missingTags = self._compute_all_minutefolders(self.get_missing_tags_versions,period=period)
-        map_missingTags = pd.DataFrame(map_missingTags).T
-        map_missingTags_len = map_missingTags.applymap(lambda x:len(x))
-        return map_missingTags,map_missingTags_len
-
-    def load_presenceTags(self,period=None,frequence='daily'):
-        if frequence=='daily':
-            return self._compute_all_minutefolders(self.get_presenceTags_folder,period=period)
-        elif frequence=='minutely':
-            return self._compute_all_minutefolders(self.get_presenceTags_folder,period=period)
-
-    def _compute_all_minutefolders(self,function,*args,period=None,pool=True):
-        '''-period : [tmin,tmax] timestamps'''
-        if period is None:
-            tmin = self.tmin
-            tmax = self.tmax
-        else :
-            tmin,tmax=period
-        if tmax - tmin -dt.timedelta(days=2)<pd.Timedelta(seconds=0):
-            pool=False
-        df = self.streamer.actionMinutes_pooled(tmin,tmax,self.folderData,function,*args,pool=pool)
-        # print(df)
-        df = pd.DataFrame(df).T
-        df.index=[self.totime(x) for x in df.index]
-        return df
-
-    def make_it_compatible_with_renameMap(self,map_renametag,period):
-        ## from one version to an adjacent version (next or last):
-        ## get transition rules
-        # self.getCorrectVersionCorrespondanceSheet(transition)
-        ## get the corresponding map of tags that should be renamed
-        ## rename tags that should be renamed
-        '''map_renametag :
-            - should be a dataframe with columns ['oldtag','newtag']
-            - should have None values in oldtag column for brand newtags
-            - should have None values in newtag column for deleted tags
-            '''
-        tag2replace = map_renametag[map_renametag.apply(lambda x:not x['oldtag']==x['newtag'] and not x['oldtag'] is None and not x['newtag'] is None,axis=1)]
-        print()
-        print('MAP OF TAGS TO REPLACE '.rjust(75))
-        print(tag2replace)
-        print()
-        replacedmap=self._compute_all_minutefolders(self.get_replace_tags_folder,tag2replace,period=period)
-        print()
-        print('MAP OF REPLACED TAGS '.rjust(75))
-        print(replacedmap)
-        return replacedmap
-
-class VersionManager_daily(VersionManager):
-    def __init__(self,*args,**kwargs):
-        VersionManager.__init__(self,*args,**kwargs)
-        self.streamer.actiondays(self.tmin,self.tmax,self.folderData,self.streamer.create_dayfolder,pool=False)
-
-    #######################
-    # GENERATE DATAFRAMES #
-    #######################
-    def _compute_all_dayfolders(self,function,*args,period=None,pool=False):
-        '''-period : [tmin,tmax] timestamps'''
-        if period is None:
-            tmin = self.tmin
-            tmax = self.tmax
-        else :
-            tmin,tmax=period
-        if tmax - tmin - dt.timedelta(days=20)<pd.Timedelta(seconds=0):
-            pool=False
-        df = self.streamer.actiondays(tmin,tmax,self.folderData,function,*args,pool=pool)
-        # print(df)
-        df = pd.DataFrame(df).T
-        df.index=[pd.Timestamp(x,tz='CET') for x in df.index]
-        return df
-
-    def load_nbTags_folders(self):
-        df_nbtags=self.streamer.actiondays(self.tmin,self.tmax,self.folderData,self.get_lentags,pool=False)
-        return pd.DataFrame.from_dict(df_nbtags,orient='index')
-
-    def load_missingTags_versions(self,period=None,pool=False):
-        '''-period : [tmin,tmax] timestamps'''
-        map_missingTags = self._compute_all_dayfolders(self.get_missing_tags_versions,period=period,pool=pool)
-        map_missingTags = pd.DataFrame(map_missingTags).T.sort_index()
-        map_missingTags_len = map_missingTags.applymap(lambda x:len(x))
-        return map_missingTags,map_missingTags_len
-
-    def load_presenceTags(self,period=None,pool=False):
-        return self._compute_all_dayfolders(self.get_presenceTags_folder,period=period,pool=pool)
-
-    ###########################
-    # COMPATIBILITY FUNCTIONS #
-    ###########################
-    def make_it_compatible_with_renameMap(self,map_renametag,period):
-        ## from one version to an adjacent version (next or last):
-        ## get transition rules
-        # self.getCorrectVersionCorrespondanceSheet(transition)
-        ## get the corresponding map of tags that should be renamed
-        ## rename tags that should be renamed
-        '''map_renametag :
-            - should be a dataframe with columns ['oldtag','newtag']
-            - should have None values in oldtag column for brand newtags
-            - should have None values in newtag column for deleted tags
-            '''
-        tag2replace = map_renametag[map_renametag.apply(lambda x:not x['oldtag']==x['newtag'] and not x['oldtag'] is None and not x['newtag'] is None,axis=1)]
-        print()
-        print('MAP OF TAGS TO REPLACE '.rjust(75))
-        print(tag2replace)
-        print()
-        replacedmap=self._compute_all_dayfolders(self.get_replace_tags_folder,tag2replace,period=period)
-        print()
-        print('MAP OF REPLACED TAGS '.rjust(75))
-        print(replacedmap)
-        return replacedmap
-
-    def create_emptytags_version(self,period,dfplc):
-        ## add tags as emptydataframes in folder if they are missing
-        print('---------------------------------------------------------------')
-        print();print();print()
-        alltags = list(dfplc[dfplc.DATASCIENTISM==True].index)
-        map_createTags   = self._compute_all_dayfolders(self.get_createnewtags_folder,alltags,period=period)
-        return map_createTags
