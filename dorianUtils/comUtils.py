@@ -77,7 +77,6 @@ class FileSystem():
     def get_parked_days_not_empty(self,folderPkl,minSize=3,dict_size=3):
         '''dict_size:minimum size in Mo of the folder to be taken into account '''
         sizes={'G':1000,'K':0.001,'M':1}
-        print(folderPkl)
         folders=[k.split('\t') for k in sp.check_output('du -h --max-depth=1 '+ folderPkl + ' | sort -h',shell=True).decode().split('\n')]
         folders = [k for k in folders if len(k)==2]
         folders = [k for k in folders if len(re.findall('\d{4}-\d{2}-\d',k[1].split('/')[-1]))>0 ]
@@ -352,7 +351,12 @@ class ModeBusDevice(Device):
             return d
 
     def connectDevice(self):
-        return self.client.connect()
+        try:
+            self.client.connect()
+            self.isConnected=True
+        except:
+            self.isConnected=False
+        return self.isConnected
 
     def collectData(self,tz,*args):
         d={}
@@ -409,10 +413,10 @@ class Meteo_Client(Device):
         self.cities = pd.DataFrame({'le_cheylas':{'lat' : '45.387','lon':'6.0000'}})
         self.baseurl = 'https://api.openweathermap.org/data/2.5/'
         dfplc = self.build_plcmeteo(self.freq)
-        Device.__init__(self,'meteo',self.baseurl,None,dfplc,timeoutreconnect=self.freq)
+        Device.__init__(self,'meteo',self.baseurl,None,dfplc)
         self.apitoken = '79e8bbe89ac67324c6a6cdbf76a450c0'
         # self.apitoken = '2baff0505c3177ad97ec1b648b504621'# Marc
-        self.t0 = dt.datetime(1970,1,1,1,0).astimezone(tz = pytz.timezone('Etc/GMT-3'))
+        self.t0 = pd.Timestamp('1970-01-01 00:00',tz='UTC')
 
     def build_plcmeteo(self,freq):
         vars = ['temp','pressure','humidity','clouds','wind_speed']
@@ -442,30 +446,31 @@ class Meteo_Client(Device):
 
     def connectDevice(self):
         try:
-            request = urllib.request.urlopen('https://www.google.com')
-            print_file("Meteo : Connected to the Internet",filename=self.log_file)
-            return True
+            request = urllib.request.urlopen('https://api.openweathermap.org/',timeout=2)
+            print_file("Meteo : Connected to the meteo server.",filename=self.log_file)
+            self.isConnected=True
         except:
-            print_file("Meteo : No internet connection.",filename=self.log_file)
-            return False
+            print_file("Meteo : No internet connection or server not available.",filename=self.log_file)
+            self.isConnected=False
+        return self.isConnected
 
-    def collectData(self,tags=None):
-        df = pd.concat([self.get_dfMeteo(city) for city in self.cities])
+    def collectData(self,tz='CET',tags=None):
+        df = pd.concat([self.get_dfMeteo(city,tz) for city in self.cities])
         # df = df.abs
         return {k:[v,df.name] for k,v in zip(df.index,df)}
 
-    def get_dfMeteo(self,city):
+    def get_dfMeteo(self,city,tz):
         gps = self.cities[city]
         url = self.baseurl + 'weather?lat='+gps.lat+'&lon=' + gps.lon + '&units=metric&appid=' + self.apitoken
         response = urllib.request.urlopen(url)
-        data = json.loads(response.read())
-        t0   = dt.datetime(1970,1,1,1,0).astimezone(tz = pytz.timezone('Etc/GMT-3'))
-        timeCur=t0 + dt.timedelta(seconds=data['dt'])
-        dfmain=pd.DataFrame(data['main'],index=[timeCur.isoformat()])
-        dfmain['clouds']=data['clouds']['all']
-        dfmain['visibility']=data['visibility']
-        dfmain['main']=data['weather'][0]['description']
-        dfwind=pd.DataFrame(data['wind'],index=[timeCur.isoformat()])
+        data     = json.loads(response.read())
+        timeCur  = (self.t0 + pd.Timedelta(seconds=data['dt'])).tz_convert(tz)
+        dfmain   = pd.DataFrame(data['main'],index=[timeCur.isoformat()])
+        dfmain['clouds']     = data['clouds']['all']
+        dfmain['visibility'] = data['visibility']
+        dfmain['main']       = data['weather'][0]['description']
+        dfmain['seconds']       = data['dt']
+        dfwind = pd.DataFrame(data['wind'],index=[timeCur.isoformat()])
         dfwind.columns = ['XM_' + city + '_wind_' + k  for k in dfwind.columns]
         dfmain.columns = ['XM_' + city + '_' + k  for k in dfmain.columns]
         df = pd.concat([dfmain,dfwind],axis=1).squeeze()
