@@ -459,12 +459,19 @@ class Meteo_Client(Device):
         # df = df.abs
         return {k:[v,df.name] for k,v in zip(df.index,df)}
 
-    def get_dfMeteo(self,city,tz):
+    def get_dfMeteo(self,city,tz,ts_from_meteo=False):
+        '''
+        ts_from_meteo : if True the timestamp corresponds to the one given by the weather data server.
+        Can lead to dupplicates in the data.
+        '''
         gps = self.cities[city]
         url = self.baseurl + 'weather?lat='+gps.lat+'&lon=' + gps.lon + '&units=metric&appid=' + self.apitoken
         response = urllib.request.urlopen(url)
         data     = json.loads(response.read())
-        timeCur  = (self.t0 + pd.Timedelta(seconds=data['dt'])).tz_convert(tz)
+        if ts_from_meteo:
+            timeCur  = (self.t0 + pd.Timedelta(seconds=data['dt'])).tz_convert(tz)
+        else:
+            timeCur  = pd.Timestamp.now(tz=tz)
         dfmain   = pd.DataFrame(data['main'],index=[timeCur.isoformat()])
         dfmain['clouds']     = data['clouds']['all']
         dfmain['visibility'] = data['visibility']
