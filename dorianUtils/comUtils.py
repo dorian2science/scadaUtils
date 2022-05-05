@@ -287,6 +287,9 @@ class Device():
         return self.fs.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
 
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
+from pymodbus.payload import BinaryPayloadDecoder
+from pymodbus.constants import Endian
+
 class ModeBusDevice(Device):
     '''modebus_map should be loaded to use functions decodeRegisters.'''
     def __init__(self,device_name,endpointUrl,port,dfplc,modebus_map,multiple,freq,bo_in='=',bo_out='=',**kwargs):
@@ -298,6 +301,28 @@ class ModeBusDevice(Device):
         self.all_slave_ids = list(self.modebus_map.slave_unit.unique())
         self.client = ModbusClient(host=self.endpointUrl,port=int(self.port))
         dfplc['FREQUENCE_ECHANTILLONNAGE'] = self.freq
+
+    def get_all_values_sequentially(self,tz):
+        d={}
+        # self.connectDevice()
+        for tag in self.modebus_map.index:
+            tagid = self.modebus_map.loc[tag]
+            result = self.client.read_holding_registers(tagid.intAddress, tagid['size(mots)']*2, unit=tagid.slave_unit)
+            decoder = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=self.bo_in, wordorder=self.bo_in)
+            if tagid.type=='INT16':
+                val = decoder.decode_16bit_int()
+            elif tagid.type=='UINT16':
+                val = decoder.decode_16bit_uint()
+            elif tagid.type=='UINT32':
+                val = decoder.decode_32bit_uint()
+            elif tagid.type=='INT32':
+                val = decoder.decode_32bit_int()
+            elif tagid.type=='INT64':
+                val = decoder.decode_64bit_int()
+            elif tagid.type=='IEEE754':
+                val = decoder.decode_32bit_float()
+            d[tag]=[val*tagid.scale,pd.Timestamp.now(tz=tz).isoformat()]
+        return d
 
     def decodeRegisters(self,regs,block,tz):
         '''block is dataframe with tags as index and columns intAdress,type(datatype)'''
@@ -311,6 +336,7 @@ class ModeBusDevice(Device):
                 # print_file(curReg)
                 valueShorts = [regs[curReg+k] for k in [0,1]]
                 # conversion of 2 shorts(=DWORD=word) into long(=INT32)
+                print(valueShorts)
                 value = struct.unpack(self.bo_out+'i',struct.pack(self.bo_in + "2H",*valueShorts))[0]
                 # curReg+=2
             if row.type == 'IEEE754':
