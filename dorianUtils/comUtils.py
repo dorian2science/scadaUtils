@@ -292,7 +292,8 @@ from pymodbus.constants import Endian
 
 class ModeBusDevice(Device):
     '''modebus_map should be loaded to use functions decodeRegisters.'''
-    def __init__(self,device_name,endpointUrl,port,dfplc,modebus_map,multiple,freq,bo_in='=',bo_out='=',**kwargs):
+    def __init__(self,device_name,endpointUrl,port,dfplc,modebus_map,
+        multiple,freq,bo_in='=',bo_out='=',**kwargs):
         Device.__init__(self,device_name,endpointUrl,port,dfplc,**kwargs)
         self.modebus_map = modebus_map
         self.freq     = freq
@@ -1164,14 +1165,14 @@ class Configurator():
         self.folderPkl = folderPkl##in seconds
         self.dbParameters = dbParameters
         self.dbTable = dbTable
-        self.dataTypes = {
-          'REAL':'float',
-          'BOOL':'bool',
-          'WORD':'int',
-          'DINT':'int',
-          'INT':'int',
-          'STRING(40)':'str'
-        }
+        self.dataTypes={
+            'REAL': 'float',
+            'BOOL': 'float',
+            'WORD': 'float',
+            'DINT': 'float',
+            'INT' : 'float',
+            'STRING(40)': 'str'
+             }
         self.streamer  = Streamer()
         self.tz_record = tz_record
         self.parkingTime = parkingTime##seconds
