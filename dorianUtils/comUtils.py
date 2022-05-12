@@ -16,11 +16,19 @@ from zipfile import ZipFile
 # basic utilities for Streamer and DumpingClientMaster
 timenowstd=lambda :pd.Timestamp.now().strftime('%d %b %H:%M:%S')
 computetimeshow=lambda x,y:timenowstd() + ' : ' + x + ' in {:.2f} ms'.format((time.time()-y)*1000)
-def print_file(*args,filename=None,mode='a',**kwargs):
+from inspect import currentframe, getframeinfo
+from colorama import Fore
+
+def print_file(*args,filename=None,mode='a',with_infos=True,**kwargs):
+    entete=''
+    if with_infos:
+        frameinfo = currentframe().f_back
+        frameinfo = getframeinfo(frameinfo)
+        entete=Fore.BLUE + frameinfo.filename + ','+ Fore.GREEN + str(frameinfo.lineno) + '\n'+Fore.WHITE
     if filename is None :
-        print(*args,**kwargs)
+        print(entete,*args,**kwargs)
     else:
-        print(*args,file=open(filename,mode),**kwargs)
+        print(entete,*args,file=open(filename,mode),**kwargs)
 
 class EmptyClass():pass
 
@@ -1216,12 +1224,12 @@ class SuperDumper(Configurator):
         self.parkInterval = SetInterval(self.parkingTime,self.park_database)
         ###### DOUBLE LOOP of setIntervals for devices/acquisition-frequencies
 
-        print_file(' '*20+'INSTANCIATION OF THE DUMPER'+'\n',filename=self.log_file)
+        print_file(' '*20+'INSTANCIATION OF THE DUMPER'+'\n',filename=self.log_file,with_infos=False)
         for device_name,device in self.devices.items():
             freqs = device.dfplc['FREQUENCE_ECHANTILLONNAGE'].unique()
             device_dumps={}
             for freq in freqs:
-                print_file(device_name,' : ',freq*1000,'ms',filename=self.log_file)
+                print_file(device_name,' : ',freq*1000,'ms',filename=self.log_file,with_infos=False)
                 tags = list(device.dfplc[device.dfplc['FREQUENCE_ECHANTILLONNAGE']==freq].index)
                 # print_file(tags)
                 device_dumps[freq] = SetInterval(freq,device.insert_intodb,self.dbParameters,self.dbTable,self.tz_record,tags)
@@ -1340,7 +1348,7 @@ class SuperDumper(Configurator):
         time.sleep(1-now.microsecond/1000000)
 
         ######## start dumping
-        print_file(timenowstd(),': START DUMPING',filename=self.log_file)
+        print_file(timenowstd(),': START DUMPING',filename=self.log_file,with_infos=False)
         for device,dictIntervals in self.dumpInterval.items():
             self.devices[device].start_auto_reconnect()
             for freq in dictIntervals.keys():
@@ -1350,9 +1358,9 @@ class SuperDumper(Configurator):
         now = pd.Timestamp.now(tz='CET')
         # now = pd.Timestamp.now('2022-02-10 16:52:15',tz='CET')
         timer = 60-now.second
-        print_file('parking should start at ',now +pd.Timedelta(seconds=timer),filename=self.log_file)
-        time.sleep(timer)
-        print_file(timenowstd(),': START PARKING',filename=self.log_file)
+        print_file('parking should start at ',now +pd.Timedelta(seconds=timer),filename=self.log_file,with_infos=False)
+        # time.sleep(timer)
+        print_file(timenowstd(),': START PARKING',filename=self.log_file,with_infos=False)
         self.parkInterval.start()
 
     def stop_dumping(self):
@@ -1438,7 +1446,8 @@ class SuperDumper_daily(SuperDumper):
         sqlQ ="select * from " + self.dbTable + " where timestampz < '" + now.isoformat() +"'"
         # df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'],dtype={'value':'float'})
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        print_file(computetimeshow(self.dbTable + ' in '+ self.dbParameters['dbname'] +' for data <' + now.isoformat() +' read',start),filename=self.log_file)
+        print_file(computetimeshow(self.dbTable + ' in '+ self.dbParameters['dbname'] +' for data <' + now.isoformat() +' read',start),
+            filename=self.log_file,with_infos=False)
         # check if database not empty
         if not len(df)>0:
             print_file('table '+ self.dbTable + ' in ' + self.dbParameters['dbname'] + ' empty',filename=self.log_file)
