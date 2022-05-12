@@ -1440,7 +1440,7 @@ class SuperDumper_daily(SuperDumper):
         df=self.process_from_db(df)
         # return df
         tmin,tmax = df.index.min().strftime('%Y-%m-%d'),df.index.max().strftime('%Y-%m-%d')
-        listdays=[k.strftime(dump.format_dayFolder) for k in pd.date_range(tmin,tmax)]
+        listdays=[k.strftime(self.format_dayFolder) for k in pd.date_range(tmin,tmax)]
         #### in case they are several days
         for d in listdays:
             t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
@@ -1496,7 +1496,7 @@ class SuperDumper_daily(SuperDumper):
         df=self.process_from_db(df)
         dbconn.close()
         tmin,tmax = df.index.min().strftime('%Y-%m-%d'),df.index.max().strftime('%Y-%m-%d')
-        listdays=[k.strftime(dump.format_dayFolder) for k in pd.date_range(tmin,tmax)]
+        listdays=[k.strftime(self.format_dayFolder) for k in pd.date_range(tmin,tmax)]
         #### in case they are several days(for example at midnight)
         for d in listdays:
             t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
