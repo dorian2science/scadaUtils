@@ -1,7 +1,6 @@
+dorianUtils v6.0
 This package contains utilities for :
-- mplExtended : functions extending the matplotlib package
-- configFilesD : a template configuration source code that runs backend computations for dash server
-- dccExtendedD : functions that extend the dash packages
-- templateDashD : dash Template.
-- templateTabsD : predefined dash tabs
-- utilsD : convenient functions that speed up and help building codes more concise  
+- comUtils : to standardize the dumping of data from different devices(Modbus,Meteo,OPCUA) with a Streamer, SuperDumper_daily and VisualisationMaster_daily
+- Simulators : to simulate the flow of data from devices(servers) from comUtils
+- utilsD : convenient plotly,pandas extensions to work faster
+- versionManagers : to deal with historical data folders and to make them compatible with the daily visualisation master.

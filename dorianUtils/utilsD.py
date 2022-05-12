@@ -436,11 +436,11 @@ class Utils:
         dictYaxis={}
         yscales=['y'] + ['y'+str(k) for k in range(2,len(groups)+1)]
         for g,c,s,p,y,ys in zip(groups,colors,sides,positions,yaxes,yscales):
-            dfGroups.at[dfGroups.group==g,'color'] = c
-            dfGroups.at[dfGroups.group==g,'yscale'] = ys
+            dfGroups.loc[dfGroups.group==g,'color'] = c
+            dfGroups.loc[dfGroups.group==g,'yscale'] = ys
             lenGroup=len(dfGroups[dfGroups.group==g])
-            dfGroups.at[dfGroups.group==g,'line']=self.listLines[:lenGroup]
-            dfGroups.at[dfGroups.group==g,'symbol']=self.raw_symbols[:lenGroup]
+            dfGroups.loc[dfGroups.group==g,'line']=self.listLines[:lenGroup]
+            dfGroups.loc[dfGroups.group==g,'symbol']=self.raw_symbols[:lenGroup]
             if ys=='y' : ov = None
             else : ov = 'y'
             dictYaxis[y] = dict(
