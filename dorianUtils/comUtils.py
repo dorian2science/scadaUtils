@@ -788,8 +788,9 @@ class Streamer():
             return df
         start=time.time()
         # remove duplicated index and pivot
-        df = df.reset_index().drop_duplicates().dropna().set_index('timestampz').sort_index()
-        if checkTime:computetimeshow('drop dupplicates ',start)
+        # df = df.reset_index().drop_duplicates().dropna().set_index('timestampz').sort_index()==>bug if the dataframe has only nans
+        df = df.reset_index().drop_duplicates().set_index('timestampz').sort_index()
+        if checkTime:computetimeshow('drop duplicates ',start)
         ##### auto resample
         if rs=='auto' and not rsMethod=='raw':
             ptsCurve = 500
@@ -1187,7 +1188,6 @@ class Configurator():
         #####################################
         self.daysnotempty    = self.getdaysnotempty()
         self.tmin,self.tmax  = self.daysnotempty.min(),self.daysnotempty.max()
-        self.to_folderminute = lambda x:self.folderPkl+x.strftime(self.format_folderminute)
 
     def getdaysnotempty(self):
         return self.fs.get_parked_days_not_empty(self.folderPkl)
@@ -1325,7 +1325,8 @@ class SuperDumper(Configurator):
         return df
 
     def checkTimes(self,name_device):
-        dict2pdf = lambda d:pd.DataFrame.from_dict(d,orient='index').squeeze().sort_values()
+        def dict2pdf(d):
+            return pd.DataFrame.from_dict(d,orient='index').squeeze().sort_values()
         device = self.devices.__dict__[name_device]
         s_collect = dict2pdf(device.collectingTimes)
         s_insert  = dict2pdf(device.insertingTimes)
@@ -1629,7 +1630,8 @@ class VisualisationMaster(Configurator):
 # #  STANDARD GRAPHICS  #
 # #######################
     def addTagEnveloppe(self,fig,tag_env,t0,t1,rs):
-        hex2rgb = lambda h,a:'rgba('+','.join([str(int(h[i:i+2], 16)) for i in (0, 2, 4)])+','+str(a)+')'
+        def hex2rgb(h,a):
+            return 'rgba('+','.join([str(int(h[i:i+2], 16)) for i in (0, 2, 4)])+','+str(a)+')'
         df     = self.loadtags_period(t0,t1,[tag_env],rsMethod='forwardfill',rs='100ms')
         dfmin  = df.resample(rs,label='right',closed='right').min()
         dfmax  = df.resample(rs,label='right',closed='right').max()
