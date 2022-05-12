@@ -1559,7 +1559,7 @@ class VisualisationMaster(Configurator):
         # print_file(sqlQ)
         start=time.time()
         df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        print_file(computetimeshow('database read ',start),filename=self.log_file)
+        print_file(computetimeshow('database read ',start),filename=self.log_file,with_infos=False)
         dbconn.close()
         if len(df)==0:
             return df.set_index('timestampz')
@@ -1571,7 +1571,7 @@ class VisualisationMaster(Configurator):
         df = df.set_index('timestampz')
 
         def process_dbtag(df,tag,*args,**kwargs):
-            dftag = df[df.tag==tag]['value']
+            dftag = df[df.tag==tag][['value']]
             dftag = self.streamer.process_tag(dftag,*args,**kwargs)
             ## assign type
             dtype=self.dataTypes[self.dfplc.loc[tag,'DATATYPE']]
