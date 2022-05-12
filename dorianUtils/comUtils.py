@@ -1181,6 +1181,56 @@ class Configurator():
         self.tmin,self.tmax  = self.daysnotempty.min(),self.daysnotempty.max()
         self.to_folderminute = lambda x:self.folderPkl+x.strftime(self.format_folderminute)
 
+    def parktag_DB_URGENT(self,tag,deleteFromDb=False):
+        start = time.time()
+        now = pd.Timestamp.now(tz=self.tz_record)
+        ### read database
+        dbconn = self.connect2db()
+        sqlQ ="select * from " + self.dbTable + " where tag='"+tag+"' and timestampz<'"+now.isoformat()+"';"
+        # print(sqlQ)
+        df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
+        print_file(computetimeshow('tag : '+tag+ ' read in '+self.dbTable + ' in '+ self.dbParameters['dbname'],start),filename=self.log_file)
+        # check if database not empty
+        if not len(df)>0:
+            print_file('tag :'+tag+' not in table '+ self.dbTable + ' in ' + self.dbParameters['dbname'],filename=self.log_file)
+            return
+        df = df.set_index('timestampz').sort_index()
+        df.index = df.index.tz_convert(self.tz_record)
+        df.loc[df.value=='null','value']=np.nan
+        df.loc[df.value=='False','value']=0
+        df.loc[df.value=='True','value']=1
+        tmin,tmax = df.index.min().strftime('%Y-%m-%d'),df.index.max().strftime('%Y-%m-%d')
+        listdays=[k.strftime(dump.format_dayFolder) for k in pd.date_range(tmin,tmax)]
+        #### in case they are several days
+        for d in listdays:
+            t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
+            t1 = t0 + pd.Timedelta(days=1)
+            dfday=df[(df.index>=t0)&(df.index<t1)]
+            folderday=self.folderPkl + d +'/'
+            #### create folder if necessary
+            if not os.path.exists(folderday):os.mkdir(folderday)
+            #################################
+            #           park now            #
+            #################################
+            start=time.time()
+            dfs=[]
+            dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
+            self.parktagfromdb(tag,dftag,folderday)
+
+        print_file(computetimeshow('tag : '+tag+ ' parked',start),filename=self.log_file)
+        if deleteFromDb:
+            # #delete the tag
+            cur  = dbconn.cursor()
+            sqlDel=sqlQ.replace('select *','DELETE')
+            # print(sqlDel)
+            cur.execute(sqlDel)
+            cur.close()
+            dbconn.commit()
+            print_file(computetimeshow('tag : '+tag+ ' flushed',start),filename=self.log_file)
+
+        dbconn.close()
+        return dftag
+
     def getdaysnotempty(self):
         return self.fs.get_parked_days_not_empty(self.folderPkl)
 
@@ -1365,6 +1415,61 @@ class SuperDumper_daily(SuperDumper):
     def start_dumping(self):
         return SuperDumper.start_dumping(self,'day')
 
+    def process_from_db(self,df):
+        df = df.set_index('timestampz').sort_index()
+        df.index = df.index.tz_convert(self.tz_record)
+        df.loc[df.value=='null','value']=np.nan
+        df.loc[df.value=='False','value']=0
+        df.loc[df.value=='True','value']=1
+        return df
+
+    def park_single_tag_DB_URGENT(self,tag,deleteFromDb=False):
+        print_file(tag)
+        start = time.time()
+        now = pd.Timestamp.now(tz=self.tz_record)
+        ### read database
+        dbconn = self.connect2db()
+        sqlQ ="select * from " + self.dbTable + " where tag='"+tag+"' and timestampz<'"+now.isoformat()+"';"
+        # print(sqlQ)
+        df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
+        print_file(computetimeshow('tag : '+tag+ ' read in '+self.dbTable + ' in '+ self.dbParameters['dbname'],start),filename=self.log_file)
+        # check if database not empty
+        if not len(df)>0:
+            print_file('tag :'+tag+' not in table '+ self.dbTable + ' in ' + self.dbParameters['dbname'],filename=self.log_file)
+            return
+        df=self.process_from_db(df)
+        # return df
+        tmin,tmax = df.index.min().strftime('%Y-%m-%d'),df.index.max().strftime('%Y-%m-%d')
+        listdays=[k.strftime(dump.format_dayFolder) for k in pd.date_range(tmin,tmax)]
+        #### in case they are several days
+        for d in listdays:
+            t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
+            t1 = t0 + pd.Timedelta(days=1)
+            dfday=df[(df.index>=t0)&(df.index<t1)]
+            folderday=self.folderPkl + d +'/'
+            #### create folder if necessary
+            if not os.path.exists(folderday):os.mkdir(folderday)
+            #################################
+            #           park now            #
+            #################################
+            start=time.time()
+            dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
+            self.parktagfromdb(tag,dftag,folderday)
+
+        print_file(computetimeshow('tag : '+tag+ ' parked',start),filename=self.log_file)
+        if deleteFromDb:
+            # #delete the tag
+            cur  = dbconn.cursor()
+            sqlDel=sqlQ.replace('select *','DELETE')
+            # print(sqlDel)
+            cur.execute(sqlDel)
+            cur.close()
+            dbconn.commit()
+            print_file(computetimeshow('tag : '+tag+ ' flushed',start),filename=self.log_file)
+
+        dbconn.close()
+        return dftag
+
     def parktagfromdb(self,tag,dftag,folderday):
         df = dftag
         namefile = folderday + tag + '.pkl'
@@ -1373,8 +1478,7 @@ class SuperDumper_daily(SuperDumper):
             df  = pd.concat([df1,df])
         df.astype(self.dataTypes[self.dfplc.loc[tag,'DATATYPE']]).to_pickle(namefile)
 
-    def park_database(self,pool_tag=False):
-        listTags = self.alltags
+    def park_database(self):
         start = time.time()
         now = pd.Timestamp.now(tz=self.tz_record)
         t_parking = now
@@ -1389,15 +1493,11 @@ class SuperDumper_daily(SuperDumper):
         if not len(df)>0:
             print_file('table '+ self.dbTable + ' in ' + self.dbParameters['dbname'] + ' empty',filename=self.log_file)
             return
-        # close connection
-
-        df = df.set_index('timestampz').sort_index()
-        df.index = df.index.tz_convert(self.tz_record)
-        df.loc[df.value=='null','value']=np.nan
+        df=self.process_from_db(df)
         dbconn.close()
-        tmin,tmax = df.index.min(),df.index.max()
-        listdays = list(np.unique([k.strftime(self.format_dayFolder)[:-1] for k in [tmin,tmax]]))
-        #### in case they are 2 days around midnight
+        tmin,tmax = df.index.min().strftime('%Y-%m-%d'),df.index.max().strftime('%Y-%m-%d')
+        listdays=[k.strftime(dump.format_dayFolder) for k in pd.date_range(tmin,tmax)]
+        #### in case they are several days(for example at midnight)
         for d in listdays:
             t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
             t1 = t0 + pd.Timedelta(days=1)
@@ -1405,19 +1505,9 @@ class SuperDumper_daily(SuperDumper):
             folderday=self.folderPkl + d +'/'
             #### create folder if necessary
             if not os.path.exists(folderday):os.mkdir(folderday)
-            #################################
-            #           park now            #
-            #################################
-            start=time.time()
-            if pool_tag:
-                dftags=[dfday[dfday.tag==tag]['value'] for tag in listTags]
-                with Pool() as p:
-                    dfs=p.starmap(self.parktagfromdb,[(tag,dftag,folderday) for tag,dftag in zip(listTags,dftags)])
-            else:
-                dfs=[]
-                for tag in listTags:
-                    dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
-                    self.parktagfromdb(tag,dftag,folderday)
+            for tag in self.alltags:
+                dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
+                self.parktagfromdb(tag,dftag,folderday)
 
         print_file(computetimeshow('database parked',start),filename=self.log_file)
         self.parkingTimes[now.isoformat()] = (time.time()-start)*1000
