@@ -29,6 +29,13 @@ def print_file(*args,filename=None,mode='a',with_infos=True,**kwargs):
         print(entete,*args,**kwargs)
     else:
         print(entete,*args,file=open(filename,mode),**kwargs)
+def print_error(tb,filename=None):
+    exc_format=traceback.format_exception(*tb)
+    ff=''
+    for k in range(1,len(exc_format)-1):
+        res=re.match('(.*.py")(.*line \d+)(.*)',exc_format[k]).groups()
+        ff+=Fore.RED + res[0]+Fore.BLUE+res[1]+Fore.GREEN + res[2] + Fore.WHITE + '\n'
+    print_file(ff,exc_format[-1],with_infos=False,filename=filename)
 
 class EmptyClass():pass
 
