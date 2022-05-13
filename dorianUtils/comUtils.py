@@ -1432,7 +1432,6 @@ class SuperDumper_daily(SuperDumper):
     def parktagfromdb(self,tag,dftag,folderday):
         df = dftag
         namefile = folderday + tag + '.pkl'
-        print_file(namefile)
         if os.path.exists(namefile):
             df1 = pd.read_pickle(namefile)
             df  = pd.concat([df1,df])
