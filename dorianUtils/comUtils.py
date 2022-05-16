@@ -402,8 +402,11 @@ class ModeBusDevice(Device):
 
     def collectData(self,tz,*args):
         d={}
-        for idTCP in self.all_slave_ids:
-            d.update(self.get_slave_values(unit_id=idTCP,tz=tz))
+        if self.multiple:
+            for idTCP in self.all_slave_ids:
+                d.update(self.get_slave_values(unit_id=idTCP,tz=tz))
+        else:
+            return self.get_all_values_sequentially(tz=tz)
         return d
 
 import opcua
