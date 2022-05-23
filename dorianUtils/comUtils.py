@@ -37,6 +37,11 @@ def print_error(tb,filename=None):
         ff+=Fore.RED + res[0]+Fore.BLUE+res[1]+Fore.GREEN + res[2] + Fore.WHITE + '\n'
     print_file(ff,exc_format[-1],with_infos=False,filename=filename)
 
+def html_table(df):
+    df.to_html('/tmp/table.html')
+    sp.run('firefox /tmp/table.html',shell=True)
+
+
 class EmptyClass():pass
 
 class Modebus_utils():
@@ -587,7 +592,7 @@ class Streamer():
         '''
         - format as pd.Series with name values and timestamp as index
         - remove index duplicates
-        - convert timezone
+        - convert tz
         - apply correct datatype if bool,float or string
         '''
         if print_fileag:print_file(tagpath,filename=self.log_file)
@@ -602,7 +607,7 @@ class Streamer():
             df.set_index(col_timestamp)['value'].to_pickle(tagpath)
         ##### --- remove index duplicates ----
         df = df[~df.index.duplicated(keep='first')]
-        ##### --- convert timezone----
+        ##### --- convert tz----
         if isinstance(df.index.dtype,pd.DatetimeTZDtype):
             df.index = df.index.tz_convert(newtz)
         else:### for cases with changing DST at 31.10 or if it is a string
@@ -787,77 +792,47 @@ class Streamer():
         else :
             with Pool(nCores) as p:p.starmap(self.remove_tags_day,[(d,tags) for d in days])
 
-    def process_tag(self,df,rsMethod='forwardfill',rs='auto',timezone='CET',rmwindow='3000s',checkTime=False):
+    def process_tag(self,s,rsMethod='forwardfill',rs='auto',tz='CET',rmwindow='3000s',checkTime=False,verbose=False):
         '''
             - df : pd.series with timestampz index and name=value
             - rsMethod : see self.methods
             - rs : argument for pandas.resample
             - rmwindow : argument for method rollingmean
         '''
-        if df.empty:
-            return df
+        if s.empty:
+            if verbose:print_file('processing : series is empty')
+            return s
         start=time.time()
         # remove duplicated index and pivot
-        # df = df.reset_index().drop_duplicates().dropna().set_index('timestampz').sort_index()==>bug if the dataframe has only nans
-        df = df.reset_index().drop_duplicates().set_index('timestampz').sort_index()
+        # s = s.reset_index().drop_duplicates().dropna().set_index('timestampz').sort_index()==>bug if the dataframe has only nans
+        s = s.reset_index().drop_duplicates().set_index('timestampz').sort_index()
+        s.index = s.index.tz_convert(tz)
         if checkTime:computetimeshow('drop duplicates ',start)
         ##### auto resample
         if rs=='auto' and not rsMethod=='raw':
             ptsCurve = 500
-            deltat = (df.index.max()-df.index.min()).seconds//ptsCurve+1
+            deltat = (s.index.max()-s.index.min()).seconds//ptsCurve+1
             rs = '{:.0f}'.format(deltat) + 's'
         start  = time.time()
         ############ compute resample
         if not rsMethod=='raw':
-            if df.value.dtype=='O':df=df.resample(rs).ffill()
-            else:df = eval(self.methods[rsMethod])
-        # print_file(df,rsMethod,rs,timezone)
+            if s.value.dtype=='O':s=s.resample(rs).ffill()
+            else:s = eval(self.methods[rsMethod])
         if checkTime:computetimeshow(rsMethod + ' data',start)
-        df.index = df.index.tz_convert(timezone)
-        return df
+        return s
 
-    def load_tag_daily(self,t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow='3000s',showTag=False,time_debug=False):
-        if showTag:print_file(tag,filename=self.log_file)
-        start=time.time()
-        dfs={}
-        t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
-        while t<t1:
-            filename=folderpkl+t.strftime(self.format_dayFolder)+'/'+tag+'.pkl'
-            if os.path.exists(filename):
-                if time_debug: print_file(filename,t.isoformat(),filename=self.log_file)
-                dfs[filename]=pickle.load(open(filename,'rb'))
-            else :
-                print_file('no file : ',filename,filename=self.log_file)
-                dfs[filename] = pd.Series()
-            t = t + pd.Timedelta(days=1)
-        if time_debug:computetimeshow('raw pkl loaded in ',start)
-        start=time.time()
-        dftag = pd.DataFrame(pd.concat(dfs.values()),columns=['value'])
-        if time_debug:computetimeshow('contatenation done in ',start)
-        dftag.index.name='timestampz'
-        try:
-            start=time.time()
-            dftag=dftag[(dftag.index>=t0)&(dftag.index<=t1)]
-            dftag = self.process_tag(dftag,rsMethod,rs,timezone,rmwindow=rmwindow)
-            dftag['tag'] = tag
-            if time_debug:computetimeshow('processing done in ',start)
-        except:
-            print_file(tag+' could not be processed',filename=self.log_file)
-            dftag=[]
-        return dftag
-
-    def load_parkedtags_daily(self,t0,t1,tags,folderpkl,rsMethod='forwardfill',rs='auto',timezone='CET',rmwindow='3000s',pool=False,showTag=False):
+    def load_parkedtags_daily(self,t0,t1,tags,folderpkl,rsMethod='forwardfill',rs='auto',tz='CET',rmwindow='3000s',pool=False,showTag=False):
         '''
-        - rsMethod,rs,timezone,rmwindow of Streamer.process_tag
+        - rsMethod,rs,tz,rmwindow of Streamer.process_tag
         - pool : on tags
         '''
         if not len(tags)>0:
             return pd.DataFrame()
         if pool:
             with Pool() as p:
-                dftags=p.starmap(self.load_tag_daily,[(t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow,showTag) for tag in tags])
+                dftags=p.starmap(self.load_tag_daily,[(t0,t1,tag,folderpkl,rsMethod,rs,tz,rmwindow,showTag) for tag in tags])
         else:
-            dftags=[self.load_tag_daily(t0,t1,tag,folderpkl,rsMethod,rs,timezone,rmwindow,showTag) for tag in tags]
+            dftags=[self.load_tag_daily(t0,t1,tag,folderpkl,rsMethod,rs,tz,rmwindow,showTag) for tag in tags]
         # print_file(dftags)
         df = pd.concat(dftags,axis=0)
         df = df[df.index>=t0]
@@ -1555,7 +1530,7 @@ class VisualisationMaster(Configurator):
     def _load_database_tags(self,t0,t1,tags,*args,pool=True,**kwargs):
         '''
         - tags : list of tags
-        - t0,t1 : timestamps with timezone
+        - t0,t1 : timestamps with tz
         '''
         # for k in t0,t1,tags,args,kwargs:print_file(k)
         dbconn = self.connect2db()
