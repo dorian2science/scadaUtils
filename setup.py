@@ -23,5 +23,5 @@ packages=setuptools.find_packages(),
 package_data={'': ['conf/*']},
 include_package_data=True,
 install_requires=['IPython==7.20.0','pandas==1.3.1','psycopg2-binary','odfpy==1.4.1','plotly>=5.5.0',
-    'pymodbus==2.5.3','opcua==0.98.13','cryptography==2.8','Pillow==7.0.0','openpyxl==3.0.7','psutils==5.8.0'],python_requires=">=3.8"
+    'pymodbus==2.5.3','opcua==0.98.13','cryptography==2.8','Pillow==7.0.0','openpyxl==3.0.7','psutil==5.8.0'],python_requires=">=3.8"
 )
