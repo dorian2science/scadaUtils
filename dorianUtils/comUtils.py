@@ -1273,7 +1273,7 @@ class Configurator():
         self.tz_record = tz_record
         self.parkingTime = parkingTime##seconds
         #####################################
-        self.daysnotempty    = self.getdaysnotempty()
+        # self.daysnotempty    = self.getdaysnotempty()
         self.tmin,self.tmax  = self.daysnotempty.min(),self.daysnotempty.max()
 
     def getdaysnotempty(self):
