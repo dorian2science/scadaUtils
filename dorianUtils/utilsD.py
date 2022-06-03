@@ -7,6 +7,18 @@ from plotly.validators.scatter.line import ShapeValidator
 from plotly.validators.scatter.marker import SymbolValidator
 from plotly.validators.scatter.line import DashValidator
 
+def dimensions_pictures_screen(diag_inch=15,resolution=[1920,1080]):
+    res={}
+    res['a_ratio'] = 16/9
+    res['resolution'] = resolution
+    res['inch2cm'] = 2.54
+    res['screen_w'] = np.cos(np.arctan(1/res['a_ratio']))*diag_inch
+    res['screen_h'] = np.sin(np.arctan(1/res['a_ratio']))*diag_inch
+    dpi_w=resolution[0]/res['screen_w']
+    dpi_h=resolution[1]/res['screen_h']
+    res['dpi']=np.mean([dpi_h,dpi_w])
+    return res
+
 class Utils:
     def __init__(self):
         self.confDir=os.path.dirname(os.path.realpath(__file__)) + '/conf'
@@ -17,8 +29,9 @@ class Utils:
         self.raw_symbols = list(pd.concat([raw_symbols[::4],raw_symbols[1::4],raw_symbols[2::4]]))
         self.listLines = 40*DashValidator().values[:-1]
         self.lineshapes = ShapeValidator().values
-        allcolors=px.colors.qualitative.Alphabet.copy()
-        allcolors+=px.colors.qualitative.Dark24+px.colors.qualitative.Light24
+        allcolors=px.colors.qualitative.Plotly.copy()
+        allcolors+=px.colors.qualitative.Dark24.copy()+px.colors.qualitative.Light24
+        allcolors+=px.colors.qualitative.Alphabet
         allcolors+=px.colors.qualitative.Set1+px.colors.qualitative.Pastel1
         allcolors+=px.colors.qualitative.Antique
         self.colors_mostdistincs = allcolors

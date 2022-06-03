@@ -2,11 +2,14 @@
 # #  VERISONS MANAGER    #
 # #######################
 import collections
+from . import comUtils
+import glob
+import pandas as pd
 sort_list=lambda x:list(pd.Series(x).sort_values())
 class VersionsManager():
     def __init__(self,folderData,plcDir,buildFiles=[False,False,False],pattern_plcFiles='*plc*.csv'):
-        self.streamer     = Streamer()
-        self.fs           = FileSystem()
+        self.streamer     = comUtils.Streamer()
+        self.fs           = comUtils.FileSystem()
         self.plcDir       = plcDir
         self.folderData   = folderData
         self.versionFiles = glob.glob(self.plcDir+pattern_plcFiles)
@@ -15,13 +18,13 @@ class VersionsManager():
         self.daysnotempty = pd.Series([pd.Timestamp(k) for k in self.fs.get_parked_days_not_empty(folderData)])
         self.tmin,self.tmax = self.daysnotempty.min(),self.daysnotempty.max()
         # self.transitionFile = self.plcDir + 'versionnageTags.xlsx'
-        self.transitionFile = self.plcDir + 'versionnageTags.ods'
-        self.transitions    = pd.ExcelFile(self.transitionFile).sheet_names
+        # self.transitionFile = self.plcDir + 'versionnageTags.ods'
+        # self.transitions    = pd.ExcelFile(self.transitionFile).sheet_names
         self.file_df_plcs    = self.plcDir + 'alldfsPLC.pkl'
         self.file_df_nbTags  = self.plcDir + 'nbTags.pkl'
         self.file_map_missingTags  = self.plcDir + 'map_missingTags.pkl'
         self.file_map_presenceTags  = self.plcDir + 'map_presenceTags.pkl'
-        self.load_confFiles(buildFiles)
+        # self.load_confFiles(buildFiles)
         print('FINISH LOADING VERSION MANAGER\n'+'='*60+'\n')
 
     def load_confFiles(self,buildFiles):
@@ -300,7 +303,7 @@ class VersionsManager_minutely(VersionsManager):
 
 class VersionsManager_daily(VersionsManager):
     def __init__(self,*args,**kwargs):
-        VersionManager.__init__(self,*args,**kwargs)
+        VersionsManager.__init__(self,*args,**kwargs)
         self.streamer.actiondays(self.tmin,self.tmax,self.folderData,self.streamer.create_dayfolder,pool=False)
 
     #######################
