@@ -1274,7 +1274,7 @@ class Configurator():
         self.parkingTime = parkingTime##seconds
         #####################################
         # self.daysnotempty    = self.getdaysnotempty()
-        self.tmin,self.tmax  = self.daysnotempty.min(),self.daysnotempty.max()
+        # self.tmin,self.tmax  = self.daysnotempty.min(),self.daysnotempty.max()
 
     def getdaysnotempty(self):
         return self.fs.get_parked_days_not_empty(self.folderPkl)
