@@ -1013,16 +1013,20 @@ class Streamer():
         if checkTime:computetimeshow(rsMethod + ' data',start)
         return s
 
-    def load_raw_day_tag(self,day,tag,folderpkl,showTag_day=True):
+    def load_raw_day_tag(self,day,tag,folderpkl,rs,rsMethod,closed,showTag_day=True):
         # print(folderpkl, day,'/',tag,'.pkl')
-        filename = folderpkl + day+'/'+tag+'.pkl'
-        if showTag_day:print_file(filename,filename=self.log_file)
-        if os.path.exists(filename):
-            return pd.read_pickle(filename)
-        else :
-            return pd.Series(dtype='float')
 
-    def pool_tag_daily(self,t0,t1,tag,folderpkl,ncores=None,showTag=True,**kwargs):
+        filename = folderpkl + day+'/'+tag+'.pkl'
+        if os.path.exists(filename):
+            s= pd.read_pickle(filename)
+        else :
+            s=  pd.Series(dtype='float')
+        if showTag_day:print_file(filename + ' read',filename=self.log_file)
+        s = self.process_tag(s.squeeze(),rs=rs,rsMethod=rsMethod,closed=closed)
+        return s
+
+    def pool_tag_daily(self,t0,t1,tag,folderpkl,rs,rsMethod,closed,ncores=None,time_debug=False,verbose=False,**kwargs):
+        start=time.time()
 
         listDays=[self.to_folderday(k)[:-1] for k in pd.date_range(t0,t1,freq='D')]
 
@@ -1030,12 +1034,14 @@ class Streamer():
             ncores=min(len(listDays),self.num_cpus)
 
         with Pool(ncores) as p:
-            dfs=p.starmap(self.load_raw_day_tag,[(d,tag,folderpkl,showTag) for d in listDays])
-
+            dfs=p.starmap(self.load_raw_day_tag,[(d,tag,folderpkl,rs,rsMethod,closed,verbose) for d in listDays])
+        if time_debug:print_file(computetimeshow('pooling ' + tag+' finished',start))
         s_tag = pd.concat(dfs)
+        if time_debug:print_file(computetimeshow('concatenation ' + tag+' finished',start))
         s_tag = s_tag[(s_tag.index>=t0)&(s_tag.index<=t1)]
-        s_tag = self.process_tag(s_tag.squeeze(),**kwargs)
         s_tag.name=tag
+        s_tag=s_tag[~s_tag.index.duplicated(keep=False)]
+        if time_debug:print_file(computetimeshow(tag + ' finished',start))
         return s_tag
 
     def load_tag_daily(self,t0,t1,tag,folderpkl,showTag=False,time_debug=False,verbose=False,**kwargs):
@@ -1071,13 +1077,13 @@ class Streamer():
     def load_tag_daily_kwargs(self,t0,t1,tag,folderpkl,args, kwargs):
         return self.load_tag_daily(t0,t1,tag,folderpkl,*args, **kwargs)
 
-    def load_parkedtags_daily(self,t0,t1,tags,folderpkl,*args,verbose=False,pool=False,**kwargs):
+    def load_parkedtags_daily(self,t0,t1,tags,folderpkl,*args,verbose=False,pool='auto',**kwargs):
         '''
         :Parameters:
             pool : {'tag','day','auto',False}, default 'auto'
                 'auto': pool on days if more days to load than tags otherwise pool on tags
                 False or any other value will not pool the loading
-            **kwargs Streamer.process_tag
+            **kwargs Streamer.pool_tag_daily and Streamer.load_tag_daily
         '''
         if not len(tags)>0:return pd.DataFrame()
         if pool in ['tag','day','auto']:
@@ -1086,8 +1092,8 @@ class Streamer():
                 nbdays=len(pd.date_range(t0,t1))
                 if nbdays>len(tags):
                     n_cores=min(self.num_cpus,nbdays)
-                    if verbose:print_file('pool on days',n_cores)
-                    dftags={tag:self.pool_tag_daily(t0,t1,tag,folderpkl,ncores=n_cores,showTag=verbose,**kwargs) for tag in tags}
+                    if verbose:print_file('pool on days with',n_cores,'cores because we have',nbdays,'days >',len(tags),'tags')
+                    dftags={tag:self.pool_tag_daily(t0,t1,tag,folderpkl,ncores=n_cores,**kwargs) for tag in tags}
                 else:
                     n_cores=min(self.num_cpus,len(tags))
                     if verbose:print_file('pool on tag',n_cores)
@@ -1098,12 +1104,10 @@ class Streamer():
         else:
             dftags = {tag:self.load_tag_daily(t0,t1,tag,folderpkl,*args,**kwargs) for tag in tags}
 
-        # print_file(dftags)
         df = pd.concat(dftags,axis=1)
         df = df[df.index>=t0]
         df = df[df.index<=t1]
         return df
-
 
     # ########################
     #   HIGH LEVEL FUNCTIONS #
