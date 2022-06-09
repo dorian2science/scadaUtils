@@ -1025,7 +1025,7 @@ class Streamer():
         s = self.process_tag(s.squeeze(),rs=rs,rsMethod=rsMethod,closed=closed)
         return s
 
-    def pool_tag_daily(self,t0,t1,tag,folderpkl,rs,rsMethod,closed,ncores=None,time_debug=False,verbose=False,**kwargs):
+    def pool_tag_daily(self,t0,t1,tag,folderpkl,rs='auto',rsMethod='nearest',closed='left',ncores=None,time_debug=False,verbose=False,**kwargs):
         start=time.time()
 
         listDays=[self.to_folderday(k)[:-1] for k in pd.date_range(t0,t1,freq='D')]
