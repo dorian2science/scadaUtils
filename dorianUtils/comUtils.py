@@ -561,7 +561,20 @@ class Meteo_Client(Device):
 # #######################
 # #  SUPER INSTANCES    #
 # #######################
+class Basic_streamer():
+    '''Streamer enables to perform action on parked Day/Hour/Minute folders.
+    It comes with basic functions like loaddata_minutefolder/create_minutefolder/parktagminute.'''
+    def __init__(self,log_file=None):
+        self.methods=['ffill','nearest','mean','max','min','median','interpolate','rolling_mean','mean_mix']
+        self.num_cpus = psutil.cpu_count(logical=False)
+        self.fs = FileSystem()
+        self.log_file=log_file
+
 class Streamer_hourly():
+    def __init__(self,*args,**kwargs):
+        Basic_streamer.__init__(self,*args,**kwargs)
+        self.format_hourFolder=self.format_dayFolder+'%H/'
+
     def park_DF_hour(self,dfhour,folderpkl,pool=False,showtag=False):
         correctColumns=['tag','timestampz','value']
         if not list(dfhour.columns.sort_values())==correctColumns:
@@ -625,7 +638,11 @@ class Streamer_hourly():
             pd.concat(dfs).to_pickle(folderday + tag)
         return
 
-class Streamer_minutely():
+class Streamer_minutely(Basic_streamer):
+    def __init__(self,*args,**kwargs):
+        Basic_streamer.__init__(self,*args,**kwargs)
+        self.format_folderminute=self.format_hourFolder + '/%M/'
+
     def create_minutefolder(self,folderminute):
         # print_file(folderminute)
         if not os.path.exists(folderminute):
@@ -787,17 +804,12 @@ class Streamer_minutely():
             print_file('NO FOLDER : ',folderminute)
             return pd.DataFrame()
 
-class Streamer():
+class Streamer(Basic_streamer):
     '''Streamer enables to perform action on parked Day/Hour/Minute folders.
     It comes with basic functions like loaddata_minutefolder/create_minutefolder/parktagminute.'''
-    def __init__(self,log_file=None):
-        self.fs = FileSystem()
+    def __init__(self,*args,**kwargs):
+        Basic_streamer.__init__(self,*args,**kwargs)
         self.format_dayFolder='%Y-%m-%d/'
-        self.log_file=log_file
-        self.format_hourFolder=self.format_dayFolder+'%H/'
-        self.format_folderminute=self.format_hourFolder + '/%M/'
-        self.methods=['ffill','nearest','mean','max','min','median','interpolate','rolling_mean','mean_mix']
-        self.num_cpus = psutil.cpu_count(logical=False)
 
 
     def park_tags(self,df,tag,folder,dtype,showtag=False):
@@ -1040,7 +1052,7 @@ class Streamer():
         if time_debug:print_file(computetimeshow('concatenation ' + tag+' finished',start))
         s_tag = s_tag[(s_tag.index>=t0)&(s_tag.index<=t1)]
         s_tag.name=tag
-        s_tag=s_tag[~s_tag.index.duplicated(keep=False)]
+        s_tag=s_tag[~s_tag.index.duplicated(keep='first')]
         if time_debug:print_file(computetimeshow(tag + ' finished',start))
         return s_tag
 
@@ -1060,7 +1072,9 @@ class Streamer():
             t = t + pd.Timedelta(days=1)
         if time_debug:computetimeshow('raw pkl loaded in ',start)
         start=time.time()
-        s_tag = pd.DataFrame(pd.concat(dfs.values()),columns=['value'])
+        # s_tag = pd.DataFrame(pd.concat(dfs.values()),columns=['value'])
+        s_tag = pd.DataFrame(pd.concat(dfs.values()))
+        # print_file(s_tag)
         if time_debug:computetimeshow('contatenation done in ',start)
         s_tag.index.name='timestampz'
         # try:
