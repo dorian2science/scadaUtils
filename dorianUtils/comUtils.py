@@ -826,7 +826,11 @@ class Streamer(Basic_streamer):
         s=s.replace('null',np.nan)
         s=s.replace('False',False)
         s=s.replace('True',True)
-        s = s.astype(dtype)
+        if dtype=='int':
+            s = s.fillna(np.nan).astype(float)
+            s = s.convert_dtypes()
+        else:
+            s = s.astype(dtype)
         return s
 
     def applyCorrectFormat_tag(self,tagpath,dtype,newtz='CET',print_fileag=False,debug=False):
@@ -1496,6 +1500,7 @@ class SuperDumper_daily(SuperDumper):
             print_file('tag :'+tag+' not in table '+ self.dbTable + ' in ' + self.dbParameters['dbname'],filename=self.log_file)
             return
         # return df
+        df=df.set_index('timestampz').tz_convert(self.tz_record)
         tmin,tmax = df.index.min().strftime('%Y-%m-%d'),df.index.max().strftime('%Y-%m-%d')
         listdays=[k.strftime(self.format_dayFolder) for k in pd.date_range(tmin,tmax)]
         #### in case they are several days
