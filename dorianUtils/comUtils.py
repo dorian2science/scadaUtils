@@ -40,6 +40,8 @@ def print_error(tb,filename=None):
     print_file(ff,exc_format[-1],with_infos=False,filename=filename)
 
 def html_table(df):
+    if isinstance(df,pd.Series):
+        df=df.to_frame()
     df.to_html('/tmp/table.html')
     sp.run('firefox /tmp/table.html',shell=True)
 
