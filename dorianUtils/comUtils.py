@@ -10,7 +10,7 @@ from dorianUtils.utilsD import Utils
 from dateutil.tz import tzlocal
 from zipfile import ZipFile
 import psutil
-
+__version='6.2.2'
 
 # #######################
 # #      BASIC Utils    #
