@@ -827,8 +827,7 @@ class Streamer(Basic_streamer):
         s=s.replace('False',False)
         s=s.replace('True',True)
         if dtype=='int':
-            print(s)
-            s = s.fillna(np.nan).astype(float)
+            s = s.fillna(np.nan).replace('null',np.nan).astype(float)
             s = s.convert_dtypes()
         else:
             s = s.astype(dtype)
