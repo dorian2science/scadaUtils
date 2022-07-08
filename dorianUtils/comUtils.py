@@ -48,16 +48,6 @@ def html_table(df):
 
 class EmptyClass():pass
 
-class Modebus_utils():
-    def quick_modebus_decoder(self,regs,dtype,bo_out='=',bo_in='='):
-        if dtype=='INT32' or dtype == 'UINT32':
-            value = struct.unpack(bo_out + 'i',struct.pack(bo_in+"2H",*regs))[0]
-        if dtype == 'IEEE754':
-            value = struct.unpack(bo_out + 'f',struct.pack(bo_in+"2H",*regs))[0]
-        elif dtype == 'INT64':
-            value = struct.unpack(bo_out + 'q',struct.pack(bo_in+"4H",*regs))[0]
-        return value
-
 class FileSystem():
     ######################
     # FILE SYSTEMS  #
@@ -316,90 +306,14 @@ from pymodbus.constants import Endian
 
 class ModeBusDevice(Device):
     '''modebus_map should be loaded to use functions decodeRegisters.'''
-    def __init__(self,device_name,endpointUrl,port,dfplc,modebus_map,
-        multiple,freq,bo_in='=',bo_out='=',**kwargs):
+    def __init__(self,device_name,endpointUrl,port,dfplc,modebus_map,freq,bo='big',wo='big',**kwargs):
         Device.__init__(self,device_name,endpointUrl,port,dfplc,**kwargs)
         self.modebus_map = modebus_map
         self.freq     = freq
-        self.bo_in,self.bo_out = bo_in,bo_out
-        self.multiple = multiple
+        self.byte_order,self.word_order = bo,wo
         self.all_slave_ids = list(self.modebus_map.slave_unit.unique())
         self.client = ModbusClient(host=self.endpointUrl,port=int(self.port))
         dfplc['FREQUENCE_ECHANTILLONNAGE'] = self.freq
-
-    def get_all_values_sequentially(self,tz):
-        d={}
-        # self.connectDevice()
-        for tag in self.modebus_map.index:
-            tagid = self.modebus_map.loc[tag]
-            result = self.client.read_holding_registers(tagid.intAddress, tagid['size(mots)']*2, unit=tagid.slave_unit)
-            decoder = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=self.bo_in, wordorder=self.bo_in)
-            if tagid.type=='INT16':
-                val = decoder.decode_16bit_int()
-            elif tagid.type=='UINT16':
-                val = decoder.decode_16bit_uint()
-            elif tagid.type=='UINT32':
-                val = decoder.decode_32bit_uint()
-            elif tagid.type=='INT32':
-                val = decoder.decode_32bit_int()
-            elif tagid.type=='INT64':
-                val = decoder.decode_64bit_int()
-            elif tagid.type=='IEEE754':
-                val = decoder.decode_32bit_float()
-            d[tag]=[val*tagid.scale,pd.Timestamp.now(tz=tz).isoformat()]
-        return d
-
-    def decodeRegisters(self,regs,block,tz):
-        '''block is dataframe with tags as index and columns intAdress,type(datatype)'''
-        d={}
-        firstReg = block['intAddress'][0]
-        for tag in block.index:
-            row = block.loc[tag]
-            #### in order to make it work even if block is not continuous.
-            curReg = int(row['intAddress'])-firstReg
-            if row.type == 'INT32' or row.type == 'UINT32':
-                # print_file(curReg)
-                valueShorts = [regs[curReg+k] for k in [0,1]]
-                # conversion of 2 shorts(=DWORD=word) into long(=INT32)
-                print(valueShorts)
-                value = struct.unpack(self.bo_out+'i',struct.pack(self.bo_in + "2H",*valueShorts))[0]
-                # curReg+=2
-            if row.type == 'IEEE754':
-                valueShorts = [regs[curReg+k] for k in [0,1]]
-                value = struct.unpack(self.bo_out+'f',struct.pack(self.bo_in + "2H",*valueShorts))[0]
-                # curReg+=2
-            elif row.type == 'INT64':
-                valueShorts = [regs[curReg+k] for k in [0,1,2,3]]
-                value = struct.unpack(self.bo_out+'q',struct.pack(self.bo_in + "4H",*valueShorts))[0]
-                # curReg+=4
-            d[tag]=[value*row.scale,pd.Timestamp.now(tz=tz).isoformat()]
-        return d
-
-    def checkRegisterValueTag(self,tag,**kwargs):
-        # self.connectDevice()
-        tagid = self.modebus_map.loc[tag]
-        regs  = self.client.read_holding_registers(tagid.intAddress,tagid['size(mots)'],unit=tagid.slave_unit).registers
-        return self.decodeRegisters(regs,pd.DataFrame(tagid).T,**kwargs)
-
-    def get_slave_values(self,unit_id,tz):
-        ptComptage = self.modebus_map[self.modebus_map['slave_unit']==unit_id].sort_values(by='intAddress')
-        if self.multiple:
-            lastReg    = ptComptage['intAddress'][-1]
-            firstReg   = ptComptage['intAddress'][0]
-            nbregs     = lastReg - firstReg + ptComptage['size(mots)'][-1]
-            #read all registers in a single command for better performances
-            regs = self.client.read_holding_registers(firstReg,nbregs,unit=unit_id).registers
-            return self.decodeRegisters(regs,ptComptage,tz)
-        else:
-            d={}
-            self.connectDevice()
-            for tag in ptComptage.index:
-            # for tag in ptComptage.index[:40]:
-                tagrow=ptComptage.loc[[tag],:]
-                # print_file(tagrow)
-                regs = self.client.read_holding_registers(tagrow['intAddress'][0],tagrow['size(mots)'][0],unit=unit_id).registers
-                d.update(self.decodeRegisters(regs,tagrow,tz))
-            return d
 
     def connectDevice(self):
         try:
@@ -409,8 +323,126 @@ class ModeBusDevice(Device):
             self.isConnected=False
         return self.isConnected
 
-    def collectData(self,tz,*args):
+    def cut_into_100_blocks(self,bloc):
+        bbs=[]
+        bint=bloc['intAddress']
+        mini=bint.min()
+        range_width=bint.max()-mini
+        for k in range(range_width//100+1):
+            bb=bloc[(bint>=mini+k*100) & (bint<=mini+(k+1)*100)]
+            if not bb.empty:
+                bbs+=[bb]
+        return bbs
+
+    def get_continuous_blocks(self,bloc):
+        bloc=self.get_size_words_block(bloc)
+        c=(bloc['intAddress']+bloc['size_words']).reset_index()[:-1]
+        b=bloc['intAddress'][1:].reset_index()
+
+        idxs_break=b[~(b['intAddress']==c[0])]['index'].to_list()
+        bb=bloc.reset_index()
+        idxs_break=[bb[bb['index']==i].index[0] for i in idxs_break]
+
+        idxs_break=[0]+idxs_break+[len(bb)]
+        blocks=[bb.iloc[idxs_break[i]:idxs_break[i+1],:] for i in range(len(idxs_break)-1)]
+        return blocks
+
+    def get_size_words_block(self,bloc):
+        bloc['size_words']=1
+        bloc['size_words']=bloc['size_words'].mask(bloc['type']=='IEEE754',2)
+        bloc['size_words']=bloc['size_words'].mask(bloc['type']=='INT64',4)
+        bloc['size_words']=bloc['size_words'].mask(bloc['type']=='UINT64',4)
+        bloc['size_words']=bloc['size_words'].mask(bloc['type']=='INT32',2)
+        bloc['size_words']=bloc['size_words'].mask(bloc['type']=='UINT32',2)
+        return bloc
+
+    def fill_gaps_bloc(self,bloc):
+        bloc=bloc.copy().sort_values('intAddress')[['intAddress','type']]
+        bloc=self.get_size_words_block(bloc)
+        k=0
+        while k<len(bloc)-1:
+            cur_loc=bloc.iloc[k]
+            next_loc=cur_loc[['intAddress','size_words']].sum()
+            next_loc_real=bloc.iloc[k+1]['intAddress']
+            if not next_loc_real==next_loc:
+                rowAdd=pd.DataFrame([next_loc,'int16',1],index=bloc.columns,columns=['unassigned']).T
+                bloc=pd.concat([bloc,rowAdd],axis=0)
+                bloc=bloc.sort_values('intAddress')
+            k+=1
+        return bloc
+
+    def decode_continuous_bloc(self,bloc,unit_id=1,byteorder='little',wordorder='big'):
+        '''
+        - bloc[pd.DataFrame] should be continuos and contain:
+            - type column with the datatypes
+            - intAddress with the adress of the registers
+            - scale with scales to apply
+        '''
+
+        def sizeof(dtype):
+            if dtype.lower()=='float32' or dtype.lower()=='ieee754':
+                return 2
+            elif dtype.lower()=='int32' or dtype.lower()=='uint32':
+                return 2
+            elif dtype.lower()=='int16' or dtype.lower()=='uint16':
+                return 1
+            elif dtype.lower()=='int64' or dtype.lower()=='uint64':
+                return 4
+
+        def decode_register(decoder,dtype):
+            if dtype.lower()=='float32' or dtype.lower()=='ieee754':
+                value=decoder.decode_32bit_float()
+            elif dtype.lower()=='int32':
+                value=decoder.decode_32bit_int()
+            elif dtype.lower()=='uint32':
+                value=decoder.decode_32bit_uint()
+            elif dtype.lower()=='int16':
+                value=decoder.decode_16bit_int()
+            elif dtype.lower()=='uint16':
+                value=decoder.decode_16bit_uint()
+            elif dtype.lower()=='int64':
+                value=decoder.decode_64bit_int()
+            elif dtype.lower()=='uint64':
+                value=decoder.decode_64bit_uint()
+            return value
+
+        ### determine range to read
+        blocks=[]
+        for block_100 in self.cut_into_100_blocks(bloc):
+            start=block_100['intAddress'].min()
+            end=block_100['intAddress'].max()+sizeof(block_100['type'].iloc[-1])
+            self.client.connect()
+            result = self.client.read_holding_registers(start, end-start, unit=unit_id)
+            ### decode values
+            if byteorder.lower()=='little' and wordorder.lower()=='big':
+                decoder = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Little, wordorder=Endian.Big)
+            elif byteorder.lower()=='big' and wordorder.lower()=='big':
+                decoder = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Big, wordorder=Endian.Big)
+            elif byteorder.lower()=='little' and wordorder.lower()=='little':
+                decoder = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Little, wordorder=Endian.Little)
+            elif byteorder.lower()=='big' and wordorder.lower()=='little':
+                decoder = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Big, wordorder=Endian.Little)
+            block_100['value'] = [decode_register(decoder,dtype) for dtype in block_100['type']]
+            blocks+=[block_100]
+        bloc=pd.concat(blocks)
+        ### apply scales
+        bloc['value']*=bloc['scale']
+        return bloc
+
+    def decode_bloc_registers(self,bloc,*args,**kwargs):
+        blocks=self.get_continuous_blocks(bloc)
+        return pd.concat([self.decode_continuous_bloc(b,*args,**kwargs) for b in blocks],axis=0).set_index('index')
+
+    def collectData(self,tz,*args,multiple=False,old=False):
         d={}
+        bbs=[]
+        for unit_id in self.modebus_map.slave_unit.unique():
+            bloc=self.modebus_map[self.modebus_map.slave_unit==unit_id]
+            bb=self.decode_bloc_registers(bloc,unit_id,self.byte_order,self.word_order)
+            bb['timestampz']=pd.Timestamp.now(tz=tz).isoformat()
+            bbs+=[bb]
+        d=pd.concat(bbs)[['value','timestampz']].T.to_dict()
+        return d
         if self.multiple:
             for idTCP in self.all_slave_ids:
                 d.update(self.get_slave_values(unit_id=idTCP,tz=tz))
@@ -1799,10 +1831,11 @@ class VisualisationMaster(Configurator):
         allunits   = list(np.unique(list(tagMapping.values())))
         rows=len(allunits)
         df = df.melt(ignore_index=False)
+        df.columns=['tag','value']
         df['unit']=df.apply(lambda x:tagMapping[x['tag']],axis=1)
         fig=px.scatter(df,y='value',color='tag',
                         facet_col='unit',facet_col_wrap=facet_col_wrap,
-                        color_discrete_sequence = self.utils.colors_mostdistincs)
+                        color_discrete_sequence = Utils().colors_mostdistincs)
         fig.update_traces(mode='lines+markers')
         fig.update_xaxes(matches='x')
         fig.update_yaxes(matches=None)

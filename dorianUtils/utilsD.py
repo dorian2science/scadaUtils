@@ -921,3 +921,13 @@ class Callback():
         df = pd.concat(dfs,axis=1)
         filename = 'exportedData'
         return df,filename
+
+class Modebus_utils():
+    def quick_modebus_decoder(self,regs,dtype,bo_out='=',bo_in='='):
+        if dtype=='INT32' or dtype == 'UINT32':
+            value = struct.unpack(bo_out + 'i',struct.pack(bo_in+"2H",*regs))[0]
+        if dtype == 'IEEE754':
+            value = struct.unpack(bo_out + 'f',struct.pack(bo_in+"2H",*regs))[0]
+        elif dtype == 'INT64':
+            value = struct.unpack(bo_out + 'q',struct.pack(bo_in+"4H",*regs))[0]
+        return value
