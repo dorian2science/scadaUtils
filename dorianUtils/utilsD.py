@@ -340,6 +340,9 @@ class Utils:
         ])
         fig.show()
         return fig
+
+    def dict2df(self,d):
+        return pd.concat([pd.Series(d[v],name=v) for v in d.keys()],axis=1)
     # ==========================================================================
     #                           GRAPHICS
     # ==========================================================================

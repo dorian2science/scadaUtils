@@ -39,10 +39,12 @@ def print_error(tb,filename=None):
         ff+=Fore.RED + res[0]+Fore.BLUE+res[1]+Fore.GREEN + res[2] + Fore.WHITE + '\n'
     print_file(ff,exc_format[-1],with_infos=False,filename=filename)
 
-def html_table(df):
-    if isinstance(df,pd.Series):
-        df=df.to_frame()
-    df.to_html('/tmp/table.html')
+def html_table(df,title='table'):
+    f=open('/tmp/table.html','w')
+    f.write('<h1>'+title+'</h1>')
+    if isinstance(df,pd.Series):df=df.to_frame()
+    df.to_html(f)
+    f.close()
     sp.run('firefox /tmp/table.html',shell=True)
 
 
@@ -973,6 +975,23 @@ class Streamer(Basic_streamer):
         return day
 
     def zip_day(self,folderday,basename,zipfolder):
+        listtags=glob.glob(folderday+'/*')
+        dfs=[]
+        for tag in listtags:
+            dftag = pickle.load(open(tag,'rb')).reset_index()
+            dftag['tag'] = tag.split('/')[-1].replace('.pkl','')
+            dfs.append(dftag)
+        df = pd.concat(dfs)
+        ### save as zip file
+        filecsv = zipfolder + '/' + folderday.split('/')[-2] +'_'+ basename + '.csv'
+        df.to_csv(filecsv)
+        file_csv_local = filecsv.split('/')[-1]
+        filezip        = file_csv_local.replace('.csv','.zip')
+        # sp.Popen(['libreoffice','/tmp/test.xlsx'])
+        sp.check_output('cd ' + zipfolder + ' && zip '+filezip + ' ' + file_csv_local,shell=True)
+        os.remove(filecsv)
+
+    def zip_day_v2(self,folderday,basename,zipfolder):
         listtags=glob.glob(folderday+'/*')
         dfs=[]
         for tag in listtags:
