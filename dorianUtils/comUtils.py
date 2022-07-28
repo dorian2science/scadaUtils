@@ -27,7 +27,7 @@ def print_file(*args,filename=None,mode='a',with_infos=True,**kwargs):
         frameinfo = currentframe().f_back
         frameinfo = getframeinfo(frameinfo)
         entete=Fore.BLUE + frameinfo.filename + ','+ Fore.GREEN + str(frameinfo.lineno) + '\n'+Fore.WHITE
-    if filename is None :
+    if filename is None:
         print(entete,*args,**kwargs)
     else:
         print(entete,*args,file=open(filename,mode),**kwargs)
@@ -180,36 +180,37 @@ class Device():
         - a function <collectData> should be written  to collect data from the device.
         - a function <connectDevice> to connect to the device.
     '''
-    def __init__(self,device_name,endpointUrl,port,dfplc,time_outs_reconnection=None,log_file=None):
-        self.fs                = FileSystem()
-        self.utils             = Utils()
+    def __init__(self,device_name,ip,port,dfplc,time_outs_reconnection=None,log_file=None):
+        self._fs               = FileSystem()
+        self._utils            = Utils()
         self.device_name       = device_name
-        self.endpointUrl       = endpointUrl
+        self.ip                = ip
         self.port              = port
         self.log_file          = log_file
         self.isConnected       = False
-        self.__auto_connect      = False
-        self.__kill_auto_connect = threading.Event()
+        self._auto_connect     = False
+        self._kill_auto_connect= threading.Event()
         if time_outs_reconnection is None:
             time_outs_reconnection=[(2,k) for k in [3,5,10,30,60,60*2,60*5,60*10,60*20,60*30,60*40,60*50]]
             # time_outs_reconnection=[(1,k) for k in [1]]
             time_outs_reconnection.append((100000,60*60))
-        self.time_outs_reconnection = time_outs_reconnection
-        self.timeOuts_counter  = 0
-        self.current_trial     = 0
-        self.current_timeOut   = self.time_outs_reconnection[0][1]
-        self.__thread_reconnection = threading.Thread(target=self.__auto_reconnect)
+        self._time_outs_reconnection = time_outs_reconnection
+        self._timeOuts_counter  = 0
+        self._current_trial     = 0
+        self._current_timeOut   = self._time_outs_reconnection[0][1]
+        self._thread_reconnection = threading.Thread(target=self.__auto_reconnect)
 
-        self.dfplc             = dfplc
-        self.listUnits         = self.dfplc.UNITE.dropna().unique().tolist()
-        self.alltags           = list(self.dfplc.index)
-        self.collectingTimes,self.insertingTimes  = {},{}
+        self.dfplc = dfplc
+        self._collectingTimes,self._insertingTimes  = {},{}
+        if not self.dfplc is None:
+            self.listUnits = self.dfplc.UNITE.dropna().unique().tolist()
+            self.alltags   = list(self.dfplc.index)
 
     def __auto_reconnect(self):
-        while not self.__kill_auto_connect.is_set():
-            while self.__auto_connect:
-                self.__checkConnection()
-                self.__kill_auto_connect.wait(self.current_timeOut)
+        while not self._kill_auto_connect.is_set():
+            while self._auto_connect:
+                self._checkConnection()
+                self._kill_auto_connect.wait(self._current_timeOut)
 
     def connectDevice(self,state=None):
         if state is None:self.isConnected=np.random.randint(0,2)==1
@@ -218,41 +219,41 @@ class Device():
 
     def start_auto_reconnect(self):
         self.connectDevice()
-        self.__auto_connect=True
-        self.__thread_reconnection.start()
+        self._auto_connect=True
+        self._thread_reconnection.start()
 
     def stop_auto_reconnect(self):
-        self.__auto_connect=False
+        self._auto_connect=False
 
     def kill_auto_reconnect(self):
-        self.__auto_connect=False
-        self.__kill_auto_connect.set()
-        self.__thread_reconnection.join()
+        self._auto_connect=False
+        self._kill_auto_connect.set()
+        self._thread_reconnection.join()
 
-    def __checkConnection(self):
+    def _checkConnection(self):
         # print_file('checking if device still connected')
         if not self.isConnected:
-            self.current_trial+=1
-            nb_trials,self.current_timeOut = self.time_outs_reconnection[self.timeOuts_counter]
-            if self.current_trial>nb_trials:
-                self.timeOuts_counter+=1
-                self.current_trial=0
-                self.__checkConnection()
+            self._current_trial+=1
+            nb_trials,self._current_timeOut = self._time_outs_reconnection[self._timeOuts_counter]
+            if self._current_trial>nb_trials:
+                self._timeOuts_counter+=1
+                self._current_trial=0
+                self._checkConnection()
                 return
 
             print_file('-'*60+'\n',filename=self.log_file)
             if self.connectDevice():
-                self.timeOuts_counter  = 0
-                self.current_timeOut   = self.time_outs_reconnection[0][1]
-                self.current_trial     = 0
+                self._timeOuts_counter  = 0
+                self._current_timeOut   = self._time_outs_reconnection[0][1]
+                self._current_trial     = 0
                 msg=timenowstd()+' : Connexion to '+self.device_name+' established again!!'
             else :
                 msg=timenowstd()+' : --> impossible to connect to device '+self.device_name
-                msg+='. Try new connection in ' + str(self.current_timeOut) + ' seconds'
+                msg+='. Try new connection in ' + str(self._current_timeOut) + ' seconds'
             print_file(msg,filename=self.log_file)
             print_file('-'*60+'\n',filename=self.log_file)
 
-    def generate_sql_insert_tag(self,tag,value,timestampz,dbTable):
+    def _generate_sql_insert_tag(self,tag,value,timestampz,dbTable):
         '''
         - dbTable : name of table in database where to insert
         '''
@@ -262,120 +263,110 @@ class Device():
         sqlreq+= tag +"','" + value + "','" + timestampz  + "');"
         return sqlreq.replace('nan','null')
 
-    def insert_intodb(self,dbParameters,dbTable,*args):
-        ''' should have a function that gather data and returns a dictionnary tag:value.'''
+    def insert_intodb(self,dbParameters,dbTable,*args,**kwargs):
+        ''' insert into database data that are collected with self.collectData. dfplc attribute should not be None.'''
+        if self.dfplc is None:return
         ##### connect to database ########
         try :
             connReq = ''.join([k + "=" + v + " " for k,v in dbParameters.items()])
             dbconn = psycopg2.connect(connReq)
-        except :
+        except:
             print_file('problem connecting to database ',dbParameters,filename=self.log_file)
             return
         cur  = dbconn.cursor()
         start=time.time()
         ##### check that device is connected ########
-        if not self.isConnected:return
-        ##### collect data ########
-        try :
-            data = self.collectData(*args)
-        except:
-            print_file(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.',filename=self.log_file)
-            self.isConnected = False
+        if not self.isConnected:
+            print_file('not connected')
             return
-        self.collectingTimes[timenowstd()] = (time.time()-start)*1000
+        ##### collect data ########
+        # try:
+        data = self.collectData(*args,**kwargs)
+        # except:
+            # print_file(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.',filename=self.log_file)
+            # self.isConnected = False
+            # return
+        self._collectingTimes[timenowstd()] = (time.time()-start)*1000
         ##### generate sql insertion and insert ########
         for tag in data.keys():
-            sqlreq=self.generate_sql_insert_tag(tag,data[tag][0],data[tag][1],dbTable)
+            sqlreq=self._generate_sql_insert_tag(tag,data[tag]['value'],data[tag]['timestampz'],dbTable)
             cur.execute(sqlreq)
-        self.insertingTimes[timenowstd()]= (time.time()-start)*1000
+        self._insertingTimes[timenowstd()]= (time.time()-start)*1000
         dbconn.commit()
         cur.close()
         dbconn.close()
 
     def createRandomInitalTagValues(self):
-        return self.fs.createRandomInitalTagValues(self.alltags,self.dfplc)
+        return self._fs.createRandomInitalTagValues(self.alltags,self.dfplc)
 
     def getUnitofTag(self,tag):
-        return self.fs.getUnitofTag(tag,self.dfplc)
+        return self._fs.getUnitofTag(tag,self.dfplc)
 
     def getTagsTU(self,patTag,units=None,*args,**kwargs):
+        if self.dfplc is None:
+            print_file('no dfplc. Function unavailable.')
+            return
         if not units : units = self.listUnits
-        return self.fs.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
+        return self._fs.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
 
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from pymodbus.payload import BinaryPayloadDecoder
 from pymodbus.constants import Endian
-
-class ModeBusDevice(Device):
-    '''modebus_map should be loaded to use functions decodeRegisters.'''
-    def __init__(self,device_name,endpointUrl,port,dfplc,modebus_map,freq,bo='big',wo='big',**kwargs):
-        Device.__init__(self,device_name,endpointUrl,port,dfplc,**kwargs)
-        self.modebus_map = modebus_map
-        self.freq     = freq
+class ModbusDevice(Device):
+    '''modbus_map should be loaded to use functions decodeRegisters.'''
+    def __init__(self,ip,port=502,device_name='',dfplc=None,modbus_map=None,freq=None,bo='big',wo='big',**kwargs):
+        Device.__init__(self,device_name,ip,port,dfplc,**kwargs)
+        self.modbus_map = modbus_map
+        self.freq = freq
         self.byte_order,self.word_order = bo,wo
-        self.all_slave_ids = list(self.modebus_map.slave_unit.unique())
-        self.client = ModbusClient(host=self.endpointUrl,port=int(self.port))
-        dfplc['FREQUENCE_ECHANTILLONNAGE'] = self.freq
+        if not self.modbus_map is None:
+            self.slave_ids = list(self.modbus_map.slave_unit.unique())
+        self._client = ModbusClient(host=self.ip,port=int(self.port))
+        if not self.dfplc is None:dfplc['FREQUENCE_ECHANTILLONNAGE'] = self.freq
 
     def connectDevice(self):
         try:
-            self.client.connect()
+            self._client.connect()
             self.isConnected=True
         except:
             self.isConnected=False
         return self.isConnected
 
-    def cut_into_100_blocks(self,bloc):
+    def quick_modbus_single_register_decoder(self,reg,nbs,dtype,unit=1):
+        self._client.connect()
+        result = self._client.read_holding_registers(reg, nbs, unit=unit)
+        decoders={}
+        decoders['bo=b,wo=b'] = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Big, wordorder=Endian.Big)
+        decoders['bo=b,wo=l'] = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Big, wordorder=Endian.Little)
+        decoders['bo=l,wo=b'] = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Little, wordorder=Endian.Big)
+        decoders['bo=l,wo=l'] = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Little, wordorder=Endian.Little)
+        values ={k:self._decode_register(d,dtype) for k,d in decoders.items()}
+        print('='*60+'\nvalues are \n',pd.Series(values))
+        return values
+
+    def decode_bloc_registers(self,bloc,*args,**kwargs):
+        blocks=self._get_continuous_blocks(bloc)
+        return pd.concat([self._decode_continuous_bloc(b,*args,**kwargs) for b in blocks],axis=0).set_index('index')
+
+    def collectData(self,tz,*args):
+        if self.modbus_map is None:
+            print_file('no modbus_map was selected. Collection not possible.')
+            return
+        d={}
         bbs=[]
-        bint=bloc['intAddress']
-        mini=bint.min()
-        range_width=bint.max()-mini
-        for k in range(range_width//100+1):
-            bb=bloc[(bint>=mini+k*100) & (bint<=mini+(k+1)*100)]
-            if not bb.empty:
-                bbs+=[bb]
-        return bbs
-
-    def get_continuous_blocks(self,bloc):
-        bloc=self.get_size_words_block(bloc)
-        c=(bloc['intAddress']+bloc['size_words']).reset_index()[:-1]
-        b=bloc['intAddress'][1:].reset_index()
-
-        idxs_break=b[~(b['intAddress']==c[0])]['index'].to_list()
-        bb=bloc.reset_index()
-        idxs_break=[bb[bb['index']==i].index[0] for i in idxs_break]
-
-        idxs_break=[0]+idxs_break+[len(bb)]
-        blocks=[bb.iloc[idxs_break[i]:idxs_break[i+1],:] for i in range(len(idxs_break)-1)]
-        return blocks
-
-    def get_size_words_block(self,bloc):
-        bloc['size_words']=1
-        bloc['size_words']=bloc['size_words'].mask(bloc['type']=='IEEE754',2)
-        bloc['size_words']=bloc['size_words'].mask(bloc['type']=='INT64',4)
-        bloc['size_words']=bloc['size_words'].mask(bloc['type']=='UINT64',4)
-        bloc['size_words']=bloc['size_words'].mask(bloc['type']=='INT32',2)
-        bloc['size_words']=bloc['size_words'].mask(bloc['type']=='UINT32',2)
-        return bloc
-
-    def fill_gaps_bloc(self,bloc):
-        bloc=bloc.copy().sort_values('intAddress')[['intAddress','type']]
-        bloc=self.get_size_words_block(bloc)
-        k=0
-        while k<len(bloc)-1:
-            cur_loc=bloc.iloc[k]
-            next_loc=cur_loc[['intAddress','size_words']].sum()
-            next_loc_real=bloc.iloc[k+1]['intAddress']
-            if not next_loc_real==next_loc:
-                rowAdd=pd.DataFrame([next_loc,'int16',1],index=bloc.columns,columns=['unassigned']).T
-                bloc=pd.concat([bloc,rowAdd],axis=0)
-                bloc=bloc.sort_values('intAddress')
-            k+=1
-        return bloc
-
-    def decode_continuous_bloc(self,bloc,unit_id=1,byteorder='little',wordorder='big'):
+        for unit_id in self.modbus_map.slave_unit.unique():
+            bloc=self.modbus_map[self.modbus_map.slave_unit==unit_id]
+            bb=self.decode_bloc_registers(bloc,unit_id)
+            bb['timestampz']=pd.Timestamp.now(tz=tz).isoformat()
+            bbs+=[bb]
+        d=pd.concat(bbs)[['value','timestampz']].T.to_dict()
+        return d
+    #####################
+    # PRIVATE FUNCTIONS #
+    #####################
+    def _decode_continuous_bloc(self,bloc,unit_id=1):
         '''
-        - bloc[pd.DataFrame] should be continuos and contain:
+        - bloc[pd.DataFrame] should be continuous and contain:
             - type column with the datatypes
             - intAddress with the adress of the registers
             - scale with scales to apply
@@ -391,66 +382,97 @@ class ModeBusDevice(Device):
             elif dtype.lower()=='int64' or dtype.lower()=='uint64':
                 return 4
 
-        def decode_register(decoder,dtype):
-            if dtype.lower()=='float32' or dtype.lower()=='ieee754':
-                value=decoder.decode_32bit_float()
-            elif dtype.lower()=='int32':
-                value=decoder.decode_32bit_int()
-            elif dtype.lower()=='uint32':
-                value=decoder.decode_32bit_uint()
-            elif dtype.lower()=='int16':
-                value=decoder.decode_16bit_int()
-            elif dtype.lower()=='uint16':
-                value=decoder.decode_16bit_uint()
-            elif dtype.lower()=='int64':
-                value=decoder.decode_64bit_int()
-            elif dtype.lower()=='uint64':
-                value=decoder.decode_64bit_uint()
-            return value
-
         ### determine range to read
         blocks=[]
-        for block_100 in self.cut_into_100_blocks(bloc):
+        for block_100 in self._cut_into_100_blocks(bloc):
             start=block_100['intAddress'].min()
             end=block_100['intAddress'].max()+sizeof(block_100['type'].iloc[-1])
-            self.client.connect()
-            result = self.client.read_holding_registers(start, end-start, unit=unit_id)
+            self._client.connect()
+            result = self._client.read_holding_registers(start, end-start, unit=unit_id)
             ### decode values
-            if byteorder.lower()=='little' and wordorder.lower()=='big':
+            if self.byte_order.lower()=='little' and self.word_order.lower()=='big':
                 decoder = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Little, wordorder=Endian.Big)
-            elif byteorder.lower()=='big' and wordorder.lower()=='big':
+            elif self.byte_order.lower()=='big' and self.word_order.lower()=='big':
                 decoder = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Big, wordorder=Endian.Big)
-            elif byteorder.lower()=='little' and wordorder.lower()=='little':
+            elif self.byte_order.lower()=='little' and self.word_order.lower()=='little':
                 decoder = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Little, wordorder=Endian.Little)
-            elif byteorder.lower()=='big' and wordorder.lower()=='little':
+            elif self.byte_order.lower()=='big' and self.word_order.lower()=='little':
                 decoder = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Big, wordorder=Endian.Little)
-            block_100['value'] = [decode_register(decoder,dtype) for dtype in block_100['type']]
+            block_100['value'] = [self._decode_register(decoder,dtype) for dtype in block_100['type']]
             blocks+=[block_100]
         bloc=pd.concat(blocks)
         ### apply scales
         bloc['value']*=bloc['scale']
         return bloc
 
-    def decode_bloc_registers(self,bloc,*args,**kwargs):
-        blocks=self.get_continuous_blocks(bloc)
-        return pd.concat([self.decode_continuous_bloc(b,*args,**kwargs) for b in blocks],axis=0).set_index('index')
+    def _get_size_words_block(self,bloc):
+        bs=pd.Series(1,index=bloc.index)
+        bs=bs.mask(bloc['type']=='IEEE754',2)
+        bs=bs.mask(bloc['type']=='INT64',4)
+        bs=bs.mask(bloc['type']=='UINT64',4)
+        bs=bs.mask(bloc['type']=='INT32',2)
+        bs=bs.mask(bloc['type']=='UINT32',2)
+        bloc2=bloc.copy()
+        bloc2['size_words']=bs
+        return bloc2
 
-    def collectData(self,tz,*args,multiple=False,old=False):
-        d={}
+    def _cut_into_100_blocks(self,bloc):
         bbs=[]
-        for unit_id in self.modebus_map.slave_unit.unique():
-            bloc=self.modebus_map[self.modebus_map.slave_unit==unit_id]
-            bb=self.decode_bloc_registers(bloc,unit_id,self.byte_order,self.word_order)
-            bb['timestampz']=pd.Timestamp.now(tz=tz).isoformat()
-            bbs+=[bb]
-        d=pd.concat(bbs)[['value','timestampz']].T.to_dict()
-        return d
-        if self.multiple:
-            for idTCP in self.all_slave_ids:
-                d.update(self.get_slave_values(unit_id=idTCP,tz=tz))
+        bint=bloc['intAddress']
+        mini=bint.min()
+        range_width=bint.max()-mini
+        for k in range(range_width//100+1):
+            bb=bloc[(bint>=mini+k*100) & (bint<=mini+(k+1)*100)]
+            if not bb.empty:
+                bbs+=[bb]
+        return bbs
+
+    def _get_continuous_blocks(self,bloc):
+        bloc=self._get_size_words_block(bloc)
+        c=(bloc['intAddress']+bloc['size_words']).reset_index()[:-1]
+        b=bloc['intAddress'][1:].reset_index()
+
+        idxs_break=b[~(b['intAddress']==c[0])]['index'].to_list()
+        bb=bloc.reset_index()
+        idxs_break=[bb[bb['index']==i].index[0] for i in idxs_break]
+
+        idxs_break=[0]+idxs_break+[len(bb)]
+        blocks=[bb.iloc[idxs_break[i]:idxs_break[i+1],:] for i in range(len(idxs_break)-1)]
+        return blocks
+
+    def _fill_gaps_bloc(self,bloc):
+        bloc=bloc.copy().sort_values('intAddress')[['intAddress','type']]
+        bloc=self._get_size_words_block(bloc)
+        k=0
+        while k<len(bloc)-1:
+            cur_loc=bloc.iloc[k]
+            next_loc=cur_loc[['intAddress','size_words']].sum()
+            next_loc_real=bloc.iloc[k+1]['intAddress']
+            if not next_loc_real==next_loc:
+                rowAdd=pd.DataFrame([next_loc,'int16',1],index=bloc.columns,columns=['unassigned']).T
+                bloc=pd.concat([bloc,rowAdd],axis=0)
+                bloc=bloc.sort_values('intAddress')
+            k+=1
+        return bloc
+
+    def _decode_register(self,decoder,dtype):
+        if dtype.lower()=='float32' or dtype.lower()=='ieee754':
+            value=decoder.decode_32bit_float()
+        elif dtype.lower()=='int32':
+            value=decoder.decode_32bit_int()
+        elif dtype.lower()=='uint32':
+            value=decoder.decode_32bit_uint()
+        elif dtype.lower()=='int16':
+            value=decoder.decode_16bit_int()
+        elif dtype.lower()=='uint16':
+            value=decoder.decode_16bit_uint()
+        elif dtype.lower()=='int64':
+            value=decoder.decode_64bit_int()
+        elif dtype.lower()=='uint64':
+            value=decoder.decode_64bit_uint()
         else:
-            return self.get_all_values_sequentially(tz=tz)
-        return d
+            value=dtype+' not available'
+        return value
 
 import opcua
 class Opcua_Client(Device):
@@ -458,10 +480,10 @@ class Opcua_Client(Device):
         Device.__init__(self,*args,**kwargs)
 
         self.nameSpace   = nameSpace
-        self.endpointUrl= self.endpointUrl+":"+str(self.port)
-        self.client      = opcua.Client(self.endpointUrl)
+        self.ip= self.ip+":"+str(self.port)
+        self._client      = opcua.Client(self.ip)
         ####### load nodes
-        self.nodesDict  = {t:self.client.get_node(self.nameSpace + t) for t in self.alltags}
+        self.nodesDict  = {t:self._client.get_node(self.nameSpace + t) for t in self.alltags}
         self.nodes      = list(self.nodesDict.values())
 
     def loadPLC_file(self):
@@ -480,7 +502,7 @@ class Opcua_Client(Device):
 
     def connectDevice(self):
         try:
-            self.client.connect()
+            self._client.connect()
             self.isConnected=True
         except:
             self.isConnected=False
@@ -488,7 +510,7 @@ class Opcua_Client(Device):
 
     def collectData(self,tz,tags):
         nodes = {t:self.nodesDict[t] for t in tags}
-        values = self.client.get_values(nodes.values())
+        values = self._client.get_values(nodes.values())
         ts = pd.Timestamp.now(tz=tz).isoformat()
         data = {tag:[val,ts] for tag,val in zip(nodes.keys(),values)}
         return data
@@ -603,7 +625,7 @@ class Basic_streamer():
     def __init__(self,log_file=None):
         self.methods=['ffill','nearest','mean','max','min','median','interpolate','rolling_mean','mean_mix']
         self.num_cpus = psutil.cpu_count(logical=False)
-        self.fs = FileSystem()
+        self._fs = FileSystem()
         self.log_file=log_file
 
 class Streamer_hourly():
@@ -791,7 +813,7 @@ class Streamer_minutely(Basic_streamer):
                 #last hour
                 folderHour11 = folderDayLast + '{:02d}'.format(t1.hour) + '/'
                 dfs.append(actionMinutes(range(0,t1.minute),folderHour11))
-        return self.fs.flatten(dfs)
+        return self._fs.flatten(dfs)
 
     def parktagminute(self,folderminute,dftag):
         tag = dftag.tag[0]
@@ -1175,11 +1197,15 @@ class Streamer(Basic_streamer):
         else:
             dftags = {tag:self.load_tag_daily(t0,t1,tag,folderpkl,*args,**kwargs) for tag in tags}
 
+        empty_tags=[t for t,v in dftags.items() if v.empty]
+        dftags = {tag:v for tag,v in dftags.items() if not v.empty}
+        if len(dftags)==0:
+            return pd.DataFrame(columns=dftags.keys())
         df = pd.concat(dftags,axis=1)
+        for t in empty_tags:df[t]=np.nan
         df = df[df.index>=t0]
         df = df[df.index<=t1]
         return df
-
     # ########################
     #   HIGH LEVEL FUNCTIONS #
     # ########################
@@ -1242,7 +1268,7 @@ class Streamer(Basic_streamer):
         # return dfs
 
     def listfiles_pattern_period(self,t0,t1,pattern,folderpkl,pool=True):
-        return self.actiondays(t0,t1,folderpkl,self.fs.listfiles_pattern_folder,pattern,pool=pool)
+        return self.actiondays(t0,t1,folderpkl,self._fs.listfiles_pattern_folder,pattern,pool=pool)
     # ########################
     #   STATIC COMPRESSION   #
     # ########################
@@ -1352,7 +1378,7 @@ class Configurator():
         # self.tmin,self.tmax  = self.daysnotempty.min(),self.daysnotempty.max()
 
     def getdaysnotempty(self):
-        return self.fs.get_parked_days_not_empty(self.folderPkl)
+        return self._fs.get_parked_days_not_empty(self.folderPkl)
 
     def connect2db(self):
         connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
@@ -1366,14 +1392,14 @@ class Configurator():
             return []
 
     def createRandomInitalTagValues(self):
-        return self.fs.createRandomInitalTagValues(self.alltags,self.dfplc)
+        return self._fs.createRandomInitalTagValues(self.alltags,self.dfplc)
 
     def getUnitofTag(self,tag):
-        return self.fs.getUnitofTag(tag,self.dfplc)
+        return self._fs.getUnitofTag(tag,self.dfplc)
 
     def getTagsTU(self,patTag,units=None,*args,**kwargs):
         if not units : units = self.listUnits
-        return self.fs.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
+        return self._fs.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
 
 class SuperDumper(Configurator):
     def __init__(self,devices,*args,log_file=None,**kwargs):
@@ -1381,7 +1407,7 @@ class SuperDumper(Configurator):
         self.parkingTimes = {}
         self.streamer     = Streamer()
         self.devices      = devices
-        self.fs           = FileSystem()
+        self._fs           = FileSystem()
         self.dumpInterval = {}
         self.parkInterval = SetInterval(self.parkingTime,self.park_database)
         ###### DOUBLE LOOP of setIntervals for devices/acquisition-frequencies
@@ -1824,14 +1850,14 @@ class VisualisationMaster(Configurator):
         start=time.time()
         fig = px.scatter(df)
         unit = self.getUnitofTag(df.columns[0])
-        nameGrandeur = self.utils.detectUnit(unit)
+        nameGrandeur = self._utils.detectUnit(unit)
         fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
         return fig
 
     def multiMultiUnitGraph(self,df,*listtags,axSP=0.05):
         hs=0.002
         dictdictGroups={'graph'+str(k):{t:self.getUnitofTag(t) for t in tags} for k,tags in enumerate(listtags)}
-        fig = self.utils.multiUnitGraphSubPlots(df,dictdictGroups,axisSpace=axSP)
+        fig = self._utils.multiUnitGraphSubPlots(df,dictdictGroups,axisSpace=axSP)
         nbGraphs=len(listtags)
         for k,g in enumerate(dictdictGroups.keys()):
             units = list(pd.Series(dictdictGroups[g].values()).unique())

@@ -4,3 +4,4 @@ build/
 dist/
 dorianUtilsModulaire.egg-info/
 examples/.ipynb_checkpoints/
+.env/
