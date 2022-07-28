@@ -264,7 +264,11 @@ class Device():
         return sqlreq.replace('nan','null')
 
     def insert_intodb(self,dbParameters,dbTable,*args,**kwargs):
-        ''' insert into database data that are collected with self.collectData. dfplc attribute should not be None.'''
+        '''
+        insert into database data that are collected with self.collectData.
+        dfplc attribute should not be None.
+        *args : arguments of self.collectData
+        '''
         if self.dfplc is None:return
         ##### connect to database ########
         try :
@@ -277,15 +281,14 @@ class Device():
         start=time.time()
         ##### check that device is connected ########
         if not self.isConnected:
-            print_file('not connected')
             return
         ##### collect data ########
-        # try:
-        data = self.collectData(*args,**kwargs)
-        # except:
-            # print_file(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.',filename=self.log_file)
-            # self.isConnected = False
-            # return
+        try:
+            data = self.collectData(*args,**kwargs)
+        except:
+            print_file(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.',filename=self.log_file)
+            self.isConnected = False
+            return
         self._collectingTimes[timenowstd()] = (time.time()-start)*1000
         ##### generate sql insertion and insert ########
         for tag in data.keys():
@@ -313,7 +316,6 @@ from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from pymodbus.payload import BinaryPayloadDecoder
 from pymodbus.constants import Endian
 class ModbusDevice(Device):
-    '''modbus_map should be loaded to use functions decodeRegisters.'''
     def __init__(self,ip,port=502,device_name='',dfplc=None,modbus_map=None,freq=None,bo='big',wo='big',**kwargs):
         Device.__init__(self,device_name,ip,port,dfplc,**kwargs)
         self.modbus_map = modbus_map
@@ -349,6 +351,13 @@ class ModbusDevice(Device):
         return pd.concat([self._decode_continuous_bloc(b,*args,**kwargs) for b in blocks],axis=0).set_index('index')
 
     def collectData(self,tz,*args):
+        '''It will collect all the data if a dataframe modbus_map is present with columns
+        - index : name of the registers or tags.
+        - type  : datatype{uint16,int32,float...}
+        - scale : the multiplication factor
+        - intAddress :  for the adress in decimal format
+        - slave_unit : the slave unit
+        '''
         if self.modbus_map is None:
             print_file('no modbus_map was selected. Collection not possible.')
             return
@@ -512,7 +521,7 @@ class Opcua_Client(Device):
         nodes = {t:self.nodesDict[t] for t in tags}
         values = self._client.get_values(nodes.values())
         ts = pd.Timestamp.now(tz=tz).isoformat()
-        data = {tag:[val,ts] for tag,val in zip(nodes.keys(),values)}
+        data = {tag:{'value':val,'timestampz':ts} for tag,val in zip(nodes.keys(),values)}
         return data
 
 import urllib.request, json
@@ -566,8 +575,7 @@ class Meteo_Client(Device):
 
     def collectData(self,tz='CET',tags=None):
         df = pd.concat([self.get_dfMeteo(city,tz) for city in self.cities])
-        # df = df.abs
-        return {k:[v,df.name] for k,v in zip(df.index,df)}
+        return {tag:{'value':v,'timestampz':df.name} for tag,v in df.to_dict().items()}
 
     def get_dfMeteo(self,city,tz,ts_from_meteo=False):
         '''
@@ -1107,7 +1115,8 @@ class Streamer(Basic_streamer):
     def load_raw_day_tag(self,day,tag,folderpkl,rs,rsMethod,closed,showTag_day=True):
         # print(folderpkl, day,'/',tag,'.pkl')
 
-        filename = folderpkl + day+'/'+tag+'.pkl'
+        filename = folderpkl +'/'+ day+'/'+tag+'.pkl'
+        print(filename)
         if os.path.exists(filename):
             s= pd.read_pickle(filename)
         else :
@@ -1120,7 +1129,6 @@ class Streamer(Basic_streamer):
         start=time.time()
 
         listDays=[self.to_folderday(k)[:-1] for k in pd.date_range(t0,t1,freq='D')]
-
         if ncores is None:
             ncores=min(len(listDays),self.num_cpus)
 
@@ -1141,7 +1149,7 @@ class Streamer(Basic_streamer):
         dfs={}
         t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
         while t<t1:
-            filename = folderpkl + t.strftime(self.format_dayFolder)+'/'+tag+'.pkl'
+            filename = folderpkl +'/'+ t.strftime(self.format_dayFolder)+'/'+tag+'.pkl'
             if os.path.exists(filename):
                 if time_debug: print_file(filename,t.isoformat(),filename=self.log_file)
                 dfs[filename]=pd.read_pickle(filename)
@@ -1513,20 +1521,17 @@ class SuperDumper(Configurator):
         return df
 
     def checkTimes(self,name_device):
-        def dict2pdf(d):
-            return pd.DataFrame.from_dict(d,orient='index').squeeze().sort_values()
-        device = self.devices.__dict__[name_device]
-        s_collect = dict2pdf(device.collectingTimes)
-        s_insert  = dict2pdf(device.insertingTimes)
+        def dict2df(d,name):
+            df=pd.Series(d,name='value').sort_values().to_frame()
+            df['group']=name
+            return df
+        device = self.devices[name_device]
+        s_collect = dict2df(device._collectingTimes,'collection')
+        s_insert  = dict2df(device._insertingTimes,'insertion')
+        df=pd.concat([s_collect,s_insert])
 
         p = 1. * np.arange(len(s_collect))
-        ## first x axis :
-        tr1 = go.Scatter(x=p,y=df,name='collectingTime',col=1,row=1)
-        ## second axis
-        tr2 = go.Scatter(x=p,y=df,name='collectingTime',col=1,row=2)
-        title1='cumulative probability density '
-        title2='histogramm computing times '
-        # fig.update_layout(titles=)
+        fig = px.histogram(df, x="value", color="group",hover_data=df.columns,nbins=20)
         return fig
     # ########################
     #       SCHEDULERS       #
@@ -1641,7 +1646,7 @@ class SuperDumper_daily(SuperDumper):
             t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
             t1 = t0 + pd.Timedelta(days=1)
             dfday=df[(df.index>=t0)&(df.index<t1)]
-            folderday=self.folderPkl + d +'/'
+            folderday=self.folderPkl+'/' + d +'/'
             #### create folder if necessary
             if not os.path.exists(folderday):os.mkdir(folderday)
             for tag in self.alltags:
@@ -1733,8 +1738,8 @@ class VisualisationMaster(Configurator):
 
     def _load_database_tags(self,t0,t1,tags,*args,**kwargs):
         '''
-        - tags : list of tags
         - t0,t1 : timestamps with tz
+        - tags : list of tags
         '''
         # for k in t0,t1,tags,args,kwargs:print_file(k)
         dbconn = self.connect2db()
