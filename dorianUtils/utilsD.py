@@ -484,7 +484,7 @@ class Utils:
             col=dfGroups.loc[trace,'color']
             y = df[trace]
             if dropna:y = y.dropna()
-            fig.add_trace(go.Scatter(
+            fig.add_trace(go.Scattergl(
                 x=df.index,y=y,name=trace,
                 mode="lines+markers",
                 yaxis=dfGroups.loc[trace,'yscale'],

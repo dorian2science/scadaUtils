@@ -485,15 +485,17 @@ class ModbusDevice(Device):
 
 import opcua
 class Opcua_Client(Device):
-    def __init__(self,*args,nameSpace,**kwargs):
+    def __init__(self,*args,nameSpace,protocole='opc.tcp',**kwargs):
         Device.__init__(self,*args,**kwargs)
 
-        self.nameSpace   = nameSpace
-        self.ip= self.ip+":"+str(self.port)
-        self._client      = opcua.Client(self.ip)
+        self._nameSpace = nameSpace
+        self._protocole = protocole
+        self.ip = self.ip
+        self.endpointurl = self._protocole + '://' +self.ip+":"+str(self.port)
+        self._client     = opcua.Client(self.endpointurl)
         ####### load nodes
-        self.nodesDict  = {t:self._client.get_node(self.nameSpace + t) for t in self.alltags}
-        self.nodes      = list(self.nodesDict.values())
+        self._nodesDict  = {t:self._client.get_node(self._nameSpace + t) for t in self.alltags}
+        self._nodes      = list(self._nodesDict.values())
 
     def loadPLC_file(self):
         listPLC = glob.glob(self.confFolder + '*Instrum*.pkl')
@@ -518,7 +520,7 @@ class Opcua_Client(Device):
         return self.isConnected
 
     def collectData(self,tz,tags):
-        nodes = {t:self.nodesDict[t] for t in tags}
+        nodes = {t:self._nodesDict[t] for t in tags}
         values = self._client.get_values(nodes.values())
         ts = pd.Timestamp.now(tz=tz).isoformat()
         data = {tag:{'value':val,'timestampz':ts} for tag,val in zip(nodes.keys(),values)}
@@ -1116,13 +1118,12 @@ class Streamer(Basic_streamer):
         # print(folderpkl, day,'/',tag,'.pkl')
 
         filename = folderpkl +'/'+ day+'/'+tag+'.pkl'
-        print(filename)
         if os.path.exists(filename):
             s= pd.read_pickle(filename)
         else :
             s=  pd.Series(dtype='float')
         if showTag_day:print_file(filename + ' read',filename=self.log_file)
-        s = self.process_tag(s.squeeze(),rs=rs,rsMethod=rsMethod,closed=closed)
+        s = self.process_tag(s,rs=rs,rsMethod=rsMethod,closed=closed)
         return s
 
     def pool_tag_daily(self,t0,t1,tag,folderpkl,rs='auto',rsMethod='nearest',closed='left',ncores=None,time_debug=False,verbose=False,**kwargs):
