@@ -5,9 +5,7 @@ import numpy as np,pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from string import ascii_letters,digits
-from monitorBuilding import (monitorBuilding,conf)
-import dorianUtils.utilsD as utilsD
-from dorianUtils.comUtils import (timenowstd,computetimeshow)
+from sylfenUtils.comUtils import (timenowstd,computetimeshow)
 
 class Dashboard():
     def __init__(self,cfg,log_dir,initial_tags=[],plot_function=px.line,app_name='',helpmelink='',log_versions='',init_parameters={}):

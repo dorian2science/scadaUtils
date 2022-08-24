@@ -6,11 +6,10 @@ import numpy as np, pandas as pd
 import psycopg2
 from multiprocessing import Pool
 import traceback
-from dorianUtils.utilsD import Utils
+from sylfenUtils.utils import Utils
 from dateutil.tz import tzlocal
 from zipfile import ZipFile
 import psutil
-__version='6.2.2'
 
 # #######################
 # #      BASIC Utils    #
@@ -38,7 +37,6 @@ def print_error(tb,filename=None):
         res=re.match('(.*.py")(.*line \d+)(.*)',exc_format[k]).groups()
         ff+=Fore.RED + res[0]+Fore.BLUE+res[1]+Fore.GREEN + res[2] + Fore.WHITE + '\n'
     print_file(ff,exc_format[-1],with_infos=False,filename=filename)
-
 def html_table(df,title='table'):
     f=open('/tmp/table.html','w')
     f.write('<h1>'+title+'</h1>')
@@ -46,7 +44,6 @@ def html_table(df,title='table'):
     df.to_html(f)
     f.close()
     sp.run('firefox /tmp/table.html',shell=True)
-
 
 class EmptyClass():pass
 
