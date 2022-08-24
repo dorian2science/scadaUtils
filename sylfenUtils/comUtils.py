@@ -1168,6 +1168,7 @@ class Streamer(Basic_streamer):
         # try:
         start = time.time()
         s_tag = s_tag[(s_tag.index>=t0)&(s_tag.index<=t1)]
+        # print(s_tag)
         s_tag = self.process_tag(s_tag.squeeze(),**kwargs)
         s_tag.name=tag
         if time_debug:computetimeshow('processing done in ',start)
