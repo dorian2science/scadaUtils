@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
 name="sylfenUtils",
-version="7.1.1",
+version="1.0.0",
 author="Dorian Drevon",
 author_email="drevondorian@gmail.com",
 description="Utilities package",
