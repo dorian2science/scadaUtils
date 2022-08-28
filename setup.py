@@ -17,7 +17,7 @@ classifiers=[
     "Operating System :: OS Independent",
 ],
 packages=setuptools.find_packages(),
-package_data={'': ['conf/*']},
+package_data={'': ['conf/*','static/*','templates/']},
 include_package_data=True,
 install_requires=['IPython','pandas==1.3.1','psycopg2-binary','odfpy==1.4.1','plotly>=5.5.0',
     'pymodbus==2.5.3','opcua==0.98.13','cryptography==2.8','Pillow==7.0.0','openpyxl==3.0.7',
