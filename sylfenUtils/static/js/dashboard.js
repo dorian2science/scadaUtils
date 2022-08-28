@@ -9,6 +9,7 @@ var TIME_REFRESH_VALUE=parseInt(document.getElementsByName('in_refresh_time')[0]
 const MIN_REFRESH_TIME=2
 const DEFAULT_TIME_REFRESH_VALUE=50
 const PAPER_BG_COLOR_RT='#929dbf'
+var DELAY_REAL_TIME
 
 // ########################
 //#       FUNCTIONS       #
@@ -274,8 +275,9 @@ $.when(
     $('.title_fig')[0].value=data['fig_name']
     document.getElementsByName('time_window')[0].value=data['time_window']
     document.title=data['title'] +':'+$('.title_fig')[0].value
+    DELAY_REAL_TIME=data['delay_minutes']
 
-    $(update_timerange_picker())
+    $(update_timerange_picker(DELAY_REAL_TIME))
 
     // DEFAULT REAL-TIME
     let refresh_time=document.getElementsByName('in_refresh_time')[0]
@@ -291,15 +293,17 @@ $.when(
 //# ########################
 //#    REAL TIME FEATURES  #
 //# ########################
-function update_timerange_picker() {
+function update_timerange_picker(delay=0) {
   let time_window=parseInt(document.getElementsByName('time_window')[0].value)
+  let start=moment().startOf('second').subtract(delay,'minute').subtract(time_window,'minute')
+  let end=moment().startOf('second').subtract(delay,'minute')
   $('input[name="datetimes"]').daterangepicker({
     timePicker: true,
     timePicker24Hour:true,
     timePickerSeconds:true,
-    startDate: moment().startOf('second').subtract(time_window,'minute'),
-    endDate: moment().startOf('second'),
-    maxDate:moment().startOf('second'),
+    endDate:end,
+    maxDate:end,
+    startDate:start,
     locale: {
       monthNamesShort: ['Janv.', 'Févr.', 'Mars', 'Avril', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'],
       // format: 'd-MMM-YY HH:mm',
@@ -343,7 +347,7 @@ setInterval(()=>{
   if (REALTIME_CHECK.checked){
     if (TIME_REFRESH_COUNTER==0) {
       TIME_REFRESH_COUNTER = TIME_REFRESH_VALUE
-      update_timerange_picker()
+      update_timerange_picker(DELAY_REAL_TIME)
       fetch_figure()
     }
     // console.log(TIME_REFRESH_COUNTER)

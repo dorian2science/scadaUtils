@@ -8,7 +8,9 @@ from string import ascii_letters,digits
 from sylfenUtils.comUtils import (timenowstd,computetimeshow)
 
 class Dashboard():
-    def __init__(self,cfg,log_dir,initial_tags=[],plot_function=px.line,app_name='',helpmelink='',log_versions='',init_parameters={}):
+    def __init__(self,cfg,log_dir,initial_tags=[],
+        plot_function=px.line,app_name='',helpmelink='',
+        log_versions='',init_parameters={}):
         cfg.styles = ['default'] + cfg.utils.styles
         self.fig_wh=780
         self.cfg=cfg
@@ -36,6 +38,7 @@ class Dashboard():
         if not 'rs' in init_par_keys:init_parameters['rs']='60s'
         if not 'time_window' in init_par_keys:init_parameters['time_window']='120'
         if not 'title' in init_par_keys:init_parameters['title']=app_name
+        if not 'delay_minutes' in init_par_keys:init_parameters['delay_minutes']=0
         self.init_parameters=init_parameters
 
         # ###############
