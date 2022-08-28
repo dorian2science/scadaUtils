@@ -8,7 +8,7 @@ from string import ascii_letters,digits
 from sylfenUtils.comUtils import (timenowstd,computetimeshow)
 
 class Dashboard():
-    def __init__(self,cfg,log_dir,initial_tags=[],
+    def __init__(self,cfg,log_dir,root_path,initial_tags=[],
         plot_function=px.line,app_name='',helpmelink='',
         log_versions='',init_parameters={}):
         cfg.styles = ['default'] + cfg.utils.styles
@@ -16,6 +16,7 @@ class Dashboard():
         self.cfg=cfg
         self.log_dir=log_dir
         self.app_name=app_name
+        self.root_path=root_path
         self.initial_tags=initial_tags
         self.plot_function=plot_function
         self.infofile_name  = log_dir+'app.log';
@@ -25,7 +26,7 @@ class Dashboard():
         with open(self.infofile_name,'w') as logfile:logfile.write(start_msg)
         self.errorfile_name = log_dir+'app.err';
         with open(self.errorfile_name,'w') as logfile:logfile.write(start_msg)
-        self.app = Flask(__name__)
+        self.app = Flask(__name__,root_path=self.root_path)
 
         #### initial parameters
         init_par_keys=list(init_parameters.keys())
@@ -44,11 +45,11 @@ class Dashboard():
         # ###############
         #    ROUTING    #
         # ###############
-        @self.app.route('/'+app_name, methods=['GET'])
+        @self.app.route('/'+self.app_name, methods=['GET'])
         def main_viewport():
             return render_template('dashboard.html',
                 helpmelink=self.helpmelink,
-                version_title=app_name,
+                version_title=self.app_name,
                 # log_versions=self.log_versions
                 )
 

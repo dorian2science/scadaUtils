@@ -1,35 +1,50 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <link rel="shortcut icon" href="{{ url_for('static', filename='sylfen_logo.ico') }}">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='lib/sylfen_logo.ico') }}">
 
-  <script type="text/javascript" src="../static/js/lib.js"> </script>
-  <script async="true" src="https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-MML-AM_CHTML"> </script>
-  <script src="../static/js/mathjax_local.js"> </script>
+  <!-- <link rel="shortcut icon" href="{{ url_for('static', filename='sylfen_logo.ico') }}"> -->
+
+  <!-- <script async="true" src="https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-MML-AM_CHTML"> </script> -->
   <script> var mjax_config='TeX-MML-AM_CHTML'; </script>
-  <!-- <script type="text/javascript" src="../bower_components/jquery/dist/jquery.min.js"></script> -->
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
-  <!-- <script type="text/javascript" src="bower_components/plotlyjs/plotly.js"></script> -->
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script type="text/javascript" src="../static/lib/js/lib.js"> </script>
+  <script async="true" src="../static/lib/mathjax.min.js"> </script>
 
-  <!-- <script type="text/javascript" src="bower_components/moment/moment.js"></script> -->
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
-  <script type="text/javascript" src="../static/bower_components/showdown/dist/showdown.min.js"></script>
-  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
-  <link rel="stylesheet" href="../static/css/styles.css">
-  <link rel="stylesheet" href="../static/css/dropdown_filter.css">
-  <link rel="stylesheet" href="../static/css/toggle_switch.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+
+  <!-- <script type="text/javascript" src="../bower_components/jquery/dist/jquery.min.js"></script> -->
+  <script type="text/javascript" src="../static/lib/jquery.min.js"></script>
+  <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script> -->
+
+  <script type="text/javascript" src="../static/lib/plotly.js"></script>
+  <!-- <script src="https://cdn.plot.ly/plotly-latest.min.js"></script> -->
+
+  <script type="text/javascript" src="../static/lib/moment.min.js"></script>
+  <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script> -->
+
+  <script type="text/javascript" src="../static/lib/daterangepicker.js"></script>
+  <link rel="stylesheet" type="text/css" src="../static/lib/daterangepicker.css" />
+  <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>  -->
+  <!-- <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" /> -->
+
+  <!-- <script type="text/javascript" src="../static/lib/bower_components/showdown/dist/showdown.min.js"></script> -->
+  <!-- <script type="text/javascript" src="../bower_components/showdown/dist/showdown.min.js"></script> -->
+  <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js"></script> -->
+  <script type="text/javascript" src="../static/lib/showdown.min.js"></script>
+
+  <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous"> -->
+
+  <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script> -->
+
+  <link rel="stylesheet" href="../static/lib/css/styles.css">
+  <link rel="stylesheet" href="../static/lib/css/dropdown_filter.css">
+  <link rel="stylesheet" href="../static/lib/css/toggle_switch.css">
 </head>
 
 <body>
   <title>dashboard</title>
   <div class="header">
-    <img width=120px src='../static/pictures/logo_sylfen.png' alt='logo sylfen'>
+    <img width=120px src='../static/lib/pictures/logo_sylfen.png' alt='logo sylfen'>
     <button onclick="pop_menu(this)" class="button_header" id='version_title'> {{ version_title }} </button>
-    <!-- <a class="button_header" href="http://wiki.sylfen.com/monitoring_sls/">help me!</a> -->
     <a class="button_header" href={{ helpmelink }} >help me!</a>
   </div>
   <!-- pop-ups of the header -->
@@ -125,15 +140,12 @@
 
 </html>
 
-<script type="text/javascript" src="../static/js/dashboard.js"> </script>
+<script type="text/javascript" src="../static/lib/js/dashboard.js"> </script>
+<script type="text/javascript" src="../static/local_dash.js"> </script>
+<!-- <script type="text/javascript" src="../static/lib/local_dash.js"> </script> -->
+
 <script type="text/javascript">
-  var converter = new showdown.Converter()
-  $.when(
-    $.get('../static/logVersionMonitoringBuilding.md', function(md_text) {
-      $('#pop_version_info')[0].innerHTML=converter.makeHtml(md_text)
-    }),
-  )
-  var STABLE_PARAMETERS_PANEL=true
+var STABLE_PARAMETERS_PANEL=true
   function pop_param_div(action){
     // console.log(action);
     let fig_container=document.getElementsByClassName('fig_container')[0]
