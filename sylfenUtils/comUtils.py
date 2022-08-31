@@ -1186,20 +1186,27 @@ class Streamer(Basic_streamer):
             **kwargs Streamer.pool_tag_daily and Streamer.load_tag_daily
         '''
         if not len(tags)>0:return pd.DataFrame()
+        loc_pool=pool
         if pool in ['tag','day','auto']:
-            # print_file('hello')
+            nbdays=len(pd.date_range(t0,t1))
             if pool=='auto':
-                nbdays=len(pd.date_range(t0,t1))
                 if nbdays>len(tags):
-                    n_cores=min(self.num_cpus,nbdays)
-                    if verbose:print_file('pool on days with',n_cores,'cores because we have',nbdays,'days >',len(tags),'tags')
-                    dftags={tag:self.pool_tag_daily(t0,t1,tag,folderpkl,ncores=n_cores,**kwargs) for tag in tags}
+                    loc_pool='day'
+                    if verbose:print_file('pool on days because we have',nbdays,'days >',len(tags),'tags')
                 else:
-                    n_cores=min(self.num_cpus,len(tags))
-                    if verbose:print_file('pool on tag',n_cores)
-                    with Pool(n_cores) as p:
-                        dftags=p.starmap(self.load_tag_daily_kwargs,[(t0,t1,tag,folderpkl,args,kwargs) for tag in tags])
-                    dftags={k.name:k for k in dftags}
+                    loc_pool='tag'
+                    if verbose:print_file('pool on tags because we have',len(tags),'tags >',nbdays,'days')
+
+            if loc_pool=='day':
+                n_cores=min(self.num_cpus,nbdays)
+                if verbose:print_file('pool on days with',n_cores,'cores for',nbdays,'days')
+                dftags={tag:self.pool_tag_daily(t0,t1,tag,folderpkl,ncores=n_cores,**kwargs) for tag in tags}
+            elif loc_pool=='tag':
+                n_cores=min(self.num_cpus,len(tags))
+                if verbose:print_file('pool on tags with',n_cores,'cores for',len(tags),'tags')
+                with Pool(n_cores) as p:
+                    dftags=p.starmap(self.load_tag_daily_kwargs,[(t0,t1,tag,folderpkl,args,kwargs) for tag in tags])
+                dftags={k.name:k for k in dftags}
 
         else:
             dftags = {tag:self.load_tag_daily(t0,t1,tag,folderpkl,*args,**kwargs) for tag in tags}

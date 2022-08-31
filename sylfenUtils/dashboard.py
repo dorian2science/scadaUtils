@@ -22,7 +22,7 @@ class Dashboard():
         self.infofile_name  = log_dir+'app.log';
         self.helpmelink=helpmelink
         self.log_versions = log_versions
-        start_msg=timenowstd() + ' '*10+ 'starting '+app_name + 'dash\n'.upper()+'*'*60+'\n'
+        start_msg=timenowstd() + ' '*10+ 'starting '+app_name + ' dashboard\n'.upper()+'*'*60+'\n'
         with open(self.infofile_name,'w') as logfile:logfile.write(start_msg)
         self.errorfile_name = log_dir+'app.err';
         with open(self.errorfile_name,'w') as logfile:logfile.write(start_msg)
@@ -91,36 +91,39 @@ class Dashboard():
 
     def generate_fig(self):
         debug=False
-        # try:
-        start=time.time()
-        data=request.get_data()
-        parameters=json.loads(data.decode())
-        if debug:
-            print('+'*100 + '\n')
-            for k,v in parameters.items():print(k,':',v)
-            print('+'*100 + '\n')
+        try:
+            start=time.time()
+            data=request.get_data()
+            parameters=json.loads(data.decode())
+            if debug:
+                print('+'*100 + '\n')
+                for k,v in parameters.items():print(k,':',v)
+                print('+'*100 + '\n')
 
-        t0,t1=[pd.Timestamp(t,tz='CET') for t in parameters['timerange'].split(' - ')]
-        # t0=pd.Timestamp('2022-02-20 10:00',tz='CET')
-        # t0,t1=[t-pd.Timedelta(days=47) for t in [t0,t1]]
+            t0,t1=[pd.Timestamp(t,tz='CET') for t in parameters['timerange'].split(' - ')]
+            # t0=pd.Timestamp('2022-02-20 10:00',tz='CET')
+            # t0,t1=[t-pd.Timedelta(days=47) for t in [t0,t1]]
 
-        if debug:print('t0,t1:',t0,t1)
-        tags = parameters['tags']
-        if parameters['categorie'] in self.cfg.tag_categories.keys():
-            tags+=cfg.tag_categories[parameters['categorie']]
-        if debug:print('alltags:',tags)
-        rs,rsMethod=parameters['rs_time'],parameters['rs_method']
-        df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False)
-        if debug:print(df)
-        fig=self.plot_function(df)
-        fig.update_layout(width=1260,height=750,legend_title='tags')
-        self.log_info(computetimeshow('fig generated ',start))
-        return fig.to_json(),200
-        # except:
-        #     error={'msg':'impossible to generate figure','code':1}
-        #     notify_error(sys.exc_info(),error)
-        #     fig=go.Figure()
-        # return error,201
+            if debug:print('t0,t1:',t0,t1)
+            tags = parameters['tags']
+            if parameters['categorie'] in self.cfg.tag_categories.keys():
+                tags+=cfg.tag_categories[parameters['categorie']]
+            if debug:print('alltags:',tags)
+            rs,rsMethod=parameters['rs_time'],parameters['rs_method']
+            # pool=False
+            pool='auto'
+            df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False,pool=pool,verbose=True)
+            # df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False)
+            if debug:print(df)
+            fig=self.plot_function(df)
+            fig.update_layout(width=1260,height=750,legend_title='tags')
+            self.log_info(computetimeshow('fig generated with pool ='+str(pool),start))
+            return fig.to_json(),200
+        except:
+            error={'msg':'impossible to generate figure','code':1}
+            self.notify_error(sys.exc_info(),error)
+            fig=go.Figure()
+        return error,201
 
     def export2excel(self):
         try:
@@ -146,8 +149,13 @@ class Dashboard():
             return error
 
     def send_names(self):
-        data=request.get_data()
-        data=json.loads(data.decode())
-        new_names=self.cfg.toogle_tag_description(data['tags'],data['mode'])
-        print(data['mode'])
-        return pd.Series(new_names).to_json()
+        try:
+            data=request.get_data()
+            data=json.loads(data.decode())
+            new_names=self.cfg.toogle_tag_description(data['tags'],data['mode'])
+            print(data['mode'])
+            return pd.Series(new_names).to_json()
+        except:
+            error={'msg':'impossible to send the description names','code':1}
+            self.notify_error(sys.exc_info(),error)
+            return error,201
