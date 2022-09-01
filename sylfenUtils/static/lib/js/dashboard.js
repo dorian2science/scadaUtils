@@ -6,10 +6,9 @@ var datetimepicker=document.getElementById('datetimepicker')
 var TABLE_TAGS=document.getElementById('table_tags')
 var TIME_REFRESH_COUNTER = 0;
 var TIME_REFRESH_VALUE=parseInt(document.getElementsByName('in_refresh_time')[0].value)
-const MIN_REFRESH_TIME=2
+const MIN_REFRESH_TIME=0
 const DEFAULT_TIME_REFRESH_VALUE=50
 const PAPER_BG_COLOR_RT='#929dbf'
-var DELAY_REAL_TIME
 
 // ########################
 //#       FUNCTIONS       #
@@ -23,12 +22,12 @@ function update_legend() {
     Plotly.restyle('plotly_fig', {'showlegend': true})
     let tags=Array.from($('.legendtext')).map(x=>x.dataset.unformatted)
     $.post('/send_description_names',JSON.stringify({mode:mode,tags:tags}),function(data,status){
+      // console.log(data);
       let new_names=JSON.parse(data)
       new_names=Object.values(new_names)
       // console.log(new_names);
       update={
         'name':new_names,
-        // 'name':['cooli','second'],
         'showlegend': true
       }
       Plotly.restyle('plotly_fig', update);
@@ -54,6 +53,7 @@ function build_request_parameters() {
   parameters['rs_time']=document.getElementById('in_time_res').value
   parameters['rs_method']=document.getElementById('dd_resMethod').value
   parameters['categorie']=document.getElementById('dd_categorie').value
+  parameters['x']=document.getElementById('select_dd_x').value
   parameters['tags']=extract_listTags_from_html_table()
   return parameters
 }
@@ -71,11 +71,20 @@ function fetch_figure() {
   }
   // console.log(tags_hidden);
   // post request
-  $.post('/generate_fig',JSON.stringify(parameters),function(fig,status){
+  $.post('/generate_fig',JSON.stringify(parameters),function(res,status){
     style =document.getElementById('dd_style').value
-    var fig=JSON.parse(fig)
+
+    var notif=res['notif']
+    var fig=JSON.parse(res['fig'])
     // plot the new figure
     Plotly.newPlot('plotly_fig', fig.data,fig.layout);
+    // update finish
+    $('#btn_update')[0].innerHTML='get my data!'
+    btn_update.classList.remove('updating')
+    if ( notif!=200){
+      alert(notif)
+      return
+    }
     // update the legend
     update_legend()
     // hide the old legendonly traces
@@ -86,13 +95,21 @@ function fetch_figure() {
     if (REALTIME_CHECK.checked) {
       Plotly.relayout('plotly_fig', {'paper_bgcolor':PAPER_BG_COLOR_RT})
     }
-    // update finish
-    $('#btn_update')[0].innerHTML='get my data!'
-    btn_update.classList.remove('updating')
-
   })
 }
 
+var FIG
+function addEnveloppe() {
+  let fig = $('#plotly_fig')[0]
+  parameters={fig_layout:fig.layout,fig_data:fig.data,tag:$('#dd_enveloppe')[0].value}
+  $.post('/add_enveloppe',JSON.stringify(parameters),function(fig,status){
+    // plot the new figure
+    fig=JSON.parse(fig)
+    FIG=fig
+    Plotly.newPlot('plotly_fig', fig.data,fig.layout);
+  })
+
+}
 function update_style_fig(e) {
   let style=e.value
   let mode
@@ -115,10 +132,10 @@ function update_style_fig(e) {
 }
 
 function pop_menu(e){
-  console.log(e)
+  // console.log(e)
   let obj_html
   if (e.id.includes('version_title')){obj_html = $('#pop_version_info')[0]}
-  else if (e.name=='button_eq'){obj_html = $('#pop_equations')[0]}
+  else if (e.name=='button_eq'){obj_html = $('#pop_indicators')[0]}
   obj_html.style.display='block'
   obj_html.style.zIndex=10
 }
@@ -126,18 +143,17 @@ function pop_menu(e){
 // ----------------------------------
 // TAGS DROPDOWN
 function show_tag_list(e) {
-  e.value=''
-  ddtags = document.getElementById("dd_tags")
-  ddtags.style.display='block';
-  dd_tags.style.zIndex=10
+  dd_div=document.getElementById(e.id.replace('in_',''))
+  dd_div.style.display='block';
+  dd_div.style.zIndex=10
 }
 
-function filterTag() {
-  let input = $(".in_dd_tag")[0];
-  let filter = new RegExp(input.value.toUpperCase().replaceAll(' ','.*'));
+function filterTag(e) {
+  // console.log(e.id);
+  dd_div=document.getElementById(e.id.replace('in_',''))
+  let filter = new RegExp(e.value.toUpperCase().replaceAll(' ','.*'));
   // console.log(filter);
-  let dd_tags=document.getElementById("dd_tags")
-  for (let a of dd_tags.getElementsByTagName("a")) {
+  for (let a of dd_div.getElementsByTagName("a")) {
     let txtValue = a.textContent || a.innerText;
     if (filter.exec(txtValue.toUpperCase())!=null) {a.style.display = "";}
     else {a.style.display = "none";}
@@ -173,16 +189,16 @@ function init_radioButton(rb_id,values,name){
   }
 }
 
-function init_tags_dropdown(values) {
-  let dd_html=$('#dd_tags')[0]
+function init_tags_dropdown(dd_id,values,fun_on_click) {
+  let dd_html=document.getElementById(dd_id)
     for (const val of values)
     {
         var a = document.createElement("a");
         // option.value = val;
         a.innerHTML = val;
-        a.href = '#'+a.innerHTML;
-        a.addEventListener("mouseup",()=>{addRow_tagTable(val)})
+        // a.href = '#'+a.innerHTML;
         dd_html.appendChild(a);
+        a.addEventListener("mouseup",()=>{fun_on_click(val)})
     }
   }
 
@@ -230,6 +246,10 @@ function addRow_tagTable(tagname) {
   update_dd_enveloppe()
 }
 
+function select_tag_xaxis(tagname) {
+  document.getElementById('select_dd_x').value = tagname
+}
+
 function deleteRow(obj) {
     var index = obj.parentNode.parentNode.rowIndex;
     TABLE_TAGS.deleteRow(index);
@@ -259,26 +279,40 @@ $.when(
     // console.log(data);
     // console.log(data['initalTags']);
     // INITIALIZATION of myDropdown menus
-    init_dropdown(id='dd_resMethod',values=data['rsMethods'])
-    init_dropdown(id='dd_style',values=data['styles'])
-    init_dropdown(id='dd_categorie',values=['no categorie'].concat(data['categories']))
-    init_tags_dropdown(values=data['all_tags'])
+    init_dropdown('dd_resMethod',values=data['rsMethods'])
+    init_dropdown('dd_style',values=data['styles'])
+    init_dropdown('dd_categorie',values=['no categorie'].concat(data['categories']))
+    init_tags_dropdown('dd_y',values=data['all_tags'],addRow_tagTable)
+    init_tags_dropdown('dd_x',values=['time'].concat(data['all_tags']),select_tag_xaxis)
+    init_dropdown('select_dd_x',values=['time'].concat(data['all_tags']))
     init_radioButton(id='legend_para',values=['unvisible','tag','description'],'legend')
     $('input[type=radio][name=legend]').change(function() {
       update_legend(this.value)
     })
+
+
+
+
+
+
     // DEFAULT VALUES FOR REQUEST_PARAMETERS
+    // console.log(data);
     data['tags'].map(tag=>addRow_tagTable(tag) )
-    $('#dd_resMethod')[0].value='mean';
+    $('#dd_resMethod')[0].value="mean"
     $('#legend_tag')[0].checked=true;
+    $('#dd_enveloppe')[0].value="no tag"
+
+    $('#select_dd_x')[0].value="time"
+    // $('#select_dd_x')[0].value=data['x']
     $('#in_time_res')[0].value=data['rs']
+
     $('.title_fig')[0].value=data['fig_name']
     document.getElementsByName('time_window')[0].value=data['time_window']
-    document.title=data['title'] +':'+$('.title_fig')[0].value
     DELAY_REAL_TIME=data['delay_minutes']
 
     $(update_timerange_picker(DELAY_REAL_TIME))
 
+    document.title=data['title'] +':'+$('.title_fig')[0].value
     // DEFAULT REAL-TIME
     let refresh_time=document.getElementsByName('in_refresh_time')[0]
     refresh_time.value=DEFAULT_TIME_REFRESH_VALUE
@@ -347,7 +381,7 @@ setInterval(()=>{
   if (REALTIME_CHECK.checked){
     if (TIME_REFRESH_COUNTER==0) {
       TIME_REFRESH_COUNTER = TIME_REFRESH_VALUE
-      update_timerange_picker(DELAY_REAL_TIME)
+      update_timerange_picker()
       fetch_figure()
     }
     // console.log(TIME_REFRESH_COUNTER)
@@ -365,7 +399,7 @@ function change_title(e){
 //#       of them           #
 //# #########################
 //
-var listpop_ids=['popup_listTags',"dd_tags","pop_version_info","pop_equations"]
+var listpop_ids=['popup_listTags',"dd_x","dd_y","pop_version_info","pop_indicators"]
 document.addEventListener("mouseup", function(event) {
   for (id of listpop_ids) {
     var html_obj = document.getElementById(id);

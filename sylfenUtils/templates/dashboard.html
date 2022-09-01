@@ -1,50 +1,35 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <link rel="shortcut icon" href="{{ url_for('static', filename='lib/sylfen_logo.ico') }}">
-
-  <!-- <script async="true" src="https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-MML-AM_CHTML"> </script>
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script> -->
-
-  <!-- <script async="true" src="https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-MML-AM_CHTML"> </script> -->
-  <!-- <script async="true" src="../static/lib/mathjax.min.js"> </script> -->
-  <!-- <script type="text/javascript" src="../static/lib/js/lib.js"> </script>
-  <script> var mjax_config='TeX-MML-AM_CHTML'; </script> -->
-
-
-  <script type="text/javascript" src="../static/lib/jquery.min.js"></script>
-
-  <script type="text/javascript" src="../static/lib/plotly.js"></script>
-
-  <script type="text/javascript" src="../static/lib/moment.min.js"></script>
-
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
-  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
-
-  <!-- <script type="text/javascript" src="../static/lib/daterangepicker.js"></script>
-  <link rel="stylesheet" type="text/css" src="../static/lib/daterangepicker.css" /> -->
-  <script type="text/javascript" src="../static/lib/showdown.min.js"></script>
+  <link rel="shortcut icon" href="{{ url_for('static', filename='/lib/sylfen_logo.ico') }}">
 
   <link rel="stylesheet" href="../static/lib/css/styles.css">
   <link rel="stylesheet" href="../static/lib/css/dropdown_filter.css">
-  <link rel="stylesheet" href="../static/lib/css/toggle_switch.css"> -->
+  <link rel="stylesheet" href="../static/lib/css/toggle_switch.css">
 
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js"></script>
+
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
 </head>
 
 <body>
-  <title>dashboard</title>
+  <title>dashboard smallpower</title>
   <div class="header">
     <img width=120px src='../static/lib/pictures/logo_sylfen.png' alt='logo sylfen'>
-    <button onclick="pop_menu(this)" class="button_header" id='version_title'> {{ version_title }} </button>
+    <button onclick="pop_menu(this)" class="button_header" id='version_title'> {{ version_title }}</button>
+    <!-- <button onclick="pop_menu(this)" class="button_header" name="button_eq">show indicators</button> -->
+    <a class="button_header" href="/pid">get the PID</a>
     <a class="button_header" href={{ helpmelink }} >help me!</a>
   </div>
   <!-- pop-ups of the header -->
-  <div class="center_pop_up" id="pop_equations"></div>
+  <div class="center_pop_up" id="pop_indicators"></div>
   <div class="center_pop_up" id="pop_version_info"></div>
   <!-- internal pop=ups -->
   <div class="center_pop_up" id="popup_listTags">
@@ -102,8 +87,8 @@
 
           <div id=div_tags>
             <span class='list_tags'>your list of tags:</span>
-            <input type="text" placeholder="add a tag, search it.." class="in_dd_tag" onclick="show_tag_list(this)" onkeyup="filterTag()">
-            <div id="dd_tags" class="dropdown-content"></div>
+            <input id="in_dd_y" type="text" placeholder="add a tag, search it.." class="in_dd_tag" onclick="show_tag_list(this)" onkeyup="filterTag(this)">
+            <div id="dd_y" class="dropdown-content"></div>
 
             <button name=btn_add_tags onclick="pop_listTags_up()">enter your list of tags </button>
           </div>
@@ -116,14 +101,23 @@
           </table>
 
           <p>add enveloppe(min max) for tag: </p>
-          <select class="dd" name="dd_enveloppe" id="dd_enveloppe" disabled="true"></select>
+          <select class="dd" name="dd_enveloppe" id="dd_enveloppe" onchange="addEnveloppe()"></select>
+
+          <div class="">
+            <p>select x-axis: </p>
+            <select class="dd" id="select_dd_x"></select>
+            <input id="in_dd_x" type="text" placeholder="select your xaxis, search it.." class="in_dd_tag" onclick="show_tag_list(this)" onkeyup="filterTag(this)">
+            <div id="dd_x" class="dropdown-content"></div>
         </div>
+      </div>
 
         <p>select style: </p>
         <select class="dd" id="dd_style" onchange="update_style_fig(this)"></select>
 
+
         <div name='display legend' class="legend_para" id=legend_para>
         <span><b>display legend mode:</b></span>
+        <!-- radio items defined in smallpower_dash.js -->
       </div>
       </div>
     </div>
@@ -137,9 +131,6 @@
 </html>
 
 <script type="text/javascript" src="../static/lib/js/dashboard.js"> </script>
-<script type="text/javascript" src="../static/local_dash.js"> </script>
-<!-- <script type="text/javascript" src="../static/lib/local_dash.js"> </script> -->
-
 <script type="text/javascript">
 var STABLE_PARAMETERS_PANEL=true
   function pop_param_div(action){
