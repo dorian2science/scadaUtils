@@ -10,7 +10,7 @@ from sylfenUtils.comUtils import (timenowstd,computetimeshow)
 class Dashboard():
     def __init__(self,cfg,log_dir,root_path,initial_tags=[],
         plot_function=px.line,app_name='',helpmelink='',
-        log_versions='',init_parameters={}):
+        log_versions='',init_parameters={},version_dashboard=''):
         cfg.styles = ['default'] + cfg.utils.styles
         self.fig_wh=780
         self.cfg=cfg
@@ -22,6 +22,7 @@ class Dashboard():
         self.infofile_name  = log_dir+'app.log';
         self.helpmelink=helpmelink
         self.log_versions = log_versions
+        self.version_dashboard = version_dashboard
         start_msg=timenowstd() + ' '*10+ 'starting '+app_name + ' dashboard\n'.upper()+'*'*60+'\n'
         with open(self.infofile_name,'w') as logfile:logfile.write(start_msg)
         self.errorfile_name = log_dir+'app.err';
@@ -49,7 +50,7 @@ class Dashboard():
         def main_viewport():
             return render_template('dashboard.html',
                 helpmelink=self.helpmelink,
-                version_title=self.app_name,
+                version_title=self.app_name+' '+self.version_dashboard,
                 # log_versions=self.log_versions
                 )
 
