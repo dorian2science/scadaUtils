@@ -25,7 +25,6 @@
     <img width=120px src='../static/lib/pictures/logo_sylfen.png' alt='logo sylfen'>
     <button onclick="pop_menu(this)" class="button_header" id='version_title'> {{ version_title }}</button>
     <!-- <button onclick="pop_menu(this)" class="button_header" name="button_eq">show indicators</button> -->
-    <a class="button_header" href="/pid">get the PID</a>
     <a class="button_header" href={{ helpmelink }} >help me!</a>
   </div>
   <!-- pop-ups of the header -->
@@ -131,6 +130,7 @@
 </html>
 
 <script type="text/javascript" src="../static/lib/js/dashboard.js"> </script>
+<script type="text/javascript" src="../static/local_dash.js"> </script>
 <script type="text/javascript">
 var STABLE_PARAMETERS_PANEL=true
   function pop_param_div(action){

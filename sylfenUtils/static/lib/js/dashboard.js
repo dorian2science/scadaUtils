@@ -131,6 +131,10 @@ function update_style_fig(e) {
   Plotly.restyle('plotly_fig', update);
 }
 
+var converter = new showdown.Converter()
+// $('#pop_indicators').load('../static/html/indicators.html')
+
+
 function pop_menu(e){
   // console.log(e)
   let obj_html
@@ -276,9 +280,7 @@ function update_dd_enveloppe() {
 $.when(
   $.get('init',function(data) {
     data=JSON.parse(data)
-    // console.log(data);
-    // console.log(data['initalTags']);
-    // INITIALIZATION of myDropdown menus
+    // ------- INITIALIZATION of myDropdown menus --------
     init_dropdown('dd_resMethod',values=data['rsMethods'])
     init_dropdown('dd_style',values=data['styles'])
     init_dropdown('dd_categorie',values=['no categorie'].concat(data['categories']))
@@ -290,27 +292,21 @@ $.when(
       update_legend(this.value)
     })
 
-
-
-
-
-
-    // DEFAULT VALUES FOR REQUEST_PARAMETERS
+    //--------- DEFAULT VALUES FOR REQUEST_PARAMETERS ------------
     // console.log(data);
     data['tags'].map(tag=>addRow_tagTable(tag) )
     $('#dd_resMethod')[0].value="mean"
     $('#legend_tag')[0].checked=true;
     $('#dd_enveloppe')[0].value="no tag"
-
     $('#select_dd_x')[0].value="time"
     // $('#select_dd_x')[0].value=data['x']
     $('#in_time_res')[0].value=data['rs']
-
     $('.title_fig')[0].value=data['fig_name']
     document.getElementsByName('time_window')[0].value=data['time_window']
     DELAY_REAL_TIME=data['delay_minutes']
 
     $(update_timerange_picker(DELAY_REAL_TIME))
+
 
     document.title=data['title'] +':'+$('.title_fig')[0].value
     // DEFAULT REAL-TIME
@@ -318,6 +314,10 @@ $.when(
     refresh_time.value=DEFAULT_TIME_REFRESH_VALUE
     refresh_time.min=MIN_REFRESH_TIME
     REALTIME_CHECK.checked=false;
+    // ****** load the logversion file info ******
+    $.get('../static/'+data['log_versions'], function(md_text) {
+      $('#pop_version_info')[0].innerHTML=converter.makeHtml(md_text)
+    })
     //BUILD THE INITIAL FIGURE
     fetch_figure()
     // data2excel()

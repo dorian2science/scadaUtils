@@ -23,12 +23,15 @@ NOTIFS={
         There is no data for your list of tags and the selected period.\n
         if this is not supposed to be the case please report it to the webmaster: dorian.drevon@sylfen.com.
         ''',
+    'excel_generation_impossible': '''EXCEL BUG\n
+        Impossible to generate your excel file.\n
+        Please take note of your settings or take a screenshot of your screen and report it to the webmaster: dorian.drevon@sylfen.com.'''
 }
 
 class Dashboard():
     def __init__(self,cfg,log_dir,root_path,initial_tags=[],
-        plot_function=px.line,app_name='',helpmelink='',
-        log_versions='',init_parameters={},version_dashboard=''):
+            plot_function=px.line,app_name='',helpmelink='',
+            init_parameters={},version_dashboard=''):
         cfg.styles = ['default'] + cfg.utils.styles
         self.fig_wh=780
         self.cfg=cfg
@@ -40,7 +43,6 @@ class Dashboard():
         self.plot_function=plot_function
         self.infofile_name  = log_dir+'dashboard_' + app_name + '.log';
         self.helpmelink=helpmelink
-        self.log_versions = log_versions
         self.version_dashboard = version_dashboard
         start_msg=timenowstd() + ' '*10+ 'starting ' + app_name + ' dashboard\n'.upper() + '*'*60 + '\n'
         with open(self.infofile_name,'w') as logfile:logfile.write(start_msg)
@@ -60,6 +62,8 @@ class Dashboard():
         if not 'time_window' in init_par_keys:init_parameters['time_window']='120'
         if not 'title' in init_par_keys:init_parameters['title']=app_name
         if not 'delay_minutes' in init_par_keys:init_parameters['delay_minutes']=0
+        if not 'log_versions' in init_par_keys:init_parameters['log_versions']=''
+
         self.init_parameters=init_parameters
 
         # ###############
@@ -70,7 +74,6 @@ class Dashboard():
             return render_template('dashboard.html',
                 helpmelink=self.helpmelink,
                 version_title=self.app_name+' '+self.version_dashboard,
-                # log_versions=self.log_versions
                 )
 
         @self.app.route('/init', methods=['GET'])
@@ -186,7 +189,7 @@ class Dashboard():
             if isinstance(df.index,pd.core.indexes.datetimes.DatetimeIndex):
                 df.index=[k.isoformat() for k in df.index]
             df.to_excel(filename)
-            # self.log_info(computetimeshow('.xlsx downloaded',start))
+            self.log_info(computetimeshow('.xlsx downloaded',start))
             return filename
         except:
             error={'msg':'service export2excel not working','code':3}
