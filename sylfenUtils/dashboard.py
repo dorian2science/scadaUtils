@@ -111,9 +111,7 @@ class Dashboard():
                 tags+=cfg.tag_categories[parameters['categorie']]
             if debug:print('alltags:',tags)
             rs,rsMethod=parameters['rs_time'],parameters['rs_method']
-            # pool=False
-            pool='auto'
-            df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False,pool=pool,verbose=True)
+            df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False,pool='auto')
             # df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False)
             if debug:print(df)
             fig=self.plot_function(df)
