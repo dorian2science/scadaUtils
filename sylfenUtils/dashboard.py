@@ -159,7 +159,7 @@ class Dashboard():
                 fig.update_layout(xaxis_title=tag_x+ '('+self.cfg.getUnitofTag(tag_x) + ')')
                 fig.update_traces(mode='markers')
             else:
-                fig=self.cfg.multiUnitGraphSP(df)
+                fig=self.plot_function(df)
             fig.update_layout(width=1260,height=750,legend_title='tags')
             self.log_info(computetimeshow('fig generated with pool =' + str(pool),start))
 
