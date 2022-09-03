@@ -758,6 +758,17 @@ class DataBase:
         sqlR = 'select * from information_schema.tables'
         self.executeSQLRequest(sqlR)
 
+    def create_sql_table(self,connParameters,db_table):
+        connReq = ''.join([k + "=" + v + " " for k,v in connParameters.items()])
+        conn = self.psycopg.connect(connReq)
+        cur  = conn.cursor()
+        # creation table
+        sqlR='create table if not exists ' + db_table + ' ( timestampz timestamp with time zone, tag varchar ( 200 ), value varchar ( 200 ));'
+        cur.execute(sqlR)
+        cur.close()
+        conn.commit()
+        conn.close()
+
 class EmailSmtp:
 
     import os

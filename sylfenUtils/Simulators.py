@@ -1,9 +1,6 @@
 # #######################
 # #      SIMULATORS     #
 # #######################
-from pymodbus.server.sync import ModbusTcpServer
-from pymodbus.datastore import ModbusSequentialDataBlock, ModbusSlaveContext, ModbusServerContext
-from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 import opcua
 import numpy as np
 import threading,time
@@ -37,9 +34,9 @@ class Simulator():
     def start(self):
         print("Start server...")
         # self.server_thread.start()
-        self.serve()
+        # self.serve()
         print("Server is online")
-        # self.feedingLoop()
+        self.feedingLoop()
         # self.feedingThread.start()
         # print("Server simulator is feeding")
 
@@ -54,37 +51,42 @@ class Simulator():
             if self.feed:
                 start=time.time()
                 self.writeInRegisters()
-                print('fed in {:.2f} milliseconds'.format((time.time()-start)*1000))
+                # print('fed in {:.2f} milliseconds'.format((time.time()-start)*1000))
                 time.sleep(self.speedflowdata/1000 + np.random.randint(0,1)/1000)
 
     def is_serving(self):
         return self.server_thread.is_alive()
 
+from pymodbus.server.sync import ModbusTcpServer
+from pymodbus.datastore import ModbusSequentialDataBlock, ModbusSlaveContext, ModbusServerContext
+from pymodbus.client.sync import ModbusTcpClient as ModbusClient
+from pymodbus.payload import BinaryPayloadBuilder
+from pymodbus.constants import Endian
 class SimulatorModeBus(Simulator):
-    ''' can only be used with a children class inheritating from a class that has
-    attributes and methods of Device.
-    ex : class StreamVisuSpecial(ComConfigSpecial,SimulatorModeBus)
-    with class ComConfigSpecial(Device)'''
-
-    def __init__(self,bo='=',*args,**kwargs):
+    def __init__(self,modbus_map,bo,wo,*args,port=502,**kwargs):
         '''
-        - bo : byteorder : bigendian >, littleendian <, native =, network(big endian) !
+        - bo,wo : byteorder : 'big' or 'little'
         '''
-        self.bo = bo
         Simulator.__init__(self,*args,**kwargs)
+        self.bo = bo
+        self.wo = wo
+        self.port = port
+        self.modbus_map = modbus_map
         # initialize server with random values
-        self.dfInstr['value']=self.dfInstr['type'].apply(lambda x:np.random.randint(0,100000))
-        self.dfInstr['precision']=0.1
-        self.dfInstr['FREQUENCE_ECHANTILLONNAGE']=1
-        allTCPid = list(self.dfInstr['addrTCP'].unique())
+        self.modbus_map['value']=self.modbus_map['type'].apply(lambda x:np.random.randint(0,100000))
+        self.modbus_map['precision']=0.1
+        self.modbus_map['FREQUENCE_ECHANTILLONNAGE']=1
+        self.all_slaves = list(self.modbus_map['slave_unit'].unique())
         # Create an instance of ModbusServer
         slaves={}
-        for k in allTCPid:
+        for k in self.all_slaves:
             slaves[k]  = ModbusSlaveContext(hr=ModbusSequentialDataBlock(0, [k]*128))
             self.context = ModbusServerContext(slaves=slaves, single=False)
         self.server = ModbusTcpServer(self.context, address=("", self.port))
         self.server_thread = threading.Thread(target=self.serve)
         self.server_thread.daemon = True
+        self._feedingClient = ModbusClient(host='localhost',port=int(self.port))
+        self._feedingClient.connect()
 
     def start(self):
         print("Start server...")
@@ -93,64 +95,35 @@ class SimulatorModeBus(Simulator):
         self.feedingThread.start()
         print("Server simulator is feeding")
 
-    def generateRandomData(self,idTCP):
-        ptComptage = self.dfInstr[self.dfInstr['addrTCP']==idTCP]
-        byteflow=[]
-        values=[]
-        # te = ptComptage.iloc[[0]]
-        for tag in ptComptage.index:
-            te = ptComptage.loc[tag]
-            # print(te)
-            # address = te.index[0]
-            typevar = te.type
-            if typevar=='INT32':
-                value = int(te.value + np.random.randint(0,value*self.volatilitySimu/100))
-                # conversion of long(=INT32) into 2 shorts(=DWORD=word)
-                valueShorts = struct.unpack(self.bo + '2H',struct.pack(self.bo + "i",value))
-            if typevar=='INT64':
-                value = int(te.value + np.random.randint(0,value*self.volatilitySimu/100))
-                try:
-                    # conversion of long long(=INT64) to 4 short(=DWORD=word)
-                    valueShorts = struct.unpack(self.bo + '4H', struct.pack(self.bo + 'q',value))
-                except:
-                    print(value)
-            if typevar=='IEEE754':
-                value = te.value + np.random.randn()*te.value*self.volatilitySimu/100
-                # value = 16.565
-                # conversion of float(=IEEE7554O) to 2 shorts(=DWORD)
-                valueShorts=struct.unpack(self.bo + '2H', struct.pack(self.bo+'f', value))
-            byteflow.append(valueShorts)
-            self.dfInstr.loc[tag,'value']=value
-            # values.append(value)
-        # return [l for k in byteflow for l in k],values
-        return [l for k in byteflow for l in k]
-
     def writeInRegisters(self):
-        feedingClient = ModbusClient(host='localhost',port=self.port)
-        feedingClient.connect()
+        for tag,d in self.modbus_map.T.to_dict().items():
+            value = d['value'] + np.random.randn()*d['value']*self.volatilitySimu/100
+            self.modbus_map.loc[tag,'value']=value
 
-        for idTCP in self.allTCPid:
-            # print(idTCP)
-            ptComptage = self.dfInstr[self.dfInstr['addrTCP']==idTCP]
+            if self.bo.lower()=='little' and self.wo.lower()=='big':
+                builder = BinaryPayloadBuilder(byteorder=Endian.Little, wordorder=Endian.Big)
+            elif self.bo.lower()=='big' and self.wo.lower()=='big':
+                builder = BinaryPayloadBuilder(byteorder=Endian.Big, wordorder=Endian.Big)
+            elif self.bo.lower()=='little' and self.wo.lower()=='little':
+                builder = BinaryPayloadBuilder(byteorder=Endian.Little, wordorder=Endian.Little)
+            elif self.bo.lower()=='big' and self.wo.lower()=='little':
+                builder = BinaryPayloadBuilder(byteorder=Endian.Big, wordorder=Endian.Little)
 
-            # #######
-            #                   IMPORTANT CHECK HERE
-            #           block should have continuous adresses with no gap!
-            # #######
-            # ptComptage = ptComptage[ptComptage.intAddress<10000]
-            try:
-                byteflow = self.generateRandomData(idTCP)
-                feedingClient.write_registers(ptComptage.intAddress[0],byteflow,unit=idTCP)
-            except:
-                print(dt.datetime.now().astimezone())
-                print('***********************************')
-                print(str(idTCP) + 'problem generating random Data')
-                traceback.print_exc()
-                print('***********************************')
-
-        tagtest='C00000001-A003-1-kW sys-JTW'
-        print(tagtest + ' : ',self.dfInstr.loc[tagtest,'value'])
-        feedingClient.close()
+            if d['type']=='float32':
+                builder.add_32bit_float(value)
+            else:
+                value=int(value)
+            if d['type']=='uint16':
+                builder.add_16bit_uint(value)
+            if d['type']=='uint8':
+                builder.add_8bit_int(value)
+            if d['type']=='uint32':
+                builder.add_32bit_uint(value)
+            if d['type']=='int32':
+                builder.add_32bit_int(value)
+            payload = builder.build()
+            # print(value)
+            self._feedingClient.write_registers(d['intAddress'], payload, skip_encode=True, unit=d['slave_unit'])
 
     def serve(self):
         self.server.serve_forever()
@@ -186,6 +159,7 @@ class SimulatorOPCUA(Simulator):
             print("server Online")
         finally:
             self.shutdown_server()
+
     def shutdown_server(self):
         self.server.stop()
         print("server Offline")

@@ -1,0 +1,8 @@
+"tag","description","scale","unit","type","intAddress","size(mots)","slave_unit"
+"PT_L5_H2O.HM05","pressure water line 5",10,"mbar","float32",10,2,1
+"TT_L5_H2O.HM05","Temperature of water exchanger line 5",100,"C","int32",26,2,1
+"PT_L7_H2O.HM05","pressure water line 7",100,"mbar","float32",32,2,1
+"PT_L6_N2.HM05","pressure n2 line 6",10,"mbar","float32",34,2,2
+"FT_L6_N2.HM05","Debit N2",10,"g/s","float32",36,2,2
+"FT_L12_H2.HM05","debit H2",100,"g/s","float32",68,2,1
+"V_C_TIME.CN","temps de fonctionnement",100,"h","int16",70,1,1

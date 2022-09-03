@@ -313,7 +313,8 @@ from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from pymodbus.payload import BinaryPayloadDecoder
 from pymodbus.constants import Endian
 class ModbusDevice(Device):
-    def __init__(self,ip,port=502,device_name='',dfplc=None,modbus_map=None,freq=None,bo='big',wo='big',**kwargs):
+    def __init__(self,ip,port=502,device_name='',dfplc=None,modbus_map=None,freq=30,bo='big',wo='big',**kwargs):
+        '''freq: how often to fetch the data in seconds/'''
         Device.__init__(self,device_name,ip,port,dfplc,**kwargs)
         self.modbus_map = modbus_map
         self.freq = freq
@@ -345,7 +346,8 @@ class ModbusDevice(Device):
 
     def decode_bloc_registers(self,bloc,*args,**kwargs):
         blocks=self._get_continuous_blocks(bloc)
-        return pd.concat([self._decode_continuous_bloc(b,*args,**kwargs) for b in blocks],axis=0).set_index('index')
+        index_name=bloc.index.name
+        return pd.concat([self._decode_continuous_bloc(b,*args,**kwargs) for b in blocks],axis=0).set_index(index_name)
 
     def collectData(self,tz,*args):
         '''It will collect all the data if a dataframe modbus_map is present with columns
@@ -418,6 +420,12 @@ class ModbusDevice(Device):
         bs=bs.mask(bloc['type']=='UINT64',4)
         bs=bs.mask(bloc['type']=='INT32',2)
         bs=bs.mask(bloc['type']=='UINT32',2)
+
+        bs=bs.mask(bloc['type']=='float32',2)
+        bs=bs.mask(bloc['type']=='int64',4)
+        bs=bs.mask(bloc['type']=='uint64',4)
+        bs=bs.mask(bloc['type']=='int32',2)
+        bs=bs.mask(bloc['type']=='uint32',2)
         bloc2=bloc.copy()
         bloc2['size_words']=bs
         return bloc2
@@ -435,12 +443,12 @@ class ModbusDevice(Device):
 
     def _get_continuous_blocks(self,bloc):
         bloc=self._get_size_words_block(bloc)
+        index_name=bloc.index.name
         c=(bloc['intAddress']+bloc['size_words']).reset_index()[:-1]
         b=bloc['intAddress'][1:].reset_index()
-
-        idxs_break=b[~(b['intAddress']==c[0])]['index'].to_list()
+        idxs_break=b[~(b['intAddress']==c[0])][index_name].to_list()
         bb=bloc.reset_index()
-        idxs_break=[bb[bb['index']==i].index[0] for i in idxs_break]
+        idxs_break=[bb[bb[index_name]==i].index[0] for i in idxs_break]
 
         idxs_break=[0]+idxs_break+[len(bb)]
         blocks=[bb.iloc[idxs_break[i]:idxs_break[i+1],:] for i in range(len(idxs_break)-1)]
@@ -524,6 +532,107 @@ class Opcua_Client(Device):
         return data
 
 import urllib.request, json
+class Meteo(Device):
+    def __init__(self,cities,service='openweather',apitoken='',freq=30,**kwargs):
+        '''-freq: acquisition time in seconds '''
+        self.cities = cities
+        self.freq=freq
+        self.service=service
+        if service=='openweather':
+            self.baseurl = 'https://api.openweathermap.org/data/2.5/'
+        dfplc = self.build_plcmeteo(self.freq)
+        Device.__init__(self,'meteo',self.baseurl,None,dfplc)
+        self.apitoken = apitoken
+        # self.apitoken = '2baff0505c3177ad97ec1b648b504621'# Marc
+        self.t0 = pd.Timestamp('1970-01-01 00:00',tz='UTC')
+
+    def build_plcmeteo(self,freq):
+        vars = ['temp','pressure','humidity','clouds','wind_speed']
+        tags=['XM_'+ city+'_' + var for var in vars for city in self.cities]
+        descriptions=[var +' '+city for var in vars for city in self.cities]
+        dfplc=pd.DataFrame()
+        dfplc.index=tags
+        dfplc.loc[[k for k in dfplc.index if 'temp' in k],'MIN']=-50
+        dfplc.loc[[k for k in dfplc.index if 'temp' in k],'MAX']=50
+        dfplc.loc[[k for k in dfplc.index if 'temp' in k],'UNITE']='°C'
+        dfplc.loc[[k for k in dfplc.index if 'pressure' in k],'MIN']=-250
+        dfplc.loc[[k for k in dfplc.index if 'pressure' in k],'MAX']=250
+        dfplc.loc[[k for k in dfplc.index if 'pressure' in k],'UNITE']='mbar'
+        dfplc.loc[[k for k in dfplc.index if 'humidity' in k or 'clouds' in k],'MIN']=0
+        dfplc.loc[[k for k in dfplc.index if 'humidity' in k or 'clouds' in k],'MAX']=100
+        dfplc.loc[[k for k in dfplc.index if 'humidity' in k or 'clouds' in k],'UNITE']='%'
+        dfplc.loc[[k for k in dfplc.index if 'wind_speed' in k],'MIN']=0
+        dfplc.loc[[k for k in dfplc.index if 'wind_speed' in k],'MAX']=250
+        dfplc.loc[[k for k in dfplc.index if 'wind_speed' in k],'UNITE']='km/h'
+        dfplc['DESCRIPTION'] = descriptions
+        dfplc['DATATYPE'] = 'REAL'
+        dfplc['DATASCIENTISM'] = True
+        dfplc['PRECISION'] = 0.01
+        dfplc['FREQUENCE_ECHANTILLONNAGE'] = freq
+        dfplc['VAL_DEF'] = 0
+        return dfplc
+
+    def connectDevice(self):
+        try:
+            request = urllib.request.urlopen('https://api.openweathermap.org/',timeout=2)
+            print_file("Meteo : Connected to the meteo server.",filename=self.log_file)
+            self.isConnected=True
+        except:
+            print_file("Meteo : No internet connection or server not available.",filename=self.log_file)
+            self.isConnected=False
+        return self.isConnected
+
+    def collectData(self,tz='CET',tags=None):
+        df = pd.concat([self.get_dfMeteo(city,tz) for city in self.cities])
+        return {tag:{'value':v,'timestampz':df.name} for tag,v in df.to_dict().items()}
+
+    def get_dfMeteo(self,city,tz,ts_from_meteo=False):
+        '''
+        ts_from_meteo : if True the timestamp corresponds to the one given by the weather data server.
+        Can lead to dupplicates in the data.
+        '''
+        gps = self.cities[city]
+        url = self.baseurl + 'weather?lat='+gps.lat+'&lon=' + gps.lon + '&units=metric&appid=' + self.apitoken
+        response = urllib.request.urlopen(url)
+        data     = json.loads(response.read())
+        if ts_from_meteo:
+            timeCur  = (self.t0 + pd.Timedelta(seconds=data['dt'])).tz_convert(tz)
+        else:
+            timeCur  = pd.Timestamp.now(tz=tz)
+        dfmain   = pd.DataFrame(data['main'],index=[timeCur.isoformat()])
+        dfmain['clouds']     = data['clouds']['all']
+        dfmain['visibility'] = data['visibility']
+        dfmain['main']       = data['weather'][0]['description']
+        dfmain['seconds']       = data['dt']
+        dfwind = pd.DataFrame(data['wind'],index=[timeCur.isoformat()])
+        dfwind.columns = ['XM_' + city + '_wind_' + k  for k in dfwind.columns]
+        dfmain.columns = ['XM_' + city + '_' + k  for k in dfmain.columns]
+        df = pd.concat([dfmain,dfwind],axis=1).squeeze()
+        df = df.loc[self.dfplc.index]
+        return df
+
+    def dfMeteoForecast():
+        url = baseurl + 'onecall?lat='+lat+'&lon=' + lon + '&units=metric&appid=' + apitoken ## prediction
+        # url = 'http://history.openweathermap.org/data/2.5/history/city?q='+ +',' + country + '&appid=' + apitoken
+        listInfos = list(data['hourly'][0].keys())
+        listInfos = [listInfos[k] for k in [0,1,2,3,4,5,6,7,8,9,10,11]]
+        dictMeteo = {tag  : [k[tag] for k in data['hourly']] for tag in listInfos}
+        dfHourly = pd.DataFrame.from_dict(dictMeteo)
+        dfHourly['dt'] = [t0+dt.timedelta(seconds=k) for k in dfHourly['dt']]
+
+        listInfos = list(data['daily'][0].keys())
+        listInfos = [listInfos[k] for k in [0,1,2,3,4,5,6,8,9,10,11,13,15,16,18]]
+        dictMeteo = {tag  : [k[tag] for k in data['daily']] for tag in listInfos}
+        dfDaily = pd.DataFrame.from_dict(dictMeteo)
+        dfDaily['sunrise'] = [t0+dt.timedelta(seconds=k) for k in dfDaily['sunrise']]
+        dfDaily['sunset'] = [t0+dt.timedelta(seconds=k) for k in dfDaily['sunset']]
+        dfDaily['moonrise'] = [t0+dt.timedelta(seconds=k) for k in dfDaily['moonrise']]
+        dfDaily['moonset'] = [t0+dt.timedelta(seconds=k) for k in dfDaily['moonset']]
+
+        listInfos = list(data['minutely'][0].keys())
+        dictMeteo = {tag  : [k[tag] for k in data['minutely']] for tag in listInfos}
+        dfMinutely = pd.DataFrame.from_dict(dictMeteo)
+
 class Meteo_Client(Device):
     def __init__(self,freq=30,**kwargs):
         '''-freq: acquisition time in seconds '''
@@ -1378,10 +1487,13 @@ class Configurator():
         self.dbTable = dbTable
         self.dataTypes={
             'REAL': 'float',
+            'float32': 'float',
             'BOOL': 'bool',
             'WORD': 'int',
             'DINT': 'int',
             'INT' : 'int',
+            'int16' : 'int',
+            'int32' : 'int',
             'STRING(40)': 'string'
              }
         self.streamer  = Streamer()
@@ -1421,7 +1533,10 @@ class SuperDumper(Configurator):
         self.parkingTimes = {}
         self.streamer     = Streamer()
         self.devices      = devices
-        self._fs           = FileSystem()
+        self._fs          = FileSystem()
+        self.dfplc        = pd.concat([v.dfplc for k,v in self.devices.items()])
+        self.alltags      = list(self.dfplc.index)
+
         self.dumpInterval = {}
         self.parkInterval = SetInterval(self.parkingTime,self.park_database)
         ###### DOUBLE LOOP of setIntervals for devices/acquisition-frequencies
@@ -1542,7 +1657,15 @@ class SuperDumper(Configurator):
     # ########################
     #       SCHEDULERS       #
     # ########################
-    def start_dumping(self,parkedFolder):
+
+    def stop_dumping(self):
+        for device,dictIntervals in self.dumpInterval.items():
+            for freq in dictIntervals.keys():
+                self.dumpInterval[device][freq].stop()
+        self.parkInterval.stop()
+
+class SuperDumper_daily(SuperDumper):
+    def start_dumping(self):
         now = pd.Timestamp.now(tz='CET')
         ##### start the schedulers at H:M:S:00 petante! #####
         time.sleep(1-now.microsecond/1000000)
@@ -1562,16 +1685,6 @@ class SuperDumper(Configurator):
         # time.sleep(timer)
         print_file(timenowstd(),': START PARKING',filename=self.log_file,with_infos=False)
         self.parkInterval.start()
-
-    def stop_dumping(self):
-        for device,dictIntervals in self.dumpInterval.items():
-            for freq in dictIntervals.keys():
-                self.dumpInterval[device][freq].stop()
-        self.parkInterval.stop()
-
-class SuperDumper_daily(SuperDumper):
-    def start_dumping(self):
-        return SuperDumper.start_dumping(self,'day')
 
     def park_single_tag_DB_URGENT(self,tag,deleteFromDb=False):
         print_file(tag)
