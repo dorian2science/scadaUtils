@@ -2,6 +2,7 @@ __pycache__
 build/
 dist/
 examples/.ipynb_checkpoints/
+*/.ipynb_checkpoints
 .env/
 .env_dev/
 sylfenUtils.egg-info/

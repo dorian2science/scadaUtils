@@ -149,7 +149,7 @@ sys.exit()
 # the interface enables other people to access the data in a convenient way from the web plateform you configure
 ## start with some default settings
 init_parameters={
-    'tags':cfg.getTagsTU('[PT]T.*H2O'),
+    'tags':cfg.getTagsTU('[PTF]T.*H2O'),
     'fig_name':'temperatures and pressures',
     'rs':'30s',
     'time_window':str(2*60),

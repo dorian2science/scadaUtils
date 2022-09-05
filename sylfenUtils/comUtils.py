@@ -1843,6 +1843,8 @@ class VisualisationMaster(Configurator):
     def __init__(self,*args,**kwargs):
         Configurator.__init__(self,*args,**kwargs)
         self.methods = self.streamer.methods
+        self.utils=Utils()
+        self.usefulTags=pd.DataFrame()
 
     def apply_correct_format_dayFolder(self,day,*args,**kwargs):
         """
