@@ -325,9 +325,9 @@ class ModbusDevice(Device):
         if not self.dfplc is None:dfplc['FREQUENCE_ECHANTILLONNAGE'] = self.freq
 
     def connectDevice(self):
+        self.isConnected=False
         try:
-            self._client.connect()
-            self.isConnected=True
+            self.isConnected=self._client.connect()
         except:
             self.isConnected=False
         return self.isConnected
@@ -347,6 +347,7 @@ class ModbusDevice(Device):
     def decode_bloc_registers(self,bloc,*args,**kwargs):
         blocks=self._get_continuous_blocks(bloc)
         index_name=bloc.index.name
+        if index_name is None:index_name='index'
         return pd.concat([self._decode_continuous_bloc(b,*args,**kwargs) for b in blocks],axis=0).set_index(index_name)
 
     def collectData(self,tz,*args):
@@ -444,6 +445,7 @@ class ModbusDevice(Device):
     def _get_continuous_blocks(self,bloc):
         bloc=self._get_size_words_block(bloc)
         index_name=bloc.index.name
+        if index_name is None:index_name='index'
         c=(bloc['intAddress']+bloc['size_words']).reset_index()[:-1]
         b=bloc['intAddress'][1:].reset_index()
         idxs_break=b[~(b['intAddress']==c[0])][index_name].to_list()
@@ -1914,9 +1916,13 @@ class VisualisationMaster(Configurator):
         ############ read parked data
         start=time.time()
         df = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,*args,pool=pool,verbose=verbose,**kwargs)
-        df_db = self._load_database_tags(t0,t1,tags,*args,**kwargs)
-        if not df_db.empty:
-            df = pd.concat([df,df_db])
+        ############ read database
+        if t1<pd.Timestamp.now(self.tz_record)-pd.Timedelta(seconds=self.parkingTime):
+            df_db = self._load_database_tags(t0,t1,tags,*args,**kwargs)
+            if not df_db.empty:
+                df = pd.concat([df,df_db])
+
+        if verbose:print('no need to read in the database')
         return df.sort_index()
 
     def toogle_tag_description(self,tagsOrDescriptions,toogleto='tag'):
