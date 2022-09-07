@@ -1277,7 +1277,7 @@ class Streamer(Basic_streamer):
         start = time.time()
         s_tag = s_tag[(s_tag.index>=t0)&(s_tag.index<=t1)]
         # print(s_tag)
-        s_tag = self.process_tag(s_tag.squeeze(),**kwargs)
+        s_tag = self.process_tag(s_tag['value'],**kwargs)
         s_tag.name=tag
         if time_debug:computetimeshow('processing done in ',start)
         # except:
@@ -1320,7 +1320,10 @@ class Streamer(Basic_streamer):
                 dftags={k.name:k for k in dftags}
 
         else:
-            dftags = {tag:self.load_tag_daily(t0,t1,tag,folderpkl,*args,**kwargs) for tag in tags}
+            dftags = {}
+            for tag in tags:
+                if verbose:print(tag)
+                dftags[tag]=self.load_tag_daily(t0,t1,tag,folderpkl,*args,**kwargs)
 
         empty_tags=[t for t,v in dftags.items() if v.empty]
         dftags = {tag:v for tag,v in dftags.items() if not v.empty}
@@ -1921,8 +1924,7 @@ class VisualisationMaster(Configurator):
             df_db = self._load_database_tags(t0,t1,tags,*args,**kwargs)
             if not df_db.empty:
                 df = pd.concat([df,df_db])
-
-        if verbose:print('no need to read in the database')
+            if verbose:print_file('no need to read in the database')
         return df.sort_index()
 
     def toogle_tag_description(self,tagsOrDescriptions,toogleto='tag'):
