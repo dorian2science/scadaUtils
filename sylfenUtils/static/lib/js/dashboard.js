@@ -37,12 +37,13 @@ function update_legend() {
 
 function data2excel(){
   let fig=document.getElementById('plotly_fig')
-  $.post('/export2excel',JSON.stringify({data:fig.data,layout:fig.layout}),function(path_to_file,status){
-    if( typeof(path_to_file)=='string') {
-      console.log(path_to_file)
-      window.open(path_to_file)
+  $.post('/export2excel',JSON.stringify({data:fig.data,layout:fig.layout}),function(res,status){
+    var status=res['status']
+    if( status=='ok') {
+      console.log(res['filename'])
+      window.open(res['filename'])
     }else {
-      alert('impossible to generate your excel file, please report the bug.')
+      alert(res['notif'])
     }
   })
 }

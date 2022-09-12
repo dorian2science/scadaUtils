@@ -175,6 +175,7 @@ class Dashboard():
 
     def export2excel(self):
         try:
+            start=time.time()
             data=request.get_data()
             fig=json.loads(data.decode())
             baseName='data'
@@ -190,11 +191,12 @@ class Dashboard():
                 df.index=[k.isoformat() for k in df.index]
             df.to_excel(filename)
             self.log_info(computetimeshow('.xlsx downloaded',start))
-            return filename
+            res={'status':'ok','filename':filename}
         except:
             error={'msg':'service export2excel not working','code':3}
             self.notify_error(sys.exc_info(),error)
-            return error
+            res={'status':'failed','notif':NOTIFS['excel_generation_impossible']}
+        return jsonify(res)
 
     def send_names(self):
         try:
