@@ -238,7 +238,7 @@ class Device():
                 self._checkConnection()
                 return
 
-            print_file('-'*60+'\n',filename=self.log_file)
+            full_msg='-'*60+'\n'
             if self.connectDevice():
                 self._timeOuts_counter  = 0
                 self._current_timeOut   = self._time_outs_reconnection[0][1]
@@ -247,8 +247,8 @@ class Device():
             else :
                 msg=timenowstd()+' : --> impossible to connect to device '+self.device_name
                 msg+='. Try new connection in ' + str(self._current_timeOut) + ' seconds'
-            print_file(msg,filename=self.log_file)
-            print_file('-'*60+'\n',filename=self.log_file)
+
+            print_file(full_msg+msg+'-'*60+'\n',filename=self.log_file)
 
     def _generate_sql_insert_tag(self,tag,value,timestampz,dbTable):
         '''
