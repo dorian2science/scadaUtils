@@ -69,7 +69,7 @@ class Dashboard():
         # ###############
         #    ROUTING    #
         # ###############
-        @self.app.route('/'+self.app_name, methods=['GET'])
+        @self.app.route('/', methods=['GET'])
         def main_viewport():
             return render_template('dashboard.html',
                 helpmelink=self.helpmelink,
