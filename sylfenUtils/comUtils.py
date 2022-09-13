@@ -1738,14 +1738,15 @@ class SuperDumper_daily(SuperDumper):
         dbconn.close()
         return dftag
 
-    def parktagfromdb(self,tag,s_tag,folderday):
+    def parktagfromdb(self,tag,s_tag,folderday,verbose=False):
         namefile = folderday + tag + '.pkl'
+        if verbose:print_file(namefile)
         if os.path.exists(namefile):
             s1 = pd.read_pickle(namefile)
             s_tag  = pd.concat([s1,s_tag])
         self.streamer.process_dbtag(s_tag,self.dataTypes[self.dfplc.loc[tag,'DATATYPE']]).to_pickle(namefile)
 
-    def park_database(self):
+    def park_database(self,verbose=False):
         start = time.time()
         now = pd.Timestamp.now(tz=self.tz_record)
         t_parking = now
@@ -1775,7 +1776,7 @@ class SuperDumper_daily(SuperDumper):
             if not os.path.exists(folderday):os.mkdir(folderday)
             for tag in self.alltags:
                 dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
-                self.parktagfromdb(tag,dftag,folderday)
+                self.parktagfromdb(tag,dftag,folderday,verbose=verbose)
 
         print_file(computetimeshow('database parked',start),filename=self.log_file)
         self.parkingTimes[now.isoformat()] = (time.time()-start)*1000
@@ -2064,7 +2065,10 @@ class VisualisationMaster_daily(VisualisationMaster):
     def park_coarse_data(self,tags=None,*args,**kwargs):
         if tags is None : tags=self.alltags
         for tag in tags:
-            self._park_coarse_tag(tag,*args,**kwargs)
+            try:
+                self._park_coarse_tag(tag,*args,**kwargs)
+            except:
+                print(timenowstd(),tag,' not possible to coarse-compute')
 
     def _park_coarse_tag(self,tag,rs='60s',verbose=False,from_start=False):
             # self.t0=pd.Timestamp(pd.Series(os.listdir(self.folderPkl)).min()+' 00:00',tz=self.tz_record)
