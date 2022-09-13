@@ -7,7 +7,8 @@ import plotly.graph_objects as go
 from string import ascii_letters,digits
 from sylfenUtils.comUtils import (timenowstd,computetimeshow)
 
-MAX_NB_PTS=1000000
+# MAX_NB_PTS=1000*1000
+MAX_NB_PTS=500*1000
 NOTIFS={
     'too_many_datapoints':''' TOO MANY DATAPOINTS\n
         You have requested XXXk datapoints which is over AAAk datapoints.\n
@@ -133,18 +134,18 @@ class Dashboard():
             rs,rsMethod=parameters['rs_time'],parameters['rs_method']
 
             pool='auto'
-            ####### determine if it should be load with coarse data or fine data
-            # if pd.to_timedelta(rs)>=pd.Timedelta(seconds=5*60) or t1-t0>pd.Timedelta(days=3):
-            #     df = self.cfg.load_coarse_data(t0,t1,tags,rs=rs,rsMethod=rsMethod)
-            # else:
-            df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False,pool=pool)
+            ####### determine if it should be load with COARSE DATA or fine data
+            if pd.to_timedelta(rs)>=pd.Timedelta(seconds=5*60) or t1-t0>pd.Timedelta(days=3):
+                df = self.cfg.load_coarse_data(t0,t1,tags,rs=rs,rsMethod=rsMethod)
+            else:
+                df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False,pool=pool)
 
             if df.empty:
                 notif=NOTIFS['no_data']
                 raise Exception('no data')
 
 
-            ####### check that the request does not have too many datapoints
+            ####### check that the request does not have TOO MANY DATAPOINTS
             nb_datapoints=len(df)*len(df.columns)
             if nb_datapoints>MAX_NB_PTS:
                 df=self.cfg.auto_resample_df(df,MAX_NB_PTS)

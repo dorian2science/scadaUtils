@@ -1783,6 +1783,20 @@ class SuperDumper_daily(SuperDumper):
         self.flushdb(t_parking.isoformat())
         return
 
+    def fix_timestamp(self,t0,tag,folder_save=None):
+        t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
+        if folder_save is None:folder_save=self.folderPkl
+        while t<t1:
+            filename = self.folderPkl +'/'+ t.strftime(self.format_dayFolder)+'/'+tag+'.pkl'
+            if os.path.exists(filename):
+                s=pd.read_pickle(filename)
+                s.index=[k.tz_convert(tz=self.tz_record) for k in s.index]
+                folder_day_save=folder_save +'/'+ t.strftime(self.format_dayFolder)+'/'
+                if not os.path.exists(folder_day_save):os.mkdir(folder_day_save)
+                new_filename = folder_day_save + tag+'.pkl'
+                s.to_pickle(new_filename)
+            t = t + pd.Timedelta(days=1)
+
 class SuperDumper_minutely(SuperDumper):
     def start_dumping(self):
         return SuperDumper.start_dumping(self,'minute')
