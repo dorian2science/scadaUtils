@@ -2078,7 +2078,7 @@ class VisualisationMaster_daily(VisualisationMaster):
             if from_start:
                 t0=self.t0
             ######### load the raw data
-            if verbose:print(tag,t0)
+            if verbose:print_file(tag,t0)
             s=self.streamer.load_tag_daily(t0,pd.Timestamp.now(self.tz_record),tag,self.folderPkl,rsMethod='raw',verbose=False)
             ######### build the new data
             s_new = {}
@@ -2097,7 +2097,7 @@ class VisualisationMaster_daily(VisualisationMaster):
                     tmp=pd.concat([pd.read_pickle(filename),s_new[m]],axis=0).sort_index()
                     s_new[m]=tmp[~tmp.duplicated(keep='first')]
                 s_new[m].to_pickle(filename)
-            print('done in ',time.time()-start)
+            if verbose:print_file(tag,'done in ',time.time()-start)
 
 class VisualisationMaster_minutely(VisualisationMaster):
     def _loadparkedtag(self,t0,t1,tag):
