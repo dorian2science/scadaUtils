@@ -2091,7 +2091,7 @@ class VisualisationMaster_daily(VisualisationMaster):
                 s_new['mean'] = s.resample(rs,closed='right',label='right').mean()
                 s_new['min']  = s.resample(rs,closed='right',label='right').min()
                 s_new['max']  = s.resample(rs,closed='right',label='right').max()
-            for m in METHODS:
+            for m in ['mean','min','max']:
                 filename=self.folder_coarse + m + '/' + tag + '.pkl'
                 if os.path.exists(filename) and not from_start:
                     tmp=pd.concat([pd.read_pickle(filename),s_new[m]],axis=0).sort_index()
