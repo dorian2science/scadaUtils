@@ -45,7 +45,8 @@ class Dashboard():
         self.infofile_name  = log_dir+'dashboard_' + app_name + '.log';
         self.helpmelink=helpmelink
         self.version_dashboard = version_dashboard
-        start_msg=timenowstd() + ' '*10+ 'starting ' + app_name + ' dashboard\n'.upper() + '*'*60 + '\n'
+        # start_msg=timenowstd() + ' '*10+ 'starting ' + app_name + ' dashboard\n'.upper() + '*'*60 + '\n'
+        start_msg=timenowstd() + ' client connecting' 
         with open(self.infofile_name,'a') as logfile:logfile.write(start_msg)
         self.errorfile_name = log_dir+'dashboard_'+ app_name +'.err';
         with open(self.errorfile_name,'a') as logfile:logfile.write(start_msg)
@@ -136,6 +137,7 @@ class Dashboard():
             pool='auto'
             ####### determine if it should be load with COARSE DATA or fine data
             if pd.to_timedelta(rs)>=pd.Timedelta(seconds=5*60) or t1-t0>pd.Timedelta(days=3):
+                pool='coarse'
                 df = self.cfg.load_coarse_data(t0,t1,tags,rs=rs,rsMethod=rsMethod)
             else:
                 df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False,pool=pool)
