@@ -2035,6 +2035,11 @@ class VisualisationMaster(Configurator):
         return fig
 
 class VisualisationMaster_daily(VisualisationMaster):
+    def __init__(self,*args,**kwargs):
+        VisualisationMaster.__init__(self,*args,**kwargs)
+        self.folder_coarse=self.folderPkl+'_coarse'
+        if not os.path.exists(self.folder_coarse):os.mkdir(self.folder_coarse)
+
     def _load_parked_tags(self,t0,t1,tags,pool):
         '''
         - t0,t1 : timestamps
@@ -2052,6 +2057,47 @@ class VisualisationMaster_daily(VisualisationMaster):
         #     print_file("==========================================")
         #     df = df.drop_duplicates()
         return df
+
+    def park_coarse_data(self,tags=None,*args,**kwargs):
+        if tags is None : tags=self.alltags
+        for tag in tags:
+            self._park_coarse_tag(tag,*args,**kwargs)
+
+    def _park_coarse_tag(self,tag,rs='60s',verbose=False,from_start=False):
+            # self.t0=pd.Timestamp(pd.Series(os.listdir(self.folderPkl)).min()+' 00:00',tz=self.tz_record)
+            self.t0=pd.Timestamp('2022-01-01 00:00',tz=self.tz_record)
+            start=time.time()
+            ########### determine t0
+            file_tag_mean=self.folder_coarse+'/mean/'+tag+'.pkl'
+            t0=self.t0
+            if os.path.exists(file_tag_mean):
+                s_tag=pd.read_pickle(file_tag_mean)
+                t1=s_tag.index.max()
+                if s_tag.empty:t1=t0
+                t0=max(t1,t0)
+            if from_start:
+                t0=self.t0
+            ######### load the raw data
+            if verbose:print(tag,t0)
+            s=self.streamer.load_tag_daily(t0,pd.Timestamp.now(self.tz_record),tag,self.folderPkl,rsMethod='raw',verbose=False)
+            ######### build the new data
+            s_new = {}
+            if 'string' in self.dfplc.loc[tag,'DATATYPE'].lower():
+                tmp = s.resample(rs,closed='right',label='right').ffill()
+                s_new['mean'] = tmp
+                s_new['min']  = tmp
+                s_new['max']  = tmp
+            else:
+                s_new['mean'] = s.resample(rs,closed='right',label='right').mean()
+                s_new['min']  = s.resample(rs,closed='right',label='right').min()
+                s_new['max']  = s.resample(rs,closed='right',label='right').max()
+            for m in METHODS:
+                filename=self.folder_coarse + m + '/' + tag + '.pkl'
+                if os.path.exists(filename) and not from_start:
+                    tmp=pd.concat([pd.read_pickle(filename),s_new[m]],axis=0).sort_index()
+                    s_new[m]=tmp[~tmp.duplicated(keep='first')]
+                s_new[m].to_pickle(filename)
+            print('done in ',time.time()-start)
 
 class VisualisationMaster_minutely(VisualisationMaster):
     def _loadparkedtag(self,t0,t1,tag):
