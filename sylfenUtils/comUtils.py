@@ -1783,10 +1783,13 @@ class SuperDumper_daily(SuperDumper):
         self.flushdb(t_parking.isoformat())
         return
 
+    def dum_test(self):
+        print('test')
+
     def fix_timestamp(self,t0,tag,folder_save=None):
         t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
         if folder_save is None:folder_save=self.folderPkl
-        while t<t1:
+        while t<pd.Timestamp.now(self.tz_record):
             filename = self.folderPkl +'/'+ t.strftime(self.format_dayFolder)+'/'+tag+'.pkl'
             if os.path.exists(filename):
                 s=pd.read_pickle(filename)
