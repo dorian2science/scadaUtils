@@ -7,8 +7,6 @@ import plotly.graph_objects as go
 from string import ascii_letters,digits
 from sylfenUtils.comUtils import (timenowstd,computetimeshow)
 
-# MAX_NB_PTS=1000*1000
-MAX_NB_PTS=500*1000
 NOTIFS={
     'too_many_datapoints':''' TOO MANY DATAPOINTS\n
         You have requested XXXk datapoints which is over AAAk datapoints.\n
@@ -32,10 +30,15 @@ NOTIFS={
 class Dashboard():
     def __init__(self,cfg,log_dir,root_path,initial_tags=[],
             plot_function=px.line,app_name='',helpmelink='',
-            init_parameters={},version_dashboard=''):
+            init_parameters={},version_dashboard='',
+            max_nb_pts=500*1000,rs_min_coarse=5*60,nb_days_min_coarse=3,
+        ):
         cfg.styles = ['default'] + cfg.utils.styles
         self.fig_wh=780
         self.cfg=cfg
+        self.max_nb_pts=max_nb_pts
+        self.rs_min_coarse=rs_min_coarse
+        self.nb_days_min_coarse=nb_days_min_coarse
         self.log_dir=log_dir
         print('your log is in:',log_dir)
         self.app_name=app_name
@@ -46,7 +49,7 @@ class Dashboard():
         self.helpmelink=helpmelink
         self.version_dashboard = version_dashboard
         # start_msg=timenowstd() + ' '*10+ 'starting ' + app_name + ' dashboard\n'.upper() + '*'*60 + '\n'
-        start_msg=timenowstd() + ' client connecting' 
+        start_msg=timenowstd() + ' client connecting'
         with open(self.infofile_name,'a') as logfile:logfile.write(start_msg)
         self.errorfile_name = log_dir+'dashboard_'+ app_name +'.err';
         with open(self.errorfile_name,'a') as logfile:logfile.write(start_msg)
@@ -136,7 +139,7 @@ class Dashboard():
 
             pool='auto'
             ####### determine if it should be load with COARSE DATA or fine data
-            if pd.to_timedelta(rs)>=pd.Timedelta(seconds=5*60) or t1-t0>pd.Timedelta(days=3):
+            if pd.to_timedelta(rs)>=pd.Timedelta(seconds=self.rs_min_coarse) or t1-t0>pd.Timedelta(days=self.nb_days_min_coarse):
                 pool='coarse'
                 df = self.cfg.load_coarse_data(t0,t1,tags,rs=rs,rsMethod=rsMethod)
             else:
@@ -149,10 +152,10 @@ class Dashboard():
 
             ####### check that the request does not have TOO MANY DATAPOINTS
             nb_datapoints=len(df)*len(df.columns)
-            if nb_datapoints>MAX_NB_PTS:
-                df=self.cfg.auto_resample_df(df,MAX_NB_PTS)
+            if nb_datapoints>self.max_nb_pts:
+                df=self.cfg.auto_resample_df(df,self.max_nb_pts)
                 new_rs=df.index.freq.freqstr.replace('S',' seconds')
-                notif=NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)+' ').replace('YYY',new_rs).replace('AAA',str(MAX_NB_PTS//1000))
+                notif=NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)+' ').replace('YYY',new_rs).replace('AAA',str(self.max_nb_pts//1000))
             if debug:print_file(df)
 
             if not tag_x.lower()=='time':
