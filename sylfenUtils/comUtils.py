@@ -2039,6 +2039,9 @@ class VisualisationMaster_daily(VisualisationMaster):
         VisualisationMaster.__init__(self,*args,**kwargs)
         self.folder_coarse=self.folderPkl.rstrip('/')+'_coarse/'
         if not os.path.exists(self.folder_coarse):os.mkdir(self.folder_coarse)
+        if not os.path.exists(self.folder_coarse+'mean'):os.mkdir(self.folder_coarse+'mean')
+        if not os.path.exists(self.folder_coarse+'max'):os.mkdir(self.folder_coarse+'max')
+        if not os.path.exists(self.folder_coarse+'min'):os.mkdir(self.folder_coarse+'min')
 
     def _load_parked_tags(self,t0,t1,tags,pool):
         '''
