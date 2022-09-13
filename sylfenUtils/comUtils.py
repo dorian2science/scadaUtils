@@ -1264,7 +1264,7 @@ class Streamer(Basic_streamer):
                 dfs[filename]=pd.read_pickle(filename)
             else :
                 if verbose:print_file('no file : ',filename,filename=self.log_file)
-                dfs[filename] = pd.Series(dtype='float')
+                dfs[filename] = pd.Series(dtype='float',name='value')
             t = t + pd.Timedelta(days=1)
         if time_debug:computetimeshow('raw pkl loaded in ',start)
         start=time.time()
