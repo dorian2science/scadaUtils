@@ -49,7 +49,7 @@ class Dashboard():
         self.helpmelink=helpmelink
         self.version_dashboard = version_dashboard
         # start_msg=timenowstd() + ' '*10+ 'starting ' + app_name + ' dashboard\n'.upper() + '*'*60 + '\n'
-        start_msg=timenowstd() + ' client connecting'
+        start_msg=timenowstd() + ' client connecting\n'
         with open(self.infofile_name,'a') as logfile:logfile.write(start_msg)
         self.errorfile_name = log_dir+'dashboard_'+ app_name +'.err';
         with open(self.errorfile_name,'a') as logfile:logfile.write(start_msg)
