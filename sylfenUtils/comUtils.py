@@ -1680,14 +1680,16 @@ class VisualisationMaster(Configurator):
         # for k in t0,t1,tags,args,kwargs:print_file(k)
         tags=list(np.unique(tags))
         ############ read parked data
-        start=time.time()
         df = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,*args,pool=pool,verbose=verbose,**kwargs)
         ############ read database
         if t1<pd.Timestamp.now(self.tz_record)-pd.Timedelta(seconds=self.parkingTime):
+            if verbose:print_file('no need to read in the database')
+        else:
             df_db = self._load_database_tags(t0,t1,tags,*args,**kwargs)
             if not df_db.empty:
+                if verbose:print_file('concatenated')
                 df = pd.concat([df,df_db])
-            if verbose:print_file('no need to read in the database')
+            if verbose:print_file('database read')
         return df.sort_index()
 
     def toogle_tag_description(self,tagsOrDescriptions,toogleto='tag'):

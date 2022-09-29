@@ -1,23 +1,74 @@
 #!/usr/bin/env python
 # coding: utf-8
 from sylfenUtils import comUtils
-import os,sys,re, pandas as pd
-class Conf():pass
+import os,sys,re, pandas as pd,numpy as np
+import importlib
+importlib.reload(comUtils)
 
 ### load the conf
+class Conf():pass
 conf=pd.read_pickle(open('data/conf.pkl','rb'))
 
-### MODBUS DEVICE AND SIMULATOR
-from sylfenUtils.comUtils import ModbusDevice
-dummy_device=ModbusDevice(ip='localhost',port=4580,device_name='dummy_device',
-    dfplc=conf.dummy_df_plc,modbus_map=conf.dummy_modbus_map,bo='big',wo='big',freq=2)
+### MODBUS DEVICE AND SIMULATOR ----------------
+conf.port_device=4580
+modbus_map=conf.dummy_modbus_map
+conf.bo='big'
+conf.wo='big'
+freq=2
 
 from sylfenUtils.Simulators import SimulatorModeBus
-dummy_simulator=SimulatorModeBus(port=dummy_device.port,modbus_map=dummy_device.modbus_map,bo=dummy_device.byte_order,wo=dummy_device.word_order)
+try:
+    dummy_simulator=SimulatorModeBus(
+    port=conf.port_device,
+    modbus_map=conf.dummy_modbus_map,
+    bo=conf.bo,
+    wo=conf.wo
+    )
+except:
+    conf.port_device+=np.random.randint(10000)
+    dummy_simulator=SimulatorModeBus(
+        port=conf.port_device,
+        modbus_map=conf.dummy_modbus_map,
+        bo=conf.bo,
+        wo=conf.wo)
+
 dummy_simulator.start()
 
+from sylfenUtils.comUtils import ModbusDevice
+dummy_device=ModbusDevice(
+    ip='localhost',
+    port=conf.port_device,
+    device_name='dummy_device',
+    dfplc=conf.dummy_df_plc,
+    modbus_map=conf.dummy_modbus_map,
+    bo=conf.bo,
+    wo=conf.wo,
+    freq=2
+)
+
+### DUMPER ---------------
+from sylfenUtils.comUtils import SuperDumper_daily
+DEVICES = {
+    'dummy_device':dummy_device,
+}
+log_file_name=None ## if you want either to have the information in the console use None.
+dumper=SuperDumper_daily(DEVICES,conf.FOLDERPKL,conf.DB_PARAMETERS,conf.PARKING_TIME,
+    dbTable=conf.DB_TABLE,tz_record=conf.TZ_RECORD,log_file=log_file_name)
+
+### VISUALISER ---------------
+from sylfenUtils.comUtils import VisualisationMaster_daily
+cfg=VisualisationMaster_daily(
+    conf.FOLDERPKL,
+    conf.DB_PARAMETERS,
+    conf.PARKING_TIME,
+    dbTable=conf.DB_TABLE,
+    tz_record=conf.TZ_RECORD
+)
+cfg.dfplc=dumper.dfplc ### required to use the function getTagsTU
+
+
 # # 2. DUMP DATA
-def test_device_connection():
+def test_dumping():
     dummy_device.connectDevice()
     dummy_device.quick_modbus_single_register_decoder(10,2,'float32',unit=1);
     tags=dummy_device.dfplc.index.to_list()
@@ -28,23 +79,19 @@ def test_device_connection():
 
 # # 3. READ THE DATA in REAL TIME
 def read_the_data():
-    from sylfenUtils.comUtils import VisualisationMaster_daily
-    cfg=VisualisationMaster_daily(
-        conf.FOLDERPKL,
-        conf.DB_PARAMETERS,
-        conf.PARKING_TIME,
-        dbTable=conf.DB_TABLE,
-        tz_record=conf.TZ_RECORD
-    )
-    cfg.dfplc=dumper.dfplc ### required to use the function getTagsTU
     cfg.listUnits=list(cfg.dfplc['UNITE'].unique())
     tags=cfg.getTagsTU('[PT]T.*H2O')
     t1=pd.Timestamp.now(tz='CET')
-    t0=t1-pd.Timedelta(hours=2)
-    df=cfg.loadtags_period(t0,t1,tags,rs='2s',rsMethod='mean')
+    t0=t1-pd.Timedelta(minutes=5)
+    test_dumping()
+    db=(dumper.read_db()).set_index('timestampz')
+    db.index=db.index.tz_convert('CET')
+    print(db)
+    import time;time.sleep(0.3)
+    df=cfg.loadtags_period(t0,t1,tags,rs='1s',rsMethod='mean',verbose=False);print(df)
+    sys.exit()
     from sylfenUtils.utils import Graphics
     Graphics().multiUnitGraph(df).show()
-
 # # 4. DEPLOY THE WEB INTERFACE
 def deploy_web_GUI():
     # The interface enables other people(or you) to access the data in a convenient way from the web plateform.
@@ -94,13 +141,6 @@ def deploy_web_GUI():
     dash.app.run(host='0.0.0.0',debug=False,use_reloader=False)
 
 
-from sylfenUtils.comUtils import SuperDumper_daily
-DEVICES = {
-    'dummy_device':dummy_device,
-}
-log_file_name=None ## if you want either to have the information in the console use None.
-dumper=SuperDumper_daily(DEVICES,conf.FOLDERPKL,conf.DB_PARAMETERS,conf.PARKING_TIME,
-    dbTable=conf.DB_TABLE,tz_record=conf.TZ_RECORD,log_file=log_file_name)
 dumper.park_database()
 dumper.start_dumping()
 from sylfenUtils.comUtils import VisualisationMaster_daily
