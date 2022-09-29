@@ -21,6 +21,13 @@ from inspect import currentframe, getframeinfo
 from colorama import Fore
 
 def print_file(*args,filename=None,mode='a',with_infos=True,**kwargs):
+    '''
+    Print with color code in a file with line number in code.
+    Parameters :
+    -----------------
+        - filename:file to print in.
+        - with_infos:using line numbering and color code.
+    '''
     entete=''
     if with_infos:
         frameinfo = currentframe().f_back
@@ -44,6 +51,36 @@ def html_table(df,title='table'):
     df.to_html(f)
     f.close()
     sp.run('firefox /tmp/table.html',shell=True)
+def read_db(db_parameters,db_table,t=None,tagPat=None,debug=False):
+    '''
+    read the database.
+    Parameters :
+    -----------
+        - db_parameters:dictionnary with localhost,port,dbnamme,user, and password keys
+        - db_table:name of the table
+        - t : timestamp with timezone(default None ==> read all)
+        - tagPat : regular expression pattern for tags(default None ==> read all)
+    '''
+    connReq = ''.join([k + "=" + v + " " for k,v in db_parameters.items()])
+    dbconn = psycopg2.connect(connReq)
+    start="select * from " + db_table +" "
+    order_end=" order by timestampz asc;"
+    if not t is None : ts=" timestampz < '" + t + "'"
+    if tagPat is None:
+        if t is None:
+            sqlQ =start + order_end
+        else:
+            sqlQ = start + "where "+ ts + order_end
+    else:
+        tagPattern = " tag~'"+tagPat + "'"
+        sqlQ =start + "where " + tagPattern
+        if t is None:
+            sqlQ = sqlQ + order_end
+        else:
+            sqlQ = sqlQ + "and " + ts + order_end
+    if debug:print(sqlQ)
+    df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
+    return df
 
 class EmptyClass():pass
 
@@ -1324,34 +1361,8 @@ class SuperDumper(Configurator):
 
             self.dumpInterval[device_name] = device_dumps
 
-    def read_db(self,t=None,tagPat=None):
-        '''
-        read the database.
-        Parameters :
-        -----------
-            - t : timestamp with timezone
-            - tagPat : regular expression pattern for tags.
-        '''
-        connReq = ''.join([k + "=" + v + " " for k,v in self.DB_PARAMETERS.items()])
-        dbconn = psycopg2.connect(connReq)
-        start="select * from " + self.DB_TABLE +" "
-        order_end=" order by timestampz asc;"
-        ts=" timestampz < '" + t + "'"
-        tagPattern = " tag~'"+tagPat + "'"
-        if tagPat is None:
-            if t is None:
-                sqlQ =start + order_end
-            else:
-                sqlQ = start + "where "+ ts + order_end
-        else:
-            sqlQ =start + "where " + tagPattern
-            if t is None:
-                sqlQ = sqlQ + order_end
-            else:
-                sqlQ = sqlQ + "and " + ts + order_end
-        print_file(sqlQ,filename=self.log_file)
-        df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        return df
+    def read_db(self,*args,**kwargs):
+        return read_db(self.dbParameters,self.dbTable,*args,**kwargs)
 
     def flushdb(self,t,full=False):
         connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
