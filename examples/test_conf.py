@@ -7,8 +7,8 @@ import os,sys,re, pandas as pd
 
 class Conf_dummy(Conf_generator.Conf_generator):
     def __init__(self):
-        Conf_generator.Conf_generator.__init__(self,'dummy1','/home/dorian/tmp/dummy1/')
-        self.port_dummy=5000
+        Conf_generator.Conf_generator.__init__(self,'dummy2','/home/dorian/sylfen/tmp/dummy2_user/')
+        self.port_dummy=6000
         self.byte_order='big'
         self.word_order='big'
         self.freq=2

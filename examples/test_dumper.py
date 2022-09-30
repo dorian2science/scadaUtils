@@ -10,12 +10,12 @@ conf=Conf_dummy()
 from sylfenUtils.comUtils import ModbusDevice
 dummy_device=ModbusDevice(
     ip='localhost',
-    port=conf.port_device,
+    port=conf.port_dummy,
     device_name='dummy_device',
-    dfplc=conf.dummy_df_plc,
+    dfplc=conf.PLCS['dummy'],
     modbus_map=conf.dummy_modbus_map,
-    bo=conf.bo,
-    wo=conf.wo,
+    bo=conf.byte_order,
+    wo=conf.word_order,
     freq=conf.freq
 )
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 from sylfenUtils import comUtils
+from sylfenUtils.comUtils import SetInterval,print_file
 import os,sys,re, pandas as pd,numpy as np
 import importlib
 importlib.reload(comUtils)
@@ -20,23 +21,27 @@ cfg=VisualisationMaster_daily(
 )
 cfg.dfplc=conf.df_plc ### required to use the function getTagsTU
 
-# # 3. READ THE DATA in REAL TIME
-def read_the_data():
+#### dump coarse data
+def compute_coarse():
+    import time
+    start=time.time()
+    for tag in cfg.dfplc.index:
+        try:
+            cfg._park_coarse_tag(tag,verbose=True)
+        except:
+            print_file(timenowstd()+tag + ' not possible to coarse-compute',log_file)
+    print_file('coarse computation done in ' + str(time.time()-start) + ' seconds',mode='a')
+
+def read_coarse_data():
     cfg.listUnits=list(cfg.dfplc['UNITE'].unique())
     tags=cfg.getTagsTU('[PT]T.*H2O')
     t1=pd.Timestamp.now(tz='CET')
-    t0=t1-pd.Timedelta(minutes=5)
+    t0=t1-pd.Timedelta(hours=1)
     insert_data=False
-    if insert_data:
-        from sylfenUtils.comUtils import ModbusDevice
-        dummy_device=ModbusDevice(ip='localhost',port=conf.port_dummy,device_name='dummy_device',
-            dfplc=conf.PLCS['dummy'],modbus_map=conf.dummy_modbus_map,bo=conf.byte_order,wo=conf.word_order,freq=conf.freq)
-        dummy_device.insert_intodb(conf.DB_PARAMETERS,conf.DB_TABLE,'CET',tags)
-        db=(dumper.read_db()).set_index('timestampz')
-        db.index=db.index.tz_convert('CET')
-        print(db)
-
-    df=cfg.loadtags_period(t0,t1,tags,rs='1s',rsMethod='mean',verbose=False);print(df)
-    sys.exit()
+    df=cfg.load_coarse_data(t0,t1,tags,rs='80s',rsMethod='mean',verbose=False);print(df)
+    # sys.exit()
     from sylfenUtils.utils import Graphics
     Graphics().multiUnitGraph(df).show()
+
+compute_coarse()
+read_coarse_data()

@@ -97,18 +97,23 @@ class Conf_generator():
         '''
         import subprocess as sp
         import sylfenUtils
-
+        create_folder_if_not(root_folder)
+        #### TEMPLATE FOLDER
         sylfenUtils_env_dir=os.path.dirname(sylfenUtils.__file__)
         templates_dir=sylfenUtils_env_dir + '/templates'
         templates_folder=root_folder + '/templates'
         if os.path.exists(templates_folder):os.remove(templates_folder)
         sp.run('ln -s '+templates_dir + ' ' + root_folder,shell=True)
+
+        #### STATIC FOLDER
         static_folder=root_folder+'/static/'
-        if not os.path.exists(static_folder):os.mkdir(static_folder) #create folder if it does not exist
+        create_folder_if_not(static_folder)
         self.lib_dir=sylfenUtils_env_dir + '/static/lib'
         lib_folder=static_folder + '/lib'
         if os.path.exists(lib_folder):os.remove(lib_folder)
         sp.run('ln -s ' + self.lib_dir + ' ' + static_folder,shell=True)
+        # import time
+        # time.sleep(0.2)
 
 
     ####### private ####

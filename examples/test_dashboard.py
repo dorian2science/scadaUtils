@@ -4,8 +4,8 @@ import importlib
 importlib.reload(comUtils)
 
 ### load the conf
-class Conf():pass
-conf=pd.read_pickle(open('data/conf.pkl','rb'))
+from test_conf import Conf_dummy
+conf=Conf_dummy()
 
 from sylfenUtils.comUtils import VisualisationMaster_daily
 cfg=VisualisationMaster_daily(
@@ -15,7 +15,7 @@ cfg=VisualisationMaster_daily(
     dbTable=conf.DB_TABLE,
     tz_record=conf.TZ_RECORD
 )
-cfg.dfplc=dumper.dfplc ### required to use the function getTagsTU
+cfg.dfplc=conf.df_plc ### required to use the function getTagsTU
 cfg.listUnits=list(cfg.dfplc['UNITE'].unique())
 
 init_parameters={
@@ -28,11 +28,13 @@ init_parameters={
 }
 
 from sylfenUtils import dashboard
+dashboard_folder=conf.project_folder+'/dashboard/'
+conf.create_dashboard_links(dashboard_folder)
 APP_NAME='dummy_app'
 dash=dashboard.Dashboard(
     cfg,
     conf.LOG_FOLDER,
-    root_folder,
+    root_path=dashboard_folder,
     app_name=APP_NAME,
     init_parameters=init_parameters,
     plot_function=cfg.utils.multiUnitGraph, ## you can use your own function to display the data
