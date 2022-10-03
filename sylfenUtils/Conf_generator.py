@@ -1,4 +1,4 @@
-import pickle,os,sys,re,subprocess as sp
+import pickle,os,sys,re,subprocess as sp,time
 import pandas as pd
 from sylfenUtils.comUtils import print_file
 
@@ -22,11 +22,20 @@ def create_sql_table(connParameters,db_table):
 class Conf_generator():
     '''
     Class to generate a configuration with default folders and automatic creation of
-    user_setting file. For a project it is supposed to make a children class a build
-    a specific **generate_conf** function to add specific configuration features of the project.
+    user_setting file.
+
+    Loading of the configuation will be automatic whether the configuration file already exists or not.
+
+    Parameters
+    -----------------
+        - project_name:name of the project. Important if default folder are being used and project_folder is None.
+        - function_generator : function that generates a list of objects needed for a project. Should return a dictionnary.
+        - project_folder : path of the folder where the parameters.conf file, the log folder, the dashboard ...
+            are going to be stored.
     '''
-    def __init__(self,project_name,project_folder=None):
+    def __init__(self,project_name,function_generator,project_folder=None):
         self.project_name=project_name
+        self.function_generator=function_generator
         self._lib_sylfenUtils_path=os.path.dirname(__file__) + '/'
 
         if project_folder is None:project_folder=os.getenv('HOME')+'/'+project_name+'_user/'
@@ -83,14 +92,17 @@ class Conf_generator():
         create_sql_table(self.DB_PARAMETERS,self.DB_TABLE)
 
         ###### load the rest of the Conf
-        self.__load_conf()
-
+        self._load_conf()
 
     def generate_conf(self):
-        '''
-        This is the function to create for a new project. It should return a dictionnary of all the objects needed.
-        '''
-        return {}
+        f = open(self._file_conf_pkl,'wb')
+        start=time.time()
+        print('generating configuration files and store it in :',self._file_conf_pkl)
+        conf_objs=self.function_generator()
+        pickle.dump(conf_objs,f)
+        f.close()
+        print('configuration file generated in  : '+ str(time.time()-start)+' seconds.')
+        return conf_objs
 
     def create_dashboard_links(self,root_folder):
         '''
@@ -117,8 +129,7 @@ class Conf_generator():
         # time.sleep(0.2)
 
     ####### private ####
-    def __load_conf(self):
-        import time,pickle
+    def _load_conf(self):
         _appdir    = os.path.dirname(os.path.realpath(__file__))
         exists_conf=False
         if os.path.exists(self._file_conf_pkl):
@@ -131,13 +142,7 @@ class Conf_generator():
                 print('-'*60,'\nIMPOSSIBLE to load the configuration pkl file ',self._file_conf_pkl,'!\n','-'*60,'\n')
                 exists_conf=False
         if not exists_conf:
-            f = open(self._file_conf_pkl,'wb')
-            start=time.time()
-            print('generating configuration files and store it in :',self._file_conf_pkl)
             conf_objs=self.generate_conf()
-            pickle.dump(conf_objs,f)
-            f.close()
-            print('configuration file generated in  : '+ str(time.time()-start)+' seconds.')
 
         for k,v in conf_objs.items():
             setattr(self,k,v)
@@ -166,14 +171,14 @@ class Conf_generator():
             cst[k]=dfConstants.loc[k].value
         return cst,dfConstants
 
-    def _buildColorCode(self,user_tag_color,dfplc,unitDefaultColors):
+    def _buildColorCode(self,user_tag_color,dfplc,unitDefaultColors,verbose=False):
         '''
         assign styles for tags in dfplc using the principle of Guillaume Preaux. One color per unit
         Parameters
         ----------
-            - user_tag_color:dataframe with tag in index and columns colorName with the Name of the color ton. See self.palettes.
+            - user_tag_color:Dataframe with tag in index and columns colorName with the Name of the color ton. See self.palettes.
             - dfplc:plc dataframe with tags in index.
-            - unitDefaultColors: pd.series with units in index and color. see self.palettes
+            - unitDefaultColors: pd.Series with units in index and color. see self.palettes
         '''
         ###### load palettes of color
         self.colorPalettes=self._loadcolorPalettes()
@@ -189,8 +194,12 @@ class Conf_generator():
         alltags = list(dfplc.index)
         dfplc.UNITE=dfplc.UNITE.fillna('u.a.')
         def assignRandomColor2Tag(tag):
+            if verbose:print(tag)
             unitTag  = dfplc.loc[tag,'UNITE'].strip()
-            shadeTag = unitDefaultColors.loc[unitTag].squeeze()
+            shadeTag = unitDefaultColors.loc[unitTag]
+            if not isinstance(shadeTag,str):
+                shadeTag = unitDefaultColors.loc[unitTag].squeeze()
+
             color = self.colorPalettes[shadeTag]['hex'].sample(n=1)
             return color.index[0]
 
