@@ -85,6 +85,7 @@ class Conf_generator():
         ###### load the rest of the Conf
         self.__load_conf()
 
+
     def generate_conf(self):
         '''
         This is the function to create for a new project. It should return a dictionnary of all the objects needed.
@@ -115,16 +116,20 @@ class Conf_generator():
         # import time
         # time.sleep(0.2)
 
-
     ####### private ####
     def __load_conf(self):
         import time,pickle
         _appdir    = os.path.dirname(os.path.realpath(__file__))
         exists_conf=False
         if os.path.exists(self._file_conf_pkl):
+            print('configuration file',self._file_conf_pkl,'found!')
             exists_conf=True
-            conf_objs= pickle.load(open(self._file_conf_pkl,'rb'))
-            # exists_conf=False
+            try:
+                conf_objs= pickle.load(open(self._file_conf_pkl,'rb'))
+                print('configuration file loaded !')
+            except:
+                print('-'*60,'\nIMPOSSIBLE to load the configuration pkl file ',self._file_conf_pkl,'!\n','-'*60,'\n')
+                exists_conf=False
         if not exists_conf:
             f = open(self._file_conf_pkl,'wb')
             start=time.time()
@@ -137,9 +142,9 @@ class Conf_generator():
         for k,v in conf_objs.items():
             setattr(self,k,v)
 
-    def __loadcolorPalettes(self):
+    def _loadcolorPalettes(self):
         # colPalettes = Utils().colorPalettes
-        colPalettes = pickle.load('conf/palettes.pkl')
+        colPalettes = pickle.load(open(os.path.dirname(__file__)+'/conf/palettes.pkl','rb'))
         colPalettes['reds']     = colPalettes['reds'].drop(['Misty rose',])
         colPalettes['greens']   = colPalettes['greens'].drop(['Honeydew',])
         colPalettes['blues']    = colPalettes['blues'].drop(['Blue (Munsell)','Powder Blue','Duck Blue','Teal blue'])
@@ -153,41 +158,51 @@ class Conf_generator():
             colPalettes[c]=colPalettes[c].sample(frac=1)
         return colPalettes
 
-    def __load_material_dfConstants(self):
-        dfConstants = pd.read_excel('conf/data_values.ods',sheet_name='physical_constants',index_col=1)
+    def _load_material_dfConstants(self):
+        dfConstants = pd.read_excel(os.path.dirname(__file__)+'/conf/data_values.ods',sheet_name='physical_constants',index_col=1)
         cst = {}
         for k in dfConstants.index:
             # setattr(cst,k,dfConstants.loc[k].value)
             cst[k]=dfConstants.loc[k].value
         return cst,dfConstants
 
-    def _buildColorCode(self,colorPalettes,dfplc,unitDefaultColors):
-        dftagColorCode = pd.read_excel(FILECONF_SMALLPOWER,sheet_name='tags_color_code',index_col=0,keep_default_na=False)
+    def _buildColorCode(self,user_tag_color,dfplc,unitDefaultColors):
+        '''
+        assign styles for tags in dfplc using the principle of Guillaume Preaux. One color per unit
+        Parameters
+        ----------
+            - user_tag_color:dataframe with tag in index and columns colorName with the Name of the color ton. See self.palettes.
+            - dfplc:plc dataframe with tags in index.
+            - unitDefaultColors: pd.series with units in index and color. see self.palettes
+        '''
+        ###### load palettes of color
+        self.colorPalettes=self._loadcolorPalettes()
+
+        #### standard styles
         from plotly.validators.scatter.marker import SymbolValidator
         raw_symbols = pd.Series(SymbolValidator().values[2::3])
         listLines = pd.Series(["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"])
-        allHEXColors=pd.concat([k['hex'] for k in colorPalettes.values()])
+        allHEXColors=pd.concat([k['hex'] for k in self.colorPalettes.values()])
         ### remove dupplicates index (same colors having different names)
         allHEXColors=allHEXColors[~allHEXColors.index.duplicated()]
 
-        dfplc
         alltags = list(dfplc.index)
         dfplc.UNITE=dfplc.UNITE.fillna('u.a.')
         def assignRandomColor2Tag(tag):
             unitTag  = dfplc.loc[tag,'UNITE'].strip()
             shadeTag = unitDefaultColors.loc[unitTag].squeeze()
-            color = colorPalettes[shadeTag]['hex'].sample(n=1)
+            color = self.colorPalettes[shadeTag]['hex'].sample(n=1)
             return color.index[0]
 
         # generate random color/symbol/line for tags who are not in color_codeTags
-        listTags_wo_color=[k for k in alltags if k not in list(dftagColorCode.index)]
+        listTags_wo_color=[k for k in alltags if k not in list(user_tag_color.index)]
         d = {tag:assignRandomColor2Tag(tag) for tag in listTags_wo_color}
         dfRandomColorsTag = pd.DataFrame.from_dict(d,orient='index',columns=['colorName'])
         dfRandomColorsTag['symbol'] = pd.DataFrame(raw_symbols.sample(n=len(dfRandomColorsTag),replace=True)).set_index(dfRandomColorsTag.index)
         dfRandomColorsTag['line'] = pd.DataFrame(listLines.sample(n=len(dfRandomColorsTag),replace=True)).set_index(dfRandomColorsTag.index)
         # concatenate permanent color_coded tags with color-random-assinged tags
-        dftagColorCode = pd.concat([dfRandomColorsTag,dftagColorCode],axis=0)
+        user_tag_color = pd.concat([dfRandomColorsTag,user_tag_color],axis=0)
         # assign HEX color to colorname
-        dftagColorCode['colorHEX'] = dftagColorCode.apply(lambda x: allHEXColors.loc[x['colorName']],axis=1)
-        dftagColorCode['color_appearance']=''
-        return dftagColorCode
+        user_tag_color['colorHEX'] = user_tag_color.apply(lambda x: allHEXColors.loc[x['colorName']],axis=1)
+        user_tag_color['color_appearance']=''
+        return user_tag_color
