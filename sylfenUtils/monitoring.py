@@ -62,7 +62,7 @@ class Monitoring_visu(VisualisationMaster_daily):
 
     def get_description_tags_compteurs(self,tags):
         counts=[k.split('-')[1] for k in tags]
-        return [self.compteurs.loc[k,'description'] for k in counts]
+        return [self.conf.compteurs.loc[k,'description'] for k in counts]
 
     # ==========================================================================
     #                       COMPUTATIONS FUNCTIONS
