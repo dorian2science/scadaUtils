@@ -35,7 +35,7 @@ class Conf_generator():
     '''
     def __init__(self,project_name,function_generator,project_folder=None):
         self.project_name=project_name
-        self.function_generator=function_generator
+        self._function_generator=function_generator
         self._lib_sylfenUtils_path=os.path.dirname(__file__) + '/'
 
         if project_folder is None:project_folder=os.getenv('HOME')+'/'+project_name+'_user/'
@@ -98,7 +98,7 @@ class Conf_generator():
         f = open(self._file_conf_pkl,'wb')
         start=time.time()
         print('generating configuration files and store it in :',self._file_conf_pkl)
-        conf_objs=self.function_generator()
+        conf_objs=self._function_generator()
         pickle.dump(conf_objs,f)
         f.close()
         print('configuration file generated in  : '+ str(time.time()-start)+' seconds.')

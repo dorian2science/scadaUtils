@@ -974,6 +974,7 @@ class Streamer(Basic_streamer):
         '''
         if s.empty:
             if verbose:print_file('processing : series is empty')
+            s.index=pd.DatetimeIndex([],tz=tz)
             return s
 
         start=time.time()
@@ -1649,12 +1650,14 @@ class VisualisationMaster(Configurator):
 
         df.loc[df.value=='null','value']=np.nan
         df = df.set_index('timestampz')
+
         def process_dbtag(df,tag,*args,**kwargs):
             s = df[df.tag==tag]['value']
             dtype = self.dataTypes[self.dfplc.loc[tag,'DATATYPE']]
             s = self.streamer.process_dbtag(s,dtype)
             s = self.streamer.process_tag(s,*args,**kwargs)
             return s
+
         dftags = {tag:process_dbtag(df,tag,*args,**kwargs) for tag in tags}
         df = pd.concat(dftags,axis=1)
         df = df[df.index>=t0]

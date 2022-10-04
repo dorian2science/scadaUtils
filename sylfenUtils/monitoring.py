@@ -47,8 +47,8 @@ class Monitoring_visu(VisualisationMaster_daily):
         self.utils = Utils()
         self.conf  = conf
 
-        self.usefulTags = conf.USEFUL_TAGS
-        self.dfplc      = conf.DF_PLC
+        self.usefulTags = conf.useful_tags
+        self.dfplc      = conf.df_plc
         self.alltags    = list(self.dfplc.index)
         self.listUnits  = self.dfplc.UNITE.dropna().unique().tolist()
 
@@ -56,7 +56,6 @@ class Monitoring_visu(VisualisationMaster_daily):
         tag_cats['pv meters'] = self.getTagsTU('PV.*JTWH$')
         tag_cats['pv power'] = self.getTagsTU('PV.*JTW$')
         self.tag_categories = tag_cats
-        self.compteurs      = conf.COMPTEURS
 
         self.listComputation = ['power enveloppe','consumed energy','energyPeriodBarPlot']
 
