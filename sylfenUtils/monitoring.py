@@ -119,19 +119,6 @@ class Monitoring_visu(VisualisationMaster_daily):
         except : df = pd.DataFrame()
         return df.ffill().bfill()
 
-    def plot_compare_kwhCompteurvsPower(self,timeRange,compteurs,rs):
-        dfCompteur = self.compute_kWhFromCompteur(timeRange,compteurs)
-        dfPower = self.compute_kWhFromPower(timeRange,compteurs)
-        df = self.utils.prepareDFsforComparison([dfCompteur,dfPower],
-                            ['energy from compteur','enery from Power'],
-                            group1='groupPower',group2='compteur',
-                            regexpVar='\w+-\w+',rs=rs)
-
-        fig=px.line(df,x='timestamp',y='value',color='compteur',line_dash='groupPower',)
-        fig=self.utils.quickLayout(fig,'energy consumed from integrated power and from energy counter',ylab='kWh')
-        fig.update_layout(yaxis_title='energy consommée en kWh')
-        return fig
-
     def energyPeriodBarPlot(self,timeRange,compteurs,period='1d'):
         dfCompteur   = self.compute_kWhFromCompteur(timeRange,compteurs)
         df = dfCompteur.resample(period).first().diff()[1:]
@@ -139,90 +126,6 @@ class Monitoring_visu(VisualisationMaster_daily):
         fig.update_layout(yaxis_title='énergie en kWh')
         fig.update_layout(bargap=0.5)
         return fig
-    # ==========================================================================
-    #                       for website monitoring
-    # ==========================================================================
-    # def getListTagsAutoConso(self,compteurs):
-    #     pTotal = [self.getTagsTU(k + '.*sys-JTW')[0] for k in compteurs]
-    #     pvPower = self.getTagsTU('PV.*-JTW-00')[0]
-    #     listTagsPower = pTotal + [pvPower]
-    #     energieTotale = [self.getTagsTU(k + '.*kWh-JTWH')[0] for k in compteurs]
-    #     pvEnergie = self.getTagsTU('PV.*-JTWH-00')[0]
-    #     listTagsEnergy = energieTotale + [pvEnergie]
-    #     return pTotal,pvPower,listTagsPower,energieTotale,pvEnergie,listTagsEnergy
-    #
-    # def computeAutoConso(self,timeRange,compteurs,formula='g+f-e+pv'):
-    #     pTotal,pvPower,listTagsPower,energieTotale,pvEnergie,listTagsEnergy = self.getListTagsAutoConso(compteurs)
-    #     # df = self.df_loadTimeRangeTags(timeRange,listTagsPower,'600s','mean')
-    #     df = self.df_loadTimeRangeTags(timeRange,listTagsPower,'600s','mean')
-    #     if formula=='g+f-e+pv':
-    #         g,e,f = [self.getTagsTU(k+'.*sys-JTW')[0] for k in ['GENERAL','E001','F001',]]
-    #         df['puissance totale'] = df[g] + df[f] - df[e] + df[pvPower]
-    #     elif formula=='sum-pv':
-    #         df['puissance totale'] = df[pTotal].sum(axis=1) - df[pvPower]
-    #     elif formula=='sum':
-    #         df['puissance totale'] = df[pTotal].sum(axis=1)
-    #
-    #     df['diffPV']=df[pvPower]-df['puissance totale']
-    #     dfAutoConso = pd.DataFrame()
-    #     df['zero'] = 0
-    #     dfAutoConso['part rSoc']     = 0
-    #     dfAutoConso['part batterie'] = 0
-    #     dfAutoConso['part Grid']     = -df[['diffPV','zero']].min(axis=1)
-    #     dfAutoConso['Consommation du site']      = df['puissance totale']
-    #     dfAutoConso['surplus PV']    = df[['diffPV','zero']].max(axis=1)
-    #     dfAutoConso['part PV']       = df[pvPower]-dfAutoConso['surplus PV']
-    #     # dfAutoConso['Autoconsommation'] = df[pvPower]-dfAutoConso['PV surplus']
-    #     return dfAutoConso
-    #
-    # def consoPowerWeek(self,timeRange,compteurs,formula='g+f-e+pv'):
-    #     pTotal,pvPower,listTagsPower,energieTotale,pvEnergie,listTagsEnergy = self.getListTagsAutoConso(compteurs)
-    #     # df = self.df_loadTimeRangeTags(timeRange,listTagsPower,'1H','mean')
-    #     df = self.df_loadTimeRangeTags(timeRange,listTagsPower,'1H','mean')
-    #
-    #     if formula=='g+f-e+pv':
-    #         g,e,f = [self.getTagsTU(k+'.*sys-JTW')[0] for k in ['GENERAL','E001','F001',]]
-    #         df['puissance totale'] = df[g] + df[f] - df[e] + df[pvPower]
-    #     elif formula=='sum-pv':
-    #         df['puissance totale'] = df[pTotal].sum(axis=1) - df[pvPower]
-    #     elif formula=='sum':
-    #         df['puissance totale'] = df[pTotal].sum(axis=1)
-    #
-    #     df = df[['puissance totale',pvPower]]
-    #     df.columns = ['consommation bâtiment','production PV']
-    #     return df
-    #
-    # def compute_EnergieMonth(self,timeRange,compteurs,formula='g+f-e+pv'):
-    #     pTotal,pvPower,listTagsPower,energieTotale,pvEnergie,listTagsEnergy = self.getListTagsAutoConso(compteurs)
-    #     # df = self.df_loadTimeRangeTags(timeRange,listTagsEnergy,rs='raw',applyMethod='mean')
-    #     df = self.df_loadTimeRangeTags(timeRange,listTagsEnergy,rs='raw',applyMethod='mean')
-    #     df = df.drop_duplicates()
-    #
-    #     df=df.pivot(columns='tag',values='value').resample('1d').first().ffill().bfill()
-    #     newdf=df.diff().iloc[1:,:]
-    #     newdf.index = df.index[:-1]
-    #     if formula=='g+f-e+pv':
-    #         g,e,f = [self.getTagsTU(k + '.*kWh-JTWH')[0] for k in ['GENERAL','E001','F001',]]
-    #         newdf['energie totale'] = newdf[g] + newdf[f] - newdf[e] + newdf[pvEnergie]
-    #     elif formula=='sum-pv':
-    #         newdf['energie totale'] = newdf[pTotal].sum(axis=1) - newdf[pvEnergie]
-    #     elif formula=='sum':
-    #         newdf['energie totale'] = newdf[energieTotale].sum(axis=1)
-    #
-    #     newdf = newdf[['energie totale',pvEnergie]]
-    #     newdf.columns = ['kWh consommés','kWh produits']
-    #     return newdf
-    #
-    # def get_compteur(self,timeDate,compteurs,formula='g+f-e+pv'):
-        timeRange = [k.isoformat() for k in [timeDate - dt.timedelta(seconds=600),timeDate]]
-        pTotal,pvPower,listTagsPower,energieTotale,pvEnergie,listTagsEnergy = self.getListTagsAutoConso(compteurs)
-        df = self.df_loadTimeRangeTags(timeRange,listTagsEnergy,rs='20s',applyMethod='mean')
-        g,e,f = [self.getTagsTU(k + '.*kWh-JTWH')[0] for k in ['GENERAL','E001','F001',]]
-        if formula=='g+f-e+pv':
-            df['energie totale'] = df[g] + df[f] - df[e] + df[pvEnergie]
-        elif formula=='sum':
-            df['energie totale'] = df[energieTotale].sum(axis=1)
-        return df.iloc[-1,:]
     # ==============================================================================
     #                   GRAPHICAL FUNCTIONS
     # ==============================================================================

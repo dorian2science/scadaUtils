@@ -329,3 +329,62 @@ class Streamer_hourly():
             dfs = [pd.read_pickle(hour+'/' + tag) for hour in listhours]
             pd.concat(dfs).to_pickle(folderday + tag)
         return
+
+class VersionsManager_minutely(VersionsManager):
+    #######################
+    # GENERATE DATAFRAMES #
+    #######################
+    def load_nbTags_folders(self):
+        # get_lentags=lambda x:len(self._fs.listfiles_folder(x))
+        df_nbtags=self._streamer.actionMinutes_pooled(self.tmin,self.tmax,self.folderData,self.get_lentags)
+        return pd.DataFrame.from_dict(df_nbtags,orient='index')
+
+    def load_missingTags_versions(self,period=None,pool=True):
+        '''-period : [tmin,tmax] timestamps'''
+        map_missingTags = self._compute_all_minutefolders(self.get_missing_tags_versions,period=period)
+        map_missingTags = pd.DataFrame(map_missingTags).T
+        map_missingTags_len = map_missingTags.applymap(lambda x:len(x))
+        return map_missingTags,map_missingTags_len
+
+    def load_presenceTags(self,period=None,frequence='daily'):
+        if frequence=='daily':
+            return self._compute_all_minutefolders(self.get_presenceTags_folder,period=period)
+        elif frequence=='minutely':
+            return self._compute_all_minutefolders(self.get_presenceTags_folder,period=period)
+
+    def _compute_all_minutefolders(self,function,*args,period=None,pool=True):
+        '''-period : [tmin,tmax] timestamps'''
+        if period is None:
+            tmin = self.tmin
+            tmax = self.tmax
+        else :
+            tmin,tmax=period
+        if tmax - tmin -dt.timedelta(days=2)<pd.Timedelta(seconds=0):
+            pool=False
+        df = self._streamer.actionMinutes_pooled(tmin,tmax,self.folderData,function,*args,pool=pool)
+        # print(df)
+        df = pd.DataFrame(df).T
+        df.index=[self.totime(x) for x in df.index]
+        return df
+
+    def make_it_compatible_with_renameMap(self,map_renametag,period):
+        ## from one version to an adjacent version (next or last):
+        ## get transition rules
+        # self.get_transition_rename_rules(transition)
+        ## get the corresponding map of tags that should be renamed
+        ## rename tags that should be renamed
+        '''map_renametag :
+            - should be a dataframe with columns ['oldtag','newtag']
+            - should have None values in oldtag column for brand newtags
+            - should have None values in newtag column for deleted tags
+            '''
+        tags2replace = map_renametag[map_renametag.apply(lambda x:not x['oldtag']==x['newtag'] and not x['oldtag'] is None and not x['newtag'] is None,axis=1)]
+        print()
+        print('MAP OF TAGS TO REPLACE '.rjust(75))
+        print(tags2replace)
+        print()
+        replacedmap=self._compute_all_minutefolders(self.get_replace_tags_folder,tags2replace,period=period)
+        print()
+        print('MAP OF REPLACED TAGS '.rjust(75))
+        print(replacedmap)
+        return replacedmap

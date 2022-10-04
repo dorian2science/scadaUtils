@@ -779,7 +779,7 @@ class Basic_streamer():
     It comes with basic functions like loaddata_minutefolder/create_minutefolder/parktagminute.'''
     def __init__(self,log_file=None):
         self.methods=['ffill','nearest','mean','max','min','median','interpolate','rolling_mean','mean_mix']
-        self.num_cpus = psutil.cpu_count(logical=False)
+        self._num_cpus = psutil.cpu_count(logical=False)
         self._fs = FileSystem()
         self.log_file=log_file
 
@@ -788,7 +788,7 @@ class Streamer(Basic_streamer):
     It comes with basic functions like loaddata_minutefolder/create_minutefolder/parktagminute.'''
     def __init__(self,*args,**kwargs):
         Basic_streamer.__init__(self,*args,**kwargs)
-        self.format_dayFolder='%Y-%m-%d/'
+        self._format_dayFolder='%Y-%m-%d/'
 
 
     def park_tags(self,df,tag,folder,dtype,showtag=False):
@@ -854,7 +854,7 @@ class Streamer(Basic_streamer):
     # ########################
     def to_folderday(self,timestamp):
         '''convert timestamp to standard day folder format'''
-        return timestamp.strftime(self.format_dayFolder)+'/'
+        return timestamp.strftime(self._format_dayFolder)+'/'
 
     def create_dayfolder(self,folderday):
         if not os.path.exists(folderday):
@@ -876,7 +876,7 @@ class Streamer(Basic_streamer):
         else:### for cases with changing DST 31.10 for example
             dfday = [pd.Timestamp(k).astimezone('UTC') for k in dfday.index]
         listTags = dfday.tag.unique()
-        folderday = folderpkl +'/'+ dfday.index.mean().strftime(self.format_dayFolder)+'/'
+        folderday = folderpkl +'/'+ dfday.index.mean().strftime(self._format_dayFolder)+'/'
         print_file(filename=self.log_file)
         if not os.path.exists(folderday): os.mkdir(folderday)
         #park tag-day
@@ -896,13 +896,13 @@ class Streamer(Basic_streamer):
         '''
         print_file(t0,t1,filename=self.log_file)
         days=pd.date_range(t0,t1,freq='1D')
-        dayfolders =[folderPkl + k.strftime(self.format_dayFolder)+'/' for k in days]
+        dayfolders =[folderPkl + k.strftime(self._format_dayFolder)+'/' for k in days]
         if pool:
             with Pool() as p:
                 dfs = p.starmap(action,[(d,*args) for d in dayfolders])
         else:
             dfs = [action(d,*args) for d in dayfolders]
-        return {d.strftime(self.format_dayFolder):df for d,df in zip(days,dfs)}
+        return {d.strftime(self._format_dayFolder):df for d,df in zip(days,dfs)}
 
     def remove_tags_day(self,d,tags):
         print_file(d,filename=self.log_file)
@@ -1043,7 +1043,7 @@ class Streamer(Basic_streamer):
 
         listDays=[self.to_folderday(k)[:-1] for k in pd.date_range(t0,t1,freq='D')]
         if ncores is None:
-            ncores=min(len(listDays),self.num_cpus)
+            ncores=min(len(listDays),self._num_cpus)
 
         with Pool(ncores) as p:
             dfs=p.starmap(self.load_raw_day_tag,[(d,tag,folderpkl,rs,rsMethod,closed,verbose) for d in listDays])
@@ -1062,7 +1062,7 @@ class Streamer(Basic_streamer):
         dfs={}
         t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
         while t<t1:
-            filename = folderpkl +'/'+ t.strftime(self.format_dayFolder)+'/'+tag+'.pkl'
+            filename = folderpkl +'/'+ t.strftime(self._format_dayFolder)+'/'+tag+'.pkl'
             if os.path.exists(filename):
                 if time_debug: print_file(filename,t.isoformat(),filename=self.log_file)
                 dfs[filename]=pd.read_pickle(filename)
@@ -1113,11 +1113,11 @@ class Streamer(Basic_streamer):
                     if verbose:print_file('pool on tags because we have',len(tags),'tags >',nbdays,'days')
 
             if loc_pool=='day':
-                n_cores=min(self.num_cpus,nbdays)
+                n_cores=min(self._num_cpus,nbdays)
                 if verbose:print_file('pool on days with',n_cores,'cores for',nbdays,'days')
                 dftags={tag:self.pool_tag_daily(t0,t1,tag,folderpkl,ncores=n_cores,**kwargs) for tag in tags}
             elif loc_pool=='tag':
-                n_cores=min(self.num_cpus,len(tags))
+                n_cores=min(self._num_cpus,len(tags))
                 if verbose:print_file('pool on tags with',n_cores,'cores for',len(tags),'tags')
                 with Pool(n_cores) as p:
                     dftags=p.starmap(self.load_tag_daily_kwargs,[(t0,t1,tag,folderpkl,args,kwargs) for tag in tags])
@@ -1182,7 +1182,7 @@ class Streamer(Basic_streamer):
         elif frequence=='day':
             createfolderday=lambda x:os.mkdir(folderday)
             listDays = pd.date_range(t0,t1,freq='1D')
-            listfolderdays = [folderPkl +'/'+ d.strftime(self.format_dayFolder) for d in listDays]
+            listfolderdays = [folderPkl +'/'+ d.strftime(self._format_dayFolder) for d in listDays]
             with Pool() as p:
                 dfs=p.starmap(createfolderday,[(d) for d in listfolderdays])
             return dfs
@@ -1294,7 +1294,7 @@ class Configurator():
         self.folderPkl = folderPkl
         self.dbParameters = dbParameters
         self.dbTable = dbTable
-        self.dataTypes={
+        self._dataTypes={
             'REAL': 'float',
             'float32': 'float',
             'BOOL': 'bool',
@@ -1325,9 +1325,6 @@ class Configurator():
             return self.getTagsTU(category)
         else:
             return []
-
-    def createRandomInitalTagValues(self):
-        return self._fs.createRandomInitalTagValues(self.alltags,self.dfplc)
 
     def getUnitofTag(self,tag):
         return self._fs.getUnitofTag(tag,self.dfplc)
@@ -1411,7 +1408,7 @@ class SuperDumper(Configurator):
         df.index = df.index.tz_convert('UTC')
         df = df.sort_index()
 
-        namefile=folder + (t0+pd.Timedelta(days=1)).strftime(self.format_dayFolder).split('/')[0] +basename
+        namefile=folder + (t0+pd.Timedelta(days=1)).strftime(self._format_dayFolder).split('/')[0] +basename
         # df.to_csv(namefile)
         # zipObj = ZipFile(namefile.replace('.csv','.zip'), 'w')
         # zipObj.write(namefile,namefile.replace('.csv','.zip'))
@@ -1515,7 +1512,7 @@ class SuperDumper_daily(SuperDumper):
         # return df
         df=df.set_index('timestampz').tz_convert(self.tz_record)
         tmin,tmax = df.index.min().strftime('%Y-%m-%d'),df.index.max().strftime('%Y-%m-%d')
-        listdays=[k.strftime(self.format_dayFolder) for k in pd.date_range(tmin,tmax)]
+        listdays=[k.strftime(self._format_dayFolder) for k in pd.date_range(tmin,tmax)]
         #### in case they are several days
         for d in listdays:
             t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
@@ -1551,7 +1548,7 @@ class SuperDumper_daily(SuperDumper):
         if os.path.exists(namefile):
             s1 = pd.read_pickle(namefile)
             s_tag  = pd.concat([s1,s_tag])
-        self.streamer.process_dbtag(s_tag,self.dataTypes[self.dfplc.loc[tag,'DATATYPE']]).to_pickle(namefile)
+        self.streamer.process_dbtag(s_tag,self._dataTypes[self.dfplc.loc[tag,'DATATYPE']]).to_pickle(namefile)
 
     def park_database(self,verbose=False):
         start = time.time()
@@ -1572,7 +1569,7 @@ class SuperDumper_daily(SuperDumper):
         dbconn.close()
         df=df.set_index('timestampz').tz_convert(self.tz_record)
         tmin,tmax = df.index.min().strftime('%Y-%m-%d'),df.index.max().strftime('%Y-%m-%d')
-        listdays=[k.strftime(self.format_dayFolder) for k in pd.date_range(tmin,tmax)]
+        listdays=[k.strftime(self._format_dayFolder) for k in pd.date_range(tmin,tmax)]
         #### in case they are several days(for example at midnight)
         for d in listdays:
             t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
@@ -1595,12 +1592,12 @@ class SuperDumper_daily(SuperDumper):
         t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
         if folder_save is None:folder_save=self.folderPkl
         while t<pd.Timestamp.now(self.tz_record):
-            filename = self.folderPkl +'/'+ t.strftime(self.format_dayFolder)+'/'+tag+'.pkl'
+            filename = self.folderPkl +'/'+ t.strftime(self._format_dayFolder)+'/'+tag+'.pkl'
             if os.path.exists(filename):
                 s=pd.read_pickle(filename)
                 ####### FIX TIMESTAMP PROBLEM
                 s.index=[k.tz_convert(tz=self.tz_record) for k in s.index]
-                folder_day_save=folder_save +'/'+ t.strftime(self.format_dayFolder)+'/'
+                folder_day_save=folder_save +'/'+ t.strftime(self._format_dayFolder)+'/'
                 ####### fix dupplicated index
                 if not os.path.exists(folder_day_save):os.mkdir(folder_day_save)
                 new_filename = folder_day_save + tag+'.pkl'
@@ -1615,16 +1612,6 @@ class VisualisationMaster(Configurator):
         self.utils=Utils()
         self.usefulTags=pd.DataFrame()
 
-    def apply_correct_format_dayFolder(self,day,*args,**kwargs):
-        """
-        apply correct format for parked folder
-
-        :Parameter:
-            day: str {format should be Y-M-d}
-                example day='2022-06-01'
-        """
-        dtypes={k:self.dataTypes[v] for k,v in self.dfplc['DATATYPE'].to_dict().items()}
-        self.streamer.applyCorrectFormat_day(self.folderPkl+day+'/',dtypes,*args,**kwargs)
 
     def _load_database_tags(self,t0,t1,tags,*args,**kwargs):
         '''
@@ -1653,7 +1640,7 @@ class VisualisationMaster(Configurator):
 
         def process_dbtag(df,tag,*args,**kwargs):
             s = df[df.tag==tag]['value']
-            dtype = self.dataTypes[self.dfplc.loc[tag,'DATATYPE']]
+            dtype = self._dataTypes[self.dfplc.loc[tag,'DATATYPE']]
             s = self.streamer.process_dbtag(s,dtype)
             s = self.streamer.process_tag(s,*args,**kwargs)
             return s
