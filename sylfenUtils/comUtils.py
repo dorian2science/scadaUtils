@@ -1735,14 +1735,6 @@ class VisualisationMaster(Configurator):
             fig.update_traces(line_shape="hv",mode='lines')
         return fig
 
-    def plotTabSelectedData(self,df):
-        start=time.time()
-        fig = px.scatter(df)
-        unit = self.getUnitofTag(df.columns[0])
-        nameGrandeur = self._utils.detectUnit(unit)
-        fig.update_layout(yaxis_title = nameGrandeur + ' in ' + unit)
-        return fig
-
     def multiMultiUnitGraph(self,df,*listtags,axSP=0.05):
         hs=0.002
         dictdictGroups={'graph'+str(k):{t:self.getUnitofTag(t) for t in tags} for k,tags in enumerate(listtags)}

@@ -57,8 +57,6 @@ class Monitoring_visu(VisualisationMaster_daily):
         tag_cats['pv power'] = self.getTagsTU('PV.*JTW$')
         self.tag_categories = tag_cats
 
-        self.listComputation = ['power enveloppe','consumed energy','energyPeriodBarPlot']
-
     def getUsefulTags(self,tagcat):
         return self.usefulTags.loc[tagcat]
 
