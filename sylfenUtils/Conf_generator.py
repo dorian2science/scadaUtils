@@ -64,8 +64,8 @@ class Conf_generator():
                 if len(t)==2:
                     setattr(self,t[0].strip(),t[1].strip())
 
-        self.SIMULATOR=bool(self.SIMULATOR)
-        self.TEST_ENV=bool(self.TEST_ENV)
+        self.SIMULATOR=self.SIMULATOR=='True'
+        self.TEST_ENV=self.TEST_ENV=='True'
         self.PARKING_TIME=eval(self.PARKING_TIME)
         self.DB_PARAMETERS = {
             'host'     : self.db_host,
