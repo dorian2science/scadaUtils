@@ -392,7 +392,7 @@ class ModbusDevice(Device):
         - index : name of the registers or tags.
         - type  : datatype{uint16,int32,float...}
         - scale : the multiplication factor
-        - intAddress :  for the adress in decimal format
+        - intaddress :  for the adress in decimal format
         - slave_unit : the slave unit
         '''
         if self.modbus_map is None:
@@ -414,7 +414,7 @@ class ModbusDevice(Device):
         '''
         - bloc[pd.DataFrame] should be continuous and contain:
             - type column with the datatypes
-            - intAddress with the adress of the registers
+            - intaddress with the adress of the registers
             - scale with scales to apply
         '''
 
@@ -431,8 +431,8 @@ class ModbusDevice(Device):
         ### determine range to read
         blocks=[]
         for block_100 in self._cut_into_100_blocks(bloc):
-            start=block_100['intAddress'].min()
-            end=block_100['intAddress'].max()+sizeof(block_100['type'].iloc[-1])
+            start=block_100['intaddress'].min()
+            end=block_100['intaddress'].max()+sizeof(block_100['type'].iloc[-1])
             self._client.connect()
             result = self._client.read_holding_registers(start, end-start, unit=unit_id)
             ### decode values
@@ -470,7 +470,7 @@ class ModbusDevice(Device):
 
     def _cut_into_100_blocks(self,bloc):
         bbs=[]
-        bint=bloc['intAddress']
+        bint=bloc['intaddress']
         mini=bint.min()
         range_width=bint.max()-mini
         for k in range(range_width//100+1):
@@ -483,9 +483,9 @@ class ModbusDevice(Device):
         bloc=self._get_size_words_block(bloc)
         index_name=bloc.index.name
         if index_name is None:index_name='index'
-        c=(bloc['intAddress']+bloc['size_words']).reset_index()[:-1]
-        b=bloc['intAddress'][1:].reset_index()
-        idxs_break=b[~(b['intAddress']==c[0])][index_name].to_list()
+        c=(bloc['intaddress']+bloc['size_words']).reset_index()[:-1]
+        b=bloc['intaddress'][1:].reset_index()
+        idxs_break=b[~(b['intaddress']==c[0])][index_name].to_list()
         bb=bloc.reset_index()
         idxs_break=[bb[bb[index_name]==i].index[0] for i in idxs_break]
 
@@ -494,17 +494,17 @@ class ModbusDevice(Device):
         return blocks
 
     def _fill_gaps_bloc(self,bloc):
-        bloc=bloc.copy().sort_values('intAddress')[['intAddress','type']]
+        bloc=bloc.copy().sort_values('intaddress')[['intaddress','type']]
         bloc=self._get_size_words_block(bloc)
         k=0
         while k<len(bloc)-1:
             cur_loc=bloc.iloc[k]
-            next_loc=cur_loc[['intAddress','size_words']].sum()
-            next_loc_real=bloc.iloc[k+1]['intAddress']
+            next_loc=cur_loc[['intaddress','size_words']].sum()
+            next_loc_real=bloc.iloc[k+1]['intaddress']
             if not next_loc_real==next_loc:
                 rowAdd=pd.DataFrame([next_loc,'int16',1],index=bloc.columns,columns=['unassigned']).T
                 bloc=pd.concat([bloc,rowAdd],axis=0)
-                bloc=bloc.sort_values('intAddress')
+                bloc=bloc.sort_values('intaddress')
             k+=1
         return bloc
 

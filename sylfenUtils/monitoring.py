@@ -22,19 +22,19 @@ class Monitoring_dumper(SuperDumper_daily):
     def __init__(self,conf,log_file_name):
         DEVICES={}
         for device_name in conf.ACTIVE_DEVICES:
-            device=conf.DF_DEVICES.loc[device_name]
+            device=conf.df_devices.loc[device_name]
             if device.protocole=='modebus':
                 DEVICES[device_name] = ModbusDevice(
                     device_name=device_name,ip=device['IP'],port=device['port'],
-                    dfplc=conf.PLCS[device_name],
-                    modbus_map=conf.MODEBUS_MAPS[device_name],
+                    dfplc=conf.plcs[device_name],
+                    modbus_map=conf.modebus_maps[device_name],
                     freq=device['freq'],
                     bo=device['byte_order'],
                     wo=device['word_order'],
                     log_file=log_file_name)
             elif device_name=='meteo':
-                DEVICES['meteo'] = Meteo_Client(conf.DF_DEVICES.loc['meteo'].freq,log_file=log_file_name)
-        self.dfplc = pd.concat([v for k,v in conf.PLCS.items() if k in conf.ACTIVE_DEVICES])
+                DEVICES['meteo'] = Meteo_Client(conf.df_devices.loc['meteo'].freq,log_file=log_file_name)
+        self.dfplc = pd.concat([v for k,v in conf.plcs.items() if k in conf.ACTIVE_DEVICES])
         self.alltags = list(self.dfplc.index)
         SuperDumper_daily.__init__(self,DEVICES,conf.FOLDERPKL,conf.DB_PARAMETERS,conf.PARKING_TIME,
             tz_record=conf.TZ_RECORD,dbTable=conf.DB_TABLE,log_file=log_file_name)
