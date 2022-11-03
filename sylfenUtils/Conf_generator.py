@@ -79,8 +79,12 @@ class Conf_generator():
         ##### dashboard delay
         self.DASHBOARD_DELAY_MINUTES=0
         if self.TEST_ENV:
-            td=pd.Timestamp.now(self.TZ_RECORD)-pd.Timestamp(self.TMAX,tz=self.TZ_RECORD)
-            self.DASHBOARD_DELAY_MINUTES = int(td.total_seconds()/60)
+            try:
+                td=pd.Timestamp.now(self.TZ_RECORD)-pd.Timestamp(self.TMAX,tz=self.TZ_RECORD)
+                self.DASHBOARD_DELAY_MINUTES = int(td.total_seconds()/60)
+            except:
+                print('='*60,'\n','impossible to parse TMAX in your conf file:\n',self.file_parameters,
+                '\nbecause its value is : \n',self.TMAX,'\n and is not recognized as timestamp\n','='*60)
 
         ###### DATA FOLDER PKL ######
         if self.FOLDERPKL=='default':self.FOLDERPKL=self.project_folder+project_name+'_daily/'
