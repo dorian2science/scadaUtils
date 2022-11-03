@@ -77,7 +77,8 @@ class Conf_generator():
         del self.db_host,self.db_port,self.dbname,self.db_user,self.db_password
 
         ##### dashboard delay
-        if not self.TMAX is None:
+        self.DASHBOARD_DELAY_MINUTES=0
+        if self.TEST_ENV:
             td=pd.Timestamp.now(self.TZ_RECORD)-pd.Timestamp(self.TMAX,tz=self.TZ_RECORD)
             self.DASHBOARD_DELAY_MINUTES = int(td.total_seconds()/60)
 
