@@ -1,4 +1,4 @@
-import pickle,os,sys,re,subprocess as sp,time
+import pickle,os,sys,re,subprocess as sp,time,shutil
 import pandas as pd
 from sylfenUtils.comUtils import print_file
 
@@ -36,22 +36,23 @@ class Conf_generator():
     def __init__(self,project_name,function_generator,project_folder=None):
         self.project_name=project_name
         self._function_generator=function_generator
-        self._lib_sylfenUtils_path=os.path.dirname(__file__) + '/'
+        self._lib_sylfenUtils_path=os.path.dirname(__file__)
 
-        if project_folder is None:project_folder=os.getenv('HOME')+'/'+project_name+'_user/'
+        if project_folder is None:project_folder=os.path.join(os.getenv('HOME'),project_name+'_user')
 
         self.project_folder=project_folder
 
         #### if the PROJECT FOLDER does not exists create it
         create_folder_if_not(self.project_folder)
 
-        self._file_conf_pkl=self.project_folder+'/conf_' + self.project_name + '.pkl'
-        self.file_parameters=self.project_folder + '/parameters.conf'
+        self._file_conf_pkl=os.path.join(self.project_folder,'conf_' + self.project_name + '.pkl')
+        self.file_parameters=os.path.join(self.project_folder,'parameters.conf')
 
         ## copy the DEFAULT PARAMETERS file as the parameters File into the user folder
         if not os.path.exists(self.file_parameters):
-            _default_file_parameters= self._lib_sylfenUtils_path + '/conf/parameters.default.conf'
-            sp.run('cp ' + _default_file_parameters + ' ' + self.file_parameters,shell=True)
+            _default_file_parameters= os.path.join(self._lib_sylfenUtils_path,'conf/parameters.default.conf')
+            # sp.run('cp ' + _default_file_parameters + ' ' + self.file_parameters,shell=True)
+            shutil.copy(_default_file_parameters,self.file_parameters)
 
         ############# LOAD THE PARAMETERS ############
         with open(self.file_parameters,'r') as f :
@@ -87,10 +88,10 @@ class Conf_generator():
                 '\nbecause its value is : \n',self.TMAX,'\n and is not recognized as timestamp\n','='*60)
 
         ###### DATA FOLDER PKL ######
-        if self.FOLDERPKL=='default':self.FOLDERPKL=self.project_folder+project_name+'_daily/'
+        if self.FOLDERPKL=='default':self.FOLDERPKL=os.path.join(self.project_folder,project_name+'_daily')
         create_folder_if_not(self.FOLDERPKL)
         ###### LOG FOLDER ######
-        if self.LOG_FOLDER=='default':self.LOG_FOLDER=self.project_folder+'log/'
+        if self.LOG_FOLDER=='default':self.LOG_FOLDER=os.path.join(self.project_folder,'log/')
         create_folder_if_not(self.LOG_FOLDER)
 
         ###### create the REALTIME TABLE in the database if it does not exist
@@ -118,16 +119,16 @@ class Conf_generator():
         create_folder_if_not(root_folder)
         #### TEMPLATE FOLDER
         sylfenUtils_env_dir=os.path.dirname(sylfenUtils.__file__)
-        templates_dir=sylfenUtils_env_dir + '/templates'
-        templates_folder=root_folder + '/templates'
+        templates_dir=os.path.join(sylfenUtils_env_dir,'templates')
+        templates_folder=os.path.join(root_folder, 'templates')
         if os.path.exists(templates_folder):os.remove(templates_folder)
         sp.run('ln -s '+templates_dir + ' ' + root_folder,shell=True)
 
         #### STATIC FOLDER
-        static_folder=root_folder+'/static/'
+        static_folder=os.path.join(root_folder,'static')
         create_folder_if_not(static_folder)
-        self.lib_dir=sylfenUtils_env_dir + '/static/lib'
-        lib_folder=static_folder + '/lib'
+        self.lib_dir=os.path.join(sylfenUtils_env_dir,'static/lib')
+        lib_folder=os.path.join(static_folder,'lib')
         if os.path.exists(lib_folder):os.remove(lib_folder)
         sp.run('ln -s ' + self.lib_dir + ' ' + static_folder,shell=True)
         # import time
@@ -154,7 +155,7 @@ class Conf_generator():
 
     def _loadcolorPalettes(self):
         # colPalettes = Utils().colorPalettes
-        colPalettes = pickle.load(open(os.path.dirname(__file__)+'/conf/palettes.pkl','rb'))
+        colPalettes = pickle.load(open(os.path.join(os.path.dirname(__file__),'conf','palettes.pkl'),'rb'))
         colPalettes['reds']     = colPalettes['reds'].drop(['Misty rose',])
         colPalettes['greens']   = colPalettes['greens'].drop(['Honeydew',])
         colPalettes['blues']    = colPalettes['blues'].drop(['Blue (Munsell)','Powder Blue','Duck Blue','Teal blue'])
@@ -169,10 +170,10 @@ class Conf_generator():
         return colPalettes
 
     def _load_material_dfConstants(self):
-        dfConstants = pd.read_excel(os.path.dirname(__file__)+'/conf/data_values.ods',sheet_name='physical_constants',index_col=1)
+        dfConstants = pd.read_excel(os.path.join(os.path.dirname(__file__),'conf','data_values.ods'),
+            sheet_name='physical_constants',index_col=1)
         cst = {}
         for k in dfConstants.index:
-            # setattr(cst,k,dfConstants.loc[k].value)
             cst[k]=dfConstants.loc[k].value
         return cst,dfConstants
 
