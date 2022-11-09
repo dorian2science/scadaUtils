@@ -38,7 +38,7 @@ class Conf_generator():
         self._function_generator=function_generator
         self._lib_sylfenUtils_path=os.path.dirname(__file__)
 
-        homepath = {'posix': 'Home', 'nt':'homepath'}
+        homepath = {'posix': 'HOME', 'nt':'homepath'}
         if project_folder is None:project_folder=os.path.join(os.getenv(homepath[os.name]),project_name+'_user')
 
         self.project_folder=project_folder
