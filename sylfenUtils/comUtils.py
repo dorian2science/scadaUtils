@@ -79,7 +79,14 @@ def read_db(db_parameters,db_table,t=None,tagPat=None,debug=False):
         else:
             sqlQ = sqlQ + "and " + ts + order_end
     if debug:print(sqlQ)
-    df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
+    try:
+        ###########################################
+        #    DANGEROUS WONT WORK WITH DST CHANGE  #
+        ###########################################
+        df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
+    except:
+        df = pd.read_sql_query(sqlQ,dbconn)
+        df.timestampz=[pd.Timestamp(k).tz_convert('utc') for k in df.timestampz] #slower but will work with dst
     return df
 
 class EmptyClass():pass

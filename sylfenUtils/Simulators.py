@@ -123,7 +123,7 @@ class SimulatorModeBus(Simulator):
                 builder.add_32bit_int(value)
             payload = builder.build()
             # print(value)
-            self._feedingClient.write_registers(d['intAddress'], payload, skip_encode=True, unit=d['slave_unit'])
+            self._feedingClient.write_registers(d['intaddress'], payload, skip_encode=True, unit=d['slave_unit'])
 
     def serve(self):
         self.server.serve_forever()

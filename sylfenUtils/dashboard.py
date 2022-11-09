@@ -6,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from string import ascii_letters,digits
 from sylfenUtils.comUtils import (timenowstd,computetimeshow)
-
+from sylfenUtils.Conf_generator import create_folder_if_not
 NOTIFS={
     'too_many_datapoints':''' TOO MANY DATAPOINTS\n
         You have requested XXXk datapoints which is over AAAk datapoints.\n
@@ -43,6 +43,7 @@ class Dashboard():
         print('your log is in:',log_dir)
         self.app_name=app_name
         self.root_path=root_path
+        self._create_dashboard_links(root_path)
         self.initial_tags=initial_tags
         self.plot_function=plot_function
         self.infofile_name  = log_dir+'dashboard_' + app_name + '.log';
@@ -96,6 +97,25 @@ class Dashboard():
         @self.app.route('/send_description_names',methods=['POST'])
         def send_names():
             return self.send_names()
+
+    def _create_dashboard_links(self,root_folder):
+        '''
+        Copy the static and templates folders into root folder of the dashboard to be able to run the Dashboard instance.
+        '''
+        import shutil
+        create_folder_if_not(root_folder)
+        #### TEMPLATE FOLDER
+        sylfenUtils_env_dir=os.path.dirname(__file__)
+        templates_folder=os.path.join(root_folder,'templates')
+        if not os.path.exists(templates_folder):
+            shutil.copytree(os.path.join(sylfenUtils_env_dir,'templates'),templates_folder)
+            print('templates files have been copied into ',root_folder)
+        #### STATIC FOLDER
+        static_folder=os.path.join(root_folder,'static')
+        if not os.path.exists(static_folder):
+            shutil.copytree(os.path.join(sylfenUtils_env_dir,'static'),static_folder)
+            print('static files have been copied into ',root_folder)
+
 
     # ###################
     #    MANAGE LOGS    #

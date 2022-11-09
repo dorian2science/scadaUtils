@@ -110,30 +110,6 @@ class Conf_generator():
         print('configuration file generated in  : '+ str(time.time()-start)+' seconds.')
         return conf_objs
 
-    def create_dashboard_links(self,root_folder):
-        '''
-        create the static and templates symbolic in the root folder of the dashboard to be able to run the Dashboard instance.
-        '''
-        import subprocess as sp
-        import sylfenUtils
-        create_folder_if_not(root_folder)
-        #### TEMPLATE FOLDER
-        sylfenUtils_env_dir=os.path.dirname(sylfenUtils.__file__)
-        templates_dir=os.path.join(sylfenUtils_env_dir,'templates')
-        templates_folder=os.path.join(root_folder, 'templates')
-        if os.path.exists(templates_folder):os.remove(templates_folder)
-        sp.run('ln -s '+templates_dir + ' ' + root_folder,shell=True)
-
-        #### STATIC FOLDER
-        static_folder=os.path.join(root_folder,'static')
-        create_folder_if_not(static_folder)
-        self.lib_dir=os.path.join(sylfenUtils_env_dir,'static/lib')
-        lib_folder=os.path.join(static_folder,'lib')
-        if os.path.exists(lib_folder):os.remove(lib_folder)
-        sp.run('ln -s ' + self.lib_dir + ' ' + static_folder,shell=True)
-        # import time
-        # time.sleep(0.2)
-
     ####### private ####
     def _load_conf(self):
         _appdir    = os.path.dirname(os.path.realpath(__file__))

@@ -1,4 +1,4 @@
-"tag","description","scale","unit","type","intAddress","size(mots)","slave_unit"
+"tag","description","scale","unit","type","intaddress","size(mots)","slave_unit"
 "PT_L5_H2O.HM05","pressure water line 5",10,"mbar","float32",10,2,1
 "TT_L5_H2O.HM05","Temperature of water exchanger line 5",100,"C","int32",26,2,1
 "PT_L7_H2O.HM05","pressure water line 7",100,"mbar","float32",32,2,1
