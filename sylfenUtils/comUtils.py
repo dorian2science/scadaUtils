@@ -1079,21 +1079,14 @@ class Streamer(Basic_streamer):
             t = t + pd.Timedelta(days=1)
         if time_debug:computetimeshow('raw pkl loaded in ',start)
         start=time.time()
-        # s_tag = pd.DataFrame(pd.concat(dfs.values()),columns=['value'])
         s_tag = pd.DataFrame(pd.concat(dfs.values()))
-        # print_file(s_tag)
         if time_debug:computetimeshow('contatenation done in ',start)
         s_tag.index.name='timestampz'
-        # try:
         start = time.time()
         s_tag = s_tag[(s_tag.index>=t0)&(s_tag.index<=t1)]
-        # print(s_tag)
         s_tag = self.process_tag(s_tag['value'],**kwargs)
         s_tag.name=tag
         if time_debug:computetimeshow('processing done in ',start)
-        # except:
-        #     print_file(tag+' could not be processed',filename=self.log_file)
-        #     s_tag=[]
         return s_tag
 
     def load_tag_daily_kwargs(self,t0,t1,tag,folderpkl,args, kwargs):
@@ -1813,7 +1806,7 @@ class VisualisationMaster_daily(VisualisationMaster):
         dfs={}
         empty_tags=[]
         for t in tags:
-            filename=self.folder_coarse+'/'+rsMethod+'/'+t+'.pkl'
+            filename=os.path.join(self.folder_coarse,rsMethod,t+'.pkl')
             if verbose:print(filename)
             if os.path.exists(filename):
                 s=pd.read_pickle(filename)
@@ -1851,38 +1844,42 @@ class VisualisationMaster_daily(VisualisationMaster):
             except:
                 print(timenowstd(),tag,' not possible to coarse-compute')
 
+    def _get_t0(self,file_tag):
+        t0=self.t0
+        if os.path.exists(file_tag):
+            s_tag=pd.read_pickle(file_tag)
+            t1=s_tag.index.max()
+            if s_tag.empty:t1=t0
+            t0=max(t1,t0)
+        return t0
+
     def _park_coarse_tag(self,tag,rs='60s',verbose=False,from_start=False):
-            # self.t0=pd.Timestamp(pd.Series(os.listdir(self.folderPkl)).min()+' 00:00',tz=self.tz_record)
-            self.t0=pd.Timestamp('2022-01-01 00:00',tz=self.tz_record)
-            start=time.time()
-            ########### determine t0
-            file_tag_mean=self.folder_coarse+'/mean/'+tag+'.pkl'
+        # self.t0=pd.Timestamp(pd.Series(os.listdir(self.folderPkl)).min()+' 00:00',tz=self.tz_record)
+        self.t0=pd.Timestamp('2022-01-01 00:00',tz=self.tz_record)
+        methods=['mean','min','max']
+        start=time.time()
+        ########### determine t0
+        t0=min([self._get_t0(os.path.join(self.folder_coarse,m,tag + '.pkl') ) for m in methods])
+        if from_start:
             t0=self.t0
-            if os.path.exists(file_tag_mean):
-                s_tag=pd.read_pickle(file_tag_mean)
-                t1=s_tag.index.max()
-                if s_tag.empty:t1=t0
-                t0=max(t1,t0)
-            if from_start:
-                t0=self.t0
-            ######### load the raw data
-            if verbose:print_file(tag,t0)
-            s=self.streamer.load_tag_daily(t0,pd.Timestamp.now(self.tz_record),tag,self.folderPkl,rsMethod='raw',verbose=False)
-            ######### build the new data
-            s_new = {}
-            if 'string' in self.dfplc.loc[tag,'DATATYPE'].lower():
-                tmp = s.resample(rs,closed='right',label='right').ffill()
-                s_new['mean'] = tmp
-                s_new['min']  = tmp
-                s_new['max']  = tmp
-            else:
-                s_new['mean'] = s.resample(rs,closed='right',label='right').mean()
-                s_new['min']  = s.resample(rs,closed='right',label='right').min()
-                s_new['max']  = s.resample(rs,closed='right',label='right').max()
-            for m in ['mean','min','max']:
-                filename=self.folder_coarse + m + '/' + tag + '.pkl'
-                if os.path.exists(filename) and not from_start:
-                    tmp=pd.concat([pd.read_pickle(filename),s_new[m]],axis=0).sort_index()
-                    s_new[m]=tmp[~tmp.duplicated(keep='first')]
-                s_new[m].to_pickle(filename)
-            if verbose:print_file(tag,'done in ',time.time()-start)
+        ######### load the raw data
+        if verbose:print(tag,t0)
+        s=self.streamer.load_tag_daily(t0,pd.Timestamp.now(self.tz_record),tag,self.folderPkl,rsMethod='raw',verbose=False)
+        ######### build the new data
+        s_new = {}
+        if 'string' in self.dfplc.loc[tag,'DATATYPE'].lower():
+            tmp = s.resample(rs,closed='right',label='right').ffill()
+            s_new['mean'] = tmp
+            s_new['min']  = tmp
+            s_new['max']  = tmp
+        else:
+            s_new['mean'] = s.resample(rs,closed='right',label='right').mean()
+            s_new['min']  = s.resample(rs,closed='right',label='right').min()
+            s_new['max']  = s.resample(rs,closed='right',label='right').max()
+        for m in methods:
+            filename=os.path.join(self.folder_coarse, m,tag + '.pkl')
+            if os.path.exists(filename) and not from_start:
+                tmp=pd.concat([pd.read_pickle(filename),s_new[m]],axis=0).sort_index()
+                s_new[m]=tmp[~tmp.index.duplicated(keep='first')]
+            s_new[m].to_pickle(filename)
+        if verbose:print(tag,'done in ',time.time()-start)
