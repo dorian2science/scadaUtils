@@ -29,10 +29,15 @@ DATATYPES={
     'INT' : 'int',
     'int16' : 'int',
     'int32' : 'int',
+    'int64' : 'int',
     'STRING(40)': 'string'
      }
 FORMAT_DAY_FOLDER='%Y-%m-%d'
 
+def create_folder_if_not(folder_path,*args,**kwargs):
+    if not os.path.exists(folder_path):
+        os.mkdir(folder_path)
+        print_file('folder ' + folder_path + ' created!',*args,**kwargs)
 def print_file(*args,filename=None,mode='a',with_infos=True,**kwargs):
     '''
     Print with color code in a file with line number in code.
@@ -101,6 +106,11 @@ def read_db(db_parameters,db_table,t=None,tagPat=None,debug=False):
         df = pd.read_sql_query(sqlQ,dbconn)
         df.timestampz=[pd.Timestamp(k).tz_convert('utc') for k in df.timestampz] #slower but will work with dst
     return df
+def dfplc_from_modbusmap(modbus_map):
+    dfplc=modbus_map[['description','unit','type','frequency']]
+    dfplc.columns=['DESCRIPTION','UNITE','DATATYPE','FREQUENCE_ECHANTILLONNAGE']
+    return dfplc
+
 to_folderday=lambda t:t.strftime(FORMAT_DAY_FOLDER)
 
 class EmptyClass():pass
@@ -236,7 +246,7 @@ class Device():
         - a function <connectDevice> to connect to the device.
     '''
     def __init__(self,device_name,ip,port,dfplc,time_outs_reconnection=None,log_file=None):
-        self._fs               = FileSystem()
+        STREAMER               = FileSystem()
         self._utils            = Utils()
         self.device_name       = device_name
         self.ip                = ip
@@ -355,32 +365,30 @@ class Device():
         dbconn.close()
 
     def createRandomInitalTagValues(self):
-        return self._fs.createRandomInitalTagValues(self.alltags,self.dfplc)
+        return STREAMER.createRandomInitalTagValues(self.alltags,self.dfplc)
 
     def getUnitofTag(self,tag):
-        return self._fs.getUnitofTag(tag,self.dfplc)
+        return STREAMER.getUnitofTag(tag,self.dfplc)
 
     def getTagsTU(self,patTag,units=None,*args,**kwargs):
         if self.dfplc is None:
             print_file('no dfplc. Function unavailable.')
             return
         if not units : units = self.listUnits
-        return self._fs.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
+        return STREAMER.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
 
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from pymodbus.payload import BinaryPayloadDecoder
 from pymodbus.constants import Endian
 class ModbusDevice(Device):
-    def __init__(self,ip,port=502,device_name='',dfplc=None,modbus_map=None,freq=30,bo='big',wo='big',**kwargs):
-        '''freq: how often to fetch the data in seconds/'''
-        Device.__init__(self,device_name,ip,port,dfplc,**kwargs)
+    def __init__(self,ip,port=502,device_name='',modbus_map=None,bo='big',wo='big',**kwargs):
         self.modbus_map = modbus_map
-        self.freq = freq
         self.byte_order,self.word_order = bo,wo
+        dfplc=dfplc_from_modbusmap(modbus_map)
+        Device.__init__(self,device_name,ip,port,dfplc,**kwargs)
         if not self.modbus_map is None:
             self.slave_ids = list(self.modbus_map.slave_unit.unique())
         self._client = ModbusClient(host=self.ip,port=int(self.port))
-        if not self.dfplc is None:dfplc['FREQUENCE_ECHANTILLONNAGE'] = self.freq
 
     def connectDevice(self):
         self.isConnected=False
@@ -408,7 +416,7 @@ class ModbusDevice(Device):
         if index_name is None:index_name='index'
         return pd.concat([self._decode_continuous_bloc(b,*args,**kwargs) for b in blocks],axis=0).set_index(index_name)
 
-    def collectData(self,tz,*args):
+    def collectData(self,tz,tags=None):
         '''It will collect all the data if a dataframe modbus_map is present with columns
         - index : name of the registers or tags.
         - type  : datatype{uint16,int32,float...}
@@ -421,8 +429,11 @@ class ModbusDevice(Device):
             return
         d={}
         bbs=[]
-        for unit_id in self.modbus_map.slave_unit.unique():
-            bloc=self.modbus_map[self.modbus_map.slave_unit==unit_id]
+        if tags is None:
+            tags=self.modbus_map.index.to_list()
+        local_modbus_map=self.modbus_map.loc[tags]
+        for unit_id in local_modbus_map.slave_unit.unique():
+            bloc=local_modbus_map[local_modbus_map.slave_unit==unit_id]
             bb=self.decode_bloc_registers(bloc,unit_id)
             bb['timestampz']=pd.Timestamp.now(tz=tz).isoformat()
             bbs+=[bb]
@@ -801,7 +812,7 @@ class Basic_streamer():
     def __init__(self,log_file=None):
         self.methods=['ffill','nearest','mean','max','min','median','interpolate','rolling_mean','mean_mix']
         self._num_cpus = psutil.cpu_count(logical=False)
-        self._fs = FileSystem()
+        STREAMER = FileSystem()
         self.log_file=log_file
 
 class Streamer(Basic_streamer):
@@ -1172,7 +1183,7 @@ class Streamer(Basic_streamer):
         # return dfs
 
     def listfiles_pattern_period(self,t0,t1,pattern,folderpkl,pool=True):
-        return self.actiondays(t0,t1,folderpkl,self._fs.listfiles_pattern_folder,pattern,pool=pool)
+        return self.actiondays(t0,t1,folderpkl,STREAMER.listfiles_pattern_folder,pattern,pool=pool)
     # ########################
     #   STATIC COMPRESSION   #
     # ########################
@@ -1256,26 +1267,29 @@ class Streamer(Basic_streamer):
         fig.show()
         return timelens
 
+STREAMER = Streamer()
 class Configurator():
-    def __init__(self,folderPkl,dbParameters,parkingTime,tz_record='CET',dbTable='realtimedata',log_file=None):
+    def __init__(self,conf):
         '''
-        - parkedFolder : day or minute.
+        Parameters:
+        ------------------------
+        - conf : day or minute.
         - parkingTime : how often data are parked and db flushed in seconds
         '''
-        Streamer.__init__(self,log_file=log_file)
-        self.folderPkl = folderPkl
-        self.dbParameters = dbParameters
-        self.dbTable = dbTable
-        self._dataTypes=DATATYPES
-        self.streamer  = Streamer()
-        self.tz_record = tz_record
-        self.parkingTime = parkingTime##seconds
+        self.conf         = conf
+        self.folderPkl    = conf.FOLDERPKL
+        self.dbParameters = conf.DB_PARAMETERS
+        self.dbTable      = conf.DB_TABLE
+        self.dfplc        = conf.dfplc
+        self._dataTypes   = DATATYPES
+        self.tz_record    = conf.TZ_RECORD
+        self.parkingTime  = conf.PARKING_TIME##seconds
         #####################################
         # self.daysnotempty    = self.getdaysnotempty()
         # self.tmin,self.tmax  = self.daysnotempty.min(),self.daysnotempty.max()
 
     def getdaysnotempty(self):
-        return self._fs.get_parked_days_not_empty(self.folderPkl)
+        return STREAMER.get_parked_days_not_empty(self.folderPkl)
 
     def connect2db(self):
         connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
@@ -1289,20 +1303,19 @@ class Configurator():
             return []
 
     def getUnitofTag(self,tag):
-        return self._fs.getUnitofTag(tag,self.dfplc)
+        return STREAMER.getUnitofTag(tag,self.dfplc)
 
     def getTagsTU(self,patTag,units=None,*args,**kwargs):
         if not units : units = self.listUnits
-        return self._fs.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
+        return STREAMER.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
 
 class SuperDumper(Configurator):
-    def __init__(self,devices,*args,log_file=None,**kwargs):
-        Configurator.__init__(self,*args,**kwargs,log_file=log_file)
+    def __init__(self,devices,*args,**kwargs):
+        Configurator.__init__(self,*args,**kwargs)
+
         self.parkingTimes = {}
-        self.streamer     = Streamer()
         self.devices      = devices
-        self._fs          = FileSystem()
-        self.dfplc        = pd.concat([v.dfplc for k,v in self.devices.items()])
+        self.log_file     = os.path.join(self.conf.LOG_FOLDER,self.conf.project_name+'_dumper.log')
         self.alltags      = list(self.dfplc.index)
 
         self.dumpInterval = {}
@@ -1316,7 +1329,6 @@ class SuperDumper(Configurator):
             for freq in freqs:
                 print_file(device_name,' : ',freq*1000,'ms',filename=self.log_file,with_infos=False)
                 tags = list(device.dfplc[device.dfplc['FREQUENCE_ECHANTILLONNAGE']==freq].index)
-                # print_file(tags)
                 device_dumps[freq] = SetInterval(freq,device.insert_intodb,self.dbParameters,self.dbTable,self.tz_record,tags)
 
             self.dumpInterval[device_name] = device_dumps
@@ -1400,7 +1412,7 @@ class SuperDumper(Configurator):
             else:
                 values  = initval + precision*vol*np.random.randn(len(timestampz))
                 stag = pd.Series(values,index=timestampz)
-                # stag = self.streamer.staticCompressionTag(stag,precision,method='reduce')
+                # stag = STREAMER.staticCompressionTag(stag,precision,method='reduce')
                 df[tag] = pd.DataFrame(stag).reset_index()
                 df[tag].columns=['timestampz','value']
             df[tag]['tag'] = tag
@@ -1510,7 +1522,7 @@ class SuperDumper_daily(SuperDumper):
         if os.path.exists(namefile):
             s1 = pd.read_pickle(namefile)
             s_tag  = pd.concat([s1,s_tag])
-        self.streamer.process_dbtag(s_tag,self._dataTypes[self.dfplc.loc[tag,'DATATYPE']]).to_pickle(namefile)
+        STREAMER.process_dbtag(s_tag,self._dataTypes[self.dfplc.loc[tag,'DATATYPE']]).to_pickle(namefile)
 
     def park_database(self,verbose=False):
         start = time.time()
@@ -1538,7 +1550,7 @@ class SuperDumper_daily(SuperDumper):
         dbconn.close()
         df=df.set_index('timestampz').tz_convert(self.tz_record)
         tmin,tmax = df.index.min().strftime('%Y-%m-%d'),df.index.max().strftime('%Y-%m-%d')
-        listdays=[k.strftime(self._format_dayFolder) for k in pd.date_range(tmin,tmax)]
+        listdays=[k.strftime(FORMAT_DAY_FOLDER) for k in pd.date_range(tmin,tmax)]
         #### in case they are several days(for example at midnight)
         for d in listdays:
             t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
@@ -1577,7 +1589,7 @@ import plotly.graph_objects as go, plotly.express as px
 class VisualisationMaster(Configurator):
     def __init__(self,*args,**kwargs):
         Configurator.__init__(self,*args,**kwargs)
-        self.methods = self.streamer.methods
+        self.methods = STREAMER.methods
         self.utils=Utils()
         self.usefulTags=pd.DataFrame()
 
@@ -1609,8 +1621,8 @@ class VisualisationMaster(Configurator):
         def process_dbtag(df,tag,*args,**kwargs):
             s = df[df.tag==tag]['value']
             dtype = self._dataTypes[self.dfplc.loc[tag,'DATATYPE']]
-            s = self.streamer.process_dbtag(s,dtype)
-            s = self.streamer.process_tag(s,*args,**kwargs)
+            s = STREAMER.process_dbtag(s,dtype)
+            s = STREAMER.process_tag(s,*args,**kwargs)
             return s
 
         dftags = {tag:process_dbtag(df,tag,*args,**kwargs) for tag in tags}
@@ -1638,7 +1650,7 @@ class VisualisationMaster(Configurator):
         # for k in t0,t1,tags,args,kwargs:print_file(k)
         tags=list(np.unique(tags))
         ############ read parked data
-        df = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,*args,pool=pool,verbose=verbose,**kwargs)
+        df = STREAMER.load_parkedtags_daily(t0,t1,tags,self.folderPkl,*args,pool=pool,verbose=verbose,**kwargs)
         ############ read database
         if t1<pd.Timestamp.now(self.tz_record)-pd.Timedelta(seconds=self.parkingTime):
             if verbose:print_file('no need to read in the database')
@@ -1753,7 +1765,7 @@ class VisualisationMaster_daily(VisualisationMaster):
         if not isinstance(tags,list) or len(tags)==0:
             print_file('tags is not a list or is empty',filename=self.log_file)
             return pd.DataFrame(columns=['value','timestampz','tag']).set_index('timestampz')
-        df = self.streamer.load_parkedtags_daily(t0,t1,tags,self.folderPkl,pool)
+        df = STREAMER.load_parkedtags_daily(t0,t1,tags,self.folderPkl,pool)
         # if df.duplicated().any():
         #     print_file("==========================================")
         #     print_file("WARNING : duplicates in parked data")
@@ -1825,7 +1837,7 @@ class VisualisationMaster_daily(VisualisationMaster):
             t0=self.t0
         ######### load the raw data
         if verbose:print(tag,t0)
-        s=self.streamer.load_tag_daily(t0,pd.Timestamp.now(self.tz_record),tag,self.folderPkl,rsMethod='raw',verbose=False)
+        s=STREAMER.load_tag_daily(t0,pd.Timestamp.now(self.tz_record),tag,self.folderPkl,rsMethod='raw',verbose=False)
         ######### build the new data
         s_new = {}
         if 'string' in self.dfplc.loc[tag,'DATATYPE'].lower():
@@ -1845,7 +1857,6 @@ class VisualisationMaster_daily(VisualisationMaster):
             s_new[m].to_pickle(filename)
         if verbose:print(tag,'done in ',time.time()-start)
 
-from sylfenUtils.Conf_generator import create_folder_if_not
 class Fix_daily_data():
     def __init__(self,conf):
         '''

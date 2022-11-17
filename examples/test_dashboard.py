@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
-import importlib
+import importlib,os
 import sylfenUtils.comUtils as comUtils
-importlib.reload(dashboard)
+from test_confGenerator import conf as dummy_conf
+
+importlib.reload(comUtils)
 cfg=comUtils.VisualisationMaster_daily(
     dummy_conf.FOLDERPKL,
     dummy_conf.DB_PARAMETERS,
@@ -13,7 +15,8 @@ cfg=comUtils.VisualisationMaster_daily(
 ####################
 # SUGGESTION MODIF #
 ####################
-###### REPLACE BY FOLLOWING #### =======>>> dumper=VisualisationMaster_daily(conf)
+###### REPLACE BY FOLLOWING #### =======>>>
+# cfg=VisualisationMaster_daily(conf)
 
 def test_load_tags_period():
     tags=cfg.getTagsTU('[PT]T.*H2O')
@@ -52,10 +55,3 @@ dash.app.run(host='0.0.0.0',port=port_app,debug=False,use_reloader=False)
 ####################
 # SUGGESTION MODIF #
 ####################
-# put the initial parameters in the user_settings default file so that to start the whole
-# programm (configurating,dumping, and web service) the user should only do#
-# ====> gaia=Gaia(myproject_name,my_conf_generator_function)
-### programm should then pop up the user_settings file and ask to modify it if necessary. And tell
-# him that he can modifiy this file at any time. Then tell him to systemctl restart GAIA.py.
-### Make sure the user can do GAIA,py
-##

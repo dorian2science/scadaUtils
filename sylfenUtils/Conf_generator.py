@@ -1,13 +1,9 @@
 import pickle,os,sys,re,subprocess as sp,time,shutil
 import pandas as pd
-from sylfenUtils.comUtils import print_file,FileSystem
+from sylfenUtils.comUtils import (print_file,FileSystem,create_folder_if_not)
 import psycopg2
 
 FS=FileSystem()
-def create_folder_if_not(folder_path,*args,**kwargs):
-    if not os.path.exists(folder_path):
-        os.mkdir(folder_path)
-        print_file('folder ' + folder_path + ' created!',*args,**kwargs)
 
 def create_sql_table(connParameters,db_table):
     connReq = ''.join([k + "=" + v + " " for k,v in connParameters.items()])
@@ -21,20 +17,23 @@ def create_sql_table(connParameters,db_table):
     conn.close()
 
 class Conf_generator():
-    '''
-    Class to generate a configuration with default folders and automatic creation of
-    user_setting file.
-
-    Loading of the configuation will be automatic whether the configuration file already exists or not.
-
-    Parameters
-    -----------------
-        - project_name:name of the project. Important if default folder are being used and project_folder is None.
-        - function_generator : function that generates a list of objects needed for a project. Should return a dictionnary.
-        - project_folder : path of the folder where the parameters.conf file, the log folder, the dashboard ...
-            are going to be stored.
-    '''
     def __init__(self,project_name,function_generator,project_folder=None):
+        '''
+        Class to generate a configuration with default folders and automatic creation of
+        user_setting file.
+
+        Loading of the configuation will be automatic whether the configuration file already exists or not.
+
+        Parameters
+        -----------------
+        - project_name:name of the project. Important if default folder are being used and project_folder is None.
+        - function_generator : function that generates a list of objects needed for a project. Should return a dictionnary with at least following keys:
+            * df_devices : a dataframe containing the information of the devices (device_name,protocole,IP,port,table_link) and byte_order word_order for modbus protocole.
+            * dfplc      : dataframe with columns DESCRIPTION, UNITE, DATAYPE, FREQUENCY and tags as index.
+            * and/or modbus_maps(only if there are modbus devices): dictionnary. Keys are the names of devices and value is the corresponding modbus map.
+        - project_folder(optional) : path of the folder where the parameters.conf file, the log folder, the dashboard ...
+        are going to be stored.
+        '''
         self.project_name=project_name
         self._function_generator=function_generator
         self._lib_sylfenUtils_path=os.path.dirname(__file__)
@@ -102,18 +101,30 @@ class Conf_generator():
         ###### load the rest of the Conf
         self._load_conf()
 
-        #### make sure the user has created a dfplc attribute.
-        try:
-            self.listUnits = self.dfplc.UNITE.dropna().unique().tolist()
-        except:
-            print('it looks like your function_generator does not include the creation of a dfplc attribute.')
-            print('A standard dfplc attribute is mandatory to be able to use all the methods and features.')
-
     def generate_conf(self):
         f = open(self._file_conf_pkl,'wb')
         start=time.time()
         print('generating configuration files and store it in :',self._file_conf_pkl)
         conf_objs=self._function_generator()
+
+        is_dfplc=False
+        #### make sure the user has created a dfplc attribute.
+        #### if not try to create it from modbus maps.
+        if 'dfplc' not in conf_objs.keys():
+            if 'modbus_maps' in conf_objs.keys():
+                from sylfenUtils.comUtils import dfplc_from_modbusmap
+                plcs_mb={device_name:dfplc_from_modbusmap(map) for device_name,map in conf_objs['modbus_maps'].items()}
+
+                if not 'plcs' in conf_objs.keys():
+                    conf_objs['plcs']={}
+
+                conf_objs['plcs'].update(plcs_mb)
+                conf_objs['dfplc']=pd.concat(conf_objs['plcs'].values())
+            else:
+                print('-'*60,'\nIt looks like your function_generator does not include a valid dfplc attribute or modbus_maps attribute.')
+                print('A standard dfplc attribute is mandatory to be able to use all the methods and features.\n','-'*60)
+                return
+        conf_objs['listUnits'] = conf_objs['dfplc'].UNITE.dropna().unique().tolist()
         pickle.dump(conf_objs,f)
         f.close()
         print('configuration file generated in  : '+ str(time.time()-start)+' seconds.')
