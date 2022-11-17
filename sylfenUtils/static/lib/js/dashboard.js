@@ -99,6 +99,13 @@ function fetch_figure() {
   })
 }
 
+function popup_color_picker() {
+    return 'hello'
+}
+
+function modify_plot_background(color) {
+  Plotly.relayout('plotly_fig', {'plot_bgcolor':color})
+}
 var FIG
 function addEnveloppe() {
   let fig = $('#plotly_fig')[0]

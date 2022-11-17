@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="../static/lib/css/dropdown_filter.css">
   <link rel="stylesheet" href="../static/lib/css/toggle_switch.css">
 
+  <script type="text/javascript" src="../static/lib/acolorpicker.js"></script>
   <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script> -->
   <script type="text/javascript" src="../static/lib/js/jquery.min.js"></script>
 
@@ -60,6 +61,7 @@
         <div name='buttons' class="">
           <button class='p_but' id="btn_update" type="button" onclick="fetch_figure()">get the data!</button>
           <button class='p_but' id="btn_export" type="button" onclick="data2excel()">export to excel</button>
+          <button class='p_but' id="btn_bg_color" type="button" onclick="popup_color_picker()">background color</button>
         </div>
         <div style="display:flex;">
           <div class='real_time_check' >

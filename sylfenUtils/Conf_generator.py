@@ -1,7 +1,9 @@
 import pickle,os,sys,re,subprocess as sp,time,shutil
 import pandas as pd
-from sylfenUtils.comUtils import print_file
+from sylfenUtils.comUtils import print_file,FileSystem
+import psycopg2
 
+FS=FileSystem()
 def create_folder_if_not(folder_path,*args,**kwargs):
     if not os.path.exists(folder_path):
         os.mkdir(folder_path)
@@ -9,7 +11,6 @@ def create_folder_if_not(folder_path,*args,**kwargs):
 
 def create_sql_table(connParameters,db_table):
     connReq = ''.join([k + "=" + v + " " for k,v in connParameters.items()])
-    import psycopg2
     conn = psycopg2.connect(connReq)
     cur  = conn.cursor()
     # creation table
@@ -100,6 +101,13 @@ class Conf_generator():
 
         ###### load the rest of the Conf
         self._load_conf()
+
+        #### make sure the user has created a dfplc attribute.
+        try:
+            self.listUnits = self.dfplc.UNITE.dropna().unique().tolist()
+        except:
+            print('it looks like your function_generator does not include the creation of a dfplc attribute.')
+            print('A standard dfplc attribute is mandatory to be able to use all the methods and features.')
 
     def generate_conf(self):
         f = open(self._file_conf_pkl,'wb')
@@ -198,3 +206,25 @@ class Conf_generator():
         user_tag_color['colorHEX'] = user_tag_color.apply(lambda x: allHEXColors.loc[x['colorName']],axis=1)
         user_tag_color['color_appearance']=''
         return user_tag_color
+
+    ####### public useful ####
+    def getdaysnotempty(self):
+        return FS.get_parked_days_not_empty(self.FOLDERPKL)
+
+    def connect2db(self):
+        connReq = ''.join([k + "=" + v + " " for k,v in self.DB_PARAMETERS.items()])
+        return psycopg2.connect(connReq)
+
+    def getUsefulTags(self,usefulTag):
+        if usefulTag in self.usefulTags.index:
+            category = self.usefulTags.loc[usefulTag,'Pattern']
+            return self.getTagsTU(category)
+        else:
+            return []
+
+    def getUnitofTag(self,tag):
+        return FS.getUnitofTag(tag,self.dfplc)
+
+    def getTagsTU(self,patTag,units=None,*args,**kwargs):
+        if not units : units = self.listUnits
+        return FS.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
