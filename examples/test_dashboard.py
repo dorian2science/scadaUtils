@@ -2,21 +2,10 @@
 # coding: utf-8
 import importlib,os
 import sylfenUtils.comUtils as comUtils
-from test_confGenerator import conf as dummy_conf
+from test_confGenerator import conf
 
 importlib.reload(comUtils)
-cfg=comUtils.VisualisationMaster_daily(
-    dummy_conf.FOLDERPKL,
-    dummy_conf.DB_PARAMETERS,
-    dummy_conf.PARKING_TIME,
-    dbTable=dummy_conf.DB_TABLE,
-    tz_record=dummy_conf.TZ_RECORD
-)
-####################
-# SUGGESTION MODIF #
-####################
-###### REPLACE BY FOLLOWING #### =======>>>
-# cfg=VisualisationMaster_daily(conf)
+cfg=comUtils.VisualisationMaster_daily(conf)
 
 def test_load_tags_period():
     tags=cfg.getTagsTU('[PT]T.*H2O')
@@ -27,7 +16,7 @@ def test_load_tags_period():
     from sylfenUtils.utils import Graphics
     Graphics().multiUnitGraph(df).show()
 
-root_folder=os.path.join(dummy_conf.project_folder,'dashboard')
+root_folder=os.path.join(conf.project_folder,'dashboard')
 import sylfenUtils.dashboard as dashboard
 importlib.reload(dashboard)
 init_parameters={
@@ -40,7 +29,7 @@ init_parameters={
 }
 dash=dashboard.Dashboard(
     cfg,
-    dummy_conf.LOG_FOLDER,
+    conf.LOG_FOLDER,
     root_folder,
     app_name='dummy_app',
     init_parameters=init_parameters,
@@ -48,10 +37,5 @@ dash=dashboard.Dashboard(
     version_dashboard='1.0')
 dash.helpmelink='' ### you can precise a url link on how to use the web interface
 dash.fig_wh=780### size of the figure
-sylfenUtils.Conf_generator.__file__
 port_app=15000
 dash.app.run(host='0.0.0.0',port=port_app,debug=False,use_reloader=False)
-
-####################
-# SUGGESTION MODIF #
-####################

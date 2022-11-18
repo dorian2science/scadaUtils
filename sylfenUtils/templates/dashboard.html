@@ -61,7 +61,8 @@
         <div name='buttons' class="">
           <button class='p_but' id="btn_update" type="button" onclick="fetch_figure()">get the data!</button>
           <button class='p_but' id="btn_export" type="button" onclick="data2excel()">export to excel</button>
-          <button class='p_but' id="btn_bg_color" type="button" onclick="popup_color_picker()">background color</button>
+          <button class='p_but' id="btn_bg_color" type="button" onclick="popup_color_picker()">background <br> color</button>
+          <div id='html_color_picker' class="html_color_picker" acp-color="#EFE9E7" acp-show-rgb="no" acp-show-hsl="yes" acp-show-hex="yes" acp-show-alpha></div>
         </div>
         <div style="display:flex;">
           <div class='real_time_check' >
@@ -135,6 +136,7 @@
       <div id=plotly_fig></div>
     </div>
   </div>
+
 </body>
 
 </html>
@@ -170,4 +172,21 @@ var STABLE_PARAMETERS_PANEL=true
       // console.log('new STABLE_PARAMETERS_PANEL:'+STABLE_PARAMETERS_PANEL);
     }
   }
+  //# ############################
+  //# HTML COLOR PICKER for plot #
+  //#      background            #
+  //# ############################
+  let width=400
+  AColorPicker.from('.html_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[width,150]})
+  .on('change', (picker, color) => {
+    hex_color_value=AColorPicker.parseColor(color, "hex");
+    console.log(hex_color_value);
+    modify_plot_background_color(hex_color_value)
+  });
+  function popup_color_picker(){
+    picker=document.getElementById('html_color_picker')
+    picker.style.display='flex'
+    picker.style.zIndex=1
+  }
+
 </script>

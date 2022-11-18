@@ -10,6 +10,7 @@ const MIN_REFRESH_TIME=0
 const DEFAULT_TIME_REFRESH_VALUE=50
 const PAPER_BG_COLOR_RT='#929dbf'
 
+
 // ########################
 //#       FUNCTIONS       #
 // ########################
@@ -103,7 +104,7 @@ function popup_color_picker() {
     return 'hello'
 }
 
-function modify_plot_background(color) {
+function modify_plot_background_color(color) {
   Plotly.relayout('plotly_fig', {'plot_bgcolor':color})
 }
 var FIG
@@ -407,7 +408,8 @@ function change_title(e){
 //#       of them           #
 //# #########################
 //
-var listpop_ids=['popup_listTags',"dd_x","dd_y","pop_version_info","pop_indicators"]
+var listpop_ids=['popup_listTags',"dd_x","dd_y","pop_version_info","pop_indicators","html_color_picker"]
+// var listpop_ids=['popup_listTags',"dd_x","dd_y","pop_version_info","pop_indicators"]
 document.addEventListener("mouseup", function(event) {
   for (id of listpop_ids) {
     var html_obj = document.getElementById(id);

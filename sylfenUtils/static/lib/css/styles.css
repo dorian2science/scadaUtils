@@ -176,3 +176,13 @@ p {
   cursor: pointer;
   font-size: 30px;
 }
+
+/* position:absolute; */
+#html_color_picker{
+  position:absolute;
+    top: 140px;
+    left:100px;
+    display:None;
+    z-index: -1;
+    border:solid 5px black;
+}

@@ -1289,25 +1289,19 @@ class Configurator():
         # self.tmin,self.tmax  = self.daysnotempty.min(),self.daysnotempty.max()
 
     def getdaysnotempty(self):
-        return STREAMER.get_parked_days_not_empty(self.folderPkl)
+        return self.conf.getdaysnotempty()
 
     def connect2db(self):
-        connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
-        return psycopg2.connect(connReq)
+        return self.conf.connect2db()
 
     def getUsefulTags(self,usefulTag):
-        if usefulTag in self.usefulTags.index:
-            category = self.usefulTags.loc[usefulTag,'Pattern']
-            return self.getTagsTU(category)
-        else:
-            return []
+        return self.conf.getUsefulTags(usefulTag)
 
     def getUnitofTag(self,tag):
-        return STREAMER.getUnitofTag(tag,self.dfplc)
+        return self.conf.getUnitofTag(tag)
 
-    def getTagsTU(self,patTag,units=None,*args,**kwargs):
-        if not units : units = self.listUnits
-        return STREAMER.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
+    def getTagsTU(self,*args,**kwargs):
+        return self.conf.getTagsTU(*args,**kwargs)
 
 class SuperDumper(Configurator):
     def __init__(self,devices,*args,**kwargs):
@@ -1443,6 +1437,7 @@ class SuperDumper(Configurator):
 
     def stop_dumping(self):
         for device,dictIntervals in self.dumpInterval.items():
+            self.devices[device].stop_auto_reconnect()
             for freq in dictIntervals.keys():
                 self.dumpInterval[device][freq].stop()
         self.parkInterval.stop()
@@ -1517,7 +1512,7 @@ class SuperDumper_daily(SuperDumper):
         return dftag
 
     def parktagfromdb(self,tag,s_tag,folderday,verbose=False):
-        namefile = folderday + tag + '.pkl'
+        namefile = os.path.join(folderday,tag + '.pkl')
         if verbose:print_file(namefile)
         if os.path.exists(namefile):
             s1 = pd.read_pickle(namefile)
