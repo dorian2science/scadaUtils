@@ -19,6 +19,7 @@ timenowstd=lambda :pd.Timestamp.now().strftime('%d %b %H:%M:%S')
 computetimeshow=lambda x,y:timenowstd() + ' : ' + x + ' in {:.2f} ms'.format((time.time()-y)*1000)
 from inspect import currentframe, getframeinfo
 from colorama import Fore
+FORMAT_DAY_FOLDER='%Y-%m-%d'
 
 def print_file(*args,filename=None,mode='a',with_infos=True,**kwargs):
     '''
@@ -1883,3 +1884,104 @@ class VisualisationMaster_daily(VisualisationMaster):
                 s_new[m]=tmp[~tmp.index.duplicated(keep='first')]
             s_new[m].to_pickle(filename)
         if verbose:print(tag,'done in ',time.time()-start)
+
+class Fix_daily_data():
+    def __init__(self,conf):
+        '''
+        Parameters:
+        ------------
+        - conf:should be a sylfenUtils.ConfGenerator object
+        '''
+        self.conf=conf
+        self.checkFolder=os.path.join(os.path.abspath(os.path.join(conf.FOLDERPKL,os.pardir)),conf.project_name+'_fix')
+        create_folder_if_not(self.checkFolder)
+
+    ########### PRIVATE
+    def _load_raw_tag_day(self,tag,day,showTag_day=True,checkFolder=False):
+        if checkFolder:
+            filename = os.path.join(self.checkFolder,day,tag+'.pkl')
+        else:
+            filename = os.path.join(self.conf.FOLDERPKL,day,tag+'.pkl')
+        if os.path.exists(filename):
+            s= pd.read_pickle(filename)
+        else :
+            print(filename,'does not exist.')
+            return
+        if showTag_day:print(filename + ' read')
+        return s
+
+    def _to_folderday(self,timestamp):
+        '''convert timestamp to standard day folder format'''
+        return Streamer()._to_folderday(timestamp)
+
+    def applyCorrectFormat_daytag(self,tag,day,newtz='CET',print_fileag=False,debug=False,checkFolder=False):
+        '''
+        Formats as pd.Series with name values and timestamp as index, remove duplicates, convert timestamp with timezone
+        and apply the correct datatype
+
+        :Parameters:
+        ----------------
+            - tag:str ==> the tag
+            - day:str ==> the day
+        '''
+        tagpath=os.path.join(self.conf.FOLDERPKL,day,tag+'.pkl')
+        if print_fileag:print(tagpath)
+        ##### --- load pkl----
+        if not os.path.exists(tagpath):print(tagpath,'does not exist');return
+        try:s=pd.read_pickle(tagpath)
+        except:print('pb loading',tagpath);return
+        if s.empty:print('series empty for ',tagpath);return
+
+        ##### --- make them format pd.Series with name values and timestamp as index----
+        if isinstance(s,pd.DataFrame):
+            df=s.copy()
+            ### to put the timestamp as index
+            col_timestamp=[k for k in df.columns if 'timestamp' in k]
+            if len(col_timestamp)==1:
+                df=df.set_index(col_timestamp)
+            if len(df)>1:
+                print('pb with',tagpath,'several columns where only one expected.')
+                return
+            s=df.iloc[:,0]
+        ### make sure the name of the series is value.
+        s.name='value'
+        ##### --- remove index duplicates ----
+        s = s[~s.index.duplicated(keep='first')]
+        ##### --- convert tz ----
+        if isinstance(s.index.dtype,pd.DatetimeTZDtype):
+            s.index = s.index.tz_convert(newtz)
+        else:### for cases with changing DST at 31.10 or if it is a string
+            s.index = [pd.Timestamp(k).astimezone(newtz) for k in s.index]
+        #####----- apply correct datatype ------
+        try:dtype=DATATYPES[self.conf.dfplc.loc[tag,'DATATYPE']]
+        except:print('impossible to find a valid DATATYPE of ',tag,'in conf.dfplc.')
+        s=Streamer().process_dbtag(s,dtype)
+        #####----- save the new pkl ------
+        if checkFolder:
+            folderday=os.path.join(self.checkFolder,day)
+            create_folder_if_not(folderday)
+            tagpath=os.path.join(folderday,tag+'.pkl')
+        s.to_pickle(tagpath)
+
+    ########### PUBLIC
+
+    def load_raw_tag_period(self,tag,t0,t1,*args,**kwargs):
+        t=t0
+        dfs=[]
+        while t<=t1:
+            dfs.append(self._load_raw_tag_day(tag,self._to_folderday(t),*args,**kwargs))
+            t=t+pd.Timedelta(days=1)
+        return dfs
+
+    def load_raw_tags_day(self,tags,day,*args,**kwargs):
+        return {tag:self._load_raw_tag_day(tag,day,*args,**kwargs) for tag in tags}
+
+    def applyCorrectFormat_day(self,day,dtypes,*args,**kwargs):
+        tags = self.conf.dfplc.index.to_list()
+        for tag in tags:
+            self.applyCorrectFormat_daytag(tag,day,*args,**kwargs)
+
+    def applyCorrectFormat_tag(self,tag,*args,**kwargs):
+        print(tag)
+        for day in os.listdir(self.conf.FOLDERPKL):
+            self.applyCorrectFormat_daytag(tag,day,*args,**kwargs)
