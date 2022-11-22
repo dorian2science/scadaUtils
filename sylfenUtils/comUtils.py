@@ -20,6 +20,10 @@ computetimeshow=lambda x,y:timenowstd() + ' : ' + x + ' in {:.2f} ms'.format((ti
 from inspect import currentframe, getframeinfo
 from colorama import Fore
 FORMAT_DAY_FOLDER='%Y-%m-%d'
+def create_folder_if_not(folder_path,*args,**kwargs):
+    if not os.path.exists(folder_path):
+        os.mkdir(folder_path)
+        print_file('folder ' + folder_path + ' created!',*args,**kwargs)
 
 def print_file(*args,filename=None,mode='a',with_infos=True,**kwargs):
     '''
@@ -790,6 +794,10 @@ class Basic_streamer():
         self._num_cpus = psutil.cpu_count(logical=False)
         self._fs = FileSystem()
         self.log_file=log_file
+
+    def _to_folderday(self,timestamp):
+        '''convert timestamp to standard day folder format'''
+        return timestamp.strftime(self._format_dayFolder)
 
 class Streamer(Basic_streamer):
     '''Streamer enables to perform action on parked Day/Hour/Minute folders.
