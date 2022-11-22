@@ -21,13 +21,12 @@ gaia_dummy=GAIA.GAIA('gaia_dummy',generate_dummy_conf)
 gaia_dummy._dumper.log_file=None
 
 ### start the simulators
-# sys.exit()
-# conf=gaia_dummy.conf
-# dummy_simulator=SuperSimulator(conf)
-# dummy_simulator.start_all_devices()
-### park and start dumping
-# gaia_dummy.park_database()
-# gaia_dummy.start_dumping()
+conf=gaia_dummy.conf
+dummy_simulator=SuperSimulator(conf)
+dummy_simulator.start_all_devices()
+## park and start dumping
+gaia_dummy.park_database()
+gaia_dummy.start_dumping()
 
 ### quick checked reading ok
 def test_loading_data():
@@ -41,4 +40,4 @@ def test_loading_data():
 gaia_dummy._dashboard.max_nb_pts=500*1000
 gaia_dummy._dashboard.rs_min_coarse=5*60
 gaia_dummy._dashboard.nb_days_min_coarse=3
-gaia_dummy.run_GUI(port=20003)
+gaia_dummy.run_GUI(port=20000)
