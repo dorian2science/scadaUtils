@@ -235,3 +235,9 @@ class Dashboard():
             error={'msg':'impossible to send the description names','code':1}
             self.notify_error(sys.exc_info(),error)
             return error,201
+
+class StaticDashboard(Dashboard):
+    def __init__(self,*args,**kwargs):
+        Dashboard.__init__(self,*args,**kwargs)
+        self.rs_min_coarse=100000000
+        self.nb_days_min_coarse=100000000

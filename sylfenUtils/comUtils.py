@@ -1742,6 +1742,7 @@ class VisualisationMaster(Configurator):
         fig.update_yaxes(matches=None)
         return fig
 
+
 class VisualisationMaster_daily(VisualisationMaster):
     def __init__(self,*args,**kwargs):
         VisualisationMaster.__init__(self,*args,**kwargs)
@@ -1954,3 +1955,45 @@ class Fix_daily_data():
         print(tag)
         for day in os.listdir(self.conf.FOLDERPKL):
             self.applyCorrectFormat_daytag(tag,day,*args,**kwargs)
+
+class VisualisatorStatic(VisualisationMaster):
+    def __init__(self,folderPkl,dfplc):
+        self.methods = STREAMER.methods
+        self.dfplc = dfplc
+        self.utils = folderPkl
+        VisualisationMaster.__init__(self,*args,**kwargs)
+
+    def loadtags_period(self,t0,t1,tags,rs,rsMethod='mean',verbose=False):
+        #### load the data
+        dfs={}
+        empty_tags=[]
+        for t in tags:
+            filename=os.path.join(self.folderPkl,rsMethod,t+'.pkl')
+            if verbose:print_file(filename,log_file=self.lo)
+            if os.path.exists(filename):
+                s=pd.read_pickle(filename)
+                dfs[t]=s[~s.index.duplicated(keep='first')]
+            else:
+                empty_tags+=[t]
+
+        if len(dfs)==0:
+            return pd.DataFrame(columns=dfs.keys())
+        df=pd.concat(dfs,axis=1)
+        df=df[(df.index>=t0)&(df.index<=t1)]
+        for t in empty_tags:df[t]=np.nan
+
+        #### resample again according to the right method
+        if rsMethod=='min':
+            df=df.resample(rs).min()
+        elif rsMethod=='max':
+            df=df.resample(rs).max()
+        else:
+            if rsMethod=='mean':
+                df=df.resample(rs).mean()
+            elif rsMethod=='median':
+                df=df.resample(rs).median()
+            elif rsMethod=='forwardfill':
+                df=df.resample(rs).ffill()
+            elif rsMethod=='nearest':
+                df=df.resample(rs).nearest()
+        return df
