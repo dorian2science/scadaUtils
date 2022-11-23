@@ -33,6 +33,13 @@ class Dashboard():
             init_parameters={},version_dashboard='',
             max_nb_pts=500*1000,rs_min_coarse=5*60,nb_days_min_coarse=3,
         ):
+        '''
+        Instanciate a dashboard to monitor data.
+        - cfg: instance of type comUtils.VisualisationMaster
+        - log_dir:log directory where to put the logs
+        - root_path:path of the directory where the static and templates files are.
+        '''
+
         cfg.styles = ['default'] + cfg.utils.styles
         self.fig_wh=780
         self.cfg=cfg
