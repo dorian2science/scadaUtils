@@ -238,6 +238,9 @@ class Dashboard():
 
 class StaticDashboard(Dashboard):
     def __init__(self,*args,**kwargs):
+        '''
+        see Dashboard
+        '''
         Dashboard.__init__(self,*args,**kwargs)
         self.rs_min_coarse=100000000
         self.nb_days_min_coarse=100000000

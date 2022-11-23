@@ -16,8 +16,7 @@ def create_sql_table(connParameters,db_table):
     conn.commit()
     conn.close()
 
-class Conf_Master():
-class Conf_generator(Conf_Master):
+class Conf_generator():
     def __init__(self,project_name,function_generator,project_folder=None):
         '''
         Class to generate a configuration with default folders and automatic creation of
@@ -92,19 +91,6 @@ class Conf_generator(Conf_Master):
         ###### load the rest of the Conf
         self._load_conf()
 
-        self.PARKING_TIME=eval(self.PARKING_TIME)
-        self.DB_PARAMETERS = {
-            'host'     : self.db_host,
-            'port'     : self.db_port,
-            'dbname'   : self.dbname,
-            'user'     : self.db_user,
-            'password' : self.db_password
-        }
-        del self.db_host,self.db_port,self.dbname,self.db_user,self.db_password
-
-        ###### create the REALTIME TABLE in the database if it does not exist
-        create_sql_table(self.DB_PARAMETERS,self.DB_TABLE)
-        
     def generate_conf(self):
         f = open(self._file_conf_pkl,'wb')
         start=time.time()
@@ -243,3 +229,19 @@ class Conf_generator(Conf_Master):
     def getTagsTU(self,patTag,units=None,*args,**kwargs):
         if not units : units = self.listUnits
         return FS.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
+
+class Conf_generator_RT(Conf_generator):
+    def __init__(self,*args,**kwargs):
+        Conf_generator.__init__(self,*args,**kwargs)
+        self.PARKING_TIME=eval(self.PARKING_TIME)
+        self.DB_PARAMETERS = {
+            'host'     : self.db_host,
+            'port'     : self.db_port,
+            'dbname'   : self.dbname,
+            'user'     : self.db_user,
+            'password' : self.db_password
+        }
+        del self.db_host,self.db_port,self.dbname,self.db_user,self.db_password
+
+        ###### create the REALTIME TABLE in the database if it does not exist
+        create_sql_table(self.DB_PARAMETERS,self.DB_TABLE)
