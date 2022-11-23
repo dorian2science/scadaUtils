@@ -1967,14 +1967,15 @@ class VisualisatorStatic(VisualisationMaster):
         self.methods = STREAMER.methods
         self.dfplc = dfplc
         self.folderPkl = folderPkl
+        self.log_file=None
 
     def loadtags_period(self,t0,t1,tags,rs,rsMethod='mean',verbose=False):
         #### load the data
         dfs={}
         empty_tags=[]
         for t in tags:
-            filename=os.path.join(self.folderPkl,rsMethod,t+'.pkl')
-            if verbose:print_file(filename,log_file=self.lo)
+            filename=os.path.join(self.folderPkl,t+'.pkl')
+            if verbose:print_file(filename,log_file=self.log_file)
             if os.path.exists(filename):
                 s=pd.read_pickle(filename)
                 dfs[t]=s[~s.index.duplicated(keep='first')]
