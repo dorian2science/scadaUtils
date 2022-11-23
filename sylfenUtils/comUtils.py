@@ -1933,6 +1933,7 @@ class Fix_daily_data():
     ########### PUBLIC
 
     def load_raw_tag_period(self,tag,t0,t1,*args,**kwargs):
+        '''*args,**kwargs : see _load_raw_tag_day'''
         t=t0
         dfs=[]
         while t<=t1:
@@ -1941,6 +1942,7 @@ class Fix_daily_data():
         return dfs
 
     def load_raw_tags_day(self,tags,day,*args,**kwargs):
+        '''*args,**kwargs : see _load_raw_tag_day'''
         return {tag:self._load_raw_tag_day(tag,day,*args,**kwargs) for tag in tags}
 
     def applyCorrectFormat_day(self,day,dtypes,*args,**kwargs):
