@@ -51,7 +51,7 @@ class Conf_generator():
 
         ## copy the DEFAULT PARAMETERS file as the parameters File into the user folder
         if not os.path.exists(self.file_parameters):
-            _default_file_parameters= os.path.join(self._lib_sylfenUtils_path,'conf/parameters.default.conf')
+            _default_file_parameters= os.path.join(self._lib_sylfenUtils_path,'conf/parameters'+self._realtime+'.default.conf')
             # sp.run('cp ' + _default_file_parameters + ' ' + self.file_parameters,shell=True)
             shutil.copy(_default_file_parameters,self.file_parameters)
 
@@ -230,9 +230,16 @@ class Conf_generator():
         if not units : units = self.listUnits
         return FS.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
 
+class Conf_generator_Static(Conf_generator):
+    def __init__(self,*args,**kwargs):
+        self._realtime=''
+        Conf_generator.__init__(self,*args,**kwargs)
+
 class Conf_generator_RT(Conf_generator):
     def __init__(self,*args,**kwargs):
+        self._realtime='_RT'
         Conf_generator.__init__(self,*args,**kwargs)
+
         self.PARKING_TIME=eval(self.PARKING_TIME)
         self.DB_PARAMETERS = {
             'host'     : self.db_host,

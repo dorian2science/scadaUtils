@@ -5,7 +5,7 @@ import numpy as np,pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from string import ascii_letters,digits
-from sylfenUtils.comUtils import (timenowstd,computetimeshow)
+from sylfenUtils.comUtils import (timenowstd,computetimeshow,print_file)
 from sylfenUtils.Conf_generator import create_folder_if_not
 NOTIFS={
     'too_many_datapoints':''' TOO MANY DATAPOINTS\n
@@ -70,7 +70,7 @@ class Dashboard():
         if not 'categories' in init_par_keys:init_parameters['categories']=cfg.usefulTags.index.to_list()
         if not 'rsMethods' in init_par_keys:init_parameters['rsMethods']=cfg.methods
         if not 'tags' in init_par_keys:init_parameters['tags']=[]
-        if not 'fig_name' in init_par_keys:init_parameters['fig_name']='prout'
+        if not 'fig_name' in init_par_keys:init_parameters['fig_name']='Change me '
         if not 'rs' in init_par_keys:init_parameters['rs']='60s'
         if not 'time_window' in init_par_keys:init_parameters['time_window']='120'
         if not 'title' in init_par_keys:init_parameters['title']=app_name
@@ -145,7 +145,7 @@ class Dashboard():
         return json.dumps(self.init_parameters)
 
     def generate_fig(self):
-        debug=False
+        debug=True
         notif=200
         try:
             start=time.time()
@@ -171,7 +171,7 @@ class Dashboard():
                 df = self.cfg.load_coarse_data(t0,t1,tags,rs=rs,rsMethod=rsMethod)
             else:
                 df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False,pool=pool)
-
+            print(df)
             if df.empty:
                 notif=NOTIFS['no_data']
                 raise Exception('no data')
@@ -250,4 +250,4 @@ class StaticDashboard(Dashboard):
         '''
         Dashboard.__init__(self,*args,**kwargs)
         self.rs_min_coarse=100000000
-        self.nb_days_min_coarse=100000000
+        self.nb_days_min_coarse=100000
