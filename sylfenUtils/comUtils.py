@@ -1969,37 +1969,24 @@ class VisualisatorStatic(VisualisationMaster):
         self.folderPkl = folderPkl
         self.log_file=None
 
-    def loadtags_period(self,t0,t1,tags,rs,rsMethod='mean',verbose=False):
-        #### load the data
-        dfs={}
-        empty_tags=[]
-        for t in tags:
-            filename=os.path.join(self.folderPkl,t+'.pkl')
-            if verbose:print_file(filename,log_file=self.log_file)
-            if os.path.exists(filename):
-                s=pd.read_pickle(filename)
-                dfs[t]=s[~s.index.duplicated(keep='first')]
-            else:
-                empty_tags+=[t]
+    def loadtags_period(self,t0,t1,tags,*args,pool='auto',verbose=False,**kwargs):
+        """
+        Loads tags between times t0  and t1.
 
-        if len(dfs)==0:
-            return pd.DataFrame(columns=dfs.keys())
-        df=pd.concat(dfs,axis=1)
-        df=df[(df.index>=t0)&(df.index<=t1)]
-        for t in empty_tags:df[t]=np.nan
+        :Parameters:
+            t0,t1 : [pd.Timestamp]
+                Timestamps, t0 start and t1 end.
+            tags : [list]
+                List of tags available from self.dfplc.listtags
 
-        #### resample again according to the right method
-        if rsMethod=='min':
-            df=df.resample(rs).min()
-        elif rsMethod=='max':
-            df=df.resample(rs).max()
-        else:
-            if rsMethod=='mean':
-                df=df.resample(rs).mean()
-            elif rsMethod=='median':
-                df=df.resample(rs).median()
-            elif rsMethod=='forwardfill':
-                df=df.resample(rs).ffill()
-            elif rsMethod=='nearest':
-                df=df.resample(rs).nearest()
-        return df
+        :return:
+            pd.DataFrame with ntags columns
+
+        :see also:
+            *args,**kwargs of VisualisationMaster.Streamer.process_tag
+        """
+        # for k in t0,t1,tags,args,kwargs:print_file(k)
+        tags=list(np.unique(tags))
+        ############ read parked data
+        df = STREAMER.load_parkedtags_daily(t0,t1,tags,self.folderPkl,*args,pool=pool,verbose=verbose,**kwargs)
+        return df.sort_index()
