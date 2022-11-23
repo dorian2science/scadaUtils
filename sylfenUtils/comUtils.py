@@ -1958,10 +1958,15 @@ class Fix_daily_data():
 
 class VisualisatorStatic(VisualisationMaster):
     def __init__(self,folderPkl,dfplc):
+        '''
+        Visualiser data of folderpkl
+        Parameters :
+        - folderPkl : path of the data
+        - dfplc : pandas dataframe with columns DESCRIPTION, UNITE, DATAYPE tags as index.
+        '''
         self.methods = STREAMER.methods
         self.dfplc = dfplc
         self.utils = folderPkl
-        VisualisationMaster.__init__(self,*args,**kwargs)
 
     def loadtags_period(self,t0,t1,tags,rs,rsMethod='mean',verbose=False):
         #### load the data
