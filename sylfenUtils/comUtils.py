@@ -1966,7 +1966,7 @@ class VisualisatorStatic(VisualisationMaster):
         '''
         self.methods = STREAMER.methods
         self.dfplc = dfplc
-        self.utils = folderPkl
+        self.folderPkl = folderPkl
 
     def loadtags_period(self,t0,t1,tags,rs,rsMethod='mean',verbose=False):
         #### load the data
