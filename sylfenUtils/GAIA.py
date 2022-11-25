@@ -53,7 +53,7 @@ class GAIA():
         if len(_initial_tags)==1:
             _initial_tags=_initial_tags[0]
             if _initial_tags.lower().strip()=='random':
-                _initial_tags=self.dfplc.sample(n=3).index.to_list()
+                _initial_tags=self.dfplc.sample(n=max(3,self.dfplc.index)).index.to_list()
             else:
                 _initial_tags=self.conf.getTagsTU(_initial_tags)
 
