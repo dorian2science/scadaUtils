@@ -385,7 +385,7 @@ class Device():
             print_file('no dfplc. Function unavailable.')
             return
         if not units : units = self.listUnits
-        return STREAMER.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
+        return FileSystem().getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
 
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from pymodbus.payload import BinaryPayloadDecoder
@@ -913,7 +913,6 @@ class Streamer(Basic_streamer):
         Basic_streamer.__init__(self,*args,**kwargs)
         self._format_dayFolder='%Y-%m-%d'
 
-
     def park_tags(self,df,tag,folder,dtype,showtag=False):
         if showtag:print_file(tag)
         dftag=df[df.tag==tag]['value'].astype(dtype)
@@ -1364,8 +1363,7 @@ class Configurator():
         '''
         Parameters:
         ------------------------
-        - conf : day or minute.
-        - parkingTime : how often data are parked and db flushed in seconds
+        - conf : an instance of sylfenUtils.ConfGenerator
         '''
         self.conf         = conf
         self.folderPkl    = conf.FOLDERPKL
@@ -1395,8 +1393,14 @@ class Configurator():
         return self.conf.getTagsTU(*args,**kwargs)
 
 class SuperDumper(Configurator):
-    def __init__(self,devices,*args,**kwargs):
-        Configurator.__init__(self,*args,**kwargs)
+    def __init__(self,devices,conf):
+        '''
+        Parameters:
+        ------------------------
+        - devices : dictionnary of device_name:comUtils.Device instances.
+        - conf : an instance of sylfenUtils.ConfGenerator
+        '''
+        Configurator.__init__(self,conf)
 
         self.parkingTimes = {}
         self.devices      = devices

@@ -4,7 +4,9 @@ from sylfenUtils.Simulators import SuperSimulator
 from sylfenUtils import GAIA
 importlib.reload(GAIA)
 
+## load some external parameters infos
 df_devices=pd.read_csv('data/dummy_devices.csv',index_col=0)
+## here we have some modbus, ads, http(meteo) devices
 df_devices['port']=[3505,6501]
 dummy_1_modbus_map=pd.read_excel('data/dummy_modbus_devices.ods',sheet_name='dummy1',index_col=0)
 dummy_2_modbus_map=pd.read_excel('data/dummy_modbus_devices.ods',sheet_name='dummy2',index_col=0)
