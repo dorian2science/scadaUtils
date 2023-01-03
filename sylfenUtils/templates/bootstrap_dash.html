@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="shortcut icon" href="{{ url_for('static', filename='/lib/sylfen_logo.ico') }}">
+
+  <link rel="stylesheet" href="../static/lib/css/styles.css">
+  <link rel="stylesheet" href="../static/lib/css/dropdown_filter.css">
+  <link rel="stylesheet" href="../static/lib/css/toggle_switch.css">
+
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+</head>
+
+<body>
+  <title>dashboard smallpower</title>
+  <div class="header">
+    <img width=120px src='../static/lib/pictures/logo_sylfen.png' alt='logo sylfen'>
+    <button onclick="pop_menu(this)" class="button_header" id='version_title'> {{ version_title }}</button>
+    <!-- <button onclick="pop_menu(this)" class="button_header" name="button_eq">show indicators</button> -->
+    <a class="button_header" href={{ helpmelink }} >help me!</a>
+  </div>
+  <!-- pop-ups of the header -->
+  <div class="center_pop_up" id="pop_indicators"></div>
+  <div class="center_pop_up" id="pop_version_info"></div>
+  <!-- internal pop=ups -->
+  <div class="center_pop_up" id="popup_listTags">
+    <div class="dropdown">
+      <textarea id="taglist" name="taglist" rows="40" cols="75"
+        value="d">
+      </textarea>
+    </div>
+    <button name=apply_changes onclick="apply_changes()">apply changes </button>
+  </div>
+
+  <!-- main container -->
+  <div class="container">
+    <div class="row">
+    <div class="col-2">
+      <div class="toggle_parameters" onclick="pop_param_div('toggle')" onmouseover="pop_param_div('appear')" onmouseout="pop_param_div('disappear')">
+        <span style="color: red;width:100%;" class="glyphicon glyphicon-chevron-right"></span>
+      </div>
+      <div class="parameters" >
+        <div name='buttons' class="">
+          <div class="row">
+            <div class="col-4">
+              <button class="btn btn-outline-primary" id="btn_update" type="button" onclick="fetch_figure()">get the data!</button>
+            </div>
+            <div class="col-4">
+              <button class='btn btn-outline-primary' id="btn_export" type="button" onclick="data2excel()">export to excel</button>
+            </div>
+          </div>
+          <div>
+        </div>
+        <div class='real_time_check' >
+          <span >Activate <b>REAL-TIME</b> refresh:</span>
+            <label class="switch">
+              <input type="checkbox" name='realtime_check' onclick="pop_menu_refresh(this)">
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class='refresh_parameters'>
+            <span >refresh time(in seconds):</span>
+            <input type="number" name="in_refresh_time" value=50>
+            <span style="display:inline-block">time window(in minutes):</span>
+            <input type="text" name="time_window" value='120'>
+          </div>
+      </div>
+        <div class="request_parameters">
+          <span class="small_title">data parameters:</span>
+          <p>select start and end time : </p>
+          <input id='datetimepicker' type="text" name="datetimes" />
+          <div class="mb3">
+            <label for="time resolution" class="form-label">time resolution</label>
+            <input type="text" value="10s" class="form-control" id="exampleFormControlInput1" placeholder="10s">
+          </div>
+
+          <p>select the resampling method: </p>
+          <select class="form-select" id="dd_resMethod"><select/>
+          <p>select your categorie:</p>
+          <select class="dd" name="dd_categorie" id="dd_categorie"></select>
+
+          <div class="mb3">
+            <label for="time list_tags" class="form-label">your list of tags</label>
+            <input type="text" value="10s" class="form-control" id="exampleFormControlInput1" placeholder="tags">
+          </div>
+
+            <input id="in_dd_y" type="text" placeholder="add a tag, search it.." class="in_dd_tag" onclick="show_tag_list(this)" onkeyup="filterTag(this)">
+            <div id="dd_y" class="dropdown-content"></div>
+
+            <button name=btn_add_tags onclick="pop_listTags_up()">enter your list of tags </button>
+          </div>
+
+          <table name="table_tags" id="table_tags" border="1" cellpadding="2">
+            <tr>
+                <td>delete</td>
+                <td><b>Tags selected</b></td>
+            </tr>
+          </table>
+
+          <p>add enveloppe(min max) for tag: </p>
+          <select class="dd" name="dd_enveloppe" id="dd_enveloppe" onchange="addEnveloppe()"></select>
+
+          <div class="">
+            <p>select x-axis: </p>
+            <select class="dd" id="select_dd_x"></select>
+            <input id="in_dd_x" type="text" placeholder="select your xaxis, search it.." class="in_dd_tag" onclick="show_tag_list(this)" onkeyup="filterTag(this)">
+            <div id="dd_x" class="dropdown-content"></div>
+        </div>
+      </div>
+
+        <p>select style: </p>
+        <select class="dd" id="dd_style" onchange="update_style_fig(this)"></select>
+
+
+        <div name='display legend' class="legend_para" id=legend_para>
+        <span><b>display legend mode:</b></span>
+        <!-- radio items defined in smallpower_dash.js -->
+      </div>
+    </div>
+    <div class="col-8">
+    <!-- <div class="fig_container"> -->
+      <input class='title_fig' onchange="change_title(this)"></input>
+      <div id=plotly_fig></div>
+    </div>
+  </div>
+</body>
+
+</html>
+
+<script type="text/javascript" src="../static/lib/js/dashboard.js"> </script>
+<script type="text/javascript" src="../static/local_dash.js"> </script>
+<script type="text/javascript">
+var STABLE_PARAMETERS_PANEL=true
+  function pop_param_div(action){
+    // console.log(action);
+    let fig_container=document.getElementsByClassName('fig_container')[0]
+    let param_div=document.getElementsByClassName('parameters')[0]
+    // console.log(param_div.style.display);
+
+    if (!STABLE_PARAMETERS_PANEL){
+      if (action=='appear'){
+        param_div.style.display='block'
+      }else if (action=='disappear')
+      {
+        param_div.style.display='none'
+      }
+    }
+    if (action=='toggle'){
+      if (!STABLE_PARAMETERS_PANEL){
+        param_div.style.display='block'
+        STABLE_PARAMETERS_PANEL=true
+        Plotly.relayout('plotly_fig', {'width': 1200});
+      } else {
+        param_div.style.display='none'
+        STABLE_PARAMETERS_PANEL=false
+        Plotly.relayout('plotly_fig', {'width': 1700});
+      }
+      // console.log('new STABLE_PARAMETERS_PANEL:'+STABLE_PARAMETERS_PANEL);
+    }
+  }
+</script>

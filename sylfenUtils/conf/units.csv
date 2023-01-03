@@ -1,6 +1,6 @@
-puissance,puissance active,puissance reactive,voltage,courant,temps,temperature,pression,distance,surface,volume,masse,energie,force,consigne,conductance,resistance,ratio
-W,VA,VAR,V,A,h,K,bar,m,m²,l,g,Wh,N,pts,S,Ohm,%
-CH,,,V DC,,min,°C,Pa,,,L,,J,kgF,TOR,,,
-W AC,,,,,s,°F,barg,,,m³,,,,,,,
-W DC,,,,,day,,psi,,,,,,,,,,
-Wth,,,,,,,,,,,,,,,,,
+"puissance","puissance active","puissance reactive","voltage","courant","temps","temperature","pression","distance","surface","volume","masse","energie","force","consigne","conductance","resistance","ratio","electrical capacity"
+"W","VA","VAR","V","A","h","K","bar","m","m2","l","g","Wh","N","pts","S","Ohm","%","C"
+"CH",,,"V DC",,"min","°C","Pa",,,"L",,"J","kgF","TOR",,,,"mAh"
+"W AC",,,,,"s","°F","barg",,,"m3",,,,,,,,"Wh"
+"W DC",,,,,"day",,"psi",,,,,,,,,,,
+"Wth",,,,,,,,,,,,,,,,,,

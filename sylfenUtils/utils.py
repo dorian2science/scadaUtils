@@ -43,7 +43,10 @@ class Graphics():
         return res
 
     def sample_colorscale(self,N,colorscale='jet'):
+        if colorscale=='Alphabet':
+            return [c for k,c in zip(range(len(groups)),px.color.qualitative.Alphabet)]
         return px.colors.sample_colorscale(colorscale,np.linspace(0,1,N))
+
 
     def updateColorMap(self,fig,listCols=None):
         if listCols is None:
@@ -174,6 +177,7 @@ class Graphics():
                 line=dict(color = col,dash=dfGroups.loc[trace,'line'])
                 ))
         fig.update_yaxes(showgrid=False)
+        fig.update_xaxes(title=df.index.name)
         return fig
 
     def multiUnitGraphSubPlots(self,df,dictdictGroups,**kwargs):

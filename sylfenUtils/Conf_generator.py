@@ -113,8 +113,8 @@ class Conf_generator():
 
     ####### private ####
     def _load_conf(self):
-        _appdir    = os.path.dirname(os.path.realpath(__file__))
-        exists_conf=False
+        _appdir     =  os.path.dirname(os.path.realpath(__file__))
+        exists_conf = False
         if os.path.exists(self._file_conf_pkl):
             print('configuration file',self._file_conf_pkl,'found!')
             exists_conf=True

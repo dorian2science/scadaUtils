@@ -251,6 +251,11 @@ class Device():
         if not self.dfplc is None:
             self.listUnits = self.dfplc.UNITE.dropna().unique().tolist()
             self.alltags   = list(self.dfplc.index)
+            self._get_frequencies()
+
+    def _get_frequencies(self,):
+        col_freq='FREQUENCE_ECHANTILLONNAGE'
+        self.tags_freqs = {freq: group.index for freq, group in self.dfplc.groupby(col_freq)}
 
     def __auto_reconnect(self):
         while not self._kill_auto_connect.is_set():
@@ -580,6 +585,83 @@ class Opcua_Client(Device):
         values = self._client.get_values(nodes.values())
         ts = pd.Timestamp.now(tz=tz).isoformat()
         data = {tag:{'value':val,'timestampz':ts} for tag,val in zip(nodes.keys(),values)}
+        return data
+
+import pyads
+class ADS_Client(Device):
+    def __init__(self,*args,port=851,**kwargs):
+        Device.__init__(self,*args,port=port,**kwargs)
+        self.ip   = self.ip
+        self.TARGET_IP = self.ip + '.1.1'
+        self.plc  = pyads.Connection(self.TARGET_IP,self.port)
+
+    def detect_tag_pb(self,result='pb_tags',timeDebug=False):
+        '''
+        Parameters
+        ------------
+            - result :{'vals','pbs','pb_tags'}.
+                "vals" will return all valid values
+                "pbs" all problematic tags with error messages
+                "pb_tags" only problematic tags
+        '''
+        pbs,vals={},{}
+        tags=self.alltags
+        start=time.time()
+        self.connectDevice()
+        for k,t in enumerate(tags):
+            try:
+                vals[t]=self.plc.read_by_name('GVL.'+t)
+            except Exception as e:
+                pbs[k]={'tag':t,'error':e}
+
+        if timeDebug:print(time.time()-start)
+
+        if result=='pb_tags':
+            return [v['tag'] for k,v in pbs.items()]
+        elif result=='vals':
+            return vals
+        elif result=='pbs':
+            return pbs
+
+    def _get_machine_ip(self):
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip_local=s.getsockname()[0]
+        s.close()
+        return ip_local
+
+    def _initialize_route(self,username="Administrator",password="1"):
+        import socket
+        # def set_up_route_to_beckhoff():
+        # create some constants for connection
+        CLIENT_IP = self._get_machine_ip()
+        CLIENT_NETID =CLIENT_IP +".1.1"
+        TARGET_IP = self.TARGET_IP
+        TARGET_USERNAME = username
+        TARGET_PASSWORD = password
+        ROUTE_NAME = 'route_to_'+socket.gethostname()
+
+        # pyads.add_route_to_plc(
+        #     CLIENT_NETID, CLIENT_IP, TARGET_IP, TARGET_USERNAME, TARGET_PASSWORD,
+        #     route_name=ROUTE_NAME
+        # )
+        return locals()
+
+    def connectDevice(self):
+        try:
+            self.plc.open()
+            self.plc.read_state()
+            self.isConnected=True
+        except:
+            self.isConnected=False
+        return self.isConnected
+
+    def collectData(self,tz,tags):
+        listtags=['GVL.'+t for t in tags]
+        ts = pd.Timestamp.now(tz=tz).isoformat()
+        values=self.plc.read_list_by_name(listtags).values()
+        data = {tag:{'value':val,'timestampz':ts} for tag,val in zip(tags,values)}
         return data
 
 import urllib.request, json
@@ -1527,7 +1609,7 @@ class SuperDumper_daily(SuperDumper):
             t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
             t1 = t0 + pd.Timedelta(days=1)
             dfday=df[(df.index>=t0)&(df.index<t1)]
-            folderday=self.folderPkl + d +'/'
+            folderday=os.path.join(self.folderPkl,d)
             #### create folder if necessary
             if not os.path.exists(folderday):os.mkdir(folderday)
             #################################
