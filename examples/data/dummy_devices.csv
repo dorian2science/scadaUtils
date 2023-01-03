@@ -1,0 +1,3 @@
+device,protocole,IP,byte_order,word_order,port,statut
+dummy1,modbus,localhost,big,big,3502,actif
+dummy2,modbus,localhost,big,little,6500,actif

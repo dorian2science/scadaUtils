@@ -1,51 +1,41 @@
-from sylfenUtils import comUtils
-import os,sys,re, pandas as pd,numpy as np
-import importlib
+#!/usr/bin/env python
+# coding: utf-8
+import importlib,os
+import sylfenUtils.comUtils as comUtils
+from test_confGenerator import conf
+
 importlib.reload(comUtils)
+cfg=comUtils.VisualisationMaster_daily(conf)
 
-### load the conf
-from test_conf import Conf_dummy
-conf=Conf_dummy()
+def test_load_tags_period():
+    tags=cfg.getTagsTU('[PT]T.*H2O')
+    t1=pd.Timestamp.now(tz='CET')
+    t0=t1-pd.Timedelta(hours=2)
+    df=cfg.loadtags_period(t0,t1,tags,rs='2s',rsMethod='mean')
+    df
+    from sylfenUtils.utils import Graphics
+    Graphics().multiUnitGraph(df).show()
 
-from sylfenUtils.comUtils import VisualisationMaster_daily
-cfg=VisualisationMaster_daily(
-    conf.FOLDERPKL,
-    conf.DB_PARAMETERS,
-    conf.PARKING_TIME,
-    dbTable=conf.DB_TABLE,
-    tz_record=conf.TZ_RECORD
-)
-cfg.dfplc=conf.df_plc ### required to use the function getTagsTU
-cfg.listUnits=list(cfg.dfplc['UNITE'].unique())
-
+root_folder=os.path.join(conf.project_folder,'dashboard')
+import sylfenUtils.dashboard as dashboard
+importlib.reload(dashboard)
 init_parameters={
     'tags':cfg.getTagsTU('[PTF]T.*H2O'),
     'fig_name':'temperatures, pressures, and mass flows',
-    'rs':'2s',
-    'time_window':str(20),
+    'rs':'30s',
+    'time_window':str(2*60),
     'delay_minutes':0,
     'log_versions':None #you can enter the relative path of (in folder static) a .md file summarizing some evolution in your code.
 }
-
-from sylfenUtils import dashboard
-dashboard_folder=conf.project_folder+'/dashboard/'
-conf.create_dashboard_links(dashboard_folder)
-APP_NAME='dummy_app'
 dash=dashboard.Dashboard(
     cfg,
     conf.LOG_FOLDER,
-    root_path=dashboard_folder,
-    app_name=APP_NAME,
+    root_folder,
+    app_name='dummy_app',
     init_parameters=init_parameters,
     plot_function=cfg.utils.multiUnitGraph, ## you can use your own function to display the data
-    version_dashboard='1.0'
-    )
-
+    version_dashboard='1.0')
 dash.helpmelink='' ### you can precise a url link on how to use the web interface
 dash.fig_wh=780### size of the figure
-
-@dash.app.route('/example', methods=['GET'])
-def example_extension():
-    print('this is a test')
-
-dash.app.run(host='0.0.0.0',debug=False,use_reloader=False)
+port_app=15000
+dash.app.run(host='0.0.0.0',port=port_app,debug=False,use_reloader=False)

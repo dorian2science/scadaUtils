@@ -12,11 +12,12 @@ class Simulator():
     - a function "writeInRegisters" to feed the data.
     - a function "shutdown_server" to shutdown the server.
     '''
-    def __init__(self,speedflowdata=500,volatilitySimu=5):
+    def __init__(self,simulator_name,speedflowdata=500,volatilitySimu=5):
         '''
         - speedflowdata : single data trigger event in ms
         - volatilitySimu : how much random variation (absolute units)
         '''
+        self.simulator_name = simulator_name
         self.volatilitySimu = volatilitySimu
         self.speedflowdata = speedflowdata
         # self.server_thread = threading.Thread(target=self.serve)
@@ -35,7 +36,7 @@ class Simulator():
         print("Start server...")
         # self.server_thread.start()
         # self.serve()
-        print("Server is online")
+        print("Server",self.simulator_name,"is online")
         self.feedingLoop()
         # self.feedingThread.start()
         # print("Server simulator is feeding")
@@ -91,9 +92,9 @@ class SimulatorModeBus(Simulator):
     def start(self):
         print("Start server...")
         self.server_thread.start()
-        print("Server is online")
+        print("Server",self.simulator_name,"is online")
         self.feedingThread.start()
-        print("Server simulator is feeding")
+        print("Server simulator",self.simulator_name, "is feeding")
 
     def writeInRegisters(self):
         for tag,d in self.modbus_map.T.to_dict().items():
@@ -198,3 +199,25 @@ class SimulatorOPCUA(Simulator):
         # tagTest = 'SEH1.STB_STK_01.SN'
         # tagTest = 'SEH1.HPB_STG_01a_HER_03_JT_01.JTVAR_HC20'
         print(tagTest + ': ',self.nodeVariables[tagTest].get_value())
+
+class SuperSimulator():
+    def __init__(self,conf):
+        DEVICES = {}
+        devicesInfo=conf.df_devices.copy()
+        devicesInfo.columns=[k.lower() for k in devicesInfo.columns]
+        for device_name in devicesInfo[devicesInfo['protocole']=='modbus'].index:
+            d_info=devicesInfo.loc[device_name]
+            DEVICES[device_name]=SimulatorModeBus(
+                simulator_name=device_name,
+                port=d_info['port'],
+                modbus_map=conf.modbus_maps[device_name],
+                bo=d_info['byte_order'],
+                wo=d_info['word_order'],
+            )
+        self.devices=DEVICES
+    def start_device(self,device_name):
+        self.devices[device_name].start()
+
+    def start_all_devices(self):
+        for d in self.devices.keys():
+            self.start_device(d)

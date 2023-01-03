@@ -5,7 +5,7 @@ import numpy as np,pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from string import ascii_letters,digits
-from sylfenUtils.comUtils import (timenowstd,computetimeshow)
+from sylfenUtils.comUtils import (timenowstd,computetimeshow,print_file)
 from sylfenUtils.Conf_generator import create_folder_if_not
 NOTIFS={
     'too_many_datapoints':''' TOO MANY DATAPOINTS\n
@@ -33,6 +33,13 @@ class Dashboard():
             init_parameters={},version_dashboard='',
             max_nb_pts=500*1000,rs_min_coarse=5*60,nb_days_min_coarse=3,
         ):
+        '''
+        Instanciate a dashboard to monitor data.
+        - cfg: instance of type comUtils.VisualisationMaster
+        - log_dir:log directory where to put the logs
+        - root_path:path of the directory where the static and templates files are.
+        '''
+
         cfg.styles = ['default'] + cfg.utils.styles
         self.fig_wh=780
         self.cfg=cfg
@@ -63,7 +70,7 @@ class Dashboard():
         if not 'categories' in init_par_keys:init_parameters['categories']=cfg.usefulTags.index.to_list()
         if not 'rsMethods' in init_par_keys:init_parameters['rsMethods']=cfg.methods
         if not 'tags' in init_par_keys:init_parameters['tags']=[]
-        if not 'fig_name' in init_par_keys:init_parameters['fig_name']='prout'
+        if not 'fig_name' in init_par_keys:init_parameters['fig_name']='Change me '
         if not 'rs' in init_par_keys:init_parameters['rs']='60s'
         if not 'time_window' in init_par_keys:init_parameters['time_window']='120'
         if not 'title' in init_par_keys:init_parameters['title']=app_name
@@ -138,64 +145,65 @@ class Dashboard():
         return json.dumps(self.init_parameters)
 
     def generate_fig(self):
-        debug=False
+        debug=True
         notif=200
-        try:
-            start=time.time()
-            data=request.get_data()
-            parameters=json.loads(data.decode())
-            if debug:print_file(parameters)
+        # try:
+        start=time.time()
+        data=request.get_data()
+        parameters=json.loads(data.decode())
+        if debug:print_file(parameters)
 
-            t0,t1=[pd.Timestamp(t,tz='CET') for t in parameters['timerange'].split(' - ')]
-            tag_x=parameters['x']
+        t0,t1=[pd.Timestamp(t,tz='CET') for t in parameters['timerange'].split(' - ')]
+        tag_x=parameters['x']
 
-            if debug:print_file('t0,t1:',t0,t1)
-            tags = parameters['tags']
-            if not tag_x.lower()=='time':tags+=[tag_x]
-            if parameters['categorie'] in self.cfg.usefulTags.index.to_list():
-                tags+=self.cfg.getUsefulTags(parameters['categorie'])
-            if debug:print_file('alltags:',tags)
-            rs,rsMethod=parameters['rs_time'],parameters['rs_method']
+        if debug:print_file('t0,t1:',t0,t1)
+        tags = parameters['tags']
+        if not tag_x.lower()=='time':tags+=[tag_x]
+        if parameters['categorie'] in self.cfg.usefulTags.index.to_list():
+            tags+=self.cfg.getUsefulTags(parameters['categorie'])
+        if debug:print_file('alltags:',tags)
+        rs,rsMethod=parameters['rs_time'],parameters['rs_method']
 
-            pool='auto'
-            ####### determine if it should be load with COARSE DATA or fine data
-            if pd.to_timedelta(rs)>=pd.Timedelta(seconds=self.rs_min_coarse) or t1-t0>pd.Timedelta(days=self.nb_days_min_coarse):
-                pool='coarse'
-                df = self.cfg.load_coarse_data(t0,t1,tags,rs=rs,rsMethod=rsMethod)
-            else:
-                df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False,pool=pool)
+        pool='auto'
+        ####### determine if it should be load with COARSE DATA or fine data
+        if pd.to_timedelta(rs)>=pd.Timedelta(seconds=self.rs_min_coarse) or t1-t0>pd.Timedelta(days=self.nb_days_min_coarse):
+            pool='coarse'
+            df = self.cfg.load_coarse_data(t0,t1,tags,rs=rs,rsMethod=rsMethod)
+        else:
+            print(tags)
+            df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False,pool=pool)
+            print(df)
+        if df.empty:
+            notif=NOTIFS['no_data']
+            raise Exception('no data')
 
-            if df.empty:
-                notif=NOTIFS['no_data']
-                raise Exception('no data')
 
+        ####### check that the request does not have TOO MANY DATAPOINTS
+        nb_datapoints=len(df)*len(df.columns)
+        if nb_datapoints>self.max_nb_pts:
+            df=self.cfg.auto_resample_df(df,self.max_nb_pts)
+            new_rs=df.index.freq.freqstr.replace('S',' seconds')
+            notif=NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)+' ').replace('YYY',new_rs).replace('AAA',str(self.max_nb_pts//1000))
+        if debug:print_file(df)
 
-            ####### check that the request does not have TOO MANY DATAPOINTS
-            nb_datapoints=len(df)*len(df.columns)
-            if nb_datapoints>self.max_nb_pts:
-                df=self.cfg.auto_resample_df(df,self.max_nb_pts)
-                new_rs=df.index.freq.freqstr.replace('S',' seconds')
-                notif=NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)+' ').replace('YYY',new_rs).replace('AAA',str(self.max_nb_pts//1000))
-            if debug:print_file(df)
+        if not tag_x.lower()=='time':
+            df.index=df[tag_x]
+            fig=self.plot_function(df)
+            fig.update_traces(hovertemplate='  x:%{x:.1f}<br>  y:%{y:.1f}')
+            fig.update_layout(xaxis_title=tag_x+ '('+self.cfg.getUnitofTag(tag_x) + ')')
+            fig.update_traces(mode='markers')
+        else:
+            fig=self.plot_function(df)
+        fig.update_layout(width=1260,height=750,legend_title='tags')
+        self.log_info(computetimeshow('fig generated with pool =' + str(pool),start))
 
-            if not tag_x.lower()=='time':
-                df.index=df[tag_x]
-                fig=self.plot_function(df)
-                fig.update_traces(hovertemplate='  x:%{x:.1f}<br>  y:%{y:.1f}')
-                fig.update_layout(xaxis_title=tag_x+ '('+self.cfg.getUnitofTag(tag_x) + ')')
-                fig.update_traces(mode='markers')
-            else:
-                fig=self.plot_function(df)
-            fig.update_layout(width=1260,height=750,legend_title='tags')
-            self.log_info(computetimeshow('fig generated with pool =' + str(pool),start))
-
-        except:
-            if notif==200:
-                notif='figure_generation_impossible'
-                error={'msg':' problem in the figure generation with generate_fig','code':1}
-                notif=NOTIFS[notif]
-                self.notify_error(sys.exc_info(),error)
-            fig=go.Figure()
+        # except:
+        #     if notif==200:
+        #         notif='figure_generation_impossible'
+        #         error={'msg':' problem in the figure generation with generate_fig','code':1}
+        #         notif=NOTIFS[notif]
+        #         self.notify_error(sys.exc_info(),error)
+        #     fig=go.Figure()
         res={'fig':fig.to_json(),'notif':notif}
         return jsonify(res)
 
@@ -235,3 +243,12 @@ class Dashboard():
             error={'msg':'impossible to send the description names','code':1}
             self.notify_error(sys.exc_info(),error)
             return error,201
+
+class StaticDashboard(Dashboard):
+    def __init__(self,*args,**kwargs):
+        '''
+        see Dashboard
+        '''
+        Dashboard.__init__(self,*args,**kwargs)
+        self.rs_min_coarse=100000000
+        self.nb_days_min_coarse=100000
