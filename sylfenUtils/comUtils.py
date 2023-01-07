@@ -20,11 +20,6 @@ computetimeshow=lambda x,y:timenowstd() + ' : ' + x + ' in {:.2f} ms'.format((ti
 from inspect import currentframe, getframeinfo
 from colorama import Fore
 FORMAT_DAY_FOLDER='%Y-%m-%d'
-def create_folder_if_not(folder_path,*args,**kwargs):
-    if not os.path.exists(folder_path):
-        os.mkdir(folder_path)
-        print_file('folder ' + folder_path + ' created!',*args,**kwargs)
-
 DATATYPES={
     'REAL': 'float',
     'float32': 'float',
@@ -37,7 +32,10 @@ DATATYPES={
     'int64' : 'int',
     'STRING(40)': 'string'
      }
-FORMAT_DAY_FOLDER='%Y-%m-%d'
+def create_folder_if_not(folder_path,*args,**kwargs):
+    if not os.path.exists(folder_path):
+        os.mkdir(folder_path)
+        print_file('folder ' + folder_path + ' created!',*args,**kwargs)
 
 def create_folder_if_not(folder_path,*args,**kwargs):
     if not os.path.exists(folder_path):
@@ -614,11 +612,18 @@ class Opcua_Client(Device):
 
 import pyads
 class ADS_Client(Device):
-    def __init__(self,*args,port=851,**kwargs):
+    def __init__(self,*args,port=851,check_values=False,**kwargs):
         Device.__init__(self,*args,port=port,**kwargs)
         self.ip   = self.ip
         self.TARGET_IP = self.ip + '.1.1'
         self.plc  = pyads.Connection(self.TARGET_IP,self.port)
+        if check_values:
+            tags=self.detect_tag_pb()
+            if len(tags)>0:
+                print_file('problem with those tags',tags,'\n','-'*60,'\n',
+                    'THE PROGRAMM HAD TO KILL.',
+                    filename=self.log_file)
+                sys.exit()
 
     def detect_tag_pb(self,result='pb_tags',timeDebug=False):
         '''
@@ -681,6 +686,11 @@ class ADS_Client(Device):
         except:
             self.isConnected=False
         return self.isConnected
+
+    def close_connection(self):
+        self.plc.close()
+        self.plc.read_state()
+        self.isConnected=False
 
     def collectData(self,tz,tags):
         listtags=['GVL.'+t for t in tags]
@@ -1544,8 +1554,10 @@ class SuperDumper_daily(SuperDumper):
         time.sleep(1-now.microsecond/1000000)
 
         ######## start dumping
+        print('here')
         print_file(timenowstd(),': START DUMPING',filename=self.log_file,with_infos=False)
         for device,dictIntervals in self.dumpInterval.items():
+            print_file(device,'is being start',filename=self.log_file)
             self.devices[device].start_auto_reconnect()
             for freq in dictIntervals.keys():
                 self.dumpInterval[device][freq].start()
@@ -1837,7 +1849,6 @@ class VisualisationMaster(Configurator):
         fig.update_yaxes(matches=None)
         return fig
 
-
 class VisualisationMaster_daily(VisualisationMaster):
     def __init__(self,*args,**kwargs):
         VisualisationMaster.__init__(self,*args,**kwargs)
@@ -1956,6 +1967,7 @@ class Fix_daily_data():
         - conf:should be a sylfenUtils.ConfGenerator object
         '''
         self.conf=conf
+        self._format_day_folder=FORMAT_DAY_FOLDER
         self.checkFolder=os.path.join(os.path.abspath(os.path.join(conf.FOLDERPKL,os.pardir)),conf.project_name+'_fix')
         create_folder_if_not(self.checkFolder)
 
