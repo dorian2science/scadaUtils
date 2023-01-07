@@ -663,20 +663,19 @@ class ADS_Client(Device):
 
     def _initialize_route(self,username="Administrator",password="1"):
         import socket
-        # def set_up_route_to_beckhoff():
         # create some constants for connection
-        CLIENT_IP = self._get_machine_ip()
-        CLIENT_NETID =CLIENT_IP +".1.1"
-        TARGET_IP = self.TARGET_IP
+        CLIENT_IP       = self._get_machine_ip()
+        CLIENT_NETID    = CLIENT_IP +".1.1"
+        HOST_IP         = self.ip
         TARGET_USERNAME = username
         TARGET_PASSWORD = password
-        ROUTE_NAME = 'route_to_'+socket.gethostname()
+        ROUTE_NAME      = 'route_to_'+socket.gethostname()
 
-        # pyads.add_route_to_plc(
-        #     CLIENT_NETID, CLIENT_IP, TARGET_IP, TARGET_USERNAME, TARGET_PASSWORD,
-        #     route_name=ROUTE_NAME
-        # )
-        return locals()
+        pyads.add_route_to_plc(
+            CLIENT_NETID, CLIENT_IP, HOST_IP, TARGET_USERNAME, TARGET_PASSWORD,
+            route_name=ROUTE_NAME
+        )
+        # return locals()
 
     def connectDevice(self):
         try:
