@@ -256,8 +256,7 @@ class Device():
         self.port              = port
         self.log_file          = log_file
         self.isConnected       = False
-        self._auto_connect     = False
-        self._kill_auto_connect= threading.Event()
+        self._auto_connect     = threading.Event()
         if time_outs_reconnection is None:
             time_outs_reconnection=[(2,k) for k in [3,5,10,30,60,60*2,60*5,60*10,60*20,60*30,60*40,60*50]]
             # time_outs_reconnection=[(1,k) for k in [1]]
@@ -266,24 +265,16 @@ class Device():
         self._timeOuts_counter  = 0
         self._current_trial     = 0
         self._current_timeOut   = self._time_outs_reconnection[0][1]
-        self._thread_reconnection = threading.Thread(target=self.__auto_reconnect)
 
         self.dfplc = dfplc
         self._collectingTimes,self._insertingTimes  = {},{}
         if not self.dfplc is None:
             self.listUnits = self.dfplc.UNITE.dropna().unique().tolist()
-            self.alltags   = list(self.dfplc.index)
             self._get_frequencies()
 
     def _get_frequencies(self,):
         col_freq='FREQUENCE_ECHANTILLONNAGE'
         self.tags_freqs = {freq: group.index for freq, group in self.dfplc.groupby(col_freq)}
-
-    def __auto_reconnect(self):
-        while not self._kill_auto_connect.is_set():
-            while self._auto_connect:
-                self._checkConnection()
-                self._kill_auto_connect.wait(self._current_timeOut)
 
     def connectDevice(self,state=None):
         if state is None:self.isConnected=np.random.randint(0,2)==1
@@ -291,40 +282,40 @@ class Device():
         return self.isConnected
 
     def start_auto_reconnect(self):
+        if self._auto_connect.is_set():
+            self.stop_auto_reconnect()
+        self._auto_connect.clear()
         self.connectDevice()
-        self._auto_connect=True
+        self._thread_reconnection = threading.Thread(target=self._checkConnection)
         self._thread_reconnection.start()
 
     def stop_auto_reconnect(self):
-        self._auto_connect=False
-
-    def kill_auto_reconnect(self):
-        self._auto_connect=False
-        self._kill_auto_connect.set()
+        self._auto_connect.set()
         self._thread_reconnection.join()
 
     def _checkConnection(self):
-        # print_file('checking if device still connected')
-        if not self.isConnected:
-            self._current_trial+=1
-            nb_trials,self._current_timeOut = self._time_outs_reconnection[self._timeOuts_counter]
-            if self._current_trial>nb_trials:
-                self._timeOuts_counter+=1
-                self._current_trial=0
-                self._checkConnection()
-                return
+        while not self._auto_connect.wait(self._current_timeOut):
+            # print_file('checking if device still connected')
+            if not self.isConnected:
+                self._current_trial+=1
+                nb_trials,self._current_timeOut = self._time_outs_reconnection[self._timeOuts_counter]
+                if self._current_trial>nb_trials:
+                    self._timeOuts_counter+=1
+                    self._current_trial=0
+                    self._checkConnection()
+                    return
 
-            full_msg='-'*60+'\n'
-            if self.connectDevice():
-                self._timeOuts_counter  = 0
-                self._current_timeOut   = self._time_outs_reconnection[0][1]
-                self._current_trial     = 0
-                msg=timenowstd()+' : Connexion to '+self.device_name+' established again!!'
-            else :
-                msg=timenowstd()+' : --> impossible to connect to device '+self.device_name
-                msg+='. Try new connection in ' + str(self._current_timeOut) + ' seconds'
+                full_msg='-'*60+'\n'
+                if self.connectDevice():
+                    self._timeOuts_counter  = 0
+                    self._current_timeOut   = self._time_outs_reconnection[0][1]
+                    self._current_trial     = 0
+                    msg=timenowstd()+' : Connexion to '+self.device_name+' established again!!'
+                else :
+                    msg=timenowstd()+' : --> impossible to connect to device '+self.device_name
+                    msg+='. Try new connection in ' + str(self._current_timeOut) + ' seconds'
 
-            print_file(full_msg+msg+'-'*60+'\n',filename=self.log_file)
+                print_file(full_msg+msg+'-'*60+'\n',filename=self.log_file)
 
     def _generate_sql_insert_tag(self,tag,value,timestampz,dbTable):
         '''
@@ -373,7 +364,7 @@ class Device():
         dbconn.close()
 
     def createRandomInitalTagValues(self):
-        return STREAMER.createRandomInitalTagValues(self.alltags,self.dfplc)
+        return STREAMER.createRandomInitalTagValues(list(self.device.index),self.dfplc)
 
     def getUnitofTag(self,tag):
         return STREAMER.getUnitofTag(tag,self.dfplc)
@@ -578,7 +569,7 @@ class Opcua_Client(Device):
         self.endpointurl = self._protocole + '://' +self.ip+":"+str(self.port)
         self._client     = opcua.Client(self.endpointurl)
         ####### load nodes
-        self._nodesDict  = {t:self._client.get_node(self._nameSpace + t) for t in self.alltags}
+        self._nodesDict  = {t:self._client.get_node(self._nameSpace + t) for t in list(self.dfplc.index)}
         self._nodes      = list(self._nodesDict.values())
 
     def loadPLC_file(self):
@@ -635,7 +626,7 @@ class ADS_Client(Device):
                 "pb_tags" only problematic tags
         '''
         pbs,vals={},{}
-        tags=self.alltags
+        tags=list(self.dfplc.index)
         start=time.time()
         self.connectDevice()
         for k,t in enumerate(tags):
