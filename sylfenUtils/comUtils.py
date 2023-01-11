@@ -216,9 +216,16 @@ class FileSystem():
             return df
 
 class SetInterval:
-    '''demarre sur un multiple de interval.col
-    Saute donc les données intermédiaires si la tâche prends plus de temps
-    que l'intervalle pour démarrer sur à pile.'''
+    ''' Démarre la fonction "action" tous les "interval" secondes.
+    Démarre sur un multiple de interval. Saute donc des appels intermédiaires si
+    l'action prends plus de temps pour que l'intervalle pour démarrer à pile.
+
+    Parameters:
+    --------------
+        - interval : le temps en secondes entre 2 appels
+        - action : la fonction a éxécuter
+        - *args : les arguments à passer à la fonction action.
+    '''
     def __init__(self,interval,action,*args):
         self.argsAction=args
         self.interval  = interval
@@ -239,6 +246,7 @@ class SetInterval:
 
     def stop(self):
         self.stopEvent.set()
+        self.thread.join()
 
 # #######################
 # #      DEVICES        #
@@ -255,8 +263,9 @@ class Device():
         self.ip                = ip
         self.port              = port
         self.log_file          = log_file
-        self.isConnected       = False
+        self._isConnected       = False
         self._auto_connect     = threading.Event()
+        self._auto_connect.set()
         if time_outs_reconnection is None:
             time_outs_reconnection=[(2,k) for k in [3,5,10,30,60,60*2,60*5,60*10,60*20,60*30,60*40,60*50]]
             # time_outs_reconnection=[(1,k) for k in [1]]
@@ -274,12 +283,14 @@ class Device():
 
     def _get_frequencies(self,):
         col_freq='FREQUENCE_ECHANTILLONNAGE'
+        # self.tags_freqs = {freq: list(group.index) for freq, group in self.dfplc.groupby(col_freq)}
         self.tags_freqs = {freq: group.index for freq, group in self.dfplc.groupby(col_freq)}
+        return self.tags_freqs
 
     def connectDevice(self,state=None):
-        if state is None:self.isConnected=np.random.randint(0,2)==1
-        else:self.isConnected=state
-        return self.isConnected
+        if state is None:self._isConnected=np.random.randint(0,2)==1
+        else:self._isConnected=state
+        return self._isConnected
 
     def start_auto_reconnect(self):
         if self._auto_connect.is_set():
@@ -290,13 +301,14 @@ class Device():
         self._thread_reconnection.start()
 
     def stop_auto_reconnect(self):
-        self._auto_connect.set()
-        self._thread_reconnection.join()
+        if not self._auto_connect.is_set():
+            self._auto_connect.set()
+            self._thread_reconnection.join()
 
     def _checkConnection(self):
         while not self._auto_connect.wait(self._current_timeOut):
             # print_file('checking if device still connected')
-            if not self.isConnected:
+            if not self._isConnected:
                 self._current_trial+=1
                 nb_trials,self._current_timeOut = self._time_outs_reconnection[self._timeOuts_counter]
                 if self._current_trial>nb_trials:
@@ -310,7 +322,7 @@ class Device():
                     self._timeOuts_counter  = 0
                     self._current_timeOut   = self._time_outs_reconnection[0][1]
                     self._current_trial     = 0
-                    msg=timenowstd()+' : Connexion to '+self.device_name+' established again!!'
+                    msg=timenowstd()+' : Connexion to '+self.device_name+' established again!!\n'
                 else :
                     msg=timenowstd()+' : --> impossible to connect to device '+self.device_name
                     msg+='. Try new connection in ' + str(self._current_timeOut) + ' seconds'
@@ -329,9 +341,11 @@ class Device():
 
     def insert_intodb(self,dbParameters,dbTable,*args,**kwargs):
         '''
-        insert into database data that are collected with self.collectData.
-        dfplc attribute should not be None.
-        *args : arguments of self.collectData
+        Insert into database data that are collected with self.collectData.
+        Parameters :
+        ------------------
+            - dfplc attribute should not be None.
+            - *args,**kwargs : arguments of self.collectData
         '''
         if self.dfplc is None:return
         ##### connect to database ########
@@ -344,14 +358,16 @@ class Device():
         cur  = dbconn.cursor()
         start=time.time()
         ##### check that device is connected ########
-        if not self.isConnected:
+        if not self._isConnected:
             return
         ##### collect data ########
         try:
+            # print_file(locals())
             data = self.collectData(*args,**kwargs)
+            # print_file(data)
         except:
             print_file(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.',filename=self.log_file)
-            self.isConnected = False
+            self._isConnected = False
             return
         self._collectingTimes[timenowstd()] = (time.time()-start)*1000
         ##### generate sql insertion and insert ########
@@ -376,6 +392,15 @@ class Device():
         if not units : units = self.listUnits
         return FileSystem().getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
 
+    def get_connection_status(self):
+        print('is connected'.ljust(50),self._isConnected)
+        reconnecting=not self._auto_connect.is_set()
+        print('is trying reconnection'.ljust(50),reconnecting)
+        if reconnecting:
+            print('next reconnection in :'.ljust(50),self._current_timeOut,'seconds')
+            print('trial at that frequency :'.ljust(50),self._current_trial)
+            print('for infos it will try to reconnect following this timeout :',self._time_outs_reconnection)
+
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from pymodbus.payload import BinaryPayloadDecoder
 from pymodbus.constants import Endian
@@ -390,12 +415,12 @@ class ModbusDevice(Device):
         self._client = ModbusClient(host=self.ip,port=int(self.port))
 
     def connectDevice(self):
-        self.isConnected=False
+        self._isConnected=False
         try:
-            self.isConnected=self._client.connect()
+            self._isConnected=self._client.connect()
         except:
-            self.isConnected=False
-        return self.isConnected
+            self._isConnected=False
+        return self._isConnected
 
     def quick_modbus_single_register_decoder(self,reg,nbs,dtype,unit=1):
         self._client.connect()
@@ -589,10 +614,10 @@ class Opcua_Client(Device):
     def connectDevice(self):
         try:
             self._client.connect()
-            self.isConnected=True
+            self._isConnected=True
         except:
-            self.isConnected=False
-        return self.isConnected
+            self._isConnected=False
+        return self._isConnected
 
     def collectData(self,tz,tags):
         nodes = {t:self._nodesDict[t] for t in tags}
@@ -615,6 +640,12 @@ class ADS_Client(Device):
                     'THE PROGRAMM HAD TO KILL.',
                     filename=self.log_file)
                 sys.exit()
+
+    def drop_unreadable_tags(self,tags2Remove=None):
+        if tags2Remove is None:
+            tags2Remove=self.detect_tag_pb()
+        self.dfplc=self.dfplc.drop(tags2Remove)
+        self._get_frequencies()
 
     def detect_tag_pb(self,result='pb_tags',timeDebug=False):
         '''
@@ -672,21 +703,21 @@ class ADS_Client(Device):
         try:
             self.plc.open()
             self.plc.read_state()
-            self.isConnected=True
+            self._isConnected=True
         except:
-            self.isConnected=False
-        return self.isConnected
+            self._isConnected=False
+        return self._isConnected
 
     def close_connection(self):
         self.plc.close()
         self.plc.read_state()
-        self.isConnected=False
+        self._isConnected=False
 
     def collectData(self,tz,tags):
         listtags=['GVL.'+t for t in tags]
         ts = pd.Timestamp.now(tz=tz).isoformat()
-        values=self.plc.read_list_by_name(listtags).values()
-        data = {tag:{'value':val,'timestampz':ts} for tag,val in zip(tags,values)}
+        values=self.plc.read_list_by_name(listtags)
+        data = {tag.strip('GVL.'):{'value':val,'timestampz':ts} for tag,val in values.items()}
         return data
 
 import urllib.request, json
@@ -734,11 +765,11 @@ class Meteo(Device):
         try:
             request = urllib.request.urlopen('https://api.openweathermap.org/',timeout=2)
             print_file("Meteo : Connected to the meteo server.",filename=self.log_file)
-            self.isConnected=True
+            self._isConnected=True
         except:
             print_file("Meteo : No internet connection or server not available.",filename=self.log_file)
-            self.isConnected=False
-        return self.isConnected
+            self._isConnected=False
+        return self._isConnected
 
     def collectData(self,tz='CET',tags=None):
         df = pd.concat([self.get_dfMeteo(city,tz) for city in self.cities])
@@ -833,11 +864,11 @@ class Meteo_Client(Device):
         try:
             request = urllib.request.urlopen('https://api.openweathermap.org/',timeout=2)
             print_file("Meteo : Connected to the meteo server.",filename=self.log_file)
-            self.isConnected=True
+            self._isConnected=True
         except:
             print_file("Meteo : No internet connection or server not available.",filename=self.log_file)
-            self.isConnected=False
-        return self.isConnected
+            self._isConnected=False
+        return self._isConnected
 
     def collectData(self,tz='CET',tags=None):
         df = pd.concat([self.get_dfMeteo(city,tz) for city in self.cities])
@@ -1406,30 +1437,64 @@ class SuperDumper(Configurator):
         self.devices      = devices
         self.log_file     = os.path.join(self.conf.LOG_FOLDER,self.conf.project_name+'_dumper.log')
         self.alltags      = list(self.dfplc.index)
-
-        self.dumpInterval = {}
-        self.parkInterval = SetInterval(self.parkingTime,self.park_database)
-        ###### DOUBLE LOOP of setIntervals for devices/acquisition-frequencies
-
+        self.jobs = {}
         print_file(' '*20+'INSTANCIATION OF THE DUMPER'+'\n',filename=self.log_file,with_infos=False)
-        for device_name,device in self.devices.items():
-            freqs = device.dfplc['FREQUENCE_ECHANTILLONNAGE'].unique()
-            device_dumps={}
-            for freq in freqs:
-                print_file(device_name,' : ',freq*1000,'ms',filename=self.log_file,with_infos=False)
-                tags = list(device.dfplc[device.dfplc['FREQUENCE_ECHANTILLONNAGE']==freq].index)
-                device_dumps[freq] = SetInterval(freq,device.insert_intodb,self.dbParameters,self.dbTable,self.tz_record,tags)
 
-            self.dumpInterval[device_name] = device_dumps
+    def _stop_auto_reconnect_all(self):
+        for device_name,device in self.devices.items():
+            device.stop_auto_reconnect()
+
+    def start_job(self,device_name,freq):
+        '''
+        Parameters:
+        -------------
+            - freq should be in seconds
+        '''
+        device=self.devices[device_name]
+        job_name=device_name+'_' + str(freq) + 's'
+        if job_name in list(self.jobs.keys()):
+            self.stop_job(job_name)
+        tags=device.tags_freqs[freq]
+        self.jobs[job_name]=SetInterval(
+            freq,
+            device.insert_intodb,
+            self.dbParameters,
+            self.dbTable,
+            self.tz_record,
+            tags
+        )
+        ######## start dumping
+        device.start_auto_reconnect()
+        print_file(job_name,'is starting',filename=self.log_file)
+        self.jobs[job_name].start()
+
+    def stop_job(self,job_name,del_item=True):
+        '''
+        Parameters:
+        -------------
+            - job_name: device_name + '_' + freq + 's'
+        '''
+        if job_name in list(self.jobs.keys()):
+            self.jobs[job_name].stop()
+            if del_item:del self.jobs[job_name]
+            print_file(job_name,'deleted',filename=self.log_file)
 
     def read_db(self,*args,**kwargs):
+        '''
+        see comUtils.read_db?
+        '''
         return read_db(self.dbParameters,self.dbTable,*args,**kwargs)
 
-    def flushdb(self,t,full=False):
+    def flushdb(self,t=None):
+        '''
+        Parameters :
+        ------------
+            - t:[str] timestamp. Everything before this timestamp will be deleted from the db.
+        '''
         connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
         dbconn = psycopg2.connect(connReq)
         cur  = dbconn.cursor()
-        if full:
+        if t is None:
             cur.execute("DELETE from " + self.dbTable + ";")
         else :
             cur.execute("DELETE from " + self.dbTable + " where timestampz < '" + t + "';")
@@ -1513,7 +1578,7 @@ class SuperDumper(Configurator):
         df=df.set_index('timestampz')
         return df
 
-    def checkTimes(self,name_device):
+    def _checkTimes(self,name_device):
         def dict2df(d,name):
             df=pd.Series(d,name='value').sort_values().to_frame()
             df['group']=name
@@ -1526,41 +1591,77 @@ class SuperDumper(Configurator):
         p = 1. * np.arange(len(s_collect))
         fig = px.histogram(df, x="value", color="group",hover_data=df.columns,nbins=20)
         return fig
-    # ########################
-    #       SCHEDULERS       #
-    # ########################
 
     def stop_dumping(self):
-        for device,dictIntervals in self.dumpInterval.items():
-            self.devices[device].stop_auto_reconnect()
-            for freq in dictIntervals.keys():
-                self.dumpInterval[device][freq].stop()
-        self.parkInterval.stop()
+        for job_name in self.jobs.keys():
+            self.stop_job(job_name,False)
+        self.jobs={}
+        if hasattr(self,'parkInterval'):
+            self.parkInterval.stop()
+        self._stop_auto_reconnect_all()
+
+    def collectData(self,tags):
+        ### determine to which device each tag belongs
+        tags_devices=pd.Series({t:dev_name for dev_name,dev in self.devices.items() for t in tags if t in dev.dfplc.index},name='tags')
+        ### make dictionnary out of it device_name:listTags
+        tags_devices={dev:group.index.to_list() for dev,group in tags_devices.to_frame().groupby('tags')}
+        ### call the different collectData
+        df={}
+        for dev_name,dev_tags in tags_devices.items():
+            device=self.devices[dev_name]
+            if not device.isConnected:
+                device.connectDevice()
+            df[dev_name]=device.collectData(self.tz_record,dev_tags)
+        ### concatenate
+        df=pd.concat([pd.DataFrame(s) for s in df.values()]).T
+        return df
 
 class SuperDumper_daily(SuperDumper):
-    def start_dumping(self):
-        now = pd.Timestamp.now(tz='CET')
-        ##### start the schedulers at H:M:S:00 petante! #####
-        time.sleep(1-now.microsecond/1000000)
-
-        ######## start dumping
-        print('here')
+    def start_dumping(self,park_on_time=True):
+        '''
+        Parameters
+        ----------------
+            - park_on_time:[bool] if True it will wait for the parking to start at a round time.
+            For example if it is 11:17 and parkingTime is 10 minutes, it will wait until 11:20 to start parking the data.
+        '''
+        import time
         print_file(timenowstd(),': START DUMPING',filename=self.log_file,with_infos=False)
-        for device,dictIntervals in self.dumpInterval.items():
-            print_file(device,'is being start',filename=self.log_file)
-            self.devices[device].start_auto_reconnect()
-            for freq in dictIntervals.keys():
-                self.dumpInterval[device][freq].start()
+        self.jobs = {}
+        for device_name,device in self.devices.items():#### loop on devices
+            min_freq=min(device.tags_freqs.keys())
+            for freq in device.tags_freqs.keys():#### loop on frequencies
+                job_name=device_name+'_'+str(freq)+'s'
+                time.sleep(min_freq+np.pi/1000)#### just in order not to start the requests simultaneously.
+                self.start_job(device_name,freq)
 
         ######## start parking on time
-        now = pd.Timestamp.now(tz='CET')
-        # now = pd.Timestamp.now('2022-02-10 16:52:15',tz='CET')
-        timer = 60-now.second
-        print_file('parking should start at ',now +pd.Timedelta(seconds=timer),filename=self.log_file,with_infos=False)
-        # time.sleep(timer)
+        if park_on_time:
+            now = pd.Timestamp.now(tz=self.tz_record)
+            next_round_minute_on_clock=now.ceil(str(self.parkingTime)+'s')
+            time.sleep((next_round_minute_on_clock-now).total_seconds())
         print_file(timenowstd(),': START PARKING',filename=self.log_file,with_infos=False)
+        self.parkInterval = SetInterval(self.parkingTime,self.park_database)
         self.parkInterval.start()
 
+    def format_tag(self):
+        df=df.set_index('timestampz').tz_convert(self.tz_record)
+        tmin,tmax = df.index.min().strftime('%Y-%m-%d'),df.index.max().strftime('%Y-%m-%d')
+        listdays=[k.strftime(self._format_dayFolder) for k in pd.date_range(tmin,tmax)]
+        #### in case they are several days
+        for d in listdays:
+            t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
+            t1 = t0 + pd.Timedelta(days=1)
+            dfday=df[(df.index>=t0)&(df.index<t1)]
+            folderday=os.path.join(self.folderPkl,d)
+            #### create folder if necessary
+            if not os.path.exists(folderday):os.mkdir(folderday)
+            #################################
+            #           park now            #
+            #################################
+            start=time.time()
+            dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
+            self.parktagfromdb(tag,dftag,folderday)
+        
     def park_single_tag_DB_URGENT(self,tag,deleteFromDb=False):
         print_file(tag)
         start = time.time()

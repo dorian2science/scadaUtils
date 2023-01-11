@@ -101,3 +101,13 @@ class GAIA():
 
     def run_GUI(self,*args,**kwargs):
         self._dashboard.app.run(host='0.0.0.0',*args,**kwargs)
+
+class Test_GAIA():
+    def __init__(self,gaia):
+        '''
+        Parameters
+        -----------
+        - gaia[Gaia]
+        '''
+        self.gaia=gaia
+    
