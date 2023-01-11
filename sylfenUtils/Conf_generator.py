@@ -101,8 +101,10 @@ class Conf_generator():
         #### make sure the user has created a dfplc attribute.
         #### if not try to create it from modbus maps.
         if 'dfplc' not in conf_objs.keys():
+            print_file(conf_objs.keys())
             if 'modbus_maps' in conf_objs.keys():
                 from sylfenUtils.comUtils import dfplc_from_modbusmap
+                # print_file(conf_objs['modbus_maps'])
                 plcs_mb={device_name:dfplc_from_modbusmap(map) for device_name,map in conf_objs['modbus_maps'].items()}
 
                 if not 'plcs' in conf_objs.keys():
@@ -114,6 +116,7 @@ class Conf_generator():
                 print('-'*60,'\nIt looks like your function_generator does not include a valid dfplc attribute or modbus_maps attribute.')
                 print('A standard dfplc attribute is mandatory to be able to use all the methods and features.\n','-'*60)
                 return
+
         conf_objs['listUnits'] = conf_objs['dfplc'].UNITE.dropna().unique().tolist()
         pickle.dump(conf_objs,f)
         f.close()

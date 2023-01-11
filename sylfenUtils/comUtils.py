@@ -69,7 +69,7 @@ def html_table(df,title='table',useLinux=True):
     if useLinux:
         path_linux='/tmp/table.html'
     else:
-        path_linux=os.path.join(os.curdir(),'table.html')
+        path_linux=os.path.join(os.curdir,'table.html')
     f=open(path_linux,'w')
     f.write('<h1>'+title+'</h1>')
     if isinstance(df,pd.Series):df=df.to_frame()
@@ -412,7 +412,7 @@ class ModbusDevice(Device):
     def __init__(self,ip,port=502,device_name='',modbus_map=None,bo='big',wo='big',**kwargs):
         self.modbus_map = modbus_map
         self.byte_order,self.word_order = bo,wo
-        dfplc=dfplc_from_modbusmap(modbus_map)
+        dfplc=dfplc_from_modbusmap(self.modbus_map)
         Device.__init__(self,device_name,ip,port,dfplc,**kwargs)
         if not self.modbus_map is None:
             self.slave_ids = list(self.modbus_map.slave_unit.unique())
@@ -630,8 +630,8 @@ class Opcua_Client(Device):
         data = {tag:{'value':val,'timestampz':ts} for tag,val in zip(nodes.keys(),values)}
         return data
 
+import pyads
 class ADS_Client(Device):
-    import pyads
     def __init__(self,*args,port=851,check_values=False,**kwargs):
         Device.__init__(self,*args,port=port,**kwargs)
         self.ip   = self.ip
