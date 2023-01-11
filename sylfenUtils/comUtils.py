@@ -65,11 +65,10 @@ def print_error(tb,filename=None):
         res=re.match('(.*.py")(.*line \d+)(.*)',exc_format[k]).groups()
         ff+=Fore.RED + res[0]+Fore.BLUE+res[1]+Fore.GREEN + res[2] + Fore.WHITE + '\n'
     print_file(ff,exc_format[-1],with_infos=False,filename=filename)
-def html_table(df,title='table',os='linux'):
-    if os=='linux':
+def html_table(df,title='table',useLinux=True):
+    if useLinux:
         path_linux='/tmp/table.html'
-    if os=='windows':
-
+    else:
         path_linux=os.path.join(os.curdir(),'table.html')
     f=open(path_linux,'w')
     f.write('<h1>'+title+'</h1>')
