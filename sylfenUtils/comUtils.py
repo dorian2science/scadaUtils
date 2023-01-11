@@ -626,8 +626,8 @@ class Opcua_Client(Device):
         data = {tag:{'value':val,'timestampz':ts} for tag,val in zip(nodes.keys(),values)}
         return data
 
-import pyads
 class ADS_Client(Device):
+    import pyads
     def __init__(self,*args,port=851,check_values=False,**kwargs):
         Device.__init__(self,*args,port=port,**kwargs)
         self.ip   = self.ip
@@ -1661,7 +1661,7 @@ class SuperDumper_daily(SuperDumper):
             start=time.time()
             dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
             self.parktagfromdb(tag,dftag,folderday)
-        
+
     def park_single_tag_DB_URGENT(self,tag,deleteFromDb=False):
         print_file(tag)
         start = time.time()
