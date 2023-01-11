@@ -65,13 +65,18 @@ def print_error(tb,filename=None):
         res=re.match('(.*.py")(.*line \d+)(.*)',exc_format[k]).groups()
         ff+=Fore.RED + res[0]+Fore.BLUE+res[1]+Fore.GREEN + res[2] + Fore.WHITE + '\n'
     print_file(ff,exc_format[-1],with_infos=False,filename=filename)
-def html_table(df,title='table'):
-    f=open('/tmp/table.html','w')
+def html_table(df,title='table',os='linux'):
+    if os=='linux':
+        path_linux='/tmp/table.html'
+    if os=='windows':
+
+        path_linux=os.path.join(os.curdir(),'table.html')
+    f=open(path_linux,'w')
     f.write('<h1>'+title+'</h1>')
     if isinstance(df,pd.Series):df=df.to_frame()
     df.to_html(f)
     f.close()
-    sp.run('firefox /tmp/table.html',shell=True)
+    sp.run('firefox '+path_linux,shell=True)
 def read_db(db_parameters,db_table,t=None,tagPat=None,debug=False):
     '''
     read the database.
