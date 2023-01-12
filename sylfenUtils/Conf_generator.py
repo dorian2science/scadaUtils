@@ -26,12 +26,12 @@ class Conf_generator():
 
         Parameters
         -----------------
-        - project_name:name of the project. Important if default folder are being used and project_folder is None.
-        - function_generator : function that generates a list of objects needed for a project. Should return a dictionnary with at least following keys:
+        - project_name       :[str] name of the project. Important if default folder are being used and project_folder is None.
+        - function_generator :[function] Function that generates a list of objects needed for a project. Should return a dictionnary with at least following keys:
             * df_devices : a dataframe containing the information of the devices (device_name,protocole,IP,port,table_link) and byte_order word_order for modbus protocole.
             * dfplc      : dataframe with columns DESCRIPTION, UNITE, DATAYPE, FREQUENCY and tags as index.
             * and/or modbus_maps(only if there are modbus devices): dictionnary. Keys are the names of devices and value is the corresponding modbus map.
-        - project_folder(optional) : path of the folder where the parameters.conf file, the log folder, the dashboard ...
+        - project_folder(optional):[str] path of the folder where the parameters.conf file, the log folder, the dashboard ...
         are going to be stored.
         '''
         self.project_name=project_name

@@ -1635,7 +1635,7 @@ class SuperDumper_daily(SuperDumper):
             min_freq=min(device.tags_freqs.keys())
             for freq in device.tags_freqs.keys():#### loop on frequencies
                 job_name=device_name+'_'+str(freq)+'s'
-                time.sleep(min_freq+np.pi/1000)#### just in order not to start the requests simultaneously.
+                time.sleep(np.pi/1000)#### just in order not to start the requests simultaneously.
                 self.start_job(device_name,freq)
 
         ######## start parking on time
@@ -1977,7 +1977,7 @@ class VisualisationMaster_daily(VisualisationMaster):
         empty_tags=[]
         for t in tags:
             filename=os.path.join(self.folder_coarse,rsMethod,t+'.pkl')
-            if verbose:print_file(filename,log_file=self.lo)
+            if verbose:print_file(filename)
             if os.path.exists(filename):
                 s=pd.read_pickle(filename)
                 dfs[t]=s[~s.index.duplicated(keep='first')]

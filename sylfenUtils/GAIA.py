@@ -40,6 +40,14 @@ def build_devices(df_devices,modbus_maps=None,opcua_plcs=None):
 
 class GAIA():
     def __init__(self,*args,root_folder=None,**kwargs):
+        '''
+        Super instance that create a project from scratch to dump data from devices,
+        load, visualize, and serve those data on a web GUI.
+        Parameters:
+        -----------------
+            - *args,**kwargs : see Conf_generator arguments
+            - root_folder : [str] root_folder of the dashboard web service.
+        '''
         self.conf=Conf_generator(*args,**kwargs)
         self.dfplc=self.conf.dfplc
         #### INITIALIZE DEVICES
@@ -110,4 +118,3 @@ class Test_GAIA():
         - gaia[Gaia]
         '''
         self.gaia=gaia
-    
