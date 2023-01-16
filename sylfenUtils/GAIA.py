@@ -11,11 +11,10 @@ from . import utils
 # him that he can modifiy this file at any time. Then tell him to systemctl restart GAIA.py.
 ### Make sure the user can only have one instance of GAIA.py running
 ##
-def build_devices(df_devices,modbus_maps=None,opcua_plcs=None):
+def build_devices(df_devices,modbus_maps=None,plcs=None):
     DEVICES = {}
     devicesInfo=df_devices.copy()
     devicesInfo.columns=[k.lower() for k in devicesInfo.columns]
-    ###### MODBUS DEVICES
     for device_name in devicesInfo[devicesInfo['protocole']=='modbus'].index:
         d_info=devicesInfo.loc[device_name]
         DEVICES[device_name]=comUtils.ModbusDevice(
@@ -26,15 +25,22 @@ def build_devices(df_devices,modbus_maps=None,opcua_plcs=None):
             bo=d_info['byte_order'],
             wo=d_info['word_order'],
         )
-    ###### OPCUA DEVICES
     for device_name in devicesInfo[devicesInfo['protocole']=='opcua'].index:
         d_info=devicesInfo.loc[device_name]
         DEVICES[device_name]=comUtils.Opcua_Client(
             device_name=device_name,
             ip=d_info['ip'],
             port=d_info['port'],
-            dfplc=opcua_plcs[device_name],
+            dfplc=plcs[device_name],
             nameSpace=d_info['namespace'],
+        )
+    for device_name in devicesInfo[devicesInfo['protocole']=='ads'].index:
+        d_info=devicesInfo.loc[device_name]
+        DEVICES[device_name]=comUtils.ADS_Client(
+            device_name=device_name,
+            ip=d_info['ip'],
+            port=d_info['port'],
+            dfplc=plcs[device_name],
         )
     return DEVICES
 
@@ -103,6 +109,9 @@ class GAIA():
 
     def read_db(self,*args,**kwargs):
         return self._dumper.read_db(*args,**kwargs)
+
+    def flush_db(self,*args,**kwargs):
+        return self._dumper.flushdb(*args,**kwargs)
 
     def park_database(self,*args,**kwargs):
         return self._dumper.park_database(*args,**kwargs)

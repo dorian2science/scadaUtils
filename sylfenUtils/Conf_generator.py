@@ -87,9 +87,10 @@ class Conf_generator():
         if self.LOG_FOLDER=='default':self.LOG_FOLDER=os.path.join(self.project_folder,'log/')
         create_folder_if_not(self.LOG_FOLDER)
 
-
         ###### load the rest of the Conf
         self._load_conf()
+        if hasattr(self,'useful_tags'):
+            self.tag_categories={cat:self.getTagsTU(pattern) for cat,pattern in self.useful_tags.to_dict()['Pattern'].items()}
 
     def generate_conf(self):
         f = open(self._file_conf_pkl,'wb')

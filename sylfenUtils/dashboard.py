@@ -84,6 +84,7 @@ class Dashboard():
         # ###############
         @self.app.route('/', methods=['GET'])
         def main_viewport():
+            print_file(self.root_path)
             return render_template('dashboard.html',
                 helpmelink=self.helpmelink,
                 version_title=self.app_name+' '+self.version_dashboard,
@@ -121,6 +122,9 @@ class Dashboard():
         static_folder=os.path.join(root_folder,'static')
         if not os.path.exists(static_folder):
             shutil.copytree(os.path.join(sylfenUtils_env_dir,'static'),static_folder)
+        lib_folder=os.path.join(static_folder,'lib')
+        if not os.path.exists(lib_folder):
+            shutil.copytree(os.path.join(sylfenUtils_env_dir,'static/lib'),lib_folder)
             print('static files have been copied into ',root_folder)
 
 
@@ -145,7 +149,7 @@ class Dashboard():
         return json.dumps(self.init_parameters)
 
     def generate_fig(self):
-        debug=True
+        debug=False
         notif=200
         # try:
         start=time.time()

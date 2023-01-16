@@ -256,18 +256,27 @@ class SetInterval:
 # #      DEVICES        #
 # #######################
 class Device():
-    ''' for inheritance :
+    '''
+    Construtor: instanciate a device.
+    Parameters:
+    -------------
+        - device_name :[str] name of the device
+        - ip : [str] ip adress of the device
+        - port : [int] port of the connection of the device.
+        - log_file : [str]:path of the file where to log the infos. Default is None will return in the console.
+    For inheritance :
         - a function <collectData> should be written  to collect data from the device.
         - a function <connectDevice> to connect to the device.
     '''
     def __init__(self,device_name,ip,port,dfplc,time_outs_reconnection=None,log_file=None):
         STREAMER               = FileSystem()
         self._utils            = Utils()
+        self._protocole             = 'undefined'
         self.device_name       = device_name
         self.ip                = ip
         self.port              = port
         self.log_file          = log_file
-        self._isConnected       = False
+        self._isConnected      = False
         self._auto_connect     = threading.Event()
         self._auto_connect.set()
         if time_outs_reconnection is None:
@@ -329,7 +338,7 @@ class Device():
                     msg=timenowstd()+' : Connexion to '+self.device_name+' established again!!\n'
                 else :
                     msg=timenowstd()+' : --> impossible to connect to device '+self.device_name
-                    msg+='. Try new connection in ' + str(self._current_timeOut) + ' seconds'
+                    msg+='. Try new connection in ' + str(self._current_timeOut) + ' seconds\n'
 
                 print_file(full_msg+msg+'-'*60+'\n',filename=self.log_file)
 
@@ -352,6 +361,8 @@ class Device():
             - *args,**kwargs : arguments of self.collectData
         '''
         if self.dfplc is None:return
+        if not self._isConnected:
+            return
         ##### connect to database ########
         try :
             connReq = ''.join([k + "=" + v + " " for k,v in dbParameters.items()])
@@ -361,24 +372,23 @@ class Device():
             return
         cur  = dbconn.cursor()
         start=time.time()
-        ##### check that device is connected ########
-        if not self._isConnected:
-            return
         ##### collect data ########
-        try:
-            # print_file(locals())
-            data = self.collectData(*args,**kwargs)
-            # print_file(data)
-        except:
-            print_file(timenowstd(),' : ',self.device_name,' --> connexion to device impossible.',filename=self.log_file)
-            self._isConnected = False
+        data = self.collectData(*args,**kwargs)
+        if isinstance(data,str):
+            msg=timenowstd() + ' : ' + self.device_name
+            if data=='connection error':
+                msg+=' --> connexion to device impossible.'
+                self._isConnected = False
+            else:
+                msg+=' --> collectData was failing due:'+data
+            print_file(msg,filename=self.log_file)
             return
-        self._collectingTimes[timenowstd()] = (time.time()-start)*1000
+        self._collectingTimes[pd.Timestamp.now().strftime('%H:%M:%S.%f')[:-3]] = round((time.time()-start)*1000)
         ##### generate sql insertion and insert ########
         for tag in data.keys():
             sqlreq=self._generate_sql_insert_tag(tag,data[tag]['value'],data[tag]['timestampz'],dbTable)
             cur.execute(sqlreq)
-        self._insertingTimes[timenowstd()]= (time.time()-start)*1000
+        self._insertingTimes[pd.Timestamp.now().strftime('%H:%M:%S.%f')[:-3]]= round((time.time()-start)*1000)
         dbconn.commit()
         cur.close()
         dbconn.close()
@@ -414,6 +424,8 @@ class ModbusDevice(Device):
         self.byte_order,self.word_order = bo,wo
         dfplc=dfplc_from_modbusmap(self.modbus_map)
         Device.__init__(self,device_name,ip,port,dfplc,**kwargs)
+        self._protocole = 'modbus'
+
         if not self.modbus_map is None:
             self.slave_ids = list(self.modbus_map.slave_unit.unique())
         self._client = ModbusClient(host=self.ip,port=int(self.port))
@@ -452,21 +464,27 @@ class ModbusDevice(Device):
         - intaddress :  for the adress in decimal format
         - slave_unit : the slave unit
         '''
-        if self.modbus_map is None:
-            print_file('no modbus_map was selected. Collection not possible.')
-            return
-        d={}
-        bbs=[]
-        if tags is None:
-            tags=self.modbus_map.index.to_list()
-        local_modbus_map=self.modbus_map.loc[tags]
-        for unit_id in local_modbus_map.slave_unit.unique():
-            bloc=local_modbus_map[local_modbus_map.slave_unit==unit_id]
-            bb=self.decode_bloc_registers(bloc,unit_id)
-            bb['timestampz']=pd.Timestamp.now(tz=tz).isoformat()
-            bbs+=[bb]
-        d=pd.concat(bbs)[['value','timestampz']].T.to_dict()
-        return d
+        try:
+            if self.modbus_map is None:
+                print_file('no modbus_map was selected. Collection not possible.')
+                return
+            d={}
+            bbs=[]
+            if tags is None:
+                tags=self.modbus_map.index.to_list()
+            local_modbus_map=self.modbus_map.loc[tags]
+            for unit_id in local_modbus_map.slave_unit.unique():
+                bloc=local_modbus_map[local_modbus_map.slave_unit==unit_id]
+                bb=self.decode_bloc_registers(bloc,unit_id)
+                bb['timestampz']=pd.Timestamp.now(tz=tz).isoformat()
+                bbs+=[bb]
+            d=pd.concat(bbs)[['value','timestampz']].T.to_dict()
+            return d
+        except Exception as e:
+            if 'failed to connect' in e.string.lower().strip():
+                return 'connection error'
+            else:
+                return e.string
     #####################
     # PRIVATE FUNCTIONS #
     #####################
@@ -591,6 +609,7 @@ import opcua
 class Opcua_Client(Device):
     def __init__(self,*args,nameSpace,protocole='opc.tcp',**kwargs):
         Device.__init__(self,*args,**kwargs)
+        self._protocole = 'opcua'
 
         self._nameSpace = nameSpace
         self._protocole = protocole
@@ -634,9 +653,10 @@ import pyads
 class ADS_Client(Device):
     def __init__(self,*args,port=851,check_values=False,**kwargs):
         Device.__init__(self,*args,port=port,**kwargs)
-        self.ip   = self.ip
+        self._protocole = 'ads'
+        self.ip        = self.ip
         self.TARGET_IP = self.ip + '.1.1'
-        self.plc  = pyads.Connection(self.TARGET_IP,self.port)
+        self.plcs      = {f:pyads.Connection(self.TARGET_IP,self.port) for f in self.tags_freqs.keys()}
         if check_values:
             tags=self.detect_tag_pb()
             if len(tags)>0:
@@ -705,10 +725,13 @@ class ADS_Client(Device):
 
     def connectDevice(self):
         try:
-            self.plc.open()
-            self.plc.read_state()
+            for plc in self.plcs.values():
+                plc.open()
+                plc.read_state()
             self._isConnected=True
         except:
+        # except Exception as e:
+            # print_file(e.string)
             self._isConnected=False
         return self._isConnected
 
@@ -717,12 +740,28 @@ class ADS_Client(Device):
         self.plc.read_state()
         self._isConnected=False
 
-    def collectData(self,tz,tags):
+    def collectData(self,tz,tags,freq=None):
+        '''
+        - tz   :[str]timezone to use
+        - tags :[list] of tags
+        - freq :[float] if there are several connections to the device precise the unit.
+        '''
         listtags=['GVL.'+t for t in tags]
         ts = pd.Timestamp.now(tz=tz).isoformat()
-        values=self.plc.read_list_by_name(listtags)
-        data = {tag.strip('GVL.'):{'value':val,'timestampz':ts} for tag,val in values.items()}
-        return data
+        try:
+            if freq is None:freq=list(self.plcs.keys())[0]
+            values=self.plcs[freq].read_list_by_name(listtags)
+            data = {tag.strip('GVL.'):{'value':val,'timestampz':ts} for tag,val in values.items()}
+            return data
+        except Exception as e:
+            try:
+                if e.err_code==1864:## port not opened
+                    return 'connection error'
+                else:
+                    return e.msg
+            except:
+                print_file(e)
+                return 'internal error'
 
 import urllib.request, json
 class Meteo(Device):
@@ -1428,19 +1467,23 @@ class Configurator():
         return self.conf.getTagsTU(*args,**kwargs)
 
 class SuperDumper(Configurator):
-    def __init__(self,devices,conf):
+    def __init__(self,devices,conf,log_console=False):
         '''
         Parameters:
         ------------------------
-        - devices : dictionnary of device_name:comUtils.Device instances.
-        - conf : an instance of sylfenUtils.ConfGenerator
+        - devices : [dict] of device_name:comUtils.Device instances.
+        - conf :[sylfenUtils.ConfGenerator] a conf instance.
+        - log_console : [bool]. If True the infos will be displayed in the CLI(console)
+        otherwise in the log file in the folder of the project
         '''
         Configurator.__init__(self,conf)
 
         self.parkingTimes = {}
         self.devices      = devices
         self.log_file     = os.path.join(self.conf.LOG_FOLDER,self.conf.project_name+'_dumper.log')
-        self.alltags      = list(self.dfplc.index)
+        if log_console:
+            self.log_file=None
+        for dev in devices.values():dev.log_file=self.log_file
         self.jobs = {}
         print_file(' '*20+'INSTANCIATION OF THE DUMPER'+'\n',filename=self.log_file,with_infos=False)
 
@@ -1459,14 +1502,19 @@ class SuperDumper(Configurator):
         if job_name in list(self.jobs.keys()):
             self.stop_job(job_name)
         tags=device.tags_freqs[freq]
+        ### collect special arguments in case prototype of collectData function
+        # differs
+        args_collect_special=[]
+        if device._protocole=='ads': args_collect_special=[freq]
         self.jobs[job_name]=SetInterval(
             freq,
             device.insert_intodb,
             self.dbParameters,
             self.dbTable,
             self.tz_record,
-            tags
-        )
+            tags,
+            *args_collect_special
+            )
         ######## start dumping
         device.start_auto_reconnect()
         print_file(job_name,'is starting',filename=self.log_file)
@@ -1553,7 +1601,7 @@ class SuperDumper(Configurator):
 
     def generateRandomParkedData(self,t0,t1,vol=1.5,listTags=None):
         valInits = self.createRandomInitalTagValues()
-        if listTags==None:listTags=self.alltags
+        if listTags==None:listTags=list(self.dfplc.index)
         valInits = {tag:valInits[tag] for tag in listTags}
         df = {}
         for tag,initval in valInits.items():
@@ -1620,6 +1668,12 @@ class SuperDumper(Configurator):
         df=pd.concat([pd.DataFrame(s) for s in df.values()]).T
         return df
 
+    def quick_analysis(self,tagPat):
+        df=self.read_db(tagPat=tagPat).set_index('timestampz')
+        df['ms']=pd.Series(df.index).diff().apply(lambda k:k.total_seconds()*1000).to_list()
+        print(df.ms.describe(percentiles=[0.5,0.75,0.9,0.95]))
+        return df
+
 class SuperDumper_daily(SuperDumper):
     def start_dumping(self,park_on_time=True):
         '''
@@ -1635,7 +1689,6 @@ class SuperDumper_daily(SuperDumper):
             min_freq=min(device.tags_freqs.keys())
             for freq in device.tags_freqs.keys():#### loop on frequencies
                 job_name=device_name+'_'+str(freq)+'s'
-                time.sleep(np.pi/1000)#### just in order not to start the requests simultaneously.
                 self.start_job(device_name,freq)
 
         ######## start parking on time
@@ -1756,7 +1809,7 @@ class SuperDumper_daily(SuperDumper):
             folderday=os.path.join(self.folderPkl,d)
             #### create folder if necessary
             if not os.path.exists(folderday):os.mkdir(folderday)
-            for tag in self.alltags:
+            for tag in list(self.dfplc.index):
                 dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
                 self.parktagfromdb(tag,dftag,folderday,verbose=verbose)
 
@@ -2007,7 +2060,7 @@ class VisualisationMaster_daily(VisualisationMaster):
         return df
 
     def park_coarse_data(self,tags=None,*args,**kwargs):
-        if tags is None : tags=self.alltags
+        if tags is None : tags=list(self.dfplc.index)
         for tag in tags:
             try:
                 self._park_coarse_tag(tag,*args,**kwargs)
