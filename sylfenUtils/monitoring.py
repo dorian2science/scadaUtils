@@ -43,14 +43,13 @@ class Monitoring_dumper(SuperDumper_daily):
 
 class Monitoring_visu(VisualisationMaster_daily):
     def __init__(self,conf,**kwargs):
-        VisualisationMaster_daily.__init__(self,conf.FOLDERPKL,conf.DB_PARAMETERS,conf.PARKING_TIME,
-            tz_record=conf.TZ_RECORD,dbTable=conf.DB_TABLE,**kwargs)
+        VisualisationMaster_daily.__init__(self,conf,**kwargs)
 
         self.utils = Utils()
         self.conf  = conf
 
         self.usefulTags = conf.useful_tags
-        self.dfplc      = conf.df_plc
+        self.dfplc      = conf.dfplc
         self.alltags    = list(self.dfplc.index)
         self.listUnits  = self.dfplc.UNITE.dropna().unique().tolist()
 
