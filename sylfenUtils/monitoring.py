@@ -27,13 +27,13 @@ class Monitoring_dumper(SuperDumper_daily):
                 modbus_map=conf.modebus_maps[device_name]
                 modbus_map['frequency']=device['freq']
                 DEVICES[device_name] = ModbusDevice(
-                    device_name=device_name,
-                    ip=device['IP'],
-                    port=device['port'],
-                    modbus_map=modbus_map,
-                    bo=device['byte_order'],
-                    wo=device['word_order'],
-                    log_file=log_file_name
+                    device_name = device_name,
+                    ip          = device['IP'],
+                    port        = device['port'],
+                    modbus_map  = modbus_map,
+                    bo          = device['byte_order'],
+                    wo          = device['word_order'],
+                    log_file    = log_file_name
                 )
             elif device_name=='meteo':
                 DEVICES['meteo'] = Meteo_Client(conf.df_devices.loc['meteo'].freq,log_file=log_file_name)

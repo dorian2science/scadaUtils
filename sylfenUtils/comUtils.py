@@ -481,10 +481,12 @@ class ModbusDevice(Device):
             d=pd.concat(bbs)[['value','timestampz']].T.to_dict()
             return d
         except Exception as e:
-            if 'failed to connect' in e.string.lower().strip():
+            # if 'failed to connect' in e.string.lower().strip():
+            msg_err=e.args[0].lower().strip()
+            if 'failed to connect' in msg_err:
                 return 'connection error'
             else:
-                return e.string
+                return msg_err
     #####################
     # PRIVATE FUNCTIONS #
     #####################

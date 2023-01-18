@@ -10,6 +10,19 @@ from plotly.validators.scatter.line import DashValidator
 def flattenList(l):return [item for sublist in l for item in sublist]
 
 CONFDIR=os.path.dirname(os.path.realpath(__file__)) + '/conf'
+def delta_strftime(delta,format='H,M'):
+    '''
+    - delta:[float] in seconds
+    '''
+    delta=pd.Timedelta(seconds=delta)
+    total_seconds = delta.total_seconds()
+    # calculate hours, minutes, and seconds
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    # format the timedelta in desired format
+    if format=='H,M':
+        delta_str = "{:02d} hours {:02d} minutes".format(int(hours), int(minutes))
+    return delta_str
 
 
 class Graphics():
@@ -47,6 +60,31 @@ class Graphics():
             return [c for k,c in zip(range(len(groups)),px.color.qualitative.Alphabet)]
         return px.colors.sample_colorscale(colorscale,np.linspace(0,1,N))
 
+    def get_text_columns(self,df,hover_infos):
+        '''
+        prepare the text for hovering
+        - df : dataframe
+        - hover_infos : [dict] dictionnary of columns infos. Values can be float or a dictionnary with following key arguments :
+            - suf : [str] suffix (like units)
+            - pref : [str] prefix. Default is None ==> the name of the column in the dataframe
+            - func : [function] that will be apply on the column
+            - prec : [int] default is 2 for 2 decimals for float.
+
+        '''
+        def get_text_column(s,suf='',pref=None,func='float',prec=2):
+            if pref is None:pref=s.name
+            if func=='float':
+                return s.apply(lambda x:pref+' : ' + str(round(x,prec))+' '+suf)
+            else:
+                return s.apply(lambda x:pref+' : ' + func(x)+' '+suf)
+
+        t=pd.DataFrame()
+        for k,v in hover_infos.items():
+            if isinstance(v,dict):
+                t[k] = get_text_column(df[k],**v)
+            else:
+                t[k] = get_text_column(df[k],v)
+        return t.apply(lambda x:'<br>'.join(x),axis=1).to_list()
 
     def updateColorMap(self,fig,listCols=None):
         if listCols is None:
@@ -761,7 +799,6 @@ class DataBase:
     def showAllTables(self,conn):
         sqlR = 'select * from information_schema.tables'
         self.executeSQLRequest(sqlR)
-
 
 class EmailSmtp:
 

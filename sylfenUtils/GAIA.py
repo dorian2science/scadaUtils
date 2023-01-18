@@ -127,3 +127,76 @@ class Test_GAIA():
         - gaia[Gaia]
         '''
         self.gaia=gaia
+
+class Tester:
+    def __init__(self,gaia,log_file_tester=None):
+        '''
+        gaia : [sylfenUtils.gaia] instance
+        '''
+        self.cfg    = gaia._cfg
+        self.conf   = gaia.conf
+        self.dumper = gaia_dumper
+        self.dumper.log_file=log_file_tester
+
+## private methods
+    def _test_collect_data_device(self,device_name):
+        device=self.dumper.devices[device_name]
+        device.connectDevice()
+        tags=device.dfplc.index.to_list()
+        return device.collectData('CET',tags)
+
+    def _test_read_db():
+        return self.dumper.read_db()
+
+    def _get_random_period(self,nbHours=55):
+        valid_days=self.dumper.getdaysnotempty()
+        d1 = valid_days.sample(n=1).squeeze()
+        d1 = dumper.getdaysnotempty().sample(n=1).squeeze()
+        t1 = d1+pd.Timedelta(hours=np.random.randint(24))
+        t0 = t1 - pd.Timedelta(hours=nbHours)
+        min_t0=valid_days.min()
+        if t0<min_t0:
+            t0=min_t0
+            t1=min_t0+pd.Timedelta(hours=nbHours)
+        return t0,t1
+
+    def load_raw_data(self,tags,t0,t1,*args,print_tag=False,**kwargs):
+        fix=Fix_daily_data(self.conf)
+        res={}
+        for t in tag:
+            if print_tag:print_file(tag)
+            res[tag]=fix.load_raw_tag_period(tags,t0,t1,*args,**kwargs)
+        return res
+
+## regression tests
+    def test_load_real_time_data(self,only_database=False):
+        t1=pd.Timestamp.now(tz='CET')
+        t0=t1-pd.Timedelta(hours=2)
+        tags=self.cfg.dfplc.sample(n=10).index.to_list()
+        if only_database:
+            df = cfg._load_database_tags(t0,t1,tags,rs='1s',rsMethod="mean_mix",closed='right',verbose=True)
+        else:
+            df = self.cfg.loadtags_period(t0,t1,tags,rs='10s',rsMethod="mean_mix",closed='right',verbose=True)
+        return df
+
+    def test_load_data(self):
+        t0,t1=self._get_random_period(nbHours=60)
+        tags = self.cfg.dfplc.sample(n=10).index.to_list()
+        # df = Streamer().load_parkedtags_daily(t0,t1,tags,cfg.folderPkl,rs='60s',pool='tag',verbose=True)
+        # Streamer()._load_raw_day_tag('2022-06-22',tags[0],cfg.folderPkl,rs='60s',rsMethod='mean_mix',closed='right')
+        try:
+            df  = self.cfg.loadtags_period(t0,t1,tags,rs='20s',rsMethod="mean_mix",closed='right',verbose=True)
+            return df
+        except:
+            return ('failed with arguments',t0,t1,tags)
+
+    def test_collect_data(self):
+        return {device_name:self._test_collect_data_device(device_name) for device_name in self.dumper.devices.keys()}
+
+    def test_load_coarse_data():
+        t0,t1=self._get_random_period(nbHours=24*15)
+        tags = self.cfg.dfplc.sample(n=10).index.to_list()
+        try:
+            return self.cfg.load_coarse_data(t0,t1,tags,rs='60s',verbose=True)
+        except:
+            return ('failed with arguments',t0,t1,tags)
