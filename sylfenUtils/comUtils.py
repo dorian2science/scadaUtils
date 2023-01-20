@@ -58,6 +58,7 @@ def print_file(*args,filename=None,mode='a',with_infos=True,**kwargs):
         print(entete,*args,**kwargs)
     else:
         print(entete,*args,file=open(filename,mode),**kwargs)
+    print(Fore.RESET)
 def print_error(tb,filename=None):
     exc_format=traceback.format_exception(*tb)
     ff=''
@@ -439,7 +440,8 @@ class ModbusDevice(Device):
         return self._isConnected
 
     def quick_modbus_single_register_decoder(self,reg,nbs,dtype,unit=1):
-        self._client.connect()
+        # self._client.connect()
+        # print_file(locals())
         result = self._client.read_holding_registers(reg, nbs, unit=unit)
         decoders={}
         decoders['bo=b,wo=b'] = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Big, wordorder=Endian.Big)
@@ -476,17 +478,19 @@ class ModbusDevice(Device):
             for unit_id in local_modbus_map.slave_unit.unique():
                 bloc=local_modbus_map[local_modbus_map.slave_unit==unit_id]
                 bb=self.decode_bloc_registers(bloc,unit_id)
+                # print_file(bb)
                 bb['timestampz']=pd.Timestamp.now(tz=tz).isoformat()
                 bbs+=[bb]
             d=pd.concat(bbs)[['value','timestampz']].T.to_dict()
             return d
         except Exception as e:
+            self.err=e
             # if 'failed to connect' in e.string.lower().strip():
             msg_err=e.args[0].lower().strip()
             if 'failed to connect' in msg_err:
                 return 'connection error'
             else:
-                return msg_err
+                return 'error:' + msg_err
     #####################
     # PRIVATE FUNCTIONS #
     #####################
@@ -515,6 +519,7 @@ class ModbusDevice(Device):
             end=block_100['intaddress'].max()+sizeof(block_100['type'].iloc[-1])
             self._client.connect()
             result = self._client.read_holding_registers(start, end-start, unit=unit_id)
+
             ### decode values
             if self.byte_order.lower()=='little' and self.word_order.lower()=='big':
                 decoder = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Little, wordorder=Endian.Big)

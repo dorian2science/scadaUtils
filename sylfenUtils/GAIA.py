@@ -1,5 +1,5 @@
 import sylfenUtils.comUtils as comUtils
-from sylfenUtils.Conf_generator import Conf_generator
+import sylfenUtils.Conf_generator as Conf_generator
 from sylfenUtils.dashboard import Dashboard
 import os
 from . import utils
@@ -15,6 +15,8 @@ def build_devices(df_devices,modbus_maps=None,plcs=None):
     DEVICES = {}
     devicesInfo=df_devices.copy()
     devicesInfo.columns=[k.lower() for k in devicesInfo.columns]
+    # comUtils.print_file(devicesInfo['protocole'])
+    devicesInfo['protocole']=devicesInfo['protocole'].apply(lambda x:x.lower().strip().replace('modebus','modbus'))
     for device_name in devicesInfo[devicesInfo['protocole']=='modbus'].index:
         d_info=devicesInfo.loc[device_name]
         DEVICES[device_name]=comUtils.ModbusDevice(
@@ -45,21 +47,25 @@ def build_devices(df_devices,modbus_maps=None,plcs=None):
     return DEVICES
 
 class GAIA():
-    def __init__(self,*args,root_folder=None,**kwargs):
+    def __init__(self,*args,root_folder=None,realtime=True,**kwargs):
         '''
         Super instance that create a project from scratch to dump data from devices,
         load, visualize, and serve those data on a web GUI.
         Parameters:
         -----------------
-            - *args,**kwargs : see Conf_generator arguments
+            - *args,**kwargs : see sylfenUtils.Conf_generator.Conf_generator arguments
             - root_folder : [str] root_folder of the dashboard web service.
+            - realtime:[bool] if True Gaia uses postgressql database as buffer otherwise
+                it is just static data loading from folderpkl.
         '''
-        self.conf=Conf_generator(*args,**kwargs)
-        self.dfplc=self.conf.dfplc
+        if realtime:self.conf = Conf_generator.Conf_generator_RT(*args,**kwargs)
+        else:self.conf        = Conf_generator.Conf_generator_Static(*args,**kwargs)
+        self.dfplc            = self.conf.dfplc
         #### INITIALIZE DEVICES
-        self.devices=build_devices(self.conf.df_devices,self.conf.modbus_maps,self.conf.plcs)
-        self._dumper=comUtils.SuperDumper_daily(self.devices,self.conf)
-        self._visualiser=comUtils.VisualisationMaster_daily(self.conf)
+        # comUtils.print_file(self.conf)
+        self.devices     = build_devices(self.conf.df_devices,self.conf.modbus_maps,self.conf.plcs)
+        self._dumper     = comUtils.SuperDumper_daily(self.devices,self.conf)
+        self._visualiser = comUtils.VisualisationMaster_daily(self.conf)
         if root_folder is None:
             root_folder=os.path.join(self.conf.project_folder,'dashboard')
 
@@ -67,7 +73,8 @@ class GAIA():
         if len(_initial_tags)==1:
             _initial_tags=_initial_tags[0]
             if _initial_tags.lower().strip()=='random':
-                _initial_tags=self.dfplc.sample(n=max(3,self.dfplc.index)).index.to_list()
+                # comUtils.print_file(self.dfplc)
+                _initial_tags=self.dfplc.sample(n=max(3,len(self.dfplc.index))).index.to_list()
             else:
                 _initial_tags=self.conf.getTagsTU(_initial_tags)
 
@@ -92,8 +99,8 @@ class GAIA():
         self._dashboard.helpmelink='' ### you can precise a url link on how to use the web interface
         self._dashboard.fig_wh=780### size of the figure
 
-        print('='*60,'\nYOUR ATTENTION PLEASE.\nPlease check your default settings for the application in the file.',self.conf.file_parameters)
-        print('If necessary change the settings and reinstanciate your GAIA object\n'+'='*60)
+        print('='*60,'\nYOUR ATTENTION PLEASE.\nPlease check your default settings for the application in the file.\n\n',self.conf.file_parameters)
+        print('\nIf necessary change the settings and reinstanciate your GAIA object\n'+'='*60)
 
     def start_dumping(self):
         self._dumper.start_dumping()

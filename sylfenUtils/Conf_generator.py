@@ -28,7 +28,7 @@ class Conf_generator():
         -----------------
         - project_name       :[str] name of the project. Important if default folder are being used and project_folder is None.
         - function_generator :[function] Function that generates a list of objects needed for a project. Should return a dictionnary with at least following keys:
-            * df_devices : a dataframe containing the information of the devices (device_name,protocole,IP,port,table_link) and byte_order word_order for modbus protocole.
+            * df_devices : a dataframe containing the information of the devices (device_name as index, protocole , IP , port , table_link) and byte_order word_order for modbus protocole.
             * dfplc      : dataframe with columns DESCRIPTION, UNITE, DATAYPE, FREQUENCY and tags as index.
             * and/or modbus_maps(only if there are modbus devices): dictionnary. Keys are the names of devices and value is the corresponding modbus map.
         - project_folder(optional):[str] path of the folder where the parameters.conf file, the log folder, the dashboard ...
@@ -233,6 +233,16 @@ class Conf_generator():
     def getTagsTU(self,patTag,units=None,*args,**kwargs):
         if not units : units = self.listUnits
         return FS.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
+
+    def open_conf_file(self,file_conf=None):
+        import subprocess as sp
+        if file_conf is None :
+            file_conf=self._file_conf
+            if os.path.exists(file_conf):
+                sp.run('libreoffice ' +file_conf + ' &',shell=True)
+            else:
+                print('you did not have any _file_conf attribute in your configurator')
+
 
 class Conf_generator_Static(Conf_generator):
     def __init__(self,*args,**kwargs):
