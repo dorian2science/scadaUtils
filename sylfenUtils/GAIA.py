@@ -102,8 +102,11 @@ class GAIA():
         print('='*60,'\nYOUR ATTENTION PLEASE.\nPlease check your default settings for the application in the file.\n\n',self.conf.file_parameters)
         print('\nIf necessary change the settings and reinstanciate your GAIA object\n'+'='*60)
 
-    def start_dumping(self):
-        self._dumper.start_dumping()
+    def start_dumping(self,*args,**kwargs):
+        '''
+        see sylfenUtils.comUtils.SuperDumper_daily.start_dumping
+        '''
+        self._dumper.start_dumping(*args,**kwargs)
 
     def stop_dumping(self):
         self._dumper.stop_dumping()
@@ -113,6 +116,9 @@ class GAIA():
 
     def loadtags_period(self,*args,**kwargs):
         return self._visualiser.loadtags_period(*args,**kwargs)
+
+    def plot_data(self,df,**kwargs):
+        return self._visualiser.multiUnitGraph(df,**kwargs)
 
     def read_db(self,*args,**kwargs):
         return self._dumper.read_db(*args,**kwargs)
@@ -125,15 +131,6 @@ class GAIA():
 
     def run_GUI(self,*args,**kwargs):
         self._dashboard.app.run(host='0.0.0.0',*args,**kwargs)
-
-class Test_GAIA():
-    def __init__(self,gaia):
-        '''
-        Parameters
-        -----------
-        - gaia[Gaia]
-        '''
-        self.gaia=gaia
 
 class Tester:
     def __init__(self,gaia,log_file_tester=None):

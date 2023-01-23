@@ -29,7 +29,7 @@ NOTIFS={
 
 class Dashboard():
     def __init__(self,cfg,log_dir,root_path,initial_tags=[],
-            plot_function=px.line,app_name='',helpmelink='',
+            plot_function=None,app_name='',helpmelink='',
             init_parameters={},version_dashboard='',
             max_nb_pts=500*1000,rs_min_coarse=5*60,nb_days_min_coarse=3,
         ):
@@ -52,7 +52,8 @@ class Dashboard():
         self.root_path=root_path
         self._create_dashboard_links(root_path)
         self.initial_tags=initial_tags
-        self.plot_function=plot_function
+        if plot_function is None :plot_function=cfg.multiUnitGraph
+        self.plot_function = plot_function
         self.infofile_name  = log_dir+'dashboard_' + app_name + '.log';
         self.helpmelink=helpmelink
         self.version_dashboard = version_dashboard
@@ -67,7 +68,7 @@ class Dashboard():
         init_par_keys=list(init_parameters.keys())
         if not 'all_tags' in init_par_keys:init_parameters['all_tags']=self.cfg.getTagsTU('')
         if not 'styles' in init_par_keys:init_parameters['styles']=self.cfg.styles
-        if not 'categories' in init_par_keys:init_parameters['categories']=cfg.usefulTags.index.to_list()
+        if not 'categories' in init_par_keys:init_parameters['categories']=list(cfg.conf.tag_categories.keys())
         if not 'rsMethods' in init_par_keys:init_parameters['rsMethods']=cfg.methods
         if not 'tags' in init_par_keys:init_parameters['tags']=[]
         if not 'fig_name' in init_par_keys:init_parameters['fig_name']='Change me '
@@ -163,8 +164,8 @@ class Dashboard():
         if debug:print_file('t0,t1:',t0,t1)
         tags = parameters['tags']
         if not tag_x.lower()=='time':tags+=[tag_x]
-        if parameters['categorie'] in self.cfg.usefulTags.index.to_list():
-            tags+=self.cfg.getUsefulTags(parameters['categorie'])
+        if parameters['categorie'] in self.init_parameters['categories']:
+            tags+=self.cfg.conf.tag_categories[parameters['categorie']]
         if debug:print_file('alltags:',tags)
         rs,rsMethod=parameters['rs_time'],parameters['rs_method']
 

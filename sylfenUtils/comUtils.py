@@ -28,8 +28,11 @@ DATATYPES={
     'DINT': 'int',
     'INT' : 'int',
     'int16' : 'int',
+    'uint16' : 'int',
     'int32' : 'int',
+    'uint32' : 'int',
     'int64' : 'int',
+    'uint64' : 'int',
     'STRING(40)': 'string'
      }
 def create_folder_if_not(folder_path,*args,**kwargs):
@@ -2002,6 +2005,17 @@ class VisualisationMaster(Configurator):
         fig.update_traces(mode='lines+markers')
         fig.update_xaxes(matches='x')
         fig.update_yaxes(matches=None)
+        return fig
+
+    def multiUnitGraph(self,df,tagMapping=None,**kwargs):
+        if not tagMapping:tagMapping = {t:self.getUnitofTag(t) for t in df.columns}
+        # print(tagMapping)
+        fig = self.utils.multiUnitGraph(df,tagMapping,**kwargs)
+        # self.standardLayout(fig)
+        # self.updatecolorAxes(fig)
+        # self.updatecolortraces(fig)
+        if df.index.max()-df.index.min()>pd.Timedelta(days=2):
+            fig.update_traces(hovertemplate='  %{y:.2f}' + '<br>  %{x|%b %d %Y %H:%M}')
         return fig
 
 class VisualisationMaster_daily(VisualisationMaster):

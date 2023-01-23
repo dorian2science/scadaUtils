@@ -7,7 +7,11 @@ FS=FileSystem()
 
 def create_sql_table(connParameters,db_table):
     connReq = ''.join([k + "=" + v + " " for k,v in connParameters.items()])
-    conn = psycopg2.connect(connReq)
+    try:
+        conn = psycopg2.connect(connReq)
+    except:
+        print_file('following credentials :', connParameters,' to connect to the database are not valid.\nImpossible to create the database',db_table)
+        return 0
     cur  = conn.cursor()
     # creation table
     sqlR='create table if not exists ' + db_table + ' ( timestampz timestamp with time zone, tag varchar ( 200 ), value varchar ( 200 ));'
@@ -15,6 +19,7 @@ def create_sql_table(connParameters,db_table):
     cur.close()
     conn.commit()
     conn.close()
+    return 1
 
 class Conf_generator():
     def __init__(self,project_name,function_generator,project_folder=None):
@@ -102,7 +107,7 @@ class Conf_generator():
         #### make sure the user has created a dfplc attribute.
         #### if not try to create it from modbus maps.
         if 'dfplc' not in conf_objs.keys():
-            print_file(conf_objs.keys())
+            # print_file(conf_objs.keys())
             if 'modbus_maps' in conf_objs.keys():
                 from sylfenUtils.comUtils import dfplc_from_modbusmap
                 # print_file(conf_objs['modbus_maps'])
@@ -230,9 +235,14 @@ class Conf_generator():
     def getUnitofTag(self,tag):
         return FS.getUnitofTag(tag,self.dfplc)
 
-    def getTagsTU(self,patTag,units=None,*args,**kwargs):
-        if not units : units = self.listUnits
-        return FS.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
+    def getTagsTU(self,patTag,whole_df=False):
+    # def getTagsTU(self,patTag,units=None,*args,**kwargs):
+        # if not units : units = self.listUnits
+        # return FS.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
+        tags=pd.Series(self.dfplc.index)
+        res=tags[tags.str.contains(patTag)].to_list()
+        if whole_df:res=self.dfplc.loc[res,:]
+        return res
 
     def open_conf_file(self,file_conf=None):
         import subprocess as sp
@@ -242,7 +252,6 @@ class Conf_generator():
                 sp.run('libreoffice ' +file_conf + ' &',shell=True)
             else:
                 print('you did not have any _file_conf attribute in your configurator')
-
 
 class Conf_generator_Static(Conf_generator):
     def __init__(self,*args,**kwargs):
@@ -265,4 +274,13 @@ class Conf_generator_RT(Conf_generator):
         del self.db_host,self.db_port,self.dbname,self.db_user,self.db_password
 
         ###### create the REALTIME TABLE in the database if it does not exist
-        create_sql_table(self.DB_PARAMETERS,self.DB_TABLE)
+        if not create_sql_table(self.DB_PARAMETERS,self.DB_TABLE):
+            from colorama import Fore
+            print_file('-'*100,Fore.RED,
+                '\nImpossible to create the table :',self.DB_TABLE,
+                '\nPlease make sure the database credentials are correct.',
+                '\nInstanciation of your GAIA instance was killed.',
+                '\nSolve this issue before instanciating again.\n',Fore.RESET,
+                '-'*100+'\n',
+                )
+            sys.exit()
