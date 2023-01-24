@@ -14,6 +14,7 @@ from . import utils
 def build_devices(df_devices,modbus_maps=None,plcs=None):
     DEVICES = {}
     devicesInfo=df_devices.copy()
+    devicesInfo=devicesInfo[devicesInfo['status']=='actif']
     devicesInfo.columns=[k.lower() for k in devicesInfo.columns]
     # comUtils.print_file(devicesInfo['protocole'])
     devicesInfo['protocole']=devicesInfo['protocole'].apply(lambda x:x.lower().strip().replace('modebus','modbus'))
@@ -38,6 +39,7 @@ def build_devices(df_devices,modbus_maps=None,plcs=None):
         )
     for device_name in devicesInfo[devicesInfo['protocole']=='ads'].index:
         d_info=devicesInfo.loc[device_name]
+        # comUtils.print_file(d_info)
         DEVICES[device_name]=comUtils.ADS_Client(
             device_name=device_name,
             ip=d_info['ip'],
@@ -63,6 +65,8 @@ class GAIA():
         self.dfplc            = self.conf.dfplc
         #### INITIALIZE DEVICES
         # comUtils.print_file(self.conf)
+        if not hasattr(self.conf,'modbus_maps'):self.conf.modbus_maps=None
+        if not hasattr(self.conf,'plcs'):self.conf.plcs=None
         self.devices     = build_devices(self.conf.df_devices,self.conf.modbus_maps,self.conf.plcs)
         self._dumper     = comUtils.SuperDumper_daily(self.devices,self.conf)
         self._visualiser = comUtils.VisualisationMaster_daily(self.conf)
@@ -74,7 +78,7 @@ class GAIA():
             _initial_tags=_initial_tags[0]
             if _initial_tags.lower().strip()=='random':
                 # comUtils.print_file(self.dfplc)
-                _initial_tags=self.dfplc.sample(n=max(3,len(self.dfplc.index))).index.to_list()
+                _initial_tags=self.dfplc.sample(n=min(3,len(self.dfplc.index))).index.to_list()
             else:
                 _initial_tags=self.conf.getTagsTU(_initial_tags)
 
@@ -137,9 +141,9 @@ class Tester:
         '''
         gaia : [sylfenUtils.gaia] instance
         '''
-        self.cfg    = gaia._cfg
+        self.cfg    = gaia._visualiser
         self.conf   = gaia.conf
-        self.dumper = gaia_dumper
+        self.dumper = gaia._dumper
         self.dumper.log_file=log_file_tester
 
 ## private methods

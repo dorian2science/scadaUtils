@@ -659,6 +659,19 @@ class Opcua_Client(Device):
         data = {tag:{'value':val,'timestampz':ts} for tag,val in zip(nodes.keys(),values)}
         return data
 
+    def _set_security(self,certif_path,key_path,password,user):
+        sslString = 'Basic256Sha256,Sign,' + certif_path + ',' + key_path
+        if CONF.SIMULATOR:
+            print_file('security check succedeed because working with SIMULATOR==>no need to enter credentials and rsa keys\n',filename=self.log_file,with_infos=False)
+        else:
+            try:
+                self._client.set_security_string(sslString)
+                self._client.set_user(user)
+                self._client.set_password(password)
+                print_file('beckhoff security check succeeded!',filename=self.log_file)
+            except:
+                print_file('beckhoff security check FAILED',filename=self.log_file)
+
 import pyads
 class ADS_Client(Device):
     def __init__(self,*args,port=851,check_values=False,**kwargs):
@@ -666,7 +679,7 @@ class ADS_Client(Device):
         self._protocole = 'ads'
         self.ip        = self.ip
         self.TARGET_IP = self.ip + '.1.1'
-        self.plcs      = {f:pyads.Connection(self.TARGET_IP,self.port) for f in self.tags_freqs.keys()}
+        self.plcs      = {f:pyads.Connection(self.TARGET_IP,int(self.port)) for f in self.tags_freqs.keys()}
         if check_values:
             tags=self.detect_tag_pb()
             if len(tags)>0:
