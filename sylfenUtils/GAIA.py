@@ -96,7 +96,7 @@ class GAIA():
             self._visualiser,
             self.conf.LOG_FOLDER,
             root_folder,
-            app_name='dummy_app',
+            app_name=self.conf.project_name,
             init_parameters=self._init_parameters,
             plot_function=utils.Graphics().multiUnitGraph, ## you can use your own function to display the data
             version_dashboard='1.0')
