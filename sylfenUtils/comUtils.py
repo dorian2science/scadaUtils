@@ -80,7 +80,7 @@ def html_table(df,title='table',useLinux=True):
     df.to_html(f)
     f.close()
     sp.run('firefox '+path_linux,shell=True)
-def read_db(db_parameters,db_table,t=None,tagPat=None,verbose=False,delete=False):
+def read_db(db_parameters,db_table,t=None,tag=None,verbose=False,delete=False,regExp=True):
     '''
     read the database.
     Parameters :
@@ -88,35 +88,33 @@ def read_db(db_parameters,db_table,t=None,tagPat=None,verbose=False,delete=False
         - db_parameters:[dict] with localhost,port,dbnamme,user, and password keys
         - db_table : [str]name of the table
         - t : [str] timestamp with timezone under which data will be read (default None ==> read all)
-        - tagPat : [str]regular expression pattern for tags(default None ==> read all)
+        - tag : [str] a regular expression or a tag (default None ==> read all)
         - delete : [bool]if True will just delete and not read
+        - regExp : [bool] if True reg exp are used for tag
     '''
     connReq = ''.join([k + "=" + v + " " for k,v in db_parameters.items()])
     dbconn = psycopg2.connect(connReq)
     start="select * from " + db_table +" "
+    if t is None : t=pd.Timestamp.now('CET').isoformat()
+    sqlQ = start + "where timestampz < '" + t + "'"
     order_end=" order by timestampz asc;"
-    if not t is None : ts=" timestampz < '" + t + "'"
-    if tagPat is None:
-        if t is None:
-            sqlQ =start + order_end
-        else:
-            sqlQ = start + "where "+ ts + order_end
+    if tag is None:
+        sqlQ+=order_end
     else:
-        tagPattern = " tag~'"+tagPat + "'"
-        sqlQ =start + "where " + tagPattern
-        if t is None:
-            sqlQ = sqlQ + order_end
-        else:
-            sqlQ = sqlQ + "and " + ts + order_end
+        symbol='='
+        if regExp : symbol='~'
+        tagPattern = " and tag " + symbol + "'" + tag + "'"
+        sqlQ+=tagPattern+order_end
     if verbose:print_file(sqlQ)
     if delete:
         cur  = dbconn.cursor()
         sqlDel=sqlQ.replace('select *','DELETE')
+        sqlDel=sqlDel.replace(order_end,';')
         # print_file(sqlDel)
         cur.execute(sqlDel)
         cur.close()
         dbconn.commit()
-        if verbose:print_file(computetimeshow('tag : '+tagPat+ ' flushed',start),filename=self.log_file)
+        if verbose:print_file('tag : ' + tag + ' flushed')
         dbconn.close()
         return
     try:
@@ -1053,8 +1051,8 @@ class Streamer(Basic_streamer):
             else:
                 s = s.astype(dtype)
         except:
-            # s = s.astype(dtype)
-            s = s.apply(lambda x:to_type(x,dtype))
+            s = s.astype(dtype)
+            # s = s.apply(lambda x:to_type(x,dtype))
         return s
 
     # ########################
@@ -1495,9 +1493,11 @@ class Configurator():
         self.dbParameters = conf.DB_PARAMETERS
         self.dbTable      = conf.DB_TABLE
         self.dfplc        = conf.dfplc
+        self._alltags        = list(conf.dfplc.index)
         self._dataTypes   = DATATYPES
         self.tz_record    = conf.TZ_RECORD
         self.parkingTime  = conf.PARKING_TIME##seconds
+        self._format_dayFolder  = FORMAT_DAY_FOLDER##seconds
         #####################################
         # self.daysnotempty    = self.getdaysnotempty()
         # self.tmin,self.tmax  = self.daysnotempty.min(),self.daysnotempty.max()
@@ -1528,10 +1528,8 @@ class SuperDumper(Configurator):
         otherwise in the log file in the folder of the project
         '''
         Configurator.__init__(self,conf)
-
-        self.parkingTimes = {}
-        self.devices      = devices
-        self.log_file     = os.path.join(self.conf.LOG_FOLDER,self.conf.project_name+'_dumper.log')
+        self.devices  = devices
+        self.log_file = os.path.join(self.conf.LOG_FOLDER,self.conf.project_name+'_dumper.log')
         if log_console:
             self.log_file=None
         for dev in devices.values():dev.log_file=self.log_file
@@ -1770,12 +1768,12 @@ class SuperDumper_daily(SuperDumper):
             dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
             self.parktagfromdb(tag,dftag,folderday)
 
-    def park_singletag_DB(self,tag,t_park=None,deleteFromDb=False,verbose=False):
+    def _park_singletag_DB(self,tag,t_park=None,deleteFromDb=False,verbose=False):
         if verbose:print_file(tag)
         start = time.time()
         ######### read database
         if t_park is None:t_park=pd.Timestamp.now(tz=self.tz_record).isoformat()
-        df=self.read_db(t=t_park,tagPat=tag,verbose=verbose).set_index('timestampz')
+        df=self.read_db(t=t_park,tag=tag,regExp=False,verbose=verbose).set_index('timestampz')
         if verbose:print_file(computetimeshow('tag : '+tag+ ' read in '+self.dbTable + ' in '+ self.dbParameters['dbname'],start),filename=self.log_file)
         ####### check if database not empty
         if not len(df)>0:
@@ -1784,7 +1782,7 @@ class SuperDumper_daily(SuperDumper):
         ####### determine the folder days to store the data
         tmin,tmax =[t.strftime(self._format_dayFolder) for t in [df.index.min(),df.index.max()] ]
         listdays=[k.strftime(self._format_dayFolder) for k in pd.date_range(tmin,tmax)]
-        print_file(listdays)
+        # print_file(listdays)
         #### in case they are several days
         for d in listdays:
             t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
@@ -1802,7 +1800,7 @@ class SuperDumper_daily(SuperDumper):
 
         if verbose:print_file(computetimeshow('tag : '+tag+ ' parked',start),filename=self.log_file)
         if deleteFromDb:
-            self.read_db(tagPat=tag,verbose=verbose,delete=True)
+            self.read_db(tag=tag,verbose=verbose,delete=True,regExp=False)
 
     def parktagfromdb(self,tag,s_tag,folderday,verbose=False):
         namefile = os.path.join(folderday,tag + '.pkl')
@@ -1815,17 +1813,18 @@ class SuperDumper_daily(SuperDumper):
     def park_database(self,verbose=False):
         start = time.time()
         now = pd.Timestamp.now(tz=self.tz_record)
-        t_parking = now
+        t_parking = now.isoformat()
         tag_pbs=[]
         for tag in self.dfplc.index.to_list():
             try:
-                self.park_singletag_DB(tag,t_park=t_parking,deleteFromDb=True)
+                self._park_singletag_DB(tag,t_park=t_parking,deleteFromDb=False,verbose=verbose)
             except:
                 tag_pbs.append(tag)
-                if verbose:print_file('problem with tag : ',t)
+                if verbose:print_file('problem with tag : ',tag)
 
         if len(tag_pbs)==0:
             msg='successfully'
+            self.flushdb(t_parking)
         else:
             msg='with problems for tags:'+';'.join(tag_pbs)
             print_file(computetimeshow('database parked'+msg,start),filename=self.log_file)
