@@ -80,15 +80,16 @@ def html_table(df,title='table',useLinux=True):
     df.to_html(f)
     f.close()
     sp.run('firefox '+path_linux,shell=True)
-def read_db(db_parameters,db_table,t=None,tagPat=None,debug=False):
+def read_db(db_parameters,db_table,t=None,tagPat=None,verbose=False,delete=False):
     '''
     read the database.
     Parameters :
     -----------
-        - db_parameters:dictionnary with localhost,port,dbnamme,user, and password keys
-        - db_table:name of the table
-        - t : timestamp with timezone(default None ==> read all)
-        - tagPat : regular expression pattern for tags(default None ==> read all)
+        - db_parameters:[dict] with localhost,port,dbnamme,user, and password keys
+        - db_table : [str]name of the table
+        - t : [str] timestamp with timezone under which data will be read (default None ==> read all)
+        - tagPat : [str]regular expression pattern for tags(default None ==> read all)
+        - delete : [bool]if True will just delete and not read
     '''
     connReq = ''.join([k + "=" + v + " " for k,v in db_parameters.items()])
     dbconn = psycopg2.connect(connReq)
@@ -107,7 +108,17 @@ def read_db(db_parameters,db_table,t=None,tagPat=None,debug=False):
             sqlQ = sqlQ + order_end
         else:
             sqlQ = sqlQ + "and " + ts + order_end
-    if debug:print(sqlQ)
+    if verbose:print_file(sqlQ)
+    if delete:
+        cur  = dbconn.cursor()
+        sqlDel=sqlQ.replace('select *','DELETE')
+        # print_file(sqlDel)
+        cur.execute(sqlDel)
+        cur.close()
+        dbconn.commit()
+        if verbose:print_file(computetimeshow('tag : '+tagPat+ ' flushed',start),filename=self.log_file)
+        dbconn.close()
+        return
     try:
         ###########################################
         #    DANGEROUS WONT WORK WITH DST CHANGE  #
@@ -116,7 +127,9 @@ def read_db(db_parameters,db_table,t=None,tagPat=None,debug=False):
     except:
         df = pd.read_sql_query(sqlQ,dbconn)
         df.timestampz=[pd.Timestamp(k).tz_convert('utc') for k in df.timestampz] #slower but will work with dst
+    dbconn.close()
     return df
+
 def dfplc_from_modbusmap(modbus_map):
     dfplc=modbus_map[['description','unit','type','frequency']]
     dfplc.columns=['DESCRIPTION','UNITE','DATATYPE','FREQUENCE_ECHANTILLONNAGE']
@@ -1003,6 +1016,17 @@ class Basic_streamer():
         '''convert timestamp to standard day folder format'''
         return timestamp.strftime(self._format_dayFolder)
 
+def to_type(x,dtype):
+    try:
+        if dtype=='string':
+            return str(x)
+        if dtype=='float':
+            return float(x)
+        elif dtype=='int':
+            return int(x)
+    except:
+        return np.nan
+
 class Streamer(Basic_streamer):
     '''Streamer enables to perform action on parked Day/Hour/Minute folders.
     It comes with basic functions like loaddata_minutefolder/create_minutefolder/parktagminute.'''
@@ -1022,11 +1046,15 @@ class Streamer(Basic_streamer):
         s=s.replace('null',np.nan)
         s=s.replace('False',False)
         s=s.replace('True',True)
-        if dtype=='int':
-            s = s.fillna(np.nan).replace('null',np.nan).astype(float)
-            s = s.convert_dtypes()
-        else:
-            s = s.astype(dtype)
+        try:
+            if dtype=='int':
+                s = s.fillna(np.nan).replace('null',np.nan).astype(float)
+                s = s.convert_dtypes()
+            else:
+                s = s.astype(dtype)
+        except:
+            # s = s.astype(dtype)
+            s = s.apply(lambda x:to_type(x,dtype))
         return s
 
     # ########################
@@ -1742,24 +1770,21 @@ class SuperDumper_daily(SuperDumper):
             dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
             self.parktagfromdb(tag,dftag,folderday)
 
-    def park_single_tag_DB_URGENT(self,tag,deleteFromDb=False):
-        print_file(tag)
+    def park_singletag_DB(self,tag,t_park=None,deleteFromDb=False,verbose=False):
+        if verbose:print_file(tag)
         start = time.time()
-        now = pd.Timestamp.now(tz=self.tz_record)
-        ### read database
-        dbconn = self.connect2db()
-        sqlQ ="select * from " + self.dbTable + " where tag='"+tag+"' and timestampz<'"+now.isoformat()+"';"
-        # print(sqlQ)
-        df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        print_file(computetimeshow('tag : '+tag+ ' read in '+self.dbTable + ' in '+ self.dbParameters['dbname'],start),filename=self.log_file)
-        # check if database not empty
+        ######### read database
+        if t_park is None:t_park=pd.Timestamp.now(tz=self.tz_record).isoformat()
+        df=self.read_db(t=t_park,tagPat=tag,verbose=verbose).set_index('timestampz')
+        if verbose:print_file(computetimeshow('tag : '+tag+ ' read in '+self.dbTable + ' in '+ self.dbParameters['dbname'],start),filename=self.log_file)
+        ####### check if database not empty
         if not len(df)>0:
-            print_file('tag :'+tag+' not in table '+ self.dbTable + ' in ' + self.dbParameters['dbname'],filename=self.log_file)
+            if verbose : print_file('tag :'+tag+' not in table '+ self.dbTable + ' in ' + self.dbParameters['dbname'],filename=self.log_file)
             return
-        # return df
-        df=df.set_index('timestampz').tz_convert(self.tz_record)
-        tmin,tmax = df.index.min().strftime('%Y-%m-%d'),df.index.max().strftime('%Y-%m-%d')
+        ####### determine the folder days to store the data
+        tmin,tmax =[t.strftime(self._format_dayFolder) for t in [df.index.min()],df.index.max()]
         listdays=[k.strftime(self._format_dayFolder) for k in pd.date_range(tmin,tmax)]
+        print_file(listdays)
         #### in case they are several days
         for d in listdays:
             t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
@@ -1775,19 +1800,9 @@ class SuperDumper_daily(SuperDumper):
             dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
             self.parktagfromdb(tag,dftag,folderday)
 
-        print_file(computetimeshow('tag : '+tag+ ' parked',start),filename=self.log_file)
+        if verbose:print_file(computetimeshow('tag : '+tag+ ' parked',start),filename=self.log_file)
         if deleteFromDb:
-            # #delete the tag
-            cur  = dbconn.cursor()
-            sqlDel=sqlQ.replace('select *','DELETE')
-            # print(sqlDel)
-            cur.execute(sqlDel)
-            cur.close()
-            dbconn.commit()
-            print_file(computetimeshow('tag : '+tag+ ' flushed',start),filename=self.log_file)
-
-        dbconn.close()
-        return dftag
+            self.read_db(tagPat=tag,verbose=verbose,delete=True)
 
     def parktagfromdb(self,tag,s_tag,folderday,verbose=False):
         namefile = os.path.join(folderday,tag + '.pkl')
@@ -1801,45 +1816,19 @@ class SuperDumper_daily(SuperDumper):
         start = time.time()
         now = pd.Timestamp.now(tz=self.tz_record)
         t_parking = now
+        tag_pbs=[]
+        for tag in self.dfplc.index.to_list():
+            try:
+                self.park_singletag_DB(tag,t_park=t_parking,deleteFromDb=True)
+            except:
+                tag_pbs.append(tag)
+                if verbose:print_file('problem with tag : ',t)
 
-        ### read database
-        dbconn = self.connect2db()
-        sqlQ ="select * from " + self.dbTable + " where timestampz < '" + now.isoformat() +"'"
-        try:
-            ###########################################
-            #    DANGEROUS WONT WORK WITH DST CHANGE  #
-            ###########################################
-            df = pd.read_sql_query(sqlQ,dbconn,parse_dates=['timestampz'])
-        except:
-            df = pd.read_sql_query(sqlQ,dbconn)
-            df.timestampz=[pd.Timestamp(k).tz_convert('utc') for k in df.timestampz] #slower but will work with dst
-
-        print_file(computetimeshow(self.dbTable + ' in '+ self.dbParameters['dbname'] +' for data <' + now.isoformat() +' read',start),
-            filename=self.log_file,with_infos=False)
-        # check if database not empty
-        if not len(df)>0:
-            print_file('table '+ self.dbTable + ' in ' + self.dbParameters['dbname'] + ' empty',filename=self.log_file)
-            return
-        dbconn.close()
-        df=df.set_index('timestampz').tz_convert(self.tz_record)
-        tmin,tmax = df.index.min().strftime('%Y-%m-%d'),df.index.max().strftime('%Y-%m-%d')
-        listdays=[k.strftime(FORMAT_DAY_FOLDER) for k in pd.date_range(tmin,tmax)]
-        #### in case they are several days(for example at midnight)
-        for d in listdays:
-            t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
-            t1 = t0 + pd.Timedelta(days=1)
-            dfday=df[(df.index>=t0)&(df.index<t1)]
-            folderday=os.path.join(self.folderPkl,d)
-            #### create folder if necessary
-            if not os.path.exists(folderday):os.mkdir(folderday)
-            for tag in list(self.dfplc.index):
-                dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
-                self.parktagfromdb(tag,dftag,folderday,verbose=verbose)
-
-        print_file(computetimeshow('database parked',start),filename=self.log_file)
-        self.parkingTimes[now.isoformat()] = (time.time()-start)*1000
-        # #FLUSH DATABASE
-        self.flushdb(t_parking.isoformat())
+        if len(tag_pbs)==0:
+            msg='successfully'
+        else:
+            msg='with problems for tags:'+';'.join(tag_pbs)
+            print_file(computetimeshow('database parked'+msg,start),filename=self.log_file)
         return
 
     def fix_timestamp(self,t0,tag,folder_save=None):
