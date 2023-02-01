@@ -1051,8 +1051,8 @@ class Streamer(Basic_streamer):
             else:
                 s = s.astype(dtype)
         except:
-            s = s.astype(dtype)
-            # s = s.apply(lambda x:to_type(x,dtype))
+            # s = s.astype(dtype)
+            s = s.apply(lambda x:to_type(x,dtype))
         return s
 
     # ########################
@@ -1817,14 +1817,14 @@ class SuperDumper_daily(SuperDumper):
         tag_pbs=[]
         for tag in self.dfplc.index.to_list():
             try:
-                self._park_singletag_DB(tag,t_park=t_parking,deleteFromDb=False,verbose=verbose)
+                self._park_singletag_DB(tag,t_park=t_parking,deleteFromDb=True,verbose=verbose)
             except:
                 tag_pbs.append(tag)
                 if verbose:print_file('problem with tag : ',tag)
 
         if len(tag_pbs)==0:
             msg='successfully'
-            self.flushdb(t_parking)
+            # self.flushdb(t_parking)
         else:
             msg='with problems for tags:'+';'.join(tag_pbs)
             print_file(computetimeshow('database parked'+msg,start),filename=self.log_file)
