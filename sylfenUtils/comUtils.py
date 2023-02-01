@@ -1782,7 +1782,7 @@ class SuperDumper_daily(SuperDumper):
             if verbose : print_file('tag :'+tag+' not in table '+ self.dbTable + ' in ' + self.dbParameters['dbname'],filename=self.log_file)
             return
         ####### determine the folder days to store the data
-        tmin,tmax =[t.strftime(self._format_dayFolder) for t in [df.index.min()],df.index.max()]
+        tmin,tmax =[t.strftime(self._format_dayFolder) for t in [df.index.min(),df.index.max()] ]
         listdays=[k.strftime(self._format_dayFolder) for k in pd.date_range(tmin,tmax)]
         print_file(listdays)
         #### in case they are several days
