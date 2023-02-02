@@ -1534,6 +1534,7 @@ class SuperDumper(Configurator):
             self.log_file=None
         for dev in devices.values():dev.log_file=self.log_file
         self.jobs = {}
+        self.park_tag_pbs=[]
         print_file(' '*20+'INSTANCIATION OF THE DUMPER'+'\n',filename=self.log_file,with_infos=False)
 
     def _stop_auto_reconnect_all(self):
@@ -1717,8 +1718,8 @@ class SuperDumper(Configurator):
         df=pd.concat([pd.DataFrame(s) for s in df.values()]).T
         return df
 
-    def quick_analysis(self,tagPat):
-        df=self.read_db(tagPat=tagPat).set_index('timestampz')
+    def quick_analysis(self,tag):
+        df=self.read_db(tag=tag).set_index('timestampz')
         df['ms']=pd.Series(df.index).diff().apply(lambda k:k.total_seconds()*1000).to_list()
         print(df.ms.describe(percentiles=[0.5,0.75,0.9,0.95]))
         return df
@@ -1810,24 +1811,28 @@ class SuperDumper_daily(SuperDumper):
             s_tag  = pd.concat([s1,s_tag])
         STREAMER.process_dbtag(s_tag,self._dataTypes[self.dfplc.loc[tag,'DATATYPE']]).to_pickle(namefile)
 
-    def park_database(self,verbose=False):
+    def park_database(self,flush_tag=False,verbose=False):
+        '''
+        - flush_tag:[bool] if True all tag will be flushed from the database separately otherwise the database will be flushed all together.
+        '''
         start = time.time()
         now = pd.Timestamp.now(tz=self.tz_record)
         t_parking = now.isoformat()
-        tag_pbs=[]
+        if len(self.park_tag_pbs)>0:flush_tag=True
         for tag in self.dfplc.index.to_list():
             try:
-                self._park_singletag_DB(tag,t_park=t_parking,deleteFromDb=True,verbose=verbose)
+                self._park_singletag_DB(tag,t_park=t_parking,deleteFromDb=flush_tag,verbose=verbose)
             except:
-                tag_pbs.append(tag)
+                self.tag_pbs.append(tag)
                 if verbose:print_file('problem with tag : ',tag)
 
-        if len(tag_pbs)==0:
+        if len(self.tag_pbs)==0:
             msg='successfully'
-            # self.flushdb(t_parking)
+            self.flushdb(t_parking)
         else:
             msg='with problems for tags:'+';'.join(tag_pbs)
             print_file(computetimeshow('database parked'+msg,start),filename=self.log_file)
+        self.tag_pbs=list(pd.Series(self.tag_pbs).unique())
         return
 
     def fix_timestamp(self,t0,tag,folder_save=None):
