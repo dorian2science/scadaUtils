@@ -85,7 +85,6 @@ class Dashboard():
         # ###############
         @self.app.route('/', methods=['GET'])
         def main_viewport():
-            print_file(self.root_path)
             return render_template('dashboard.html',
                 helpmelink=self.helpmelink,
                 version_title=self.app_name+' '+self.version_dashboard,
@@ -151,63 +150,62 @@ class Dashboard():
     def generate_fig(self):
         debug=False
         notif=200
-        # try:
-        start=time.time()
-        data=request.get_data()
-        parameters=json.loads(data.decode())
-        if debug:print_file(parameters)
+        try:
+            start=time.time()
+            data=request.get_data()
+            parameters=json.loads(data.decode())
+            if debug:print_file(parameters)
 
-        t0,t1=[pd.Timestamp(t,tz='CET') for t in parameters['timerange'].split(' - ')]
-        tag_x=parameters['x']
+            t0,t1=[pd.Timestamp(t,tz='CET') for t in parameters['timerange'].split(' - ')]
+            tag_x=parameters['x']
 
-        if debug:print_file('t0,t1:',t0,t1)
-        tags = parameters['tags']
-        if not tag_x.lower()=='time':tags+=[tag_x]
-        if parameters['categorie'] in self.init_parameters['categories']:
-            tags+=self.cfg.conf.tag_categories[parameters['categorie']]
-        if debug:print_file('alltags:',tags)
-        rs,rsMethod=parameters['rs_time'],parameters['rs_method']
+            if debug:print_file('t0,t1:',t0,t1)
+            tags = parameters['tags']
+            if not tag_x.lower()=='time':tags+=[tag_x]
+            if parameters['categorie'] in self.init_parameters['categories']:
+                tags+=self.cfg.conf.tag_categories[parameters['categorie']]
+            if debug:print_file('alltags:',tags)
+            rs,rsMethod=parameters['rs_time'],parameters['rs_method']
 
-        pool='auto'
-        ####### determine if it should be loaded with COARSE DATA or fine data
-        if pd.to_timedelta(rs)>=pd.Timedelta(seconds=self.rs_min_coarse) or t1-t0>pd.Timedelta(days=self.nb_days_min_coarse):
-            pool='coarse'
-            df = self.cfg.load_coarse_data(t0,t1,tags,rs=rs,rsMethod=rsMethod)
-        else:
-            print(tags)
-            df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False,pool=pool)
-            print(df)
-        if df.empty:
-            notif=NOTIFS['no_data']
-            raise Exception('no data')
+            pool='auto'
+            ####### determine if it should be loaded with COARSE DATA or fine data
+            if pd.to_timedelta(rs)>=pd.Timedelta(seconds=self.rs_min_coarse) or t1-t0>pd.Timedelta(days=self.nb_days_min_coarse):
+                pool='coarse'
+                df = self.cfg.load_coarse_data(t0,t1,tags,rs=rs,rsMethod=rsMethod)
+            else:
+                if debug :print_file(tags)
+                df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False,pool=pool)
+                if debug :print_file(df)
+            if df.empty:
+                notif=NOTIFS['no_data']
+                raise Exception('no data')
 
+            ####### check that the request does not have TOO MANY DATAPOINTS
+            nb_datapoints=len(df)*len(df.columns)
+            if nb_datapoints>self.max_nb_pts:
+                df=self.cfg.auto_resample_df(df,self.max_nb_pts)
+                new_rs=df.index.freq.freqstr.replace('S',' seconds')
+                notif=NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)+' ').replace('YYY',new_rs).replace('AAA',str(self.max_nb_pts//1000))
+            if debug:print_file(df)
 
-        ####### check that the request does not have TOO MANY DATAPOINTS
-        nb_datapoints=len(df)*len(df.columns)
-        if nb_datapoints>self.max_nb_pts:
-            df=self.cfg.auto_resample_df(df,self.max_nb_pts)
-            new_rs=df.index.freq.freqstr.replace('S',' seconds')
-            notif=NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)+' ').replace('YYY',new_rs).replace('AAA',str(self.max_nb_pts//1000))
-        if debug:print_file(df)
+            if not tag_x.lower()=='time':
+                df.index=df[tag_x]
+                fig=self.plot_function(df)
+                fig.update_traces(hovertemplate='  x:%{x:.1f}<br>  y:%{y:.1f}')
+                fig.update_layout(xaxis_title=tag_x+ '('+self.cfg.getUnitofTag(tag_x) + ')')
+                fig.update_traces(mode='markers')
+            else:
+                fig=self.plot_function(df)
+            fig.update_layout(width=1260,height=750,legend_title='tags')
+            self.log_info(computetimeshow('fig generated with pool =' + str(pool),start))
 
-        if not tag_x.lower()=='time':
-            df.index=df[tag_x]
-            fig=self.plot_function(df)
-            fig.update_traces(hovertemplate='  x:%{x:.1f}<br>  y:%{y:.1f}')
-            fig.update_layout(xaxis_title=tag_x+ '('+self.cfg.getUnitofTag(tag_x) + ')')
-            fig.update_traces(mode='markers')
-        else:
-            fig=self.plot_function(df)
-        fig.update_layout(width=1260,height=750,legend_title='tags')
-        self.log_info(computetimeshow('fig generated with pool =' + str(pool),start))
-
-        # except:
-        #     if notif==200:
-        #         notif='figure_generation_impossible'
-        #         error={'msg':' problem in the figure generation with generate_fig','code':1}
-        #         notif=NOTIFS[notif]
-        #         self.notify_error(sys.exc_info(),error)
-        #     fig=go.Figure()
+        except:
+            if notif==200:
+                notif='figure_generation_impossible'
+                error={'msg':' problem in the figure generation with generate_fig','code':1}
+                notif=NOTIFS[notif]
+                self.notify_error(sys.exc_info(),error)
+            fig=go.Figure()
         res={'fig':fig.to_json(),'notif':notif}
         return jsonify(res)
 
