@@ -1,7 +1,7 @@
 import sylfenUtils.comUtils as comUtils
 import sylfenUtils.Conf_generator as Conf_generator
 from sylfenUtils.dashboard import Dashboard
-import os
+import os,inspect
 from . import utils
 ##### this is the superinstance
 # put the initial parameters of the dashboard in the user_settings default file so that to start the whole
@@ -116,9 +116,12 @@ class GAIA():
     def getTagsTU(self,*args,**kwargs):
         return self.conf.getTagsTU(*args,**kwargs)
 
-    # def loadtags_period(self,*args,**kwargs):
-    #     'see self._visualiser.loadtags_period'
-    #     return self._visualiser.loadtags_period(*args,**kwargs)
+    def loadtags_period(self,*args,**kwargs):
+        '''
+        Documentation of comUtils.VisualisationMaster_daily.loadtags_period
+        '''
+        return self._visualiser.loadtags_period(*args,**kwargs)
+
     def plot_data(self,df,**kwargs):
         return self._visualiser.multiUnitGraph(df,**kwargs)
 
@@ -133,9 +136,8 @@ class GAIA():
 
     def run_GUI(self,*args,**kwargs):
         self._dashboard.app.run(host='0.0.0.0',*args,**kwargs)
-# GAIA.myfunction = functools.partial(GAIA.myfunction, GAIA)
-# GAIA.myfunction.__doc__ = GAIA.function2.__doc__
 
+    loadtags_period.__doc__+=comUtils.VisualisationMaster_daily.loadtags_period.__doc__
 
 class Tester:
     def __init__(self,gaia,log_file_tester=None):

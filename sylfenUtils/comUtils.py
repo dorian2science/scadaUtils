@@ -1173,10 +1173,10 @@ class Streamer(Basic_streamer):
 
     def process_tag(self,s,rsMethod='nearest',rs='auto',tz='CET',rmwindow='3000s',closed='left',checkTime=False,verbose=False):
         '''
-            - s : pd.series with timestampz index and name=value
-            - rsMethod : see self.methods
-            - rs : argument for pandas.resample
-            - rmwindow : argument for method rollingmean
+            - s : [pd.Series] with timestampz as index and name='value'
+            - rsMethod : [str] see Basic_streamer().methods => {XXX}
+            - rs : argument for pandas.resample. See pandas.DataFrame.resample?
+            - rmwindow : argument for method pandas rollingmean.
         '''
         if s.empty:
             if verbose:print_file('processing : series is empty')
@@ -1479,6 +1479,8 @@ class Streamer(Basic_streamer):
             t.text = '{:.2f}'.format(float(re.findall('\d+\.\d+',t.text)[0]))
         fig.show()
         return timelens
+
+    process_tag.__doc__= process_tag.__doc__.replace('XXX',"'" + "',' ".join(Basic_streamer().methods)+"'")
 
 STREAMER = Streamer()
 class Configurator():
@@ -2025,6 +2027,8 @@ class VisualisationMaster(Configurator):
             fig.update_traces(hovertemplate='  %{y:.2f}' + '<br>  %{x|%b %d %Y %H:%M}')
         return fig
 
+    loadtags_period.__doc__+=Streamer.process_tag.__doc__
+
 class VisualisationMaster_daily(VisualisationMaster):
     def __init__(self,*args,**kwargs):
         VisualisationMaster.__init__(self,*args,**kwargs)
@@ -2165,20 +2169,24 @@ class Fix_daily_data():
         '''convert timestamp to standard day folder format'''
         return Streamer()._to_folderday(timestamp)
 
-    def applyCorrectFormat_daytag(self,tag,day,newtz='CET',print_fileag=False,debug=False,checkFolder=False):
+    def applyCorrectFormat_daytag(self,tag,day,newtz='CET',verbose=True,checkFolder=False):
         '''
         Formats as pd.Series with name values and timestamp as index, remove duplicates, convert timestamp with timezone
         and apply the correct datatype
 
         :Parameters:
         ----------------
-            - tag:str ==> the tag
-            - day:str ==> the day
+            - tag:[str] ==> the tag
+            - day:[str] ==> the day
+            - newtz : [str] timezone
+            - checkFolder:[bool] if True it will save the correct formatted data in self.checkFolder 
         '''
         tagpath=os.path.join(self.conf.FOLDERPKL,day,tag+'.pkl')
-        if print_fileag:print(tagpath)
+        if verbose:print(tagpath)
         ##### --- load pkl----
-        if not os.path.exists(tagpath):print(tagpath,'does not exist');return
+        if not os.path.exists(tagpath):
+            print(tagpath,'does not exist');
+            return
         try:s=pd.read_pickle(tagpath)
         except:print('pb loading',tagpath);return
         if s.empty:print('series empty for ',tagpath);return

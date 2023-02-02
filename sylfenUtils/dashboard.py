@@ -28,6 +28,7 @@ NOTIFS={
         Please take note of your settings or take a screenshot of your screen and report it to the webmaster: dorian.drevon@sylfen.com.'''
 }
 
+from IPython.core.ultratb import AutoFormattedTB
 class Dashboard():
     def __init__(self,cfg,log_dir,root_path,
             plot_function=None,app_name='',
@@ -136,20 +137,10 @@ class Dashboard():
             loginfo_file.write('-'*60+'\n')
 
     def notify_error(self,tb,error):
+        AutoTB = AutoFormattedTB(mode = 'Verbose',color_scheme='Linux')
         print_file('-'*60 +'\n'+timenowstd()+' '*10 + error['msg']+'\n',filename=self.errorfile_name)
         if self.errorfile_name is None:
-            traceback.print_exception(*tb)
-            # traceback.print_exception(*tb,
-            #     tb_offset=0,
-            #     limit=None,
-            #     file=sys.stdout,
-            #     chain=False,
-            #     tb_lineno=False,
-            #     stb=AutoFormattedTB(mode='Verbose',color_scheme='Linux',call_pager=False,ostream=None)
-            #     )
-        else:
-            with open(self.errorfile_name,'a') as logerror_file:
-                traceback.print_exception(*tb,file=logerror_file)
+            x=AutoTB(*tb,out=self.errorfile_name)
         print_file('-'*60+'\n',filename=self.errorfile_name)
 
     # ###################
