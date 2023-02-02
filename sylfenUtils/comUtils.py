@@ -1829,7 +1829,7 @@ class SuperDumper_daily(SuperDumper):
                 if verbose:print_file('problem with tag : ',tag)
 
         if len(self.park_tag_pbs)==0:
-            msg='successfully'
+            msg=' successfully'
             self.flushdb(t_parking)
         else:
             msg='with problems for tags:'+';'.join(park_tag_pbs)

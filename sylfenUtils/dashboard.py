@@ -128,7 +128,6 @@ class Dashboard():
             shutil.copytree(os.path.join(sylfenUtils_env_dir,'static/lib'),lib_folder)
             print('static files have been copied into ',root_folder)
 
-
     # ###################
     #    MANAGE LOGS    #
     # ###################
@@ -170,7 +169,7 @@ class Dashboard():
         rs,rsMethod=parameters['rs_time'],parameters['rs_method']
 
         pool='auto'
-        ####### determine if it should be load with COARSE DATA or fine data
+        ####### determine if it should be loaded with COARSE DATA or fine data
         if pd.to_timedelta(rs)>=pd.Timedelta(seconds=self.rs_min_coarse) or t1-t0>pd.Timedelta(days=self.nb_days_min_coarse):
             pool='coarse'
             df = self.cfg.load_coarse_data(t0,t1,tags,rs=rs,rsMethod=rsMethod)

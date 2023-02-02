@@ -73,14 +73,14 @@ class GAIA():
         if root_folder is None:
             root_folder=os.path.join(self.conf.project_folder,'dashboard')
 
-        _initial_tags=self.conf.INITIAL_TAGS.split(';')
-        if len(_initial_tags)==1:
-            _initial_tags=_initial_tags[0]
-            if _initial_tags.lower().strip()=='random':
-                # comUtils.print_file(self.dfplc)
-                _initial_tags=self.dfplc.sample(n=min(3,len(self.dfplc.index))).index.to_list()
-            else:
-                _initial_tags=self.conf.getTagsTU(_initial_tags)
+        _initial_tags=self.conf.INITIAL_TAGS.strip(';').split(';')
+        if len(_initial_tags)==1 and _initial_tags[0].lower().strip()=='random':
+            _initial_tags=self.dfplc.sample(n=min(3,len(self.dfplc.index))).index.to_list()
+        else:
+            alltags=[]
+            for t in _initial_tags:
+                alltags+=self.conf.getTagsTU(t)
+            _initial_tags=alltags
 
         self._init_parameters={
             'tags':_initial_tags,
