@@ -90,7 +90,8 @@ class GAIA():
             'delay_minutes':0,
             'log_versions':None #you can enter the relative path of (in folder static) a .md file summarizing some evolution in your code.
         }
-
+        if self.conf.TEST_ENV:
+            self._init_parameters['delay_minutes']=self.conf.DASHBOARD_DELAY_MINUTES
         #### configure web GUI
         self._dashboard=Dashboard(
             self._visualiser,
@@ -107,9 +108,6 @@ class GAIA():
         print('\nIf necessary change the settings and reinstanciate your GAIA object\n'+'='*60)
 
     def start_dumping(self,*args,**kwargs):
-        '''
-        see sylfenUtils.comUtils.SuperDumper_daily.start_dumping
-        '''
         self._dumper.start_dumping(*args,**kwargs)
 
     def stop_dumping(self):
@@ -118,9 +116,9 @@ class GAIA():
     def getTagsTU(self,*args,**kwargs):
         return self.conf.getTagsTU(*args,**kwargs)
 
-    def loadtags_period(self,*args,**kwargs):
-        return self._visualiser.loadtags_period(*args,**kwargs)
-
+    # def loadtags_period(self,*args,**kwargs):
+    #     'see self._visualiser.loadtags_period'
+    #     return self._visualiser.loadtags_period(*args,**kwargs)
     def plot_data(self,df,**kwargs):
         return self._visualiser.multiUnitGraph(df,**kwargs)
 
@@ -135,6 +133,9 @@ class GAIA():
 
     def run_GUI(self,*args,**kwargs):
         self._dashboard.app.run(host='0.0.0.0',*args,**kwargs)
+# GAIA.myfunction = functools.partial(GAIA.myfunction, GAIA)
+# GAIA.myfunction.__doc__ = GAIA.function2.__doc__
+
 
 class Tester:
     def __init__(self,gaia,log_file_tester=None):
@@ -169,11 +170,11 @@ class Tester:
         return t0,t1
 
     def load_raw_data(self,tags,t0,t1,*args,print_tag=False,**kwargs):
-        fix=Fix_daily_data(self.conf)
+        fix=comUtils.Fix_daily_data(self.conf)
         res={}
-        for t in tag:
+        for t in tags:
             if print_tag:print_file(tag)
-            res[tag]=fix.load_raw_tag_period(tags,t0,t1,*args,**kwargs)
+            res[t]=fix.load_raw_tag_period(t,t0,t1,*args,**kwargs)
         return res
 
 ## regression tests

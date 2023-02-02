@@ -1,6 +1,7 @@
 from flask import Flask,Blueprint,request,session,render_template,send_file,jsonify
 from subprocess import check_output
 import json,os,sys,glob,time,traceback
+from IPython.core.ultratb import AutoFormattedTB
 import numpy as np,pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -28,8 +29,8 @@ NOTIFS={
 }
 
 class Dashboard():
-    def __init__(self,cfg,log_dir,root_path,initial_tags=[],
-            plot_function=None,app_name='',helpmelink='',
+    def __init__(self,cfg,log_dir,root_path,
+            plot_function=None,app_name='',
             init_parameters={},version_dashboard='',
             max_nb_pts=500*1000,rs_min_coarse=5*60,nb_days_min_coarse=3,
         ):
@@ -51,11 +52,10 @@ class Dashboard():
         self.app_name=app_name
         self.root_path=root_path
         self._create_dashboard_links(root_path)
-        self.initial_tags=initial_tags
         if plot_function is None :plot_function=cfg.multiUnitGraph
         self.plot_function = plot_function
         self.infofile_name  = log_dir+'dashboard_' + app_name + '.log';
-        self.helpmelink=helpmelink
+        self.helpmelink=''
         self.version_dashboard = version_dashboard
         # start_msg=timenowstd() + ' '*10+ 'starting ' + app_name + ' dashboard\n'.upper() + '*'*60 + '\n'
         start_msg=timenowstd() + ' client connecting\n'
@@ -92,19 +92,19 @@ class Dashboard():
 
         @self.app.route('/init', methods=['GET'])
         def init_dashboard():
-            return self.init_dashboard()
+            return self._init_dashboard()
 
         @self.app.route('/generate_fig', methods=['POST'])
         def generate_fig():
-            return self.generate_fig()
+            return self._generate_fig()
 
         @self.app.route('/export2excel', methods=['POST'])
         def export2excel():
-            return self.export2excel()
+            return self._export2excel()
 
         @self.app.route('/send_description_names',methods=['POST'])
         def send_names():
-            return self.send_names()
+            return self._send_names()
 
     def _create_dashboard_links(self,root_folder):
         '''
@@ -136,18 +136,29 @@ class Dashboard():
             loginfo_file.write('-'*60+'\n')
 
     def notify_error(self,tb,error):
-        with open(self.errorfile_name,'a') as logerror_file:
-            logerror_file.write('-'*60 +'\n'+timenowstd()+' '*10 + error['msg']+'\n')
-            traceback.print_exception(*tb,file=logerror_file)
-            logerror_file.write('-'*60+'\n')
+        print_file('-'*60 +'\n'+timenowstd()+' '*10 + error['msg']+'\n',filename=self.errorfile_name)
+        if self.errorfile_name is None:
+            traceback.print_exception(*tb)
+            # traceback.print_exception(*tb,
+            #     tb_offset=0,
+            #     limit=None,
+            #     file=sys.stdout,
+            #     chain=False,
+            #     tb_lineno=False,
+            #     stb=AutoFormattedTB(mode='Verbose',color_scheme='Linux',call_pager=False,ostream=None)
+            #     )
+        else:
+            with open(self.errorfile_name,'a') as logerror_file:
+                traceback.print_exception(*tb,file=logerror_file)
+        print_file('-'*60+'\n',filename=self.errorfile_name)
 
     # ###################
     #    FUNCTIONS      #
     # ###################
-    def init_dashboard(self):
+    def _init_dashboard(self):
         return json.dumps(self.init_parameters)
 
-    def generate_fig(self):
+    def _generate_fig(self):
         debug=False
         notif=200
         try:
@@ -209,7 +220,7 @@ class Dashboard():
         res={'fig':fig.to_json(),'notif':notif}
         return jsonify(res)
 
-    def export2excel(self):
+    def _export2excel(self):
         try:
             start=time.time()
             data=request.get_data()
@@ -234,7 +245,7 @@ class Dashboard():
             res={'status':'failed','notif':NOTIFS['excel_generation_impossible']}
         return jsonify(res)
 
-    def send_names(self):
+    def _send_names(self):
         try:
             data=request.get_data()
             data=json.loads(data.decode())
