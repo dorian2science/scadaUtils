@@ -1818,21 +1818,22 @@ class SuperDumper_daily(SuperDumper):
         start = time.time()
         now = pd.Timestamp.now(tz=self.tz_record)
         t_parking = now.isoformat()
-        if len(self.park_tag_pbs)>0:flush_tag=True
+        if len(self.park_tag_pbs)>0:
+            flush_tag=True
+            self.park_tag_pbs=[]
         for tag in self.dfplc.index.to_list():
             try:
                 self._park_singletag_DB(tag,t_park=t_parking,deleteFromDb=flush_tag,verbose=verbose)
             except:
-                self.tag_pbs.append(tag)
+                self.park_tag_pbs.append(tag)
                 if verbose:print_file('problem with tag : ',tag)
 
-        if len(self.tag_pbs)==0:
+        if len(self.park_tag_pbs)==0:
             msg='successfully'
             self.flushdb(t_parking)
         else:
-            msg='with problems for tags:'+';'.join(tag_pbs)
+            msg='with problems for tags:'+';'.join(park_tag_pbs)
             print_file(computetimeshow('database parked'+msg,start),filename=self.log_file)
-        self.tag_pbs=list(pd.Series(self.tag_pbs).unique())
         return
 
     def fix_timestamp(self,t0,tag,folder_save=None):
