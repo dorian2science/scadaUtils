@@ -1833,7 +1833,7 @@ class SuperDumper_daily(SuperDumper):
             self.flushdb(t_parking)
         else:
             msg='with problems for tags:'+';'.join(park_tag_pbs)
-            print_file(computetimeshow('database parked'+msg,start),filename=self.log_file)
+        print_file(computetimeshow('database parked'+msg,start),filename=self.log_file)
         return
 
     def fix_timestamp(self,t0,tag,folder_save=None):
