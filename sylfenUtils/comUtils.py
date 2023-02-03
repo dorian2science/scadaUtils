@@ -291,6 +291,10 @@ class Device():
         self.ip                = ip
         self.port              = port
         self.log_file          = log_file
+        if log_file is None:
+            self.collect_file = None
+        else:
+            self.collect_file  = os.path.join(os.path.dirname(log_file),device_name+'_collectTimes.csv')
         self._isConnected      = False
         self._auto_connect     = threading.Event()
         self._auto_connect.set()
@@ -304,7 +308,8 @@ class Device():
         self._current_timeOut   = self._time_outs_reconnection[0][1]
 
         self.dfplc = dfplc
-        self._collectingTimes,self._insertingTimes  = {},{}
+        self.collectError_absolute   = 0
+        self.collectError_consecutive = 0
         if not self.dfplc is None:
             self.listUnits = self.dfplc.UNITE.dropna().unique().tolist()
             self._get_frequencies()
@@ -315,6 +320,7 @@ class Device():
         self.tags_freqs = {freq: group.index for freq, group in self.dfplc.groupby(col_freq)}
         return self.tags_freqs
 
+    # @abstract_method
     def connectDevice(self,state=None):
         if state is None:self._isConnected=np.random.randint(0,2)==1
         else:self._isConnected=state
@@ -370,10 +376,12 @@ class Device():
     def insert_intodb(self,dbParameters,dbTable,*args,**kwargs):
         '''
         Insert into database data that are collected with self.collectData.
+        Function only works if there is a valid dfplc attribute.
         Parameters :
         ------------------
-            - dfplc attribute should not be None.
-            - *args,**kwargs : arguments of self.collectData
+            - dbParameters: [dict] database parameters
+            - dbTable: [str] name of the database table
+            - *args,**kwargs:arguments of self.collectData
         '''
         if self.dfplc is None:return
         if not self._isConnected:
@@ -389,24 +397,44 @@ class Device():
         start=time.time()
         ##### collect data ########
         data = self.collectData(*args,**kwargs)
+
+        ###### JUST FOR DEBUG (REMOVE IT IN PRODUCTION)####
+        data = 'unkown error'
+        ###### JUST FOR DEBUG (REMOVE IT IN PRODUCTION)####
+
+        ##### handle exception ==> log ########
         if isinstance(data,str):
             msg=timenowstd() + ' : ' + self.device_name
             if data=='connection error':
                 msg+=' --> connexion to device impossible.'
                 self._isConnected = False
+                print_file(msg,filename=self.log_file)
             else:
-                msg+=' --> collectData was failing due:'+data
-            print_file(msg,filename=self.log_file)
+                self.collectError_absolute+= 1
+                self.collectError_consecutive+= 1
+                if collectError_consecutive==1 or start-self.clockLast.timestamp()>3600:#### check every hour
+                    msg+=' --> collectData was consecutively failing(consecutive:'
+                    msg+=str(self.collectError_consecutive) + ', totally:'+str(self.collectError_absolute) +')'
+                    msg+=' due to:' + data
+                    print_file(msg,filename=self.log_file)
+                    self.clockLast=pd.Timestamp.now()
             return
-        self._collectingTimes[pd.Timestamp.now().strftime('%H:%M:%S.%f')[:-3]] = round((time.time()-start)*1000)
-        ##### generate sql insertion and insert ########
+
+        ##### if there it means it worked fine ########
+        self.clockLast=pd.Timestamp.now()
+        time_collect=[self.clockLast.strftime('%H:%M:%S.%f')[:-3],str(round((time.time()-start)*1000))]
+        self.collectError_consecutive = 0
+        ##### insert the data in database ########
         for tag in data.keys():
             sqlreq=self._generate_sql_insert_tag(tag,data[tag]['value'],data[tag]['timestampz'],dbTable)
             cur.execute(sqlreq)
-        self._insertingTimes[pd.Timestamp.now().strftime('%H:%M:%S.%f')[:-3]]= round((time.time()-start)*1000)
         dbconn.commit()
         cur.close()
         dbconn.close()
+        ##### store collecting times  ########
+        time_collect+=[str(round((time.time()-start)*1000))]
+        if not self.collect_file is None:
+            print_file(';'.join(time_collect),filename=self.collect_file)
 
     def createRandomInitalTagValues(self):
         return STREAMER.createRandomInitalTagValues(list(self.device.index),self.dfplc)
@@ -1683,17 +1711,11 @@ class SuperDumper(Configurator):
         return df
 
     def _checkTimes(self,name_device):
-        def dict2df(d,name):
-            df=pd.Series(d,name='value').sort_values().to_frame()
-            df['group']=name
-            return df
         device = self.devices[name_device]
-        s_collect = dict2df(device._collectingTimes,'collection')
-        s_insert  = dict2df(device._insertingTimes,'insertion')
-        df=pd.concat([s_collect,s_insert])
-
+        df_collect = pd.read_csv(device.collect_file,index_col=0,)
+        return df_collect
         p = 1. * np.arange(len(s_collect))
-        fig = px.histogram(df, x="value", color="group",hover_data=df.columns,nbins=20)
+        fig = px.histogram(df_collect, x="value", color="group",hover_data=df.columns,nbins=20)
         return fig
 
     def stop_dumping(self):
@@ -2179,7 +2201,7 @@ class Fix_daily_data():
             - tag:[str] ==> the tag
             - day:[str] ==> the day
             - newtz : [str] timezone
-            - checkFolder:[bool] if True it will save the correct formatted data in self.checkFolder 
+            - checkFolder:[bool] if True it will save the correct formatted data in self.checkFolder
         '''
         tagpath=os.path.join(self.conf.FOLDERPKL,day,tag+'.pkl')
         if verbose:print(tagpath)
