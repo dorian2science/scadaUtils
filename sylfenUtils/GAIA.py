@@ -137,13 +137,14 @@ class GAIA():
     def run_GUI(self,*args,**kwargs):
         self._dashboard.app.run(host='0.0.0.0',*args,**kwargs)
 
-    def _quick_read(self,filename='dumper',n=100,last=True):
+    def _quick_log_read(self,filename='dumper',n=100,last=True):
         if filename=='dumper':
             filename=self._dumper.log_file
         elif filename in self.devices.keys():
             filename=self.devices[filename]._collect_file
         elif filename=='dashboard':
-            filename=self._dashboard.log_file
+            filename=self._dashboard.infofile_name
+        comUtils.print_file(filename)
         with open(filename, 'r') as f:
             lines = f.readlines()
             for line in lines[-n:]:

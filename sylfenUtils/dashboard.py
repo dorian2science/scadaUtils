@@ -58,8 +58,8 @@ class Dashboard():
         self.infofile_name  = log_dir+'dashboard_' + app_name + '.log';
         self.helpmelink=''
         self.version_dashboard = version_dashboard
-        # start_msg=timenowstd() + ' '*10+ 'starting ' + app_name + ' dashboard\n'.upper() + '*'*60 + '\n'
-        start_msg=timenowstd() + ' client connecting\n'
+        start_msg=timenowstd() + ' '*10+ ('starting ' + app_name + ' dashboard\n').upper() + '*'*60 + '\n'
+        # start_msg=timenowstd() + ' STARTING DASHBOARD\n'
         with open(self.infofile_name,'a') as logfile:logfile.write(start_msg)
         self.errorfile_name = log_dir+'dashboard_'+ app_name +'.err';
         with open(self.errorfile_name,'a') as logfile:logfile.write(start_msg)
@@ -132,9 +132,10 @@ class Dashboard():
     #    MANAGE LOGS    #
     # ###################
     def log_info(self,msg):
-        with open(self.infofile_name,'a') as loginfo_file:
-            loginfo_file.write('-'*60 +'\n'+ msg +'\n')
-            loginfo_file.write('-'*60+'\n')
+        print_file(msg,filename=self.infofile_name,with_infos=False)
+        # with open(self.infofile_name,'a') as loginfo_file:
+            # loginfo_file.write('-'*60 +'\n'+ msg +'\n')
+            # loginfo_file.write('-'*60+'\n')
 
     def notify_error(self,tb,error):
         AutoTB = AutoFormattedTB(mode = 'Verbose',color_scheme='Linux')

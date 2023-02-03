@@ -395,9 +395,11 @@ class Device():
             return
         cur  = dbconn.cursor()
         start=time.time()
+
         ##### collect data ########
         data = self.collectData(*args,**kwargs)
 
+        print_file(data)
         ###### JUST FOR DEBUG (REMOVE IT IN PRODUCTION)####
         data = 'unkown error'
         ###### JUST FOR DEBUG (REMOVE IT IN PRODUCTION)####
@@ -1565,7 +1567,7 @@ class SuperDumper(Configurator):
         for dev in devices.values():dev.log_file=self.log_file
         self.jobs = {}
         self.park_tag_pbs=[]
-        print_file(' '*20+'INSTANCIATION OF THE DUMPER'+'\n',filename=self.log_file)
+        # print_file(' '*20+'INSTANCIATION OF THE DUMPER'+'\n',filename=self.log_file)
 
     def _stop_auto_reconnect_all(self):
         for device_name,device in self.devices.items():
