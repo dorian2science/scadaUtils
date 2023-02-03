@@ -292,9 +292,9 @@ class Device():
         self.port              = port
         self.log_file          = log_file
         if log_file is None:
-            self.collect_file = None
+            self._collect_file = None
         else:
-            self.collect_file  = os.path.join(os.path.dirname(log_file),device_name+'_collectTimes.csv')
+            self._collect_file  = os.path.join(os.path.dirname(log_file),device_name+'_collectTimes.csv')
         self._isConnected      = False
         self._auto_connect     = threading.Event()
         self._auto_connect.set()
@@ -433,8 +433,8 @@ class Device():
         dbconn.close()
         ##### store collecting times  ########
         time_collect+=[str(round((time.time()-start)*1000))]
-        if not self.collect_file is None:
-            print_file(';'.join(time_collect),filename=self.collect_file)
+        if not self._collect_file is None:
+            print_file(';'.join(time_collect),filename=self._collect_file)
 
     def createRandomInitalTagValues(self):
         return STREAMER.createRandomInitalTagValues(list(self.device.index),self.dfplc)
@@ -1565,7 +1565,7 @@ class SuperDumper(Configurator):
         for dev in devices.values():dev.log_file=self.log_file
         self.jobs = {}
         self.park_tag_pbs=[]
-        print_file(' '*20+'INSTANCIATION OF THE DUMPER'+'\n',filename=self.log_file,with_infos=False)
+        print_file(' '*20+'INSTANCIATION OF THE DUMPER'+'\n',filename=self.log_file)
 
     def _stop_auto_reconnect_all(self):
         for device_name,device in self.devices.items():
