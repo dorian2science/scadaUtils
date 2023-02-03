@@ -412,7 +412,7 @@ class Device():
             else:
                 self.collectError_absolute+= 1
                 self.collectError_consecutive+= 1
-                if collectError_consecutive==1 or start-self.clockLast.timestamp()>3600:#### check every hour
+                if self.collectError_consecutive==1 or start-self.clockLast.timestamp()>3600:#### check every hour
                     msg+=' --> collectData was consecutively failing(consecutive:'
                     msg+=str(self.collectError_consecutive) + ', totally:'+str(self.collectError_absolute) +')'
                     msg+=' due to:' + data
