@@ -308,8 +308,10 @@ class Device():
         self._current_timeOut   = self._time_outs_reconnection[0][1]
 
         self.dfplc = dfplc
-        self.collectError_absolute   = 0
-        self.collectError_consecutive = 0
+        self.collectError_absolute      = 0
+        self.collectError_consecutive   = 0
+        self.clockLast                  = pd.Timestamp.now()
+
         if not self.dfplc is None:
             self.listUnits = self.dfplc.UNITE.dropna().unique().tolist()
             self._get_frequencies()
@@ -373,7 +375,7 @@ class Device():
         sqlreq+= tag +"','" + value + "','" + timestampz  + "');"
         return sqlreq.replace('nan','null')
 
-    def insert_intodb(self,dbParameters,dbTable,*args,**kwargs):
+    def insert_intodb(self,dbParameters,dbTable,*args,verbose=False,**kwargs):
         '''
         Insert into database data that are collected with self.collectData.
         Function only works if there is a valid dfplc attribute.
@@ -394,14 +396,13 @@ class Device():
             print_file('problem connecting to database ',dbParameters,filename=self.log_file)
             return
         cur  = dbconn.cursor()
-        start=time.time()
+        start=pd.Timestamp.now().timestamp()
 
         ##### collect data ########
         data = self.collectData(*args,**kwargs)
 
-        print_file(data)
         ###### JUST FOR DEBUG (REMOVE IT IN PRODUCTION)####
-        data = 'unkown error'
+        # data = 'unkown error'
         ###### JUST FOR DEBUG (REMOVE IT IN PRODUCTION)####
 
         ##### handle exception ==> log ########
@@ -414,7 +415,8 @@ class Device():
             else:
                 self.collectError_absolute+= 1
                 self.collectError_consecutive+= 1
-                if self.collectError_consecutive==1 or start-self.clockLast.timestamp()>3600:#### check every hour
+                duration_failing_secs=start-self.clockLast.timestamp()
+                if self.collectError_consecutive==1 or duration_failing_secs>59 or verbose:#### check every hour
                     msg+=' --> collectData was consecutively failing(consecutive:'
                     msg+=str(self.collectError_consecutive) + ', totally:'+str(self.collectError_absolute) +')'
                     msg+=' due to:' + data
