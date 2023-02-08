@@ -1616,9 +1616,6 @@ class SuperDumper(Configurator):
             print_file(job_name,'deleted',filename=self.log_file)
 
     def read_db(self,*args,**kwargs):
-        '''
-        see comUtils.read_db?
-        '''
         return read_db(self.dbParameters,self.dbTable,*args,**kwargs)
 
     def flushdb(self,t=None):
@@ -1751,6 +1748,8 @@ class SuperDumper(Configurator):
         df['ms']=pd.Series(df.index).diff().apply(lambda k:k.total_seconds()*1000).to_list()
         print(df.ms.describe(percentiles=[0.5,0.75,0.9,0.95]))
         return df
+
+SuperDumper.read_db.__doc__=read_db.__doc__
 
 class SuperDumper_daily(SuperDumper):
     def start_dumping(self,park_on_time=True):
@@ -1928,19 +1927,17 @@ class VisualisationMaster(Configurator):
 
     def loadtags_period(self,t0,t1,tags,*args,pool='auto',verbose=False,**kwargs):
         """
-        Loads tags between times t0  and t1.
-
-        :Parameters:
-            t0,t1 : [pd.Timestamp]
-                Timestamps, t0 start and t1 end.
-            tags : [list]
+        Loads tags between times t0 and t1.
+        Parameters
+        ----------------
+            - t0,t1 : [pd.Timestamp] Timestamps, t0 start and t1 end.
+            - tags : [list]
                 List of tags available from self.dfplc.listtags
 
         :return:
             pd.DataFrame with ntags columns
 
-        :see also:
-            *args,**kwargs of VisualisationMaster.Streamer.process_tag
+        see also : args of VisualisationMaster.Streamer.process_tag
         """
         # for k in t0,t1,tags,args,kwargs:print_file(k)
         tags=list(np.unique(tags))
@@ -2043,6 +2040,12 @@ class VisualisationMaster(Configurator):
         return fig
 
     def multiUnitGraph(self,df,tagMapping=None,**kwargs):
+        '''
+        Parameters:
+        -----------
+            - df : [pd.DataFrame] pivoted.
+            - tagMapping : [dict] same as dictGroups 
+        '''
         if not tagMapping:tagMapping = {t:self.getUnitofTag(t) for t in df.columns}
         # print(tagMapping)
         fig = self.utils.multiUnitGraph(df,tagMapping,**kwargs)
@@ -2053,6 +2056,7 @@ class VisualisationMaster(Configurator):
             fig.update_traces(hovertemplate='  %{y:.2f}' + '<br>  %{x|%b %d %Y %H:%M}')
         return fig
 
+    multiUnitGraph.__doc__+=Utils.multiUnitGraph.__doc__
     loadtags_period.__doc__+=Streamer.process_tag.__doc__
 
 class VisualisationMaster_daily(VisualisationMaster):

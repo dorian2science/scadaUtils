@@ -106,38 +106,48 @@ class GAIA():
 
         print('='*60,'\nYOUR ATTENTION PLEASE.\nPlease check your default settings for the application in the file.\n\n',self.conf.file_parameters)
         print('\nIf necessary change the settings and reinstanciate your GAIA object\n'+'='*60)
+    __init__.__doc__+=Conf_generator.Conf_generator.__init__.__doc__
 
     def start_dumping(self,*args,**kwargs):
         self._dumper.start_dumping(*args,**kwargs)
+    start_dumping.__doc__=comUtils.SuperDumper_daily.start_dumping.__doc__
 
     def stop_dumping(self):
         self._dumper.stop_dumping()
 
     def getTagsTU(self,*args,**kwargs):
         return self.conf.getTagsTU(*args,**kwargs)
+    getTagsTU.__doc__=Conf_generator.Conf_generator.getTagsTU.__doc__
 
     def loadtags_period(self,*args,**kwargs):
-        '''
-        Documentation of comUtils.VisualisationMaster_daily.loadtags_period
-        '''
         return self._visualiser.loadtags_period(*args,**kwargs)
+    loadtags_period.__doc__=comUtils.VisualisationMaster_daily.loadtags_period.__doc__
 
     def plot_data(self,df,**kwargs):
         return self._visualiser.multiUnitGraph(df,**kwargs)
+    plot_data.__doc__=comUtils.VisualisationMaster_daily.multiUnitGraph.__doc__
 
     def read_db(self,*args,**kwargs):
         return self._dumper.read_db(*args,**kwargs)
+    read_db.__doc__=comUtils.SuperDumper_daily.read_db.__doc__
 
     def flush_db(self,*args,**kwargs):
         return self._dumper.flushdb(*args,**kwargs)
+    flush_db.__doc__=comUtils.SuperDumper_daily.flushdb.__doc__
 
     def park_database(self,*args,**kwargs):
         return self._dumper.park_database(*args,**kwargs)
+    park_database.__doc__=comUtils.SuperDumper_daily.park_database.__doc__
 
     def run_GUI(self,*args,**kwargs):
         self._dashboard.app.run(host='0.0.0.0',*args,**kwargs)
+    import flask
+    run_GUI.__doc__=flask.app.Flask.run.__doc__
 
     def _quick_log_read(self,filename='dumper',n=100,last=True):
+        '''
+        filename:[str] either the filename or one of 'dumper','dashboard' or the name of a device.
+        '''
         if filename=='dumper':
             filename=self._dumper.log_file
         elif filename in self.devices.keys():
@@ -150,7 +160,6 @@ class GAIA():
             for line in lines[-n:]:
                 print(line)
 
-    loadtags_period.__doc__+=comUtils.VisualisationMaster_daily.loadtags_period.__doc__
 
 class Tester:
     def __init__(self,gaia,log_file_tester=None):

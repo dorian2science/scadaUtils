@@ -198,6 +198,12 @@ class Graphics():
         return fig,dfGroups
 
     def multiUnitGraph(self,df,dictGroups=None,sizeDots=3,dropna=False):
+        '''
+        - Parameters:
+        -----------------
+            - df:[pd.DataFrame] pivoted.
+            - dictGroups : [dict] whose keys are columns of df and values axis attribution(generally units)
+        '''
         if not dictGroups : dictGroups={t:t for t in df.columns}
         fig,dfGroups=self.getLayoutMultiUnit(dictGroups)
         if len(dfGroups.yscale.unique())>12:
