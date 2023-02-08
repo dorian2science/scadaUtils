@@ -45,13 +45,14 @@ def create_folder_if_not(folder_path,*args,**kwargs):
         os.mkdir(folder_path)
         print_file('folder ' + folder_path + ' created!',*args,**kwargs)
 def print_file(*args,filename=None,mode='a',with_infos=True,**kwargs):
-    '''
+    """
     Print with color code in a file with line number in code.
-    Parameters :
-    -----------------
-        - filename:file to print in.
+
+    :parameters:
+
+        - **filename**:file to print in.
         - with_infos:using line numbering and color code.
-    '''
+    """
     entete=''
     if with_infos:
         frameinfo = currentframe().f_back
@@ -271,7 +272,7 @@ class SetInterval:
 # #      DEVICES        #
 # #######################
 class Device():
-    '''
+    """
     Construtor: instanciate a device.
     Parameters:
     -------------
@@ -282,7 +283,7 @@ class Device():
     For inheritance :
         - a function <collectData> should be written  to collect data from the device.
         - a function <connectDevice> to connect to the device.
-    '''
+    """
     def __init__(self,device_name,ip,port,dfplc,time_outs_reconnection=None,log_file=None):
         STREAMER               = FileSystem()
         self._utils            = Utils()
@@ -291,10 +292,6 @@ class Device():
         self.ip                = ip
         self.port              = port
         self.log_file          = log_file
-        if log_file is None:
-            self._collect_file = None
-        else:
-            self._collect_file  = os.path.join(os.path.dirname(log_file),device_name+'_collectTimes.csv')
         self._isConnected      = False
         self._auto_connect     = threading.Event()
         self._auto_connect.set()
@@ -315,6 +312,14 @@ class Device():
         if not self.dfplc is None:
             self.listUnits = self.dfplc.UNITE.dropna().unique().tolist()
             self._get_frequencies()
+
+    def _update_log_file(self,log_file):
+        self.log_file=log_file
+        if self.log_file is None:
+            self._collect_file = None
+        else:
+            self._collect_file  = os.path.join(os.path.dirname(self.log_file),
+                self.device_name + '_collectTimes.csv')
 
     def _get_frequencies(self,):
         col_freq='FREQUENCE_ECHANTILLONNAGE'
@@ -385,16 +390,16 @@ class Device():
             - dbTable: [str] name of the database table
             - *args,**kwargs:arguments of self.collectData
         '''
-        if self.dfplc is None:return
+        if self.dfplc is None:return 'pb dfplc'
         if not self._isConnected:
-            return
+            return 'pb connection'
         ##### connect to database ########
         try :
             connReq = ''.join([k + "=" + v + " " for k,v in dbParameters.items()])
             dbconn = psycopg2.connect(connReq)
         except:
             print_file('problem connecting to database ',dbParameters,filename=self.log_file)
-            return
+            return 'pb database'
         cur  = dbconn.cursor()
         start=pd.Timestamp.now().timestamp()
 
@@ -422,7 +427,7 @@ class Device():
                     msg+=' due to:' + data
                     print_file(msg,filename=self.log_file)
                     self.clockLast=pd.Timestamp.now()
-            return
+            return 'pb collect'
 
         ##### if there it means it worked fine ########
         self.clockLast=pd.Timestamp.now()
@@ -439,6 +444,7 @@ class Device():
         time_collect+=[str(round((time.time()-start)*1000))]
         if not self._collect_file is None:
             print_file(';'.join(time_collect),filename=self._collect_file)
+        return 1
 
     def createRandomInitalTagValues(self):
         return STREAMER.createRandomInitalTagValues(list(self.device.index),self.dfplc)
@@ -533,6 +539,7 @@ class ModbusDevice(Device):
             self.err=e
             # if 'failed to connect' in e.string.lower().strip():
             msg_err=e.args[0].lower().strip()
+            return 'connection error'
             if 'failed to connect' in msg_err:
                 return 'connection error'
             else:
@@ -722,6 +729,7 @@ class ADS_Client(Device):
         self._protocole = 'ads'
         self.ip        = self.ip
         self.TARGET_IP = self.ip + '.1.1'
+        self.unknown_error = False
         self.plcs      = {f:pyads.Connection(self.TARGET_IP,int(self.port)) for f in self.tags_freqs.keys()}
         if check_values:
             tags=self.detect_tag_pb()
@@ -790,6 +798,12 @@ class ADS_Client(Device):
         # return locals()
 
     def connectDevice(self):
+        if self.unknown_error:
+            for plc in self.plcs.values():
+                plc.close()
+                self._isConnected=False
+                print_file('connection was closed here',self.log_file)
+                self.unknown_error=False
         try:
             for plc in self.plcs.values():
                 plc.open()
@@ -818,13 +832,27 @@ class ADS_Client(Device):
             if freq is None:freq=list(self.plcs.keys())[0]
             values=self.plcs[freq].read_list_by_name(listtags)
             data = {tag.strip('GVL.'):{'value':val,'timestampz':ts} for tag,val in values.items()}
+
+            ######## FOR DEBUGGING ONLY #######################
+            ###### trigger the error intentionally and randomly
+            # trigger_error=np.random.randint(0,20)
+            # if trigger_error==1:
+            #     e=Exception('unknown error')
+            #     e.err_code=-1
+            #     e.msg='unknown error'
+            #     raise e
+            ######## FOR DEBUGGING ONLY #######################
+
             return data
         except Exception as e:
             try:
                 if e.err_code==1864:## port not opened
                     return 'connection error'
-                else:
-                    return e.msg
+                elif 'unknown error' in e.msg.lower():
+                ###### this is time to close the connections #######
+                    self.unknown_error=True
+                    self._isConnected=False
+                return e.msg
             except:
                 print_file(e)
                 return 'internal error'
@@ -1566,7 +1594,7 @@ class SuperDumper(Configurator):
         self.log_file = os.path.join(self.conf.LOG_FOLDER,self.conf.project_name+'_dumper.log')
         if log_console:
             self.log_file=None
-        for dev in devices.values():dev.log_file=self.log_file
+        for dev in devices.values():dev._update_log_file(self.log_file)
         self.jobs = {}
         self.park_tag_pbs=[]
         # print_file(' '*20+'INSTANCIATION OF THE DUMPER'+'\n',filename=self.log_file)
@@ -2044,7 +2072,7 @@ class VisualisationMaster(Configurator):
         Parameters:
         -----------
             - df : [pd.DataFrame] pivoted.
-            - tagMapping : [dict] same as dictGroups 
+            - tagMapping : [dict] same as dictGroups
         '''
         if not tagMapping:tagMapping = {t:self.getUnitofTag(t) for t in df.columns}
         # print(tagMapping)
