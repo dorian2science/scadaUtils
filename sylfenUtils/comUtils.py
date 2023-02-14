@@ -23,6 +23,8 @@ FORMAT_DAY_FOLDER='%Y-%m-%d'
 DATATYPES={
     'REAL': 'float',
     'float32': 'float',
+    'float': 'float',
+    'bool': 'bool',
     'BOOL': 'bool',
     'WORD': 'int',
     'DINT': 'int',
@@ -760,7 +762,8 @@ class ADS_Client(Device):
         self.connectDevice()
         for k,t in enumerate(tags):
             try:
-                vals[t]=self.plc.read_by_name('GVL.'+t)
+                plc=list(self.plcs.values())[0]
+                vals[t]=plc.read_by_name('GVL.'+t)
             except Exception as e:
                 pbs[k]={'tag':t,'error':e}
 
@@ -1594,10 +1597,21 @@ class SuperDumper(Configurator):
         self.log_file = os.path.join(self.conf.LOG_FOLDER,self.conf.project_name+'_dumper.log')
         if log_console:
             self.log_file=None
-        for dev in devices.values():dev._update_log_file(self.log_file)
+        for dev in devices.values():
+            dev._update_log_file(self.log_file)
+            print(dev._collect_file)
         self.jobs = {}
         self.park_tag_pbs=[]
+        self.possible_jobs=self._get_possible_jobs()
         # print_file(' '*20+'INSTANCIATION OF THE DUMPER'+'\n',filename=self.log_file)
+
+    def _get_possible_jobs(self):
+        possible_jobs=[]
+        for device_name,device in self.devices.items():#### loop on devices
+            for freq in device.tags_freqs.keys():#### loop on frequencies
+                job_name=device_name+'_'+str(freq)+'s'
+                possible_jobs.append(job_name)
+        return possible_jobs
 
     def _stop_auto_reconnect_all(self):
         for device_name,device in self.devices.items():
@@ -1772,7 +1786,7 @@ class SuperDumper(Configurator):
         return df
 
     def quick_analysis(self,tag):
-        df=self.read_db(tag=tag).set_index('timestampz')
+        df=self.read_db(tag=tag,regExp=False).set_index('timestampz')
         df['ms']=pd.Series(df.index).diff().apply(lambda k:k.total_seconds()*1000).to_list()
         print(df.ms.describe(percentiles=[0.5,0.75,0.9,0.95]))
         return df
@@ -1825,6 +1839,12 @@ class SuperDumper_daily(SuperDumper):
             self.parktagfromdb(tag,dftag,folderday)
 
     def _park_singletag_DB(self,tag,t_park=None,deleteFromDb=False,verbose=False):
+        '''
+        :Parameters:
+            - tag : [str]
+            - t_park : [str] timestamp before which data should be parked. Default is now.
+            - deleteFromDb: [bool] if True tag will be flushed individually from the database after having been parked.
+        '''
         if verbose:print_file(tag)
         start = time.time()
         ######### read database
@@ -1887,9 +1907,10 @@ class SuperDumper_daily(SuperDumper):
             msg=' successfully'
             self.flushdb(t_parking)
         else:
-            msg='with problems for tags:'+';'.join(park_tag_pbs)
-        print_file(computetimeshow('database parked'+msg,start),filename=self.log_file)
-        return
+            msg='with problems for tags:'+';'.join(self.park_tag_pbs)
+        msg=computetimeshow('database parked'+msg,start)
+        print_file(msg,filename=self.log_file)
+        return msg
 
     def fix_timestamp(self,t0,tag,folder_save=None):
         t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
