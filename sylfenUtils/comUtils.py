@@ -2184,8 +2184,10 @@ class VisualisationMaster_daily(VisualisationMaster):
                 pb_tags.append(tag)
                 print(timenowstd(),tag,' not possible to coarse-compute')
         return pb_tags
-    def _get_t0(self,file_tag):
-        t0=self.t0
+
+    def _get_t0(self,file_tag,from_start=False):
+        t0 = pd.Timestamp(min(os.listdir(self.folderPkl)),tz=self.tz_record)
+        if from_start:return t0
         if os.path.exists(file_tag):
             s_tag=pd.read_pickle(file_tag)
             t1=s_tag.index.max()
@@ -2205,9 +2207,7 @@ class VisualisationMaster_daily(VisualisationMaster):
         methods=['mean','min','max']
         start=time.time()
         ########### determine t0
-        t0=min([self._get_t0(os.path.join(self.folder_coarse,m,tag + '.pkl') ) for m in methods])
-        if from_start:
-            self.t0 = pd.Timestamp(min(os.listdir(self.folderPkl)),tz=self.tz_record)
+        t0=min([self._get_t0(os.path.join(self.folder_coarse,m,tag + '.pkl'),from_start=from_start) for m in methods])
         ######### load the raw data
         if verbose:print(tag,t0)
         s=STREAMER.load_tag_daily(t0,pd.Timestamp.now(self.tz_record),tag,self.folderPkl,rsMethod='raw',verbose=False)
