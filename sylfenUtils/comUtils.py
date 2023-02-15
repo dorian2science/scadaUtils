@@ -2331,11 +2331,20 @@ class Fix_daily_data():
         return {tag:self._load_raw_tag_day(tag,day,*args,**kwargs) for tag in tags}
 
     def applyCorrectFormat_day(self,day,dtypes,*args,**kwargs):
+        '''
+        - day[str]
+        - dtypes[str] see self.DATATYPES for valid datatypes
+        Doc of applyCorrectFormat_daytag
+        '''
         tags = self.conf.dfplc.index.to_list()
         for tag in tags:
             self.applyCorrectFormat_daytag(tag,day,*args,**kwargs)
 
     def applyCorrectFormat_tag(self,tag,*args,**kwargs):
+        '''
+        - tag[str]
+        Doc of applyCorrectFormat_daytag
+        '''
         print(tag)
         for day in os.listdir(self.conf.FOLDERPKL):
             self.applyCorrectFormat_daytag(tag,day,*args,**kwargs)
