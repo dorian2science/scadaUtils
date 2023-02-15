@@ -2340,6 +2340,12 @@ class Fix_daily_data():
         for day in os.listdir(self.conf.FOLDERPKL):
             self.applyCorrectFormat_daytag(tag,day,*args,**kwargs)
 
+    load_raw_tag_period.__doc__+=_load_raw_tag_day.__doc__
+    load_raw_tags_day.__doc__+=_load_raw_tag_day.__doc__
+
+    applyCorrectFormat_day.__doc__+=applyCorrectFormat_daytag.__doc__
+    applyCorrectFormat_tag.__doc__+=applyCorrectFormat_daytag.__doc__
+
 class VisualisatorStatic(VisualisationMaster):
     def __init__(self,folderPkl,dfplc):
         '''
