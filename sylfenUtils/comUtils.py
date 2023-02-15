@@ -2171,13 +2171,19 @@ class VisualisationMaster_daily(VisualisationMaster):
         return df
 
     def park_coarse_data(self,tags=None,*args,**kwargs):
+        '''
+        :Parameters:
+            - tags [list] of tags
+        '''
         if tags is None : tags=list(self.dfplc.index)
+        pb_tags=[]
         for tag in tags:
             try:
                 self._park_coarse_tag(tag,*args,**kwargs)
             except:
+                pb_tags.append(tag)
                 print(timenowstd(),tag,' not possible to coarse-compute')
-
+        return pb_tags
     def _get_t0(self,file_tag):
         t0=self.t0
         if os.path.exists(file_tag):
@@ -2188,14 +2194,20 @@ class VisualisationMaster_daily(VisualisationMaster):
         return t0
 
     def _park_coarse_tag(self,tag,rs='60s',verbose=False,from_start=False):
-        # self.t0=pd.Timestamp(pd.Series(os.listdir(self.folderPkl)).min()+' 00:00',tz=self.tz_record)
-        self.t0=pd.Timestamp('2022-01-01 00:00',tz=self.tz_record)
+        """
+        This Will park coarse data by pre-calculating the mean/max/min of the period from the raw data.
+        Only missing coarse data will be computed unless from_start is set to True
+        :Parameters:
+            - tag : [str]
+            - from_start :[bool] if set to True will recalculate all from the begining(older day folder)
+        """
+
         methods=['mean','min','max']
         start=time.time()
         ########### determine t0
         t0=min([self._get_t0(os.path.join(self.folder_coarse,m,tag + '.pkl') ) for m in methods])
         if from_start:
-            t0=self.t0
+            self.t0 = pd.Timestamp(min(os.listdir(self.folderPkl)),tz=self.tz_record)
         ######### load the raw data
         if verbose:print(tag,t0)
         s=STREAMER.load_tag_daily(t0,pd.Timestamp.now(self.tz_record),tag,self.folderPkl,rsMethod='raw',verbose=False)
@@ -2217,6 +2229,8 @@ class VisualisationMaster_daily(VisualisationMaster):
                 s_new[m]=tmp[~tmp.index.duplicated(keep='first')]
             s_new[m].to_pickle(filename)
         if verbose:print(tag,'done in ',time.time()-start)
+    park_coarse_data.__doc__+=_park_coarse_tag.__doc__
+
 
 class Fix_daily_data():
     def __init__(self,conf):
