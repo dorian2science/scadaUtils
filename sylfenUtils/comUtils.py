@@ -2245,7 +2245,15 @@ class Fix_daily_data():
         create_folder_if_not(self.checkFolder)
 
     ########### PRIVATE
-    def _load_raw_tag_day(self,tag,day,showTag_day=True,checkFolder=False):
+    def _load_raw_tag_day(self,tag,day,verbose=True,checkFolder=False):
+        """
+        Load the raw data from self.conf.FOLDERPKL
+        :Parameters:
+            - tag[str]
+            - day[str]
+            - verbose[bool]
+            - checkFolder[bool]: if True the data will be loaded from self.checkFolder
+        """
         if checkFolder:
             filename = os.path.join(self.checkFolder,day,tag+'.pkl')
         else:
@@ -2255,7 +2263,7 @@ class Fix_daily_data():
         else :
             print(filename,'does not exist.')
             return
-        if showTag_day:print(filename + ' read')
+        if verbose:print(filename + ' read')
         return s
 
     def _to_folderday(self,timestamp):
