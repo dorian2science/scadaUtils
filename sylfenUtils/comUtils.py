@@ -433,7 +433,7 @@ class Device():
 
         ##### if there it means it worked fine ########
         self.clockLast=pd.Timestamp.now()
-        time_collect=[self.clockLast.strftime('%y-%b-%d %H:%M:%S.%f')[:-3],str(round((time.time()-start)*1000))]
+        time_collect=[self.clockLast.strftime('%Y-%b-%d %H:%M:%S.%f')[:-3],str(round((time.time()-start)*1000))]
         self.collectError_consecutive = 0
         ##### insert the data in database ########
         for tag in data.keys():
