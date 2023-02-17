@@ -433,7 +433,7 @@ class Device():
 
         ##### if there it means it worked fine ########
         self.clockLast=pd.Timestamp.now()
-        time_collect=[self.clockLast.strftime('%H:%M:%S.%f')[:-3],str(round((time.time()-start)*1000))]
+        time_collect=[self.clockLast.strftime('%y-%b-%d %H:%M:%S.%f')[:-3],str(round((time.time()-start)*1000))]
         self.collectError_consecutive = 0
         ##### insert the data in database ########
         for tag in data.keys():
@@ -1599,7 +1599,6 @@ class SuperDumper(Configurator):
             self.log_file=None
         for dev in devices.values():
             dev._update_log_file(self.log_file)
-            print(dev._collect_file)
         self.jobs = {}
         self.park_tag_pbs=[]
         self.possible_jobs=self._get_possible_jobs()
