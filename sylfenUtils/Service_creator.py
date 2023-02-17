@@ -147,17 +147,17 @@ class Services_creator():
     def show_file_content(self,file):
         sp.run(['cat',os.path.join(self.folder_tmp,self.filenames[file])])
 
-class Conf():
-    pass
-gaia_conf=Conf()
-gaia_conf.project_name='quickPro'
-gaia_conf.folder_project='/home/dorian/sylfen/quickPro'
-gaia_conf.gaia_name='gaia_test'
-s=Services_creator(gaia_conf)
-sys.exit()
-
 ##### TESTS ####
 def tests():
+    class Conf():
+        pass
+    gaia_conf=Conf()
+    gaia_conf.project_name='quickPro'
+    gaia_conf.folder_project='/home/dorian/sylfen/quickPro'
+    gaia_conf.gaia_name='gaia_test'
+    s=Services_creator(gaia_conf)
+    sys.exit()
+
     s.filenames
     s.show_file_content('nginx_file')
     s.show_file_content('bash_file')
