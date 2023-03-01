@@ -48,245 +48,34 @@ def build_devices(df_devices,modbus_maps=None,plcs=None):
             dfplc=plcs[device_name],
         )
     return DEVICES
-
-class GAIA():
-    def __init__(self,*args,root_folder=None,realtime=True,**kwargs):
-        '''
-        Super instance that create a project from scratch to dump data from devices,
-        load, visualize, and serve those data on a web GUI.
-        Parameters:
-        -----------------
-            - *args,**kwargs : see sylfenUtils.Conf_generator.Conf_generator arguments
-            - root_folder : [str] root_folder of the dashboard web service.
-            - realtime:[bool] if True Gaia uses postgressql database as buffer otherwise
-                it is just static data loading from folderpkl.
-        '''
-        if realtime:self.conf = Conf_generator.Conf_generator_RT(*args,**kwargs)
-        else:self.conf        = Conf_generator.Conf_generator_Static(*args,**kwargs)
-        self.dfplc            = self.conf.dfplc
-        #### INITIALIZE DEVICES
-        # comUtils.print_file(self.conf)
-        if not hasattr(self.conf,'modbus_maps'):self.conf.modbus_maps=None
-        if not hasattr(self.conf,'plcs'):self.conf.plcs=None
-        self.devices     = build_devices(self.conf.df_devices,self.conf.modbus_maps,self.conf.plcs)
-        self._dumper     = comUtils.SuperDumper_daily(self.devices,self.conf)
-        self._visualiser = comUtils.VisualisationMaster_daily(self.conf)
-        if root_folder is None:
-            root_folder=os.path.join(self.conf.project_folder,'dashboard')
-
-        _initial_tags=self.conf.INITIAL_TAGS.strip(';').split(';')
-        if len(_initial_tags)==1 and _initial_tags[0].lower().strip()=='random':
-            _initial_tags=self.dfplc.sample(n=min(3,len(self.dfplc.index))).index.to_list()
-        else:
-            alltags=[]
-            for t in _initial_tags:
-                alltags+=self.conf.getTagsTU(t)
-            _initial_tags=alltags
-
-        self._init_parameters={
-            'tags':_initial_tags,
-            'fig_name':self.conf.INITIAL_FIGNAME,
-            'rs':self.conf.INITIAL_RESAMPLING_TIME,
-            'time_window':self.conf.INITIAL_TIME_WINDOW,
-            'delay_minutes':0,
-            'log_versions':None #you can enter the relative path of (in folder static) a .md file summarizing some evolution in your code.
-        }
-        if self.conf.TEST_ENV:
-            self._init_parameters['delay_minutes']=self.conf.DASHBOARD_DELAY_MINUTES
-        #### configure web GUI
-        self._dashboard=Dashboard(
-            self._visualiser,
-            self.conf.LOG_FOLDER,
-            root_folder,
-            app_name=self.conf.project_name,
-            init_parameters=self._init_parameters,
-            plot_function=utils.Graphics().multiUnitGraph, ## you can use your own function to display the data
-            version_dashboard='1.0')
-        self._dashboard.helpmelink='' ### you can precise a url link on how to use the web interface
-        self._dashboard.fig_wh=780### size of the figure
-
-        print('='*60,'\nYOUR ATTENTION PLEASE.\nPlease check your default settings for the application in the file.\n\n',self.conf.file_parameters)
-        print('\nIf necessary change the settings and reinstanciate your GAIA object\n'+'='*60)
-    __init__.__doc__+=Conf_generator.Conf_generator.__init__.__doc__
-
-    def start_dumping(self,*args,**kwargs):
-        self._dumper.start_dumping(*args,**kwargs)
-    start_dumping.__doc__=comUtils.SuperDumper_daily.start_dumping.__doc__
-
-    def stop_dumping(self):
-        self._dumper.stop_dumping()
-
-    def getTagsTU(self,*args,**kwargs):
-        return self.conf.getTagsTU(*args,**kwargs)
-    getTagsTU.__doc__=Conf_generator.Conf_generator.getTagsTU.__doc__
-
-    def loadtags_period(self,*args,**kwargs):
-        return self._visualiser.loadtags_period(*args,**kwargs)
-    loadtags_period.__doc__=comUtils.VisualisationMaster_daily.loadtags_period.__doc__
-
-    def plot_data(self,df,**kwargs):
-        return self._visualiser.multiUnitGraph(df,**kwargs)
-    plot_data.__doc__=comUtils.VisualisationMaster_daily.multiUnitGraph.__doc__
-
-    def read_db(self,*args,**kwargs):
-        return self._dumper.read_db(*args,**kwargs)
-    read_db.__doc__=comUtils.SuperDumper_daily.read_db.__doc__
-
-    def flush_db(self,*args,**kwargs):
-        return self._dumper.flushdb(*args,**kwargs)
-    flush_db.__doc__=comUtils.SuperDumper_daily.flushdb.__doc__
-
-    def park_database(self,*args,**kwargs):
-        return self._dumper.park_database(*args,**kwargs)
-    park_database.__doc__=comUtils.SuperDumper_daily.park_database.__doc__
-
-    def run_GUI(self,*args,**kwargs):
-        self._dashboard.app.run(host='0.0.0.0',*args,**kwargs)
-    import flask
-    run_GUI.__doc__=flask.app.Flask.run.__doc__
-
-    def _quick_log_read(self,filename='dumper',n=100,last=True):
-        '''
-        filename:[str] either the filename or one of 'dumper','dashboard' or the name of a device.
-        '''
-        if filename=='dumper':
-            filename=self._dumper.log_file
-        elif filename in self.devices.keys():
-            filename=self.devices[filename]._collect_file
-        elif filename=='dashboard':
-            filename=self._dashboard.infofile_name
-        comUtils.print_file(filename)
-        with open(filename, 'r') as f:
-            lines = f.readlines()
-            for line in lines[-n:]:
-                print(line)
-
-    def start_park_coarse(self):
-        start=time.time()
-        log_file=os.path.join(self.conf.LOG_FOLDER,'coarse_parker.log')
-        def compute_coarse():
-            for tag in self._alltags:
-                try:
-                    smallpower_gaia._visualiser._park_coarse_tag(tag,verbose=False)
-                except:
-                    print_file(timenowstd()+tag + ' not possible to coarse-compute',log_file)
-            print_file('coarse computation done in ' + str(time.time()-start) + ' seconds',filename=log_file,mode='a')
-
-        thread_coarse=SetInterval(3600,compute_coarse)
-        thread_coarse.start()
-
-    def start_heartbeat(self,program_names,*args,**kargs):
-        heartbeat=Heartbeat(self,)
-        heartbeat.start_watchdog(*args,**kargs)
-
-    start_heartbeat.__doc__=Heartbeat.start_watchdog.__doc__
-
-    def create_services(self,url_dashboard):
-        Services_creator(self.conf,*args,**kwargs)
-    create_services.__doc__=Services_creator.__doc__
-
-class Tester:
-    def __init__(self,gaia,log_file_tester=None):
-        '''
-        gaia : [sylfenUtils.gaia] instance
-        '''
-        self.cfg    = gaia._visualiser
-        self.conf   = gaia.conf
-        self.dumper = gaia._dumper
-        self.dumper.log_file=log_file_tester
-
-## private methods
-    def _test_collect_data_device(self,device_name):
-        device=self.dumper.devices[device_name]
-        device.connectDevice()
-        tags=device.dfplc.index.to_list()
-        return device.collectData('CET',tags)
-
-    def _test_read_db():
-        return self.dumper.read_db()
-
-    def _get_random_period(self,nbHours=55):
-        valid_days=self.dumper.getdaysnotempty()
-        d1 = valid_days.sample(n=1).squeeze()
-        d1 = dumper.getdaysnotempty().sample(n=1).squeeze()
-        t1 = d1+pd.Timedelta(hours=np.random.randint(24))
-        t0 = t1 - pd.Timedelta(hours=nbHours)
-        min_t0=valid_days.min()
-        if t0<min_t0:
-            t0=min_t0
-            t1=min_t0+pd.Timedelta(hours=nbHours)
-        return t0,t1
-
-    def load_raw_data(self,tags,t0,t1,*args,print_tag=False,**kwargs):
-        fix=comUtils.Fix_daily_data(self.conf)
-        res={}
-        for t in tags:
-            if print_tag:print_file(tag)
-            res[t]=fix.load_raw_tag_period(t,t0,t1,*args,**kwargs)
-        return res
-
-## regression tests
-    def test_load_real_time_data(self,only_database=False):
-        t1=pd.Timestamp.now(tz='CET')
-        t0=t1-pd.Timedelta(hours=2)
-        tags=self.cfg.dfplc.sample(n=10).index.to_list()
-        if only_database:
-            df = cfg._load_database_tags(t0,t1,tags,rs='1s',rsMethod="mean_mix",closed='right',verbose=True)
-        else:
-            df = self.cfg.loadtags_period(t0,t1,tags,rs='10s',rsMethod="mean_mix",closed='right',verbose=True)
-        return df
-
-    def test_load_data(self):
-        t0,t1=self._get_random_period(nbHours=60)
-        tags = self.cfg.dfplc.sample(n=10).index.to_list()
-        # df = Streamer().load_parkedtags_daily(t0,t1,tags,cfg.folderPkl,rs='60s',pool='tag',verbose=True)
-        # Streamer()._load_raw_day_tag('2022-06-22',tags[0],cfg.folderPkl,rs='60s',rsMethod='mean_mix',closed='right')
-        try:
-            df  = self.cfg.loadtags_period(t0,t1,tags,rs='20s',rsMethod="mean_mix",closed='right',verbose=True)
-            return df
-        except:
-            return ('failed with arguments',t0,t1,tags)
-
-    def test_collect_data(self):
-        return {device_name:self._test_collect_data_device(device_name) for device_name in self.dumper.devices.keys()}
-
-    def test_load_coarse_data():
-        t0,t1=self._get_random_period(nbHours=24*15)
-        tags = self.cfg.dfplc.sample(n=10).index.to_list()
-        try:
-            return self.cfg.load_coarse_data(t0,t1,tags,rs='60s',verbose=True)
-        except:
-            return ('failed with arguments',t0,t1,tags)
-
 import psutil,pandas as pd,subprocess as sp,re
 from sylfenUtils.utils import EmailSmtp
 from sylfenUtils.comUtils import print_file
 import time
 
 class Services_creator():
-    def __init__(self,gaia_conf,url_dashboard=None,port=15000,user='sylfen'):
+    def __init__(self,project_name,folder_project,gaia_instance_name,url_dashboard=None,port=15000,user='sylfen'):
         """
         Create script files for the dumper, the coarse parker, the dashboard and the heartbeat(notifications service) as well
         the services conf files to enable/start with systemctl those applications. The reverse proxy is also configured.
         :Parameters:
         ------------
-            - gaia_conf[GAIA] : the conf of the gaia instance of the project
+            - project_name[str] : the name of the project.
             - folder_project[str] : the folder where the script files should be stored.
-            - url[str]: the url of the dashboard
+            - gaia_instance_name[str] : the name of the gaia instance.
+            - url_dashboard[str]: the url of the dashboard
             - port[int]: the port on which the dashboard will be served.
             - user[str]: the user owner of the services.
         """
         self.user=user
         self.name_env='.env'
-        # self.project_name=project_name
-        self.project_name=gaia_conf.project_name
-        self.folder_project=gaia_conf.folder_project
+        self.project_name=project_name
+        self.folder_project=folder_project
         self.folder_tmp='/tmp'
         self.folder_nginx='/etc/nginx'
         self.folder_systemd='/etc/systemd/system'
         self.folder_templates=os.path.dirname(__file__)
-        # self.folder_project=os.path.join("/home",self.user,self.project_name+'_user')
-        self.gaia_instance=gaia_conf.gaia_name
+        self.gaia_instance=gaia_instance_name
         self.url_dashboard=url_dashboard
         if self.url_dashboard is None:
             self.url_dashboard='www.'+self.project_name+'_sylfen.com'
@@ -608,3 +397,212 @@ class Heartbeat():
 
             hearbeat=self.heartBeat(hearbeat)
             time.sleep(5)
+
+class GAIA():
+    def __init__(self,*args,root_folder=None,realtime=True,**kwargs):
+        '''
+        Super instance that create a project from scratch to dump data from devices,
+        load, visualize, and serve those data on a web GUI.
+        Parameters:
+        -----------------
+            - *args,**kwargs : see sylfenUtils.Conf_generator.Conf_generator arguments
+            - root_folder : [str] root_folder of the dashboard web service.
+            - realtime:[bool] if True Gaia uses postgressql database as buffer otherwise
+                it is just static data loading from folderpkl.
+        '''
+        if realtime:self.conf = Conf_generator.Conf_generator_RT(*args,**kwargs)
+        else:self.conf        = Conf_generator.Conf_generator_Static(*args,**kwargs)
+        self.dfplc            = self.conf.dfplc
+        #### INITIALIZE DEVICES
+        # comUtils.print_file(self.conf)
+        if not hasattr(self.conf,'modbus_maps'):self.conf.modbus_maps=None
+        if not hasattr(self.conf,'plcs'):self.conf.plcs=None
+        self.devices     = build_devices(self.conf.df_devices,self.conf.modbus_maps,self.conf.plcs)
+        self._dumper     = comUtils.SuperDumper_daily(self.devices,self.conf)
+        self._visualiser = comUtils.VisualisationMaster_daily(self.conf)
+        if root_folder is None:
+            root_folder=os.path.join(self.conf.project_folder,'dashboard')
+
+        _initial_tags=self.conf.INITIAL_TAGS.strip(';').split(';')
+        if len(_initial_tags)==1 and _initial_tags[0].lower().strip()=='random':
+            _initial_tags=self.dfplc.sample(n=min(3,len(self.dfplc.index))).index.to_list()
+        else:
+            alltags=[]
+            for t in _initial_tags:
+                alltags+=self.conf.getTagsTU(t)
+            _initial_tags=alltags
+
+        self._init_parameters={
+            'tags':_initial_tags,
+            'fig_name':self.conf.INITIAL_FIGNAME,
+            'rs':self.conf.INITIAL_RESAMPLING_TIME,
+            'time_window':self.conf.INITIAL_TIME_WINDOW,
+            'delay_minutes':0,
+            'log_versions':None #you can enter the relative path of (in folder static) a .md file summarizing some evolution in your code.
+        }
+        if self.conf.TEST_ENV:
+            self._init_parameters['delay_minutes']=self.conf.DASHBOARD_DELAY_MINUTES
+        #### configure web GUI
+        self._dashboard=Dashboard(
+            self._visualiser,
+            self.conf.LOG_FOLDER,
+            root_folder,
+            app_name=self.conf.project_name,
+            init_parameters=self._init_parameters,
+            plot_function=utils.Graphics().multiUnitGraph, ## you can use your own function to display the data
+            version_dashboard='1.0')
+        self._dashboard.helpmelink='' ### you can precise a url link on how to use the web interface
+        self._dashboard.fig_wh=780### size of the figure
+
+        print('='*60,'\nYOUR ATTENTION PLEASE.\nPlease check your default settings for the application in the file.\n\n',self.conf.file_parameters)
+        print('\nIf necessary change the settings and reinstanciate your GAIA object\n'+'='*60)
+    __init__.__doc__+=Conf_generator.Conf_generator.__init__.__doc__
+
+    def start_dumping(self,*args,**kwargs):
+        self._dumper.start_dumping(*args,**kwargs)
+    start_dumping.__doc__=comUtils.SuperDumper_daily.start_dumping.__doc__
+
+    def stop_dumping(self):
+        self._dumper.stop_dumping()
+
+    def getTagsTU(self,*args,**kwargs):
+        return self.conf.getTagsTU(*args,**kwargs)
+    getTagsTU.__doc__=Conf_generator.Conf_generator.getTagsTU.__doc__
+
+    def loadtags_period(self,*args,**kwargs):
+        return self._visualiser.loadtags_period(*args,**kwargs)
+    loadtags_period.__doc__=comUtils.VisualisationMaster_daily.loadtags_period.__doc__
+
+    def plot_data(self,df,**kwargs):
+        return self._visualiser.multiUnitGraph(df,**kwargs)
+    plot_data.__doc__=comUtils.VisualisationMaster_daily.multiUnitGraph.__doc__
+
+    def read_db(self,*args,**kwargs):
+        return self._dumper.read_db(*args,**kwargs)
+    read_db.__doc__=comUtils.SuperDumper_daily.read_db.__doc__
+
+    def flush_db(self,*args,**kwargs):
+        return self._dumper.flushdb(*args,**kwargs)
+    flush_db.__doc__=comUtils.SuperDumper_daily.flushdb.__doc__
+
+    def park_database(self,*args,**kwargs):
+        return self._dumper.park_database(*args,**kwargs)
+    park_database.__doc__=comUtils.SuperDumper_daily.park_database.__doc__
+
+    def run_GUI(self,*args,**kwargs):
+        self._dashboard.app.run(host='0.0.0.0',*args,**kwargs)
+    import flask
+    run_GUI.__doc__=flask.app.Flask.run.__doc__
+
+    def _quick_log_read(self,filename='dumper',n=100,last=True):
+        '''
+        filename:[str] either the filename or one of 'dumper','dashboard' or the name of a device.
+        '''
+        if filename=='dumper':
+            filename=self._dumper.log_file
+        elif filename in self.devices.keys():
+            filename=self.devices[filename]._collect_file
+        elif filename=='dashboard':
+            filename=self._dashboard.infofile_name
+        comUtils.print_file(filename)
+        with open(filename, 'r') as f:
+            lines = f.readlines()
+            for line in lines[-n:]:
+                print(line)
+
+    def start_park_coarse(self):
+        start=time.time()
+        log_file=os.path.join(self.conf.LOG_FOLDER,'coarse_parker.log')
+        def compute_coarse():
+            for tag in self._alltags:
+                try:
+                    smallpower_gaia._visualiser._park_coarse_tag(tag,verbose=False)
+                except:
+                    print_file(timenowstd()+tag + ' not possible to coarse-compute',log_file)
+            print_file('coarse computation done in ' + str(time.time()-start) + ' seconds',filename=log_file,mode='a')
+
+        thread_coarse=SetInterval(3600,compute_coarse)
+        thread_coarse.start()
+
+    def start_heartbeat(self,program_names,*args,**kargs):
+        heartbeat=Heartbeat(self,)
+        heartbeat.start_watchdog(*args,**kargs)
+
+    start_heartbeat.__doc__=Heartbeat.start_watchdog.__doc__
+
+    def create_services(self,*args,**kwargs):
+        Services_creator(*args,**kwargs)
+    create_services.__doc__=Services_creator.__init__.__doc__
+
+class Tester:
+    def __init__(self,gaia,log_file_tester=None):
+        '''
+        gaia : [sylfenUtils.gaia] instance
+        '''
+        self.cfg    = gaia._visualiser
+        self.conf   = gaia.conf
+        self.dumper = gaia._dumper
+        self.dumper.log_file=log_file_tester
+
+## private methods
+    def _test_collect_data_device(self,device_name):
+        device=self.dumper.devices[device_name]
+        device.connectDevice()
+        tags=device.dfplc.index.to_list()
+        return device.collectData('CET',tags)
+
+    def _test_read_db():
+        return self.dumper.read_db()
+
+    def _get_random_period(self,nbHours=55):
+        valid_days=self.dumper.getdaysnotempty()
+        d1 = valid_days.sample(n=1).squeeze()
+        d1 = dumper.getdaysnotempty().sample(n=1).squeeze()
+        t1 = d1+pd.Timedelta(hours=np.random.randint(24))
+        t0 = t1 - pd.Timedelta(hours=nbHours)
+        min_t0=valid_days.min()
+        if t0<min_t0:
+            t0=min_t0
+            t1=min_t0+pd.Timedelta(hours=nbHours)
+        return t0,t1
+
+    def load_raw_data(self,tags,t0,t1,*args,print_tag=False,**kwargs):
+        fix=comUtils.Fix_daily_data(self.conf)
+        res={}
+        for t in tags:
+            if print_tag:print_file(tag)
+            res[t]=fix.load_raw_tag_period(t,t0,t1,*args,**kwargs)
+        return res
+
+## regression tests
+    def test_load_real_time_data(self,only_database=False):
+        t1=pd.Timestamp.now(tz='CET')
+        t0=t1-pd.Timedelta(hours=2)
+        tags=self.cfg.dfplc.sample(n=10).index.to_list()
+        if only_database:
+            df = cfg._load_database_tags(t0,t1,tags,rs='1s',rsMethod="mean_mix",closed='right',verbose=True)
+        else:
+            df = self.cfg.loadtags_period(t0,t1,tags,rs='10s',rsMethod="mean_mix",closed='right',verbose=True)
+        return df
+
+    def test_load_data(self):
+        t0,t1=self._get_random_period(nbHours=60)
+        tags = self.cfg.dfplc.sample(n=10).index.to_list()
+        # df = Streamer().load_parkedtags_daily(t0,t1,tags,cfg.folderPkl,rs='60s',pool='tag',verbose=True)
+        # Streamer()._load_raw_day_tag('2022-06-22',tags[0],cfg.folderPkl,rs='60s',rsMethod='mean_mix',closed='right')
+        try:
+            df  = self.cfg.loadtags_period(t0,t1,tags,rs='20s',rsMethod="mean_mix",closed='right',verbose=True)
+            return df
+        except:
+            return ('failed with arguments',t0,t1,tags)
+
+    def test_collect_data(self):
+        return {device_name:self._test_collect_data_device(device_name) for device_name in self.dumper.devices.keys()}
+
+    def test_load_coarse_data():
+        t0,t1=self._get_random_period(nbHours=24*15)
+        tags = self.cfg.dfplc.sample(n=10).index.to_list()
+        try:
+            return self.cfg.load_coarse_data(t0,t1,tags,rs='60s',verbose=True)
+        except:
+            return ('failed with arguments',t0,t1,tags)
