@@ -2230,7 +2230,6 @@ class VisualisationMaster_daily(VisualisationMaster):
         if verbose:print(tag,'done in ',time.time()-start)
     park_coarse_data.__doc__+=_park_coarse_tag.__doc__
 
-
 class Fix_daily_data():
     def __init__(self,conf):
         '''

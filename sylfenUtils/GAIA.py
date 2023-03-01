@@ -11,6 +11,12 @@ from . import utils
 # him that he can modifiy this file at any time. Then tell him to systemctl restart GAIA.py.
 ### Make sure the user can only have one instance of GAIA.py running
 ##
+LIST_SERVICES=[
+    'dashboard',
+    'dumper',
+    'coarse_parker'
+]
+
 def build_devices(df_devices,modbus_maps=None,plcs=None):
     DEVICES = {}
     devicesInfo=df_devices.copy()
@@ -160,7 +166,6 @@ class GAIA():
             for line in lines[-n:]:
                 print(line)
 
-
 class Tester:
     def __init__(self,gaia,log_file_tester=None):
         '''
@@ -233,3 +238,236 @@ class Tester:
             return self.cfg.load_coarse_data(t0,t1,tags,rs='60s',verbose=True)
         except:
             return ('failed with arguments',t0,t1,tags)
+
+import psutil,pandas as pd,subprocess as sp,re
+from sylfenUtils.utils import EmailSmtp
+from sylfenUtils.comUtils import print_file
+import time
+
+class Heartbeat():
+    def __init__(self,gaia,web_service_name,programme_names,smtp_args=None):
+    '''
+    :Parameters:
+    ---------------
+        - web_service_name[str]:for example : "http://reflex.sylfen.com/"
+        - programme_names[list] of strings of program names that are going to be checked.
+        - **smtp_args[dict]:arguments of EmailSmtp. By default Dorian send mails
+    '''
+    self.gaia=gaia
+    NAME_SERVICE_WEB=web_service_name
+    self.LISTPROGRAMS=[self.gaia.project_name + k for k in LIST_SERVICES]
+    self.listHours_heartbeats=['06:30','09:00','13:00','20:00']
+    if smtp_args is None:
+        smtp_args={
+        # host:'smtp.gmail.com',
+        # user:'drevondorian@gmail.com',
+            'host':'smtp.office365.com',
+            'port' : 587,
+            'user':'dorian.drevon@sylfen.com',
+            'password':'Qoh26867',
+            'isTls':True
+        }
+
+    SMTP = EmailSmtp(**smtp_args)
+    DEVICES=gaia.devices
+
+    def check_device_collect(self,device_name,threshold='1H',verbose=False):
+        '''
+        Check if collecting data are still in the log according to a certain threshold
+        :Parameters:
+        --------------
+            - device_name[str]: One of gaia.devices
+            - threshold[str]:duration in pandas format. Default is '1H'
+        '''
+        def count_lines(filename):
+            result = sp.run(['/usr/bin/wc', '-l', filename], stdout=sp.PIPE)
+            output = result.stdout.decode('utf-8')
+            num_lines = int(output.split()[0])
+            return num_lines
+
+        device=DEVICES[device_name]
+
+        #### read the last 50 lines of the log
+        result = sp.run('/usr/bin/tail -n 50 ' + device._collect_file,shell=True,stdout=sp.PIPE,stderr=sp.PIPE)
+        lines = result.stdout.decode('utf-8').split('\n')
+        # return 'collect file does not exist'
+
+        #### find the timestamps and convert them to pd format
+        timestamps=[re.findall('\d{4}-\w{3}-\d{2} \d{2}:\d{2}:\d{2}',l) for l in lines]
+        if verbose:print_file(timestamps)
+        timestamps=pd.Series([pd.Timestamp(k,tz='CET') for l in timestamps for k in l])
+        if verbose:print_file(timestamps)
+        #### the the max timestamp
+        if len(timestamps)>0:
+            max_ts=timestamps.max()
+            # get the number of lines in the file
+            n=count_lines(device._collect_file)
+            ## if this is >10000 then delete back to 1000.
+            max_lines=10000;nb_lines=1000
+            # max_lines=10;nb_lines=2
+            if n>max_lines:
+                with open(device._collect_file, 'r') as f:
+                    lines = f.readlines()
+                with open(device._collect_file, 'w') as f:
+                    f.writelines(lines[-nb_lines:])
+
+            #### does the last collect compare to now > threshold?
+            now=pd.Timestamp.now(tz='CET')
+            if now-max_ts>pd.Timedelta(threshold):
+                return max_ts.isoformat()
+            else:
+                return 1
+        else:
+            error_msg='no timestamps or file does not exist with content of log_file of device:\n'
+            error_msg+= '\n'.join(lines) + 'for file : '+device._collect_file + '\n'
+            error_msg+='error message:'+ result.stderr.decode()
+            return error_msg
+
+    def send_alert(self,body,msg,to_marc=False):
+        # print_file(body)
+        toAddrs=["DorianSylfen<dorian.drevon@sylfen.com>"]
+        to_marc=False
+        if to_marc:
+            toAddrs+=[
+                "Marc Potron<marc.potron@sylfen.com>",
+                "Damien Messi<damien.messi@sylfen.com>"
+            ]
+        try:
+            SMTP.sendMessage(
+                 fromAddr = "ALERTING <dorian.drevon@sylfen.com>",
+                 toAddrs = toAddrs,
+                 subject = "ALERT: "+body,
+                 content = msg,
+                 )
+        except:
+            print('impossible to send mail for an unkown reason.')
+
+    def is_program_running(self,program_name):
+        for process in psutil.process_iter():
+            try:
+                process_name=' '.join(process.cmdline())
+                if program_name in process_name:
+                    # print(process_name)
+                    return True
+            except Exception as e:
+                print_file(e)
+                return True
+        return False
+
+    def collecting_alert(self,device_name,collect_status,threshold='1H'):
+        '''
+        - Send an alert if the collecting of a device stopped working started working again
+        :Parameters:
+            - device_name[str]
+            - collect_status[bool]:if True collect is working okay.
+        returns : [bool] collect_status
+        '''
+        res_collect=check_device_collect(device_name,threshold=threshold)
+        if collect_status and not res_collect==1:
+            msgContent = """Cher collègues,
+            La collecte des données pour l'appareil suivant :""" + device_name +' a cessé  de  fonctioner depuis ' + res_collect+"""
+            Veuillez trouver la cause du problème.
+            Cordialement,
+            """
+            send_alert(device_name + ' stopped collecting',msgContent,to_marc=True)
+            collect_status = False
+        elif not collect_status and res_collect==1:
+            collect_status = True
+            msgContent = """Dear colleague,
+            La collecte des données pour l'appareil suivant:""" + device_name + """
+            fonctionne à nouveau.
+            Cordialement,
+            """
+            send_alert(device_name + ' collecting again',msgContent,to_marc=True)
+        return collect_status
+
+    def program_alert(self,program_name,was_running):
+        '''
+        - Send an alert if the program stopped again or was started working again
+        :Parameters:
+            - program_name[str]
+            - was_running[bool]:current state of the program
+        returns : [bool] state of the program
+        '''
+        # print_file(program_name,was_running,is_program_running(program_name))
+        if was_running and not is_program_running(program_name):
+            msgContent = """Dear colleague,
+            The following service stopped working :""" + program_name + """
+            Please check the reason for the application service failure.
+            Sincerely
+            """
+            send_alert(program_name + ' stopped working',msgContent)
+            was_running = False
+        elif not was_running and is_program_running(program_name):
+            was_running = True
+            msgContent = """Dear colleague,
+            The following service is available again:""" + program_name + """
+            Sincerely
+            """
+            send_alert(program_name + ' working again',msgContent)
+        return was_running
+
+    def heartBeat(self,hearbeat):
+        if pd.Timestamp.now().strftime('%H:%M') in self.listHours_heartbeats:
+            hearbeat_msg=True
+            msgContent = """Dear colleague,
+            I am still alive!
+            Please have a quick look on the dashboard at (the services?) """+NAME_SERVICE_WEB+""" to make
+            sure you are still happy with the data and service.
+            Sincerely
+            """
+            body = "Heartbeat of gaia"
+            if not hearbeat:
+                send_alert(body,msgContent)
+                hearbeat=True
+        else:
+            hearbeat=False
+        return hearbeat
+
+    def start_watchdog(self):
+        running_programs={k:True for k in self.LISTPROGRAMS}
+        collecting_devices={k:True for k in DEVICES.keys()}
+        hearbeat=False
+        while True:
+            ### check if services are running
+            for program_name,was_running in running_programs.items():
+                running_programs[program_name]=program_alert(program_name,was_running)
+            ### check if data are correctly collected
+            for device_name,collect_status in collecting_devices.items():
+                collecting_devices[device_name]=self.collecting_alert(device_name,collect_status)
+
+            hearbeat=self.heartBeat(hearbeat)
+            time.sleep(5)
+
+
+    ##### quick test
+    def test():
+        check_device_collect('battery',verbose=True)
+        check_device_collect('beckhoff',verbose=True)
+        collecting_alert('battery',True,'2S')
+        collecting_alert('beckhoff',True,'0.5S')
+        program_alert('gaia_cycling_trials',True)
+        program_alert('gaia_dashboard',True)
+        program_alert('gaia_dumper',True)
+        program_alert('gaia_coarse_parker',True)
+
+        device_name='battery';threshold='1H';verbose=False
+
+        ### test send message
+        SMTP = EmailSmtp(
+            host='smtp.office365.com',
+            # host='smtp.gmail.com',
+            port = 587,
+            # user='drevondorian@gmail.com',
+            user='dorian.drevon@sylfen.com',
+            password='Qoh26867',
+            isTls=True
+            )
+
+        toAddrs=["DorianSylfen<dorian.drevon@sylfen.com>"]
+        SMTP.sendMessage(
+             fromAddr = "ALERTING <dorian.drevon@sylfen.com>",
+             toAddrs = toAddrs,
+             subject = "ALERT: ",
+             content = 'hello',
+             )

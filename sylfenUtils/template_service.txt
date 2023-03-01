@@ -1,0 +1,13 @@
+[Unit]
+Description=DESCRIPTION
+After=network.target
+
+[Service]
+User=USER
+Group=USER
+WorkingDirectory=PROJECT_FOLDER/src/
+Environment=PATH=PROJECT_FOLDER/NAME_ENV/bin
+ExecStart=PROJECT_FOLDER/NAME_ENV/bin/APP_NAME SERVICE_PROJECT_NAME
+
+[Install]
+WantedBy=multi-user.target
