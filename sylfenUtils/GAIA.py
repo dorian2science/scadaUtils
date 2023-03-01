@@ -11,11 +11,6 @@ from . import utils
 # him that he can modifiy this file at any time. Then tell him to systemctl restart GAIA.py.
 ### Make sure the user can only have one instance of GAIA.py running
 ##
-LIST_SERVICES=[
-    'dashboard',
-    'dumper',
-    'coarse_parker'
-]
 
 def build_devices(df_devices,modbus_maps=None,plcs=None):
     DEVICES = {}
@@ -166,6 +161,30 @@ class GAIA():
             for line in lines[-n:]:
                 print(line)
 
+    def start_park_coarse(self):
+        start=time.time()
+        log_file=os.path.join(self.conf.LOG_FOLDER,'coarse_parker.log')
+        def compute_coarse():
+            for tag in self._alltags:
+                try:
+                    smallpower_gaia._visualiser._park_coarse_tag(tag,verbose=False)
+                except:
+                    print_file(timenowstd()+tag + ' not possible to coarse-compute',log_file)
+            print_file('coarse computation done in ' + str(time.time()-start) + ' seconds',filename=log_file,mode='a')
+
+        thread_coarse=SetInterval(3600,compute_coarse)
+        thread_coarse.start()
+
+    def start_heartbeat(self,program_names,*args,**kargs):
+        heartbeat=Heartbeat(self,)
+        heartbeat.start_watchdog(*args,**kargs)
+
+    start_heartbeat.__doc__=Heartbeat.start_watchdog.__doc__
+
+    def create_services(self,url_dashboard):
+        Services_creator(self.conf,*args,**kwargs)
+    create_services.__doc__=Services_creator.__doc__
+
 class Tester:
     def __init__(self,gaia,log_file_tester=None):
         '''
@@ -244,18 +263,165 @@ from sylfenUtils.utils import EmailSmtp
 from sylfenUtils.comUtils import print_file
 import time
 
+class Services_creator():
+    def __init__(self,gaia_conf,url_dashboard=None,port=15000,user='sylfen'):
+        """
+        Create script files for the dumper, the coarse parker, the dashboard and the heartbeat(notifications service) as well
+        the services conf files to enable/start with systemctl those applications. The reverse proxy is also configured.
+        :Parameters:
+        ------------
+            - gaia_conf[GAIA] : the conf of the gaia instance of the project
+            - folder_project[str] : the folder where the script files should be stored.
+            - url[str]: the url of the dashboard
+            - port[int]: the port on which the dashboard will be served.
+            - user[str]: the user owner of the services.
+        """
+        self.user=user
+        self.name_env='.env'
+        # self.project_name=project_name
+        self.project_name=gaia_conf.project_name
+        self.folder_project=gaia_conf.folder_project
+        self.folder_tmp='/tmp'
+        self.folder_nginx='/etc/nginx'
+        self.folder_systemd='/etc/systemd/system'
+        self.folder_templates=os.path.dirname(__file__)
+        # self.folder_project=os.path.join("/home",self.user,self.project_name+'_user')
+        self.gaia_instance=gaia_conf.gaia_name
+        self.url_dashboard=url_dashboard
+        if self.url_dashboard is None:
+            self.url_dashboard='www.'+self.project_name+'_sylfen.com'
+        self.port=port
+        self.services={
+            'dumper': {
+                'DESCRIPTION':'Data dumper of ' + self.project_name,
+                'appname':'python',
+                'script_name':self.project_name+'_dumper.py',
+                'function':self.gaia_instance+'.start_dumping()'
+            },
+            'dashboard': {
+                'DESCRIPTION':'dashboard of ' + self.project_name,
+                'appname':'gunicorn',
+                'script_name':'-b localhost:'+str(self.port)+ ' -w 2 '+ self.project_name +'_dashboard:app',
+                'function':'app='+self.gaia_instance+'._dashboard.app'
+            },
+            'coarse_parker': {
+                'DESCRIPTION':'parker of ' + self.project_name,
+                'appname':'python',
+                'script_name':self.project_name+'_coarse_parker.py',
+                'function':self.gaia_instance+'.start_dumping_coarse()'
+            },
+            'heartbeat': {
+                'DESCRIPTION':'Heatbeat of ' + self.project_name,
+                'appname':'python',
+                'function':self.gaia_instance+'.start_watchdog()',
+                'script_name':self.project_name+'_heartbeat.py',
+            },
+        }
+        self.filenames=self._generate_filenames()
+        self.create_files()
+        self.generate_sudo_bash_file()
+
+    def _generate_filenames(self):
+        folder_nginx=os.path.join(self.folder_nginx,'sites-available')
+        file_nginx=self.url_dashboard + '.conf'
+        filenames={
+            'nginx_file':file_nginx,
+            'bash_file':'start_up_'+self.project_name+'.sh'
+        }
+        for name_service in self.services.keys():
+            filenames[name_service+'_service']=self.project_name + '_' + name_service +'.service'
+            filenames[name_service+'_script']=self.project_name + '_' + name_service +'.py'
+        return filenames
+
+    def create_files(self):
+        self._create_the_nginx_file()
+        for name_service,infos in self.services.items():
+            file_script=self._create_script_file(name_service,infos['function'])
+            self._create_service_file(name_service,file_script)
+
+    def _create_script_file(self,name_service,function_name):
+        template_script="""from PROJECT_NAME import GAIA_INSTANCE\n"""
+        template_script=template_script.replace('PROJECT_NAME',self.project_name).replace("GAIA_INSTANCE",self.gaia_instance)
+
+        service_script=template_script + function_name
+
+        file_script=os.path.join(self.folder_tmp,self.filenames[name_service+'_script'])
+        with open(file_script,'w') as f:f.write(service_script)
+
+    def _create_service_file(self,service_name,name_script):
+        ### READ THE CONTENT OF THE SERVICE TEMPLATE FILE ####
+        filename=os.path.join(os.path.dirname(__file__),'template_service.txt')
+        with open(filename,'r') as f:content=''.join(f.readlines())
+
+        infos=self.services[service_name]
+        ### adjust the content of the file.service
+        serviceContent=content.replace('DESCRIPTION',infos['DESCRIPTION']).replace('USER',self.user)
+        serviceContent=serviceContent.replace('PROJECT_FOLDER',self.folder_project).replace('NAME_ENV',self.name_env)
+        serviceContent=serviceContent.replace('SERVICE_PROJECT_NAME',infos['script_name']).replace('APP_NAME',infos['appname'])
+
+        file_service=os.path.join('/tmp',self.filenames[service_name + '_service'])
+        ### write the content of the service file
+        with open(file_service,'w') as f:f.write(serviceContent)
+
+    def _create_the_nginx_file(self):
+        ### READ THE CONTENT OF THE NGINX TEMPLATE FILE ####
+        filename=os.path.join(os.path.dirname(__file__),'template_url.conf')
+        with open(filename,'r') as f:content=''.join(f.readlines())
+        nginxContent=content.replace('PROJECT_NAME',self.url_dashboard).replace('PORT',str(self.port))
+        ### write the content of the nginx file
+        nginx_file=os.path.join(self.folder_tmp,self.filenames['nginx_file'])
+        with open(nginx_file,'w') as f:f.write(nginxContent)
+
+    def generate_sudo_bash_file(self):
+        nginx_folder_available=os.path.join(self.folder_nginx,'sites-available')
+        nginx_folder_enabled=os.path.join(self.folder_nginx,'sites-enabled')
+        nginx_tmp=os.path.join(self.folder_tmp,self.filenames['nginx_file'])
+        ### copy the reverse_proxy.conf file to nginx folder
+        cmd=['### copy the reverse_proxy.conf file to nginx folder']
+        cmd+=['cp ' + nginx_tmp + ' ' + nginx_folder_available]
+        cmd+=['\n']
+        ### create symbolic link to enabled sites
+        cmd+=['### create symbolic link to enabled sites']
+        cmd+=['ln -s ' + os.path.join(nginx_folder_available,) + ' ' +  nginx_folder_enabled]
+        cmd+=['\n']
+
+        cmd2=[]
+        for name_service in self.services.keys():
+            cmd+=['### copy the service file to systemd folder ']
+            cmd+=['cp ' + os.path.join(self.folder_tmp,self.filenames[name_service+'_service']) + ' ' + self.folder_systemd]
+            cmd+=['### copy the script file to the project folder ']
+            cmd+=['cp ' + os.path.join(self.folder_tmp,self.filenames[name_service+'_script']) + ' ' + self.folder_project]
+            cmd+=['\n']
+
+            service_file=self.filenames[name_service+'_service']
+            cmd2+=['### enable and start the service']
+            cmd2+=['systemctl enable '+service_file]
+            cmd2+=['systemctl start '+service_file]
+            cmd2+=['\n']
+
+        #### concatenate the content of the file
+        bash_script='\n'.join(cmd)
+        bash_file=os.path.join(self.folder_tmp,self.filenames['bash_file'])
+        bash_file_start=os.path.join(self.folder_tmp,'start_services.sh')
+        ### create the bash file for services
+        with open(bash_file,'w') as f:f.write(bash_script)
+        with open(bash_file_start,'w') as f:f.write('\n'.join(cmd2))
+        ##### display the command to execute
+        print('please run the command\n'.rjust(50),'-'*60,'\n')
+        print(('sudo sh '+bash_file).rjust(50))
+
+    def show_file_content(self,file):
+        sp.run(['cat',os.path.join(self.folder_tmp,self.filenames[file])])
+
 class Heartbeat():
-    def __init__(self,gaia,web_service_name,programme_names,smtp_args=None):
+    def __init__(self,gaia,smtp_args=None):
         '''
         :Parameters:
         ---------------
-            - web_service_name[str]:for example : "http://reflex.sylfen.com/"
-            - programme_names[list] of strings of program names that are going to be checked.
-            - **smtp_args[dict]:arguments of EmailSmtp. By default Dorian send mails
+            - smtp_args[dict]:arguments of utils.EmailSmtp. By default Dorian send mails.
         '''
         self.gaia=gaia
-        NAME_SERVICE_WEB=web_service_name
-        self.LISTPROGRAMS=[self.gaia.project_name + k for k in LIST_SERVICES]
+        self.LISTPROGRAMS=[self.gaia.project_name + k for k in ['dashboard','dumper','coarse_parker']]
         self.listHours_heartbeats=['06:30','09:00','13:00','20:00']
         if smtp_args is None:
             smtp_args={
@@ -269,7 +435,6 @@ class Heartbeat():
             }
 
         SMTP = EmailSmtp(**smtp_args)
-        DEVICES=gaia.devices
 
     def check_device_collect(self,device_name,threshold='1H',verbose=False):
         '''
@@ -285,7 +450,7 @@ class Heartbeat():
             num_lines = int(output.split()[0])
             return num_lines
 
-        device=DEVICES[device_name]
+        device=self.gaia.devices[device_name]
 
         #### read the last 50 lines of the log
         result = sp.run('/usr/bin/tail -n 50 ' + device._collect_file,shell=True,stdout=sp.PIPE,stderr=sp.PIPE)
@@ -412,7 +577,7 @@ class Heartbeat():
             hearbeat_msg=True
             msgContent = """Dear colleague,
             I am still alive!
-            Please have a quick look on the dashboard at (the services?) """+NAME_SERVICE_WEB+""" to make
+            Please have a quick look on the dashboard at (the services?) """+self.gaia.conf.url_dashboard+""" to make
             sure you are still happy with the data and service.
             Sincerely
             """
@@ -424,9 +589,14 @@ class Heartbeat():
             hearbeat=False
         return hearbeat
 
-    def start_watchdog(self):
-        running_programs={k:True for k in self.LISTPROGRAMS}
-        collecting_devices={k:True for k in DEVICES.keys()}
+    def start_watchdog(self,list_programs):
+        '''
+        :Parameters:
+        --------------
+        list_programs[list]:list of strings of programs to check{'dashboard','dumper','coarse_parker'}
+        '''
+        running_programs={k:True for k in list_programs}
+        collecting_devices={k:True for k in self.gaia.devices.keys()}
         hearbeat=False
         while True:
             ### check if services are running
@@ -438,36 +608,3 @@ class Heartbeat():
 
             hearbeat=self.heartBeat(hearbeat)
             time.sleep(5)
-
-
-    ##### quick test
-    def test():
-        check_device_collect('battery',verbose=True)
-        check_device_collect('beckhoff',verbose=True)
-        collecting_alert('battery',True,'2S')
-        collecting_alert('beckhoff',True,'0.5S')
-        program_alert('gaia_cycling_trials',True)
-        program_alert('gaia_dashboard',True)
-        program_alert('gaia_dumper',True)
-        program_alert('gaia_coarse_parker',True)
-
-        device_name='battery';threshold='1H';verbose=False
-
-        ### test send message
-        SMTP = EmailSmtp(
-            host='smtp.office365.com',
-            # host='smtp.gmail.com',
-            port = 587,
-            # user='drevondorian@gmail.com',
-            user='dorian.drevon@sylfen.com',
-            password='Qoh26867',
-            isTls=True
-            )
-
-        toAddrs=["DorianSylfen<dorian.drevon@sylfen.com>"]
-        SMTP.sendMessage(
-             fromAddr = "ALERTING <dorian.drevon@sylfen.com>",
-             toAddrs = toAddrs,
-             subject = "ALERT: ",
-             content = 'hello',
-             )
