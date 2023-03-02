@@ -7,7 +7,7 @@ from . import utils
 # put the initial parameters of the dashboard in the user_settings default file so that to start the whole
 # programm (configurating,dumping, and web service) the user should only do#
 # ====> gaia=Gaia(myproject_name,my_conf_generator_function)
-### programm should then pop up the user_settings file and ask to modify it if necessary. And tell
+### program should then pop up the user_settings file and ask to modify it if necessary. And tell
 # him that he can modifiy this file at any time. Then tell him to systemctl restart GAIA.py.
 ### Make sure the user can only have one instance of GAIA.py running
 ##

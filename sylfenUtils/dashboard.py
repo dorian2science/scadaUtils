@@ -69,7 +69,11 @@ class Dashboard():
         init_par_keys=list(init_parameters.keys())
         if not 'all_tags' in init_par_keys:init_parameters['all_tags']=self.cfg.getTagsTU('')
         if not 'styles' in init_par_keys:init_parameters['styles']=self.cfg.styles
-        if not 'categories' in init_par_keys:init_parameters['categories']=list(cfg.conf.tag_categories.keys())
+        if hasattr(cfg.conf,'categories'):
+            tag_categories=list(cfg.conf.tag_categories.keys())
+        else:
+            tag_categories=[]
+        if not 'categories' in init_par_keys:init_parameters['categories']=tag_categories
         if not 'rsMethods' in init_par_keys:init_parameters['rsMethods']=cfg.methods
         if not 'tags' in init_par_keys:init_parameters['tags']=[]
         if not 'fig_name' in init_par_keys:init_parameters['fig_name']='Change me '
