@@ -41,11 +41,6 @@ def create_folder_if_not(folder_path,*args,**kwargs):
     if not os.path.exists(folder_path):
         os.mkdir(folder_path)
         print_file('folder ' + folder_path + ' created!',*args,**kwargs)
-
-def create_folder_if_not(folder_path,*args,**kwargs):
-    if not os.path.exists(folder_path):
-        os.mkdir(folder_path)
-        print_file('folder ' + folder_path + ' created!',*args,**kwargs)
 def print_file(*args,filename=None,mode='a',with_infos=True,**kwargs):
     """
     Print with color code in a file with line number in code.
@@ -130,7 +125,6 @@ def read_db(db_parameters,db_table,t=None,tag=None,verbose=False,delete=False,re
         df.timestampz=[pd.Timestamp(k).tz_convert('utc') for k in df.timestampz] #slower but will work with dst
     dbconn.close()
     return df
-
 def dfplc_from_modbusmap(modbus_map):
     dfplc=modbus_map[['description','unit','type','frequency']]
     dfplc.columns=['DESCRIPTION','UNITE','DATATYPE','FREQUENCE_ECHANTILLONNAGE']
@@ -477,7 +471,10 @@ class ModbusDevice(Device):
     def __init__(self,ip,port=502,device_name='',modbus_map=None,bo='big',wo='big',**kwargs):
         self.modbus_map = modbus_map
         self.byte_order,self.word_order = bo,wo
-        dfplc=dfplc_from_modbusmap(self.modbus_map)
+        if not modbus_map is None:
+            dfplc=dfplc_from_modbusmap(self.modbus_map)
+        else:
+            dfplc=None
         Device.__init__(self,device_name,ip,port,dfplc,**kwargs)
         self._protocole = 'modbus'
 
@@ -819,9 +816,8 @@ class ADS_Client(Device):
         return self._isConnected
 
     def close_connection(self):
-        self.plc.close()
-        self.plc.read_state()
-        self._isConnected=False
+        for plc in self.plcs.values():
+            plc.close()
 
     def collectData(self,tz,tags,freq=None):
         '''
@@ -861,112 +857,11 @@ class ADS_Client(Device):
                 return 'internal error'
 
 import urllib.request, json
-class Meteo(Device):
-    def __init__(self,cities,service='openweather',apitoken='',freq=30,**kwargs):
-        '''-freq: acquisition time in seconds '''
-        self.cities = cities
-        self.freq=freq
-        self.service=service
-        if service=='openweather':
-            self.baseurl = 'https://api.openweathermap.org/data/2.5/'
-        dfplc = self.build_plcmeteo(self.freq)
-        Device.__init__(self,'meteo',self.baseurl,None,dfplc)
-        self.apitoken = apitoken
-        # self.apitoken = '2baff0505c3177ad97ec1b648b504621'# Marc
-        self.t0 = pd.Timestamp('1970-01-01 00:00',tz='UTC')
-
-    def build_plcmeteo(self,freq):
-        vars = ['temp','pressure','humidity','clouds','wind_speed']
-        tags=['XM_'+ city+'_' + var for var in vars for city in self.cities]
-        descriptions=[var +' '+city for var in vars for city in self.cities]
-        dfplc=pd.DataFrame()
-        dfplc.index=tags
-        dfplc.loc[[k for k in dfplc.index if 'temp' in k],'MIN']=-50
-        dfplc.loc[[k for k in dfplc.index if 'temp' in k],'MAX']=50
-        dfplc.loc[[k for k in dfplc.index if 'temp' in k],'UNITE']='°C'
-        dfplc.loc[[k for k in dfplc.index if 'pressure' in k],'MIN']=-250
-        dfplc.loc[[k for k in dfplc.index if 'pressure' in k],'MAX']=250
-        dfplc.loc[[k for k in dfplc.index if 'pressure' in k],'UNITE']='mbar'
-        dfplc.loc[[k for k in dfplc.index if 'humidity' in k or 'clouds' in k],'MIN']=0
-        dfplc.loc[[k for k in dfplc.index if 'humidity' in k or 'clouds' in k],'MAX']=100
-        dfplc.loc[[k for k in dfplc.index if 'humidity' in k or 'clouds' in k],'UNITE']='%'
-        dfplc.loc[[k for k in dfplc.index if 'wind_speed' in k],'MIN']=0
-        dfplc.loc[[k for k in dfplc.index if 'wind_speed' in k],'MAX']=250
-        dfplc.loc[[k for k in dfplc.index if 'wind_speed' in k],'UNITE']='km/h'
-        dfplc['DESCRIPTION'] = descriptions
-        dfplc['DATATYPE'] = 'REAL'
-        dfplc['DATASCIENTISM'] = True
-        dfplc['PRECISION'] = 0.01
-        dfplc['FREQUENCE_ECHANTILLONNAGE'] = freq
-        dfplc['VAL_DEF'] = 0
-        return dfplc
-
-    def connectDevice(self):
-        try:
-            request = urllib.request.urlopen('https://api.openweathermap.org/',timeout=2)
-            print_file("Meteo : Connected to the meteo server.",filename=self.log_file)
-            self._isConnected=True
-        except:
-            print_file("Meteo : No internet connection or server not available.",filename=self.log_file)
-            self._isConnected=False
-        return self._isConnected
-
-    def collectData(self,tz='CET',tags=None):
-        df = pd.concat([self.get_dfMeteo(city,tz) for city in self.cities])
-        return {tag:{'value':v,'timestampz':df.name} for tag,v in df.to_dict().items()}
-
-    def get_dfMeteo(self,city,tz,ts_from_meteo=False):
-        '''
-        ts_from_meteo : if True the timestamp corresponds to the one given by the weather data server.
-        Can lead to dupplicates in the data.
-        '''
-        gps = self.cities[city]
-        url = self.baseurl + 'weather?lat='+gps.lat+'&lon=' + gps.lon + '&units=metric&appid=' + self.apitoken
-        response = urllib.request.urlopen(url)
-        data     = json.loads(response.read())
-        if ts_from_meteo:
-            timeCur  = (self.t0 + pd.Timedelta(seconds=data['dt'])).tz_convert(tz)
-        else:
-            timeCur  = pd.Timestamp.now(tz=tz)
-        dfmain   = pd.DataFrame(data['main'],index=[timeCur.isoformat()])
-        dfmain['clouds']     = data['clouds']['all']
-        dfmain['visibility'] = data['visibility']
-        dfmain['main']       = data['weather'][0]['description']
-        dfmain['seconds']       = data['dt']
-        dfwind = pd.DataFrame(data['wind'],index=[timeCur.isoformat()])
-        dfwind.columns = ['XM_' + city + '_wind_' + k  for k in dfwind.columns]
-        dfmain.columns = ['XM_' + city + '_' + k  for k in dfmain.columns]
-        df = pd.concat([dfmain,dfwind],axis=1).squeeze()
-        df = df.loc[self.dfplc.index]
-        return df
-
-    def dfMeteoForecast():
-        url = baseurl + 'onecall?lat='+lat+'&lon=' + lon + '&units=metric&appid=' + apitoken ## prediction
-        # url = 'http://history.openweathermap.org/data/2.5/history/city?q='+ +',' + country + '&appid=' + apitoken
-        listInfos = list(data['hourly'][0].keys())
-        listInfos = [listInfos[k] for k in [0,1,2,3,4,5,6,7,8,9,10,11]]
-        dictMeteo = {tag  : [k[tag] for k in data['hourly']] for tag in listInfos}
-        dfHourly = pd.DataFrame.from_dict(dictMeteo)
-        dfHourly['dt'] = [t0+dt.timedelta(seconds=k) for k in dfHourly['dt']]
-
-        listInfos = list(data['daily'][0].keys())
-        listInfos = [listInfos[k] for k in [0,1,2,3,4,5,6,8,9,10,11,13,15,16,18]]
-        dictMeteo = {tag  : [k[tag] for k in data['daily']] for tag in listInfos}
-        dfDaily = pd.DataFrame.from_dict(dictMeteo)
-        dfDaily['sunrise'] = [t0+dt.timedelta(seconds=k) for k in dfDaily['sunrise']]
-        dfDaily['sunset'] = [t0+dt.timedelta(seconds=k) for k in dfDaily['sunset']]
-        dfDaily['moonrise'] = [t0+dt.timedelta(seconds=k) for k in dfDaily['moonrise']]
-        dfDaily['moonset'] = [t0+dt.timedelta(seconds=k) for k in dfDaily['moonset']]
-
-        listInfos = list(data['minutely'][0].keys())
-        dictMeteo = {tag  : [k[tag] for k in data['minutely']] for tag in listInfos}
-        dfMinutely = pd.DataFrame.from_dict(dictMeteo)
-
 class Meteo_Client(Device):
     def __init__(self,freq=30,**kwargs):
-        '''-freq: acquisition time in seconds '''
-        self.freq=freq
-        self.cities = pd.DataFrame({'le_cheylas':{'lat' : '45.387','lon':'6.0000'}})
+        '''-freq:acquisition time in seconds '''
+        self.freq    = freq
+        self.cities  = pd.DataFrame({'le_cheylas':{'lat' : '45.387','lon':'6.0000'}})
         self.baseurl = 'https://api.openweathermap.org/data/2.5/'
         dfplc = self.build_plcmeteo(self.freq)
         Device.__init__(self,'meteo',self.baseurl,None,dfplc)
@@ -1789,7 +1684,6 @@ class SuperDumper(Configurator):
         df['ms']=pd.Series(df.index).diff().apply(lambda k:k.total_seconds()*1000).to_list()
         print(df.ms.describe(percentiles=[0.5,0.75,0.9,0.95]))
         return df
-
 SuperDumper.read_db.__doc__=read_db.__doc__
 
 class SuperDumper_daily(SuperDumper):

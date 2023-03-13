@@ -1,0 +1,77 @@
+mbarg = 1 * mbar; offset: 1013.25 = millibar_gauge
+
+PCSmol_H2 = 285989.760 J/mol
+PCImol_H2 = 241778.880 J/mol
+PCImol_CH4 = 803300.000 J/mol
+PCImol_CO = 283400.000 J/mol
+PCSmol_CO = 283240.000 J/mol
+PCSmol_CH4 = 889000.000 J/mol
+Enth_réfo = 206000.000 J/mol
+mw_H2 = 2.016 g/mol
+mw_H2O = 18.015 g/mol
+mw_Air = 28.965 g/mol
+mw_O2 = 31.999 g/mol
+mw_CH4 = 16.043 g/mol
+mw_CO2 = 44.010 g/mol
+mw_CO = 28.010 g/mol
+mw_N2 = 28.013 g/mol
+
+cp_H2_g= 14.58600 J/g/K
+cp_air_g= 1.07000 J/g/K
+cp_O2_g= 1.02997 J/g/K
+cp_H2O_g= 2.10000 J/g/K
+cp_CH4_g= 3.56800 J/g/K
+cp_CO2_g= 1.19000 J/g/K
+cp_CO_g= 1.15000 J/g/K
+cp_H2O_l= 4.18500 J/g/K
+cp_N2_g= 1.14554 J/g/K
+
+P0 = 1 * atm
+T0 = 273.15 * K
+Nl = 1 * l
+
+fraction = [] = frac
+percent = 1e-2 frac = pct
+ppm = 1e-6 fraction
+
+kW_VAR = 1 * kW
+kW_AC = 1 * kW
+kW_DC = 1 * kW
+
+vlm0 = R*T0/P0 * l/mol = volume molaire
+
+@context(mw=18,cp=2.1,z=2,n=25) rsoc
+    # mw : molecular weight.
+    # cp : specific capacity.
+    # z : number of charges.
+    # n : number of cells.
+
+    ##### mass to moles
+    [mass] -> [substance] : value / mw
+    [substance] -> [mass] : value * mw
+    [mass] / [time] -> [substance] / [time] : value / mw
+    [substance] / [time] -> [mass] / [time] : value * mw
+
+    ##### volumetric flow to mass flow
+    [length] ** 3 -> [mass]: value * mw / vlm0
+    [mass] -> [length] ** 3 : value / mw * vlm0
+
+    [length] ** 3 / [time] -> [mass] / [time]: value * mw / vlm0
+    [mass] / [time] -> [length] ** 3 / [time] : value / mw * vlm0
+
+    ##### current to mass flow
+    [current] -> [mass] / [time] : value * mw * n / z / faraday_constant
+    [mass] / [time] -> [current] : value / mw / n * z * faraday_constant
+
+    ##### mass flow to thermal mass flow
+    [mass] / [time] -> [mass] * [length] ** 2 / [temperature] / [time]**3 : value * cp
+    [mass] * [length] ** 2 / [temperature] / [time]**3 -> [mass] / [time] : value / cp
+
+@end
+
+d_1 = 1 * kg/m**3
+@context(d=1) chem
+    # d in kg/m**3
+    [length] ** 3 -> [mass]: value * d * kg/m**3
+    [mass] -> [length] ** 3: value / d
+@end

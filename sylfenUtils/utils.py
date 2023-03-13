@@ -6,6 +6,26 @@ import plotly.express as px
 from plotly.validators.scatter.line import ShapeValidator
 from plotly.validators.scatter.marker import SymbolValidator
 from plotly.validators.scatter.line import DashValidator
+import inspect
+def inspect_simple(frame):
+  # pull tuple from frame
+  args,args_paramname,kwargs_paramname,values = inspect.getargvalues(frame)
+
+  # show static parameters
+  for i in (args if not args is None else []):
+    print("\t{}={}".format(i,values[i]))
+
+  # show positional varargs
+  if args_paramname is not None:
+    varglist = values[args_paramname]
+    for v in (varglist if not varglist is None else []):
+      print("\t*{}={}".format(args_paramname,v))
+
+  # show named varargs
+  if kwargs_paramname is not None:
+    varglist = values[kwargs_paramname]
+    for k in (sorted(varglist) if not varglist is None else []):
+      print("\t*{} {}={}".format(kwargs_paramname,k,varglist[k]))
 
 def flattenList(l):return [item for sublist in l for item in sublist]
 
