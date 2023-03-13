@@ -25,7 +25,7 @@ setuptools.setup(
             'templates/*']},
     include_package_data=True,
     install_requires=['IPython','pandas>=1.5.2','psycopg2-binary','odfpy==1.4.1','plotly>=5.5.0',
-        'pymodbus>=2.5.3','opcua==0.98.13','cryptography==2.8','Pillow==7.0.0','openpyxl==3.0.7',
+        'pymodbus>=2.5.3','opcua==0.98.13','cryptography==2.8','Pillow','openpyxl==3.0.7',
         'psutil>=5.8.0','colorama==0.4.3','Flask>=2.2.2','scipy','pyads',
         'coolprop>=6.4.3.post1','pint>=0.20.1']
     ,python_requires=">=3.8"
