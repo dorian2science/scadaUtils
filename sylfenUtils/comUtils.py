@@ -437,7 +437,7 @@ class Device():
         cur.close()
         dbconn.close()
         ##### store collecting times  ########
-        time_collect+=[str(round((time.time()-start)*1000))]
+        time_collect+=[str(round((time.time()-start)*1000))+' ms']
         if not self._collect_file is None:
             print_file(';'.join(time_collect),filename=self._collect_file)
         return 1

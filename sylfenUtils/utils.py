@@ -464,6 +464,8 @@ class Graphics():
         fig.update_layout(dictYaxis)
         return fig,dfGroups
 
+graphics=Graphics()
+
 class Structs():
     def loads_pickle(self,file_pkl):
         f = open(file_pkl,'rb')
@@ -503,7 +505,7 @@ class Structs():
         dfGroups.columns=['group','subgroup']
         return dfGroups
 
-    def export2excel(df,filepath):
+    def export2excel(self,df,filepath):
         if isinstance(df.index,pd.core.indexes.datetimes.DatetimeIndex):
             df.index=[k.isoformat() for k in df.index]
         df.to_excel(filepath)

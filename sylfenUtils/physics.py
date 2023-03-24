@@ -26,7 +26,7 @@ coolProps_Q={
 'U':'K/kg',
 'A':'m/s',
 'L' :'W/m/K',
-'V':'viscosity',
+'V':'Pa/s',
 'C' :'J/kg/K',
 'G':'J/kg',
 'M':'kg/mol',
@@ -37,7 +37,7 @@ def get_val(pdf,tag):
     return Q_(val.iloc[0],val['unite'])
 
 def get_prop(prop,molecule,T=None,P=None,*args,**kwargs):
-    if T is None:T=Q_(273.15,'K')
+    if T is None:T=Q_(273.25,'K')
     if P is None:P=Q_(1,'atm')
     T=T.to('K')
     P=P.to('pascal')
@@ -168,7 +168,6 @@ def update_graph(fig,Qs):
     return fig
 units_test=lambda v,u2:v.to_root_units().u==Q_(u2).to_root_units().u
 
-
 constants=pd.Series({k:convert_u1_to_u2(1,k,'si',format='~eP') for k in dir(ureg) if 'constant' in k }).T
 
 ########## MATHS ##########
@@ -205,19 +204,10 @@ def get_molar_volume(T=None,P=None):
     vlm=Q_(1,'R')*T/P
     return vlm.to_root_units()
 
-def volumetric_flow_to_molar_flow(q,*args,**kwargs):
-    return q*get_molar_volume(*args,**kwargs)
-
-def molar_flow_to_volumetric_flow(q,*args,**kwargs):
-    return q/get_molar_volume(*args,**kwargs)
-
-def mass_flow_to_nlmin(q,mw):
-    molar_flow = q/mw
-    return get_molar_volume()*molar_flow
-
-def nlmin_to_mass_flow(q,):
-    molar_flow = q/mw
-    return get_molar_volume()*molar_flow
+def mass_flow_to_volum_flow(qm,molecule,unit2='Nl/min',T=None):
+    d=get_prop('D',molecule)
+    print(d)
+    return qm.to(unit2,'rsoc',d=d)
 
 class ReUtils(utils.Utils):
     def sample_colorscale(self,N,colorscale='jet'):
@@ -295,3 +285,62 @@ class Thermics():
         return sum(heat_flows.values())
 
 thermics=Thermics()
+
+def stack_production(I,molecule,nbCells,unit='g/h',verbose=False):
+    '''
+    - I[pint array]:current.
+    - molecule[str]:the molecule that is produced : {water,H2,O2}
+    '''
+    z=2
+    if molecule=='O2' or molecule=='air':z=4
+    q_molps=(I/(z*Q_('faraday_constant'))*nbCells).to_root_units()
+    d=get_prop('D',molecule)
+    q_nlpm=(q_molps*get_molar_volume()).to('Nl/min')
+    qm=q_nlpm.to('g/s','rsoc',d=d)
+    if units_test(Q_(1,unit),Q_(1,'g/s')):
+        qf=qm.to(unit)
+    elif units_test(Q_(1,unit),Q_(1,'mol/s')):
+        qf=q_molps.to(unit)
+    else:
+        qf=q_nlpm.to(unit)
+    if verbose:
+        df=pd.DataFrame([I,q_molps,q_nlpm,qm,qf]).T
+        df.columns=['current','molar flow','volumetric flow','mass flow','unit selected']
+        return df
+    return qf
+
+def SU(q_in,I,nbCells,verbose=False):
+    '''
+    - q_in[pint array]:mass or volumetric inlet flow
+    - I[pint array]: current
+    '''
+    d=get_prop('D','H2O')
+    qi_gps=q_in.to('g/s','rsoc',d=d)
+    M=get_prop('M','H2O')
+    qi_molps=(qi_gps/M).to('mol/s')
+    qf_molps=stack_production(I,'H2',nbCells,'mol/s')
+    su=qf_molps/qi_molps*100
+    if verbose:
+        df=pd.DataFrame([q_in,qi_molps,I,qf_molps,su]).T
+        df.columns=['inlet flow','inlet flow(mol/s)','current','outlet flow','SU']
+        df['SU']=df['SU'].apply(lambda x:'{:2.1f}'.format(x.m)+'%')
+        return df
+    return su
+
+def FU(q_in,I,nbCells,verbose=False):
+    '''
+    - q_in[pint array]:mass or volumetric inlet flow
+    - I[pint array]: current
+    '''
+    d=get_prop('D','H2')
+    qi_gps=q_in.to('g/s','rsoc',d=d)
+    M=get_prop('M','H2')
+    qi_molps=(qi_gps/M).to('mol/s')
+    qf_molps=stack_production(I,'H2O',nbCells,'mol/s')
+    fu=qf_molps/qi_molps*100
+    if verbose:
+        df=pd.DataFrame([q_in,qi_molps,I,qf_molps,fu]).T
+        df.columns=['inlet flow','inlet flow(mol/s)','current','outlet flow','FU']
+        df['FU']=df['FU'].apply(lambda x:'{:2.1f}'.format(x.m)+'%')
+        return df
+    return fu
