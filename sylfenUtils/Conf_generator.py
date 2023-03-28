@@ -48,11 +48,10 @@ def load_material_dfConstants():
 def buildColorCode(user_tag_color,dfplc,unitDefaultColors,verbose=False):
     '''
     assign styles for tags in dfplc using the principle of Guillaume Preaux. One color per unit
-    Parameters
-    ----------
-        - user_tag_color:Dataframe with tag in index and columns colorName with the Name of the color ton. See self.palettes.
-        - dfplc:plc dataframe with tags in index.
-        - unitDefaultColors: pd.Series with units in index and color. see self.palettes
+
+    :param pd.DataFrame user_tag_color: Dataframe with tag in index and columns colorName with the Name of the color ton. See self.palettes.
+    :param pd.DataFrame dfplc: plc dataframe with tags in index.
+    :param pd.Series unitDefaultColors: pd.Series with units in index and color. see self.palettes
     '''
     ###### load palettes of color
     colorPalettes=loadcolorPalettes()
@@ -92,26 +91,22 @@ def buildColorCode(user_tag_color,dfplc,unitDefaultColors,verbose=False):
     return user_tag_color
 
 class Conf_generator():
+    '''
+    Class to generate a configuration with default folders and automatic creation of user_setting file.
+
+    Loading of the configuation will be automatic whether the configuration file already exists or not.
+
+    :param str project_name: name of the project. Important if default folder are being used and project_folder is None.
+    :param function function_generator: Function that generates a list of objects needed for a project. Should return a dictionnary with at least following keys:
+        - df_devices : a dataframe containing the information of the devices (device_name as index, protocole , IP , port ,status['actif' or 'inactif']) and byte_order word_order for modbus protocole.
+        - dfplc      : dataframe with columns DESCRIPTION, UNITE, DATAYPE, FREQUENCY and tags as index.
+        - and/or modbus_maps(only if there are modbus devices): dictionnary. Keys are the names of devices and value is the corresponding modbus map.
+        Modbus_maps should have at least following columns :['Address', 'description', 'type', 'scale','frequency', 'unit', 'intaddress', 'slave_unit']]
+    :param str project_folder: (optional) path of the folder where the parameters.conf file, the log folder, the dashboard ... are going to be stored.
+    :param bool use_color_palettes: will load the palettes of color.
+        '''
+
     def __init__(self,project_name,function_generator,project_folder=None):
-        '''
-        Class to generate a configuration with default folders and automatic creation of
-        user_setting file.
-
-        Loading of the configuation will be automatic whether the configuration file already exists or not.
-
-        Parameters
-        -----------------
-        - project_name       :[str] name of the project. Important if default folder are being used and project_folder is None.
-        - function_generator :[function] Function that generates a list of objects needed for a project. Should return a dictionnary with at least following keys:
-            * df_devices : a dataframe containing the information of the devices (device_name as index, protocole , IP , port ,status['actif' or 'inactif']) and byte_order word_order for modbus protocole.
-            * dfplc      : dataframe with columns DESCRIPTION, UNITE, DATAYPE, FREQUENCY and tags as index.
-            * and/or modbus_maps(only if there are modbus devices): dictionnary. Keys are the names of devices and value is the corresponding modbus map.
-            Modbus_maps should have at least following columns :['Address', 'description', 'type', 'scale','frequency', 'unit', 'intaddress', 'slave_unit']]
-        - project_folder(optional):[str] path of the folder where the parameters.conf file, the log folder, the dashboard ...
-        - use_color_palettes :[bool] will load the palettes of color.
-        are going to be stored.
-
-        '''
         self.project_name=project_name
         self._function_generator=function_generator
         self._lib_sylfenUtils_path=os.path.dirname(__file__)
@@ -171,6 +166,9 @@ class Conf_generator():
             self.tag_categories={cat:self.getTagsTU(pattern) for cat,pattern in self.useful_tags.to_dict()['Pattern'].items()}
 
     def generate_conf(self):
+        '''
+        Generate the configuration
+        '''
         f = open(self._file_conf_pkl,'wb')
         start=time.time()
         print('generating configuration files and store it in :',self._file_conf_pkl)
@@ -223,6 +221,14 @@ class Conf_generator():
 
     ####### public useful ####
     def getdaysnotempty(self):
+        '''
+        Return a sorted pandas Series containing the dates of folders whose size is greater than *minSize*
+
+        :param str folderPkl: folder path
+        :param int minSize: minimum size in Mo of the folder to be taken in account, default 3
+        :param int dict_size:
+        :rtype: pd.Series
+        '''
         return FS.get_parked_days_not_empty(self.FOLDERPKL)
 
     def connect2db(self):
@@ -240,6 +246,12 @@ class Conf_generator():
         return FS.getUnitofTag(tag,self.dfplc)
 
     def getTagsTU(self,patTag,whole_df=False):
+        '''
+        Get the list of tags corresponding to the given pattern *patTag*
+        :param str patTag: pattern of the tag
+        :param bool whole_df: if True, return all the tags from dfplc
+        :rtype: list
+        '''
     # def getTagsTU(self,patTag,units=None,*args,**kwargs):
         # if not units : units = self.listUnits
         # return FS.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
@@ -249,6 +261,11 @@ class Conf_generator():
         return res
 
     def open_conf_file(self,file_conf=None):
+        '''
+        Open the configuration file with libreoffice
+
+        :param str file_conf: path of the configuration file. Default, None
+        '''
         import subprocess as sp
         if file_conf is None :
             file_conf=self._file_conf

@@ -15,7 +15,7 @@ from . import utils
 def build_devices(df_devices,modbus_maps=None,plcs=None):
     DEVICES = {}
     devicesInfo=df_devices.copy()
-    devicesInfo=devicesInfo[devicesInfo['status']=='actif']
+    devicesInfo=devicesInfo[devicesInfo['statut']=='actif']
     devicesInfo.columns=[k.lower() for k in devicesInfo.columns]
     # comUtils.print_file(devicesInfo['protocole'])
     devicesInfo['protocole']=devicesInfo['protocole'].apply(lambda x:x.lower().strip().replace('modebus','modbus'))
@@ -54,19 +54,19 @@ from sylfenUtils.comUtils import print_file
 import time
 
 class Services_creator():
+    '''
+    Create script files for the dumper, the coarse parker, the dashboard and the heartbeat (notifications service) as well
+    the services conf files to enable/start with systemctl those applications. The reverse proxy is also configured.
+
+    :param str project_name: the name of the project.
+    :param str folder_project: the folder where the script files should be stored.
+    :param str gaia_instance_name: the name of the gaia instance.
+    :param str url_dashboard: the url of the dashboard. If None, url will be www.<project_name>_sylfen.com
+    :param int port: the port on which the dashboard will be served. Default, 15000
+    :param str user: the user owner of the services. Default, 'sylfen'
+    '''
+
     def __init__(self,project_name,folder_project,gaia_instance_name,url_dashboard=None,port=15000,user='sylfen'):
-        """
-        Create script files for the dumper, the coarse parker, the dashboard and the heartbeat(notifications service) as well
-        the services conf files to enable/start with systemctl those applications. The reverse proxy is also configured.
-        :Parameters:
-        ------------
-            - project_name[str] : the name of the project.
-            - folder_project[str] : the folder where the script files should be stored.
-            - gaia_instance_name[str] : the name of the gaia instance.
-            - url_dashboard[str]: the url of the dashboard
-            - port[int]: the port on which the dashboard will be served.
-            - user[str]: the user owner of the services.
-        """
         self.user=user
         self.name_env='.env'
         self.project_name=project_name
@@ -111,6 +111,11 @@ class Services_creator():
         self.generate_sudo_bash_file()
 
     def _generate_filenames(self):
+        '''
+        Generate a dictionnary
+
+        :rtype: dict
+        '''
         folder_nginx=os.path.join(self.folder_nginx,'sites-available')
         file_nginx=self.url_dashboard + '.conf'
         filenames={
@@ -123,12 +128,21 @@ class Services_creator():
         return filenames
 
     def create_files(self):
+        '''
+        Create different script files ad service configuration files for each service (dumper, dashboard, coarse parker and heartbeat)
+        '''
         self._create_the_nginx_file()
         for name_service,infos in self.services.items():
             file_script=self._create_script_file(name_service,infos['function'])
             self._create_service_file(name_service,file_script)
 
     def _create_script_file(self,name_service,function_name):
+        '''
+        Create a script file for a service
+
+        :param str name_service: name of the service {dumper, dashboard, coarse_parker, heartbeat}
+        :param function function_name: name of the function
+        '''
         template_script="""from PROJECT_NAME import GAIA_INSTANCE\n"""
         template_script=template_script.replace('PROJECT_NAME',self.project_name).replace("GAIA_INSTANCE",self.gaia_instance)
 
@@ -138,6 +152,12 @@ class Services_creator():
         with open(file_script,'w') as f:f.write(service_script)
 
     def _create_service_file(self,service_name,name_script):
+        '''
+        Create a service file for a service
+
+        :param str service_name: name of the service {dumper, dashboard, coarse_parker, heartbeat}
+        :param str name_script: name of the script
+        '''
         ### READ THE CONTENT OF THE SERVICE TEMPLATE FILE ####
         filename=os.path.join(os.path.dirname(__file__),'template_service.txt')
         with open(filename,'r') as f:content=''.join(f.readlines())
@@ -162,6 +182,9 @@ class Services_creator():
         with open(nginx_file,'w') as f:f.write(nginxContent)
 
     def generate_sudo_bash_file(self):
+        '''
+        Generate a bash script that sets up and enables the different services using systemctl
+        '''
         nginx_folder_available=os.path.join(self.folder_nginx,'sites-available')
         nginx_folder_enabled=os.path.join(self.folder_nginx,'sites-enabled')
         nginx_tmp=os.path.join(self.folder_tmp,self.filenames['nginx_file'])
@@ -203,12 +226,13 @@ class Services_creator():
         sp.run(['cat',os.path.join(self.folder_tmp,self.filenames[file])])
 
 class Heartbeat():
+    '''
+    Instanciate an object *Heartbeat* (notifications service)
+
+    :param dict smtp_args: arguments of utils.EmailSmtp. By default Dorian send mails.
+    :param str gaia: instance of GAIA
+    '''
     def __init__(self,gaia,smtp_args=None):
-        '''
-        :Parameters:
-        ---------------
-            - smtp_args[dict]:arguments of utils.EmailSmtp. By default Dorian send mails.
-        '''
         self.gaia=gaia
         self.LISTPROGRAMS=[self.gaia.project_name + k for k in ['dashboard','dumper','coarse_parker']]
         self.listHours_heartbeats=['06:30','09:00','13:00','20:00']
@@ -228,10 +252,10 @@ class Heartbeat():
     def check_device_collect(self,device_name,threshold='1H',verbose=False):
         '''
         Check if collecting data are still in the log according to a certain threshold
-        :Parameters:
-        --------------
-            - device_name[str]: One of gaia.devices
-            - threshold[str]:duration in pandas format. Default is '1H'
+
+        :param str device_name: One of gaia.devices
+        :param str threshold: duration in pandas format. Default is '1H'
+        :param bool verbose: if True, produce detailed logging information. Default False
         '''
         def count_lines(filename):
             result = sp.run(['/usr/bin/wc', '-l', filename], stdout=sp.PIPE)
@@ -297,6 +321,11 @@ class Heartbeat():
             print('impossible to send mail for an unkown reason.')
 
     def is_program_running(self,program_name):
+        '''
+        Check if a program is running
+
+        :param str program_name: name of the program
+        '''
         for process in psutil.process_iter():
             try:
                 process_name=' '.join(process.cmdline())
@@ -310,11 +339,13 @@ class Heartbeat():
 
     def collecting_alert(self,device_name,collect_status,threshold='1H'):
         '''
-        - Send an alert if the collecting of a device stopped working started working again
-        :Parameters:
-            - device_name[str]
-            - collect_status[bool]:if True collect is working okay.
-        returns : [bool] collect_status
+        Send an alert if the collecting of a device stopped working started working again
+
+        :param str device_name: name of the device, one of gaia.devices
+        :param bool collect_status: if True collect is working okay
+        :param str threshold: duration in pandas format. Default is '1H'
+        :retuns: collect_status
+        :rtype: bool
         '''
         res_collect=check_device_collect(device_name,threshold=threshold)
         if collect_status and not res_collect==1:
@@ -362,6 +393,9 @@ class Heartbeat():
         return was_running
 
     def heartBeat(self,hearbeat):
+        '''
+        :param str heartbeat: instance of Heartbeat()
+        '''
         if pd.Timestamp.now().strftime('%H:%M') in self.listHours_heartbeats:
             hearbeat_msg=True
             msgContent = """Dear colleague,
@@ -380,9 +414,7 @@ class Heartbeat():
 
     def start_watchdog(self,list_programs):
         '''
-        :Parameters:
-        --------------
-        list_programs[list]:list of strings of programs to check{'dashboard','dumper','coarse_parker'}
+        :param list[str] list_programs: list of strings of programs to check {'dashboard','dumper','coarse_parker'}
         '''
         running_programs={k:True for k in list_programs}
         collecting_devices={k:True for k in self.gaia.devices.keys()}
@@ -399,17 +431,16 @@ class Heartbeat():
             time.sleep(5)
 
 class GAIA():
+    '''
+    Super instance that create a project from scratch to dump data from devices,
+    load, visualize, and serve those data on a web GUI.
+
+    :param str root_folder: root_folder of the dashboard web service. Default, None
+    :param bool realtime: if True, Gaia uses postgressql database as buffer otherwise it is just static data loading from folderpkl. Default, True
+    :param \*args: see sylfenUtils.Conf_generator.Conf_generator arguments
+    :param \**kwargs: see sylfenUtils.Conf_generator.Conf_generator arguments
+    '''
     def __init__(self,*args,root_folder=None,realtime=True,**kwargs):
-        '''
-        Super instance that create a project from scratch to dump data from devices,
-        load, visualize, and serve those data on a web GUI.
-        Parameters:
-        -----------------
-            - *args,**kwargs : see sylfenUtils.Conf_generator.Conf_generator arguments
-            - root_folder : [str] root_folder of the dashboard web service.
-            - realtime:[bool] if True Gaia uses postgressql database as buffer otherwise
-                it is just static data loading from folderpkl.
-        '''
         if realtime:self.conf = Conf_generator.Conf_generator_RT(*args,**kwargs)
         else:self.conf        = Conf_generator.Conf_generator_Static(*args,**kwargs)
         self.dfplc            = self.conf.dfplc
@@ -456,9 +487,14 @@ class GAIA():
 
         print('='*60,'\nYOUR ATTENTION PLEASE.\nPlease check your default settings for the application in the file.\n\n',self.conf.file_parameters)
         print('\nIf necessary change the settings and reinstanciate your GAIA object\n'+'='*60)
-    __init__.__doc__+=Conf_generator.Conf_generator.__init__.__doc__
+    __init__.__doc__=Conf_generator.Conf_generator.__init__.__doc__
 
     def start_dumping(self,*args,**kwargs):
+        '''
+        Start dumping data. See SuperDumper_daily.start_dumping()
+
+        :param \*args, \**kwargs: see documentation of SuperDumper_daily.start_dumping()
+        '''
         self._dumper.start_dumping(*args,**kwargs)
     start_dumping.__doc__=comUtils.SuperDumper_daily.start_dumping.__doc__
 
@@ -496,7 +532,7 @@ class GAIA():
 
     def _quick_log_read(self,filename='dumper',n=100,last=True):
         '''
-        filename:[str] either the filename or one of 'dumper','dashboard' or the name of a device.
+        :param str filename: either the filename or one of 'dumper','dashboard' or the name of a device.
         '''
         if filename=='dumper':
             filename=self._dumper.log_file
@@ -511,6 +547,10 @@ class GAIA():
                 print(line)
 
     def start_park_coarse(self):
+        '''
+        Will park coarse data by pre-calculating the mean/max/min of the period from the raw data.
+        Only missing coarse data will be computed unless from_start is set to True
+        '''
         start=time.time()
         log_file=os.path.join(self.conf.LOG_FOLDER,'coarse_parker.log')
         def compute_coarse():
@@ -537,7 +577,7 @@ class GAIA():
 class Tester:
     def __init__(self,gaia,log_file_tester=None):
         '''
-        gaia : [sylfenUtils.gaia] instance
+        :param str gaia : [sylfenUtils.GAIA] instance
         '''
         self.cfg    = gaia._visualiser
         self.conf   = gaia.conf
