@@ -204,10 +204,60 @@ def get_molar_volume(T=None,P=None):
     vlm=Q_(1,'R')*T/P
     return vlm.to_root_units()
 
-def mass_flow_to_volum_flow(qm,molecule,unit2='Nl/min',T=None):
-    d=get_prop('D',molecule)
-    print(d)
+def mass_to_volum_flow(qm,molecule,T,unit2='Nl/min'):
+    d=get_prop('D',molecule,T=T)
     return qm.to(unit2,'rsoc',d=d)
+
+def volum_to_mass_flow(qm,molecule,T,unit2='Nl/min'):
+    d=get_prop('D',molecule,T=T)
+    return qm.to(unit2,'rsoc',d=d)
+
+def convert_flow(q,molecule,u2,T=None,verbose=False):
+    d=get_prop('D',molecule,T=T)
+    mw=get_prop('M',molecule,T=T)
+    vlm=get_molar_volume()
+
+    if units_test(q,'Nl/min'):
+        qv=q
+        ### volumetric flow to mass flow
+        qm=qv*d
+        ### volumetric flow to molar flow
+        q_molps=qv*vlm
+    elif units_test(q,'g/min'):
+        qm=q
+        ### mass flow to volumetric flow
+        qv=qm/d
+        ### mass flow to molar flow
+        q_molps=qm/mw
+
+    elif units_test(q,'mol/s'):
+        q_molps=q
+        ### molar flow to volumetric flow
+        qv=q_molps/vlm
+        ### molar flow to mass flow
+        qm=q_molps/mw
+
+    df=pd.Series({'your flow':q,
+        'mass flow':qm,
+        'volumetric flow':qv,
+        'molar flow':q_molps,
+    })
+    print(df)
+    qv=qv.to('Nl/min')
+    qm=qm.to('g/s')
+    q_molps=q_molps.to('mol/s')
+    if units_test(Q_(1,u2),'Nl/min'):qf=qv.to(u2)
+    if units_test(Q_(1,u2),'g/min'):qf=qm.to(u2)
+    if units_test(Q_(1,u2),'mol/s'):qf=q_molps.to(u2)
+    if verbose:
+        df=pd.Series({'your flow':q,
+            'mass flow':qm,
+            'volumetric flow':qv,
+            'molar flow':q_molps,
+            'final flow':qf,
+            })
+        return df
+    return qf
 
 class ReUtils(utils.Utils):
     def sample_colorscale(self,N,colorscale='jet'):
@@ -293,10 +343,14 @@ def stack_production(I,molecule,nbCells,unit='g/h',verbose=False):
     '''
     z=2
     if molecule=='O2' or molecule=='air':z=4
-    q_molps=(I/(z*Q_('faraday_constant'))*nbCells).to_root_units()
-    d=get_prop('D',molecule)
+    q_molps=(I/(z*Q_('faraday_constant'))*nbCells).to('mol/s')
+
+    # mw=get_prop('M',molecule)
+    # q_gs=(q_molps/mw).to('g/s')
     q_nlpm=(q_molps*get_molar_volume()).to('Nl/min')
+    d=get_prop('D',molecule)
     qm=q_nlpm.to('g/s','rsoc',d=d)
+
     if units_test(Q_(1,unit),Q_(1,'g/s')):
         qf=qm.to(unit)
     elif units_test(Q_(1,unit),Q_(1,'mol/s')):
