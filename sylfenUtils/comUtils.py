@@ -680,8 +680,8 @@ class Opcua_Client(Device):
         self.endpointurl = self._protocole + '://' +self.ip+":"+str(self.port)
         self._client     = opcua.Client(self.endpointurl)
         ####### load nodes
-        # self._nodesDict  = {t:self._client.get_node(self._nameSpace + t) for t in list(self.dfplc.index)}
-        # self._nodes      = list(self._nodesDict.values())
+        self._nodesDict  = {t:self._client.get_node(self._nameSpace + t) for t in list(self.dfplc.index)}
+        self._nodes      = list(self._nodesDict.values())
 
     def loadPLC_file(self):
         listPLC = glob.glob(self.confFolder + '*Instrum*.pkl')
