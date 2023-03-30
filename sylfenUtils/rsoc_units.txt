@@ -1,4 +1,5 @@
 mbarg = 1 * mbar; offset: 1013.25 = millibar_gauge
+barg = 1 * bar; offset: 1.01325 = millibar_gauge
 
 PCSmol_H2 = 285989.760 J/mol
 PCImol_H2 = 241778.880 J/mol

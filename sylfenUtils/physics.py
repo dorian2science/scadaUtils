@@ -17,6 +17,14 @@ c.add_transformation('[mass]','[length] ** 3',lambda ureg, x,d:x/d)
 c.add_transformation('[mass]/[time]','[length] ** 3/[time]',lambda ureg, x,d:x/d)
 ureg.add_context(c)
 Q_ = ureg.Quantity
+def show_pretty(s,p=3):
+    return s.apply(lambda x:[round(x.m,p),x.u if isinstance(x,Q) else x])
+
+def show_locals(locs,fa):
+    res=pd.Series({k:v for k,v in locs.items() if k not in fa.keys()}).T
+    print(res)
+    res=res.apply(lambda x:[round(x.m,3),x.u if isinstance(x,Q_) else x])
+
 
 coolProps_Q={
 'D':'kg/m**3',
@@ -212,7 +220,12 @@ def volum_to_mass_flow(qm,molecule,T,unit2='Nl/min'):
     d=get_prop('D',molecule,T=T)
     return qm.to(unit2,'rsoc',d=d)
 
-def convert_flow(q,molecule,u2,T=None,verbose=False):
+def convert_flow(q,molecule,u2,verbose=False):
+    if molecule.lower()=='h2o_gas':
+        molecule='H2O'
+        T=Q_(105,'degC')
+    else:
+        T=Q_(20,'degC')
     d=get_prop('D',molecule,T=T)
     mw=get_prop('M',molecule,T=T)
     vlm=get_molar_volume()
@@ -222,7 +235,7 @@ def convert_flow(q,molecule,u2,T=None,verbose=False):
         ### volumetric flow to mass flow
         qm=qv*d
         ### volumetric flow to molar flow
-        q_molps=qv*vlm
+        q_molps=qv/vlm
     elif units_test(q,'g/min'):
         qm=q
         ### mass flow to volumetric flow
@@ -233,16 +246,16 @@ def convert_flow(q,molecule,u2,T=None,verbose=False):
     elif units_test(q,'mol/s'):
         q_molps=q
         ### molar flow to volumetric flow
-        qv=q_molps/vlm
+        qv=q_molps*vlm
         ### molar flow to mass flow
-        qm=q_molps/mw
+        qm=q_molps*mw
 
     df=pd.Series({'your flow':q,
         'mass flow':qm,
         'volumetric flow':qv,
         'molar flow':q_molps,
     })
-    print(df)
+    # print(df)
     qv=qv.to('Nl/min')
     qm=qm.to('g/s')
     q_molps=q_molps.to('mol/s')
@@ -293,32 +306,42 @@ class Thermics():
         - Nl : [bool] if True it means that the flow is in normal liters.
         - Th,Tc[pint]: bound temperatures ideally Th>Tc(otherwise <0)
         '''
+        fa=locals().copy();fa['fa']=''
+
         if P is None:P=P0
         P=P.to_root_units()
         Tc,Th=Tc.to_root_units(),Th.to_root_units()
+        if Tc>Th:
+            tmp=Tc
+            Tc=Th
+            Th=tmp
+
         ### if using normal liters convert to liters
-        if Nl:
-            q=Nl_to_liter(q,P,Tc)
-        if units_test(q,Q_(1,'l/s')):
-            ### if volumetric flow convert it to mass flow
-            d=get_prop('D',molecule,P=P,T=Tc)
-            qm=q.to('kg/s','rsoc',d=d)
-        else:
-            qm=q
+        qi = q
+        qm = convert_flow(q,molecule,'g/s')
+        # if Nl:
+        #     q=Nl_to_liter(q,P,Tc)
+        # if units_test(q,Q_(1,'l/s')):
+        #     ### if volumetric flow convert it to mass flow
+        #     d=get_prop('D',molecule,P=P,T=Tc)
+        #     qm=q.to('kg/s','rsoc',d=d)
+        # else:
+        #     qm=q
         ###### should integrate the Cp instead #####
         if integral:
-            heat_flow=0
-            T=Q_(np.arange(T1.m,T2.m,dT),'K')
+            heat_flows=[]
+            T=Q_(np.arange(Tc.m,Th.m,dT),'K')
             for tt in T:
                 cp=get_prop('C',molecule,P=P,T=tt)
                 heat_flows+=[qm*cp*dT]
-                heat_flow=sum(heat_flows)
+            print(heat_flows)
+            heat_flow=sum(heat_flows).to('W')
         else:
             cp=get_prop('C',molecule,P=P,T=Tc)
-            if verbose:print_file('qm',qm,'cp',cp,'dT',Th-Tc)
-            heat_flow = qm*cp*(Th-Tc)
+            heat_flow = (qm*cp*(Th-Tc)).to('W')
 
-        return heat_flow.to('W')
+        if verbose:print_file('debugging here');show_locals(locals(),fa)
+        return heat_flow
 
     def get_heat_flow(self,q,composition,Tc,Th,*args,**kwargs):
         '''
@@ -339,10 +362,13 @@ thermics=Thermics()
 def stack_production(I,molecule,nbCells,unit='g/h',verbose=False):
     '''
     - I[pint array]:current.
-    - molecule[str]:the molecule that is produced : {water,H2,O2}
+    - molecule[str]:the molecule that is produced : {H2,O2}
     '''
-    z=2
     if molecule=='O2' or molecule=='air':z=4
+    elif molecule=='H2':z=2
+    else:
+        print_file('molecule should be H2 or O2')
+        return
     q_molps=(I/(z*Q_('faraday_constant'))*nbCells).to('mol/s')
 
     # mw=get_prop('M',molecule)
@@ -362,39 +388,3 @@ def stack_production(I,molecule,nbCells,unit='g/h',verbose=False):
         df.columns=['current','molar flow','volumetric flow','mass flow','unit selected']
         return df
     return qf
-
-def SU(q_in,I,nbCells,verbose=False):
-    '''
-    - q_in[pint array]:mass or volumetric inlet flow
-    - I[pint array]: current
-    '''
-    d=get_prop('D','H2O')
-    qi_gps=q_in.to('g/s','rsoc',d=d)
-    M=get_prop('M','H2O')
-    qi_molps=(qi_gps/M).to('mol/s')
-    qf_molps=stack_production(I,'H2',nbCells,'mol/s')
-    su=qf_molps/qi_molps*100
-    if verbose:
-        df=pd.DataFrame([q_in,qi_molps,I,qf_molps,su]).T
-        df.columns=['inlet flow','inlet flow(mol/s)','current','outlet flow','SU']
-        df['SU']=df['SU'].apply(lambda x:'{:2.1f}'.format(x.m)+'%')
-        return df
-    return su
-
-def FU(q_in,I,nbCells,verbose=False):
-    '''
-    - q_in[pint array]:mass or volumetric inlet flow
-    - I[pint array]: current
-    '''
-    d=get_prop('D','H2')
-    qi_gps=q_in.to('g/s','rsoc',d=d)
-    M=get_prop('M','H2')
-    qi_molps=(qi_gps/M).to('mol/s')
-    qf_molps=stack_production(I,'H2O',nbCells,'mol/s')
-    fu=qf_molps/qi_molps*100
-    if verbose:
-        df=pd.DataFrame([q_in,qi_molps,I,qf_molps,fu]).T
-        df.columns=['inlet flow','inlet flow(mol/s)','current','outlet flow','FU']
-        df['FU']=df['FU'].apply(lambda x:'{:2.1f}'.format(x.m)+'%')
-        return df
-    return fu

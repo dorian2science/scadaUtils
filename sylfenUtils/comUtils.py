@@ -490,10 +490,13 @@ class ModbusDevice(Device):
             self._isConnected=False
         return self._isConnected
 
-    def quick_modbus_single_register_decoder(self,reg,nbs,dtype,unit=1):
+    def quick_modbus_single_register_decoder(self,reg,nbs,dtype,unit=1,input=False):
         # self._client.connect()
         # print_file(locals())
-        result = self._client.read_holding_registers(reg, nbs, unit=unit)
+        if input:
+            result = self._client.read_input_registers(reg, nbs, unit=unit)
+        else:
+            result = self._client.read_holding_registers(reg, nbs, unit=unit)
         decoders={}
         decoders['bo=b,wo=b'] = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Big, wordorder=Endian.Big)
         decoders['bo=b,wo=l'] = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Big, wordorder=Endian.Little)
@@ -570,7 +573,8 @@ class ModbusDevice(Device):
             start=block_100['intaddress'].min()
             end=block_100['intaddress'].max()+sizeof(block_100['type'].iloc[-1])
             self._client.connect()
-            result = self._client.read_holding_registers(start, end-start, unit=unit_id)
+            # result = self._client.read_holding_registers(start, end-start, unit=unit_id)
+            result = self._client.read_input_registers(start, end-start, unit=unit_id)
 
             ### decode values
             if self.byte_order.lower()=='little' and self.word_order.lower()=='big':
@@ -676,8 +680,8 @@ class Opcua_Client(Device):
         self.endpointurl = self._protocole + '://' +self.ip+":"+str(self.port)
         self._client     = opcua.Client(self.endpointurl)
         ####### load nodes
-        self._nodesDict  = {t:self._client.get_node(self._nameSpace + t) for t in list(self.dfplc.index)}
-        self._nodes      = list(self._nodesDict.values())
+        # self._nodesDict  = {t:self._client.get_node(self._nameSpace + t) for t in list(self.dfplc.index)}
+        # self._nodes      = list(self._nodesDict.values())
 
     def loadPLC_file(self):
         listPLC = glob.glob(self.confFolder + '*Instrum*.pkl')
