@@ -1,7 +1,10 @@
+# import time
+# start=time.time()
 import numpy as np,pandas as pd,os,sys
 from sylfenUtils import utils
 from sylfenUtils.comUtils import (html_table,print_file)
 import plotly.express as px
+# print(time.time()-start)
 # from conf_modeling import conf as CONF,
 from sylfenUtils.utils import inspect_simple
 import inspect
@@ -17,13 +20,15 @@ c.add_transformation('[mass]','[length] ** 3',lambda ureg, x,d:x/d)
 c.add_transformation('[mass]/[time]','[length] ** 3/[time]',lambda ureg, x,d:x/d)
 ureg.add_context(c)
 Q_ = ureg.Quantity
+
 def show_pretty(s,p=3):
     return s.apply(lambda x:[round(x.m,p),x.u if isinstance(x,Q) else x])
 
 def show_locals(locs,fa):
-    res=pd.Series({k:v for k,v in locs.items() if k not in fa.keys()}).T
+    res=pd.Series({k:v.to_root_units() for k,v in locs.items() if k not in fa.keys()}).T
     print(res)
-    res=res.apply(lambda x:[round(x.m,3),x.u if isinstance(x,Q_) else x])
+    return res
+    # res=res.apply(lambda x:[round(x.m,3),x.u if isinstance(x,Q_) else x])
 
 
 coolProps_Q={
@@ -319,22 +324,13 @@ class Thermics():
         ### if using normal liters convert to liters
         qi = q
         qm = convert_flow(q,molecule,'g/s')
-        # if Nl:
-        #     q=Nl_to_liter(q,P,Tc)
-        # if units_test(q,Q_(1,'l/s')):
-        #     ### if volumetric flow convert it to mass flow
-        #     d=get_prop('D',molecule,P=P,T=Tc)
-        #     qm=q.to('kg/s','rsoc',d=d)
-        # else:
-        #     qm=q
         ###### should integrate the Cp instead #####
         if integral:
             heat_flows=[]
             T=Q_(np.arange(Tc.m,Th.m,dT),'K')
             for tt in T:
                 cp=get_prop('C',molecule,P=P,T=tt)
-                heat_flows+=[qm*cp*dT]
-            print(heat_flows)
+                heat_flows+=[qm*cp*Q_(dT,'K')]
             heat_flow=sum(heat_flows).to('W')
         else:
             cp=get_prop('C',molecule,P=P,T=Tc)
