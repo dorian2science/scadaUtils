@@ -1207,7 +1207,7 @@ class Streamer(Basic_streamer):
     def _pool_tag_daily(self,t0,t1,tag,folderpkl,rs='auto',rsMethod='nearest',closed='left',ncores=None,time_debug=False,verbose=False,**kwargs):
         start=time.time()
 
-        listDays=[self._to_folderday(k) for k in pd.date_range(t0,t1,freq='D')]
+        listDays=[self._to_folderday(k) for k in pd.date_range(t0,t1,freq='D',ambiguous=True)]
         if ncores is None:
             ncores=min(len(listDays),self._num_cpus)
         with Pool(ncores) as p:
@@ -1261,7 +1261,7 @@ class Streamer(Basic_streamer):
         if not len(tags)>0:return pd.DataFrame()
         loc_pool=pool
         if pool in ['tag','day','auto']:
-            nbdays=len(pd.date_range(t0,t1))
+            nbdays=len(pd.date_range(t0,t1,ambiguous=True))
             if pool=='auto':
                 if nbdays>len(tags):
                     loc_pool='day'
@@ -1322,7 +1322,7 @@ class Streamer(Basic_streamer):
             dfhour=df[(df.index>tm1)&(df.index<tm2)]
             print_file('start for :', dfhour.index[-1],filename=self.log_file)
             start=time.time()
-            minutes=pd.date_range(tm1,tm2,freq='1T')
+            minutes=pd.date_range(tm1,tm2,freq='1T',ambiguous=True)
             df_minutes=[dfhour[(dfhour.index>a)&(dfhour.index<a+dt.timedelta(minutes=1))] for a in minutes]
             minutefolders =[folderpkl + k.strftime(self.format_folderminute) for k in minutes]
             # print_file(minutefolders)
@@ -1339,7 +1339,7 @@ class Streamer(Basic_streamer):
             return self.foldersaction(t0,t1,folderPkl,self.create_minutefolder)
         elif frequence=='day':
             createfolderday=lambda x:os.mkdir(folderday)
-            listDays = pd.date_range(t0,t1,freq='1D')
+            listDays = pd.date_range(t0,t1,freq='1D',ambiguous=True)
             listfolderdays = [os.path.join(folderPkl ,d.strftime(self._format_dayFolder)) for d in listDays]
             with Pool() as p:
                 dfs=p.starmap(createfolderday,[(d) for d in listfolderdays])
@@ -1425,7 +1425,7 @@ class Streamer(Basic_streamer):
         m=np.linspace(0,valPlateau,nbpts)+br*np.random.randn(nbpts)
         p=valPlateau*np.ones(nbpts)+br*np.random.randn(nbpts)
         d=np.linspace(valPlateau,0,nbpts)+br*np.random.randn(nbpts)
-        idx=pd.date_range('9:00',periods=nbpts*3,freq='S')
+        idx=pd.date_range('9:00',periods=nbpts*3,freq='S',ambiguous=True)
         return pd.Series(np.concatenate([m,p,d]),index=idx)
 
     def testCompareStaticCompression(self,s,precs,fcw=3):
@@ -1628,7 +1628,7 @@ class SuperDumper(Configurator):
         for tag,initval in valInits.items():
             tagvar = self.dfplc.loc[tag]
             precision  = self.dfplc.loc[tag,'PRECISION']
-            timestampz = pd.date_range(t0,t1,freq=str(tagvar['FREQUENCE_ECHANTILLONNAGE'])+'S')
+            timestampz = pd.date_range(t0,t1,freq=str(tagvar['FREQUENCE_ECHANTILLONNAGE'])+'S',ambiguous=True)
 
             if tagvar.DATATYPE=='STRING(40)':
                 values  = [initval]* len(timestampz)
@@ -1719,7 +1719,7 @@ class SuperDumper_daily(SuperDumper):
     def format_tag(self):
         df=df.set_index('timestampz').tz_convert(self.tz_record)
         tmin,tmax = df.index.min().strftime('%Y-%m-%d'),df.index.max().strftime('%Y-%m-%d')
-        listdays=[k.strftime(self._format_dayFolder) for k in pd.date_range(tmin,tmax)]
+        listdays=[k.strftime(self._format_dayFolder) for k in pd.date_range(tmin,tmax,ambiguous=True)]
         #### in case they are several days
         for d in listdays:
             t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
@@ -1754,7 +1754,7 @@ class SuperDumper_daily(SuperDumper):
             return
         ####### determine the folder days to store the data
         tmin,tmax =[t.strftime(self._format_dayFolder) for t in [df.index.min(),df.index.max()] ]
-        listdays=[k.strftime(self._format_dayFolder) for k in pd.date_range(tmin,tmax)]
+        listdays=[k.strftime(self._format_dayFolder) for k in pd.date_range(tmin,tmax,ambiguous=True)]
         # print_file(listdays)
         #### in case they are several days
         for d in listdays:
