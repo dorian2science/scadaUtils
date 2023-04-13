@@ -92,7 +92,7 @@ def buildColorCode(user_tag_color,dfplc,unitDefaultColors,verbose=False):
     return user_tag_color
 
 class Conf_generator():
-    def __init__(self,project_name,function_generator,project_folder=None):
+    def __init__(self,project_name,function_generator,project_folder=None,force_creation=False):
         '''
         Class to generate a configuration with default folders and automatic creation of
         user_setting file.
@@ -110,8 +110,10 @@ class Conf_generator():
         - project_folder(optional):[str] path of the folder where the parameters.conf file, the log folder, the dashboard ...
         - use_color_palettes :[bool] will load the palettes of color.
         are going to be stored.
+        - force_creation:[bool] if True it will automatically regenerate the configuration.
 
         '''
+        self._force_creation=force_creation
         self.project_name=project_name
         self._function_generator=function_generator
         self._lib_sylfenUtils_path=os.path.dirname(__file__)
@@ -128,7 +130,7 @@ class Conf_generator():
         self.file_parameters=os.path.join(self.project_folder,'parameters.conf')
 
         ## copy the DEFAULT PARAMETERS file as the parameters File into the user folder
-        if not os.path.exists(self.file_parameters):
+        if not os.path.exists(self.file_parameters) or self._force_creation:
             _default_file_parameters= os.path.join(self._lib_sylfenUtils_path,'conf/parameters'+self._realtime+'.default.conf')
             # sp.run('cp ' + _default_file_parameters + ' ' + self.file_parameters,shell=True)
             shutil.copy(_default_file_parameters,self.file_parameters)
@@ -215,7 +217,7 @@ class Conf_generator():
             except:
                 print('-'*60,'\nIMPOSSIBLE to load the configuration pkl file ',self._file_conf_pkl,'!\n','-'*60,'\n')
                 exists_conf=False
-        if not exists_conf:
+        if not exists_conf or self._force_creation:
             conf_objs=self.generate_conf()
 
         for k,v in conf_objs.items():

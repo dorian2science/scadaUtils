@@ -12,7 +12,7 @@ from . import utils
 ### Make sure the user can only have one instance of GAIA.py running
 ##
 
-def build_devices(df_devices,modbus_maps=None,plcs=None):
+def build_devices(df_devices,modbus_maps=None,plcs=None,verbose=False):
     DEVICES = {}
     devicesInfo=df_devices.copy()
     devicesInfo=devicesInfo[devicesInfo['status']=='actif']
@@ -20,6 +20,7 @@ def build_devices(df_devices,modbus_maps=None,plcs=None):
     # comUtils.print_file(devicesInfo['protocole'])
     devicesInfo['protocole']=devicesInfo['protocole'].apply(lambda x:x.lower().strip().replace('modebus','modbus'))
     for device_name in devicesInfo[devicesInfo['protocole']=='modbus'].index:
+        if verbose:print_file('building device : ',device_name)
         d_info=devicesInfo.loc[device_name]
         DEVICES[device_name]=comUtils.ModbusDevice(
             ip=d_info['ip'],
@@ -399,9 +400,9 @@ class Heartbeat():
             time.sleep(5)
 
 class GAIA():
-    def __init__(self,*args,root_folder=None,realtime=True,**kwargs):
+    def __init__(self,*args,root_folder=None,realtime=True,verbose=False,**kwargs):
         '''
-        Super instance that create a project from scratch to dump data from devices,
+        Super instance that creates a project from scratch to dump data from devices,
         load, visualize, and serve those data on a web GUI.
         Parameters:
         -----------------
@@ -417,7 +418,7 @@ class GAIA():
         # comUtils.print_file(self.conf)
         if not hasattr(self.conf,'modbus_maps'):self.conf.modbus_maps=None
         if not hasattr(self.conf,'plcs'):self.conf.plcs=None
-        self.devices     = build_devices(self.conf.df_devices,self.conf.modbus_maps,self.conf.plcs)
+        self.devices     = build_devices(self.conf.df_devices,self.conf.modbus_maps,self.conf.plcs,verbose=verbose)
         self._dumper     = comUtils.SuperDumper_daily(self.devices,self.conf)
         self._visualiser = comUtils.VisualisationMaster_daily(self.conf)
         if root_folder is None:

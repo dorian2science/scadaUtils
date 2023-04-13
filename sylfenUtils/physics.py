@@ -25,7 +25,11 @@ def show_pretty(s,p=3):
     return s.apply(lambda x:[round(x.m,p),x.u if isinstance(x,Q) else x])
 
 def show_locals(locs,fa):
-    res=pd.Series({k:v.to_root_units() for k,v in locs.items() if k not in fa.keys()}).T
+    res={k:v for k,v in locs.items() if k not in fa.keys()}
+    for k,v in res.items():
+        if isinstance(v,Q_):
+            res[k]=v.to_root_units()
+    res=pd.Series(res).T
     print(res)
     return res
     # res=res.apply(lambda x:[round(x.m,3),x.u if isinstance(x,Q_) else x])
@@ -336,7 +340,7 @@ class Thermics():
             cp=get_prop('C',molecule,P=P,T=Tc)
             heat_flow = (qm*cp*(Th-Tc)).to('W')
 
-        if verbose:print_file('debugging here');show_locals(locals(),fa)
+        if verbose:print_file('debugging here');return show_locals(locals(),fa)
         return heat_flow
 
     def get_heat_flow(self,q,composition,Tc,Th,*args,**kwargs):
