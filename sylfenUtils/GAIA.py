@@ -28,6 +28,7 @@ def build_devices(df_devices,modbus_maps=None,plcs=None,verbose=False):
             device_name=device_name,
             modbus_map=modbus_maps[device_name],
             bo=d_info['byte_order'],
+            type_registers=d_info['type_registers'],
             wo=d_info['word_order'],
         )
     for device_name in devicesInfo[devicesInfo['protocole']=='opcua'].index:
@@ -535,7 +536,7 @@ class GAIA():
         Services_creator(*args,**kwargs)
     create_services.__doc__=Services_creator.__init__.__doc__
 
-class Tester:
+class Tester():
     def __init__(self,gaia,log_file_tester=None):
         '''
         gaia : [sylfenUtils.gaia] instance

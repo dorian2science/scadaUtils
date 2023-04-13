@@ -427,7 +427,7 @@ class Device():
 
         ##### if there it means it worked fine ########
         self.clockLast=pd.Timestamp.now()
-        time_collect=[self.clockLast.strftime('%Y-%b-%d %H:%M:%S.%f')[:-3],str(round((time.time()-start)*1000))]
+        time_collect=[self.clockLast.strftime('%Y-%b-%d %H:%M:%S.%f')[:-3],str(round((pd.Timestamp.now().timestamp()-start)*1000))+' ms']
         self.collectError_consecutive = 0
         ##### insert the data in database ########
         for tag in data.keys():
@@ -437,9 +437,9 @@ class Device():
         cur.close()
         dbconn.close()
         ##### store collecting times  ########
-        time_collect+=[str(round((time.time()-start)*1000))+' ms']
+        time_collect+=[str(round((pd.Timestamp.now().timestamp()-start)*1000))+' ms']
         if not self._collect_file is None:
-            print_file(';'.join(time_collect),filename=self._collect_file)
+            print_file(' ; '.join(time_collect),filename=self._collect_file)
         return 1
 
     def createRandomInitalTagValues(self):
@@ -468,9 +468,10 @@ from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from pymodbus.payload import BinaryPayloadDecoder
 from pymodbus.constants import Endian
 class ModbusDevice(Device):
-    def __init__(self,ip,port=502,device_name='',modbus_map=None,bo='big',wo='big',**kwargs):
+    def __init__(self,ip,port=502,device_name='',modbus_map=None,type_registers='holding',bo='big',wo='big',**kwargs):
         self.modbus_map = modbus_map
         self.byte_order,self.word_order = bo,wo
+        self.type_registers=type_registers
         if not modbus_map is None:
             dfplc=dfplc_from_modbusmap(self.modbus_map)
         else:
@@ -490,7 +491,15 @@ class ModbusDevice(Device):
             self._isConnected=False
         return self._isConnected
 
-    def quick_modbus_single_register_decoder(self,reg,nbs,dtype,unit=1,input=False):
+    def quick_decode_tag(self,tag):
+        infos=self.modbus_map.loc[tag,['intaddress','type','slave_unit','scale']]
+        print_file(infos)
+        reg,dtype,unit,scale=infos
+        nbs=int(4*int(re.findall('\d{2}',dtype)[0])/64)
+        input=False
+        return self.quick_modbus_single_register_decoder(reg,nbs,dtype,unit=1,input=False,scale=1)
+
+    def quick_modbus_single_register_decoder(self,reg,nbs,dtype,unit=1,input=False,scale=1):
         # self._client.connect()
         # print_file(locals())
         if input:
@@ -502,7 +511,7 @@ class ModbusDevice(Device):
         decoders['bo=b,wo=l'] = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Big, wordorder=Endian.Little)
         decoders['bo=l,wo=b'] = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Little, wordorder=Endian.Big)
         decoders['bo=l,wo=l'] = BinaryPayloadDecoder.fromRegisters(result.registers, byteorder=Endian.Little, wordorder=Endian.Little)
-        values ={k:self._decode_register(d,dtype) for k,d in decoders.items()}
+        values ={k:self._decode_register(d,dtype)*scale for k,d in decoders.items()}
         print('='*60+'\nvalues are \n',pd.Series(values))
         return values
 
@@ -573,8 +582,10 @@ class ModbusDevice(Device):
             start=block_100['intaddress'].min()
             end=block_100['intaddress'].max()+sizeof(block_100['type'].iloc[-1])
             self._client.connect()
-            # result = self._client.read_holding_registers(start, end-start, unit=unit_id)
-            result = self._client.read_input_registers(start, end-start, unit=unit_id)
+            if self.type_registers=='input':
+                result = self._client.read_input_registers(start, end-start, unit=unit_id)
+            else:
+                result = self._client.read_holding_registers(start, end-start, unit=unit_id)
 
             ### decode values
             if self.byte_order.lower()=='little' and self.word_order.lower()=='big':
