@@ -804,11 +804,13 @@ class ADS_Client(Device):
         TARGET_USERNAME = username
         TARGET_PASSWORD = password
         ROUTE_NAME      = 'route_to_'+socket.gethostname()
-
+        pyads.open_port()
+        pyads.set_local_address(CLIENT_NETID)
         pyads.add_route_to_plc(
             CLIENT_NETID, CLIENT_IP, HOST_IP, TARGET_USERNAME, TARGET_PASSWORD,
             route_name=ROUTE_NAME
         )
+        pyads.close_port()
         # return locals()
 
     def connectDevice(self):
