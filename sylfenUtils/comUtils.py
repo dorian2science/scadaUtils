@@ -491,15 +491,14 @@ class ModbusDevice(Device):
             self._isConnected=False
         return self._isConnected
 
-    def quick_decode_tag(self,tag):
+    def quick_decode_tag(self,tag,input=False):
         infos=self.modbus_map.loc[tag,['intaddress','type','slave_unit','scale']]
         print_file(infos)
         reg,dtype,unit,scale=infos
         nbs=int(4*int(re.findall('\d{2}',dtype)[0])/64)
-        input=False
-        return self.quick_modbus_single_register_decoder(reg,nbs,dtype,unit=1,input=False,scale=1)
+        return self.quick_modbus_single_register_decoder(reg,nbs,dtype,unit=unit,input=input,scale=scale)
 
-    def quick_modbus_single_register_decoder(self,reg,nbs,dtype,unit=1,input=False,scale=1):
+    def quick_modbus_single_register_decoder(self,reg,nbs,dtype,unit=1,input=input,scale=1):
         # self._client.connect()
         # print_file(locals())
         if input:
