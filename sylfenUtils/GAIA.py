@@ -19,36 +19,34 @@ def build_devices(df_devices,modbus_maps=None,plcs=None,verbose=False):
     devicesInfo.columns=[k.lower() for k in devicesInfo.columns]
     # comUtils.print_file(devicesInfo['protocole'])
     devicesInfo['protocole']=devicesInfo['protocole'].apply(lambda x:x.lower().strip().replace('modebus','modbus'))
-    for device_name in devicesInfo[devicesInfo['protocole']=='modbus'].index:
+    for device_name in devicesInfo.index:
         if verbose:print_file('building device : ',device_name)
         d_info=devicesInfo.loc[device_name]
-        DEVICES[device_name]=comUtils.ModbusDevice(
-            ip=d_info['ip'],
-            port=d_info['port'],
-            device_name=device_name,
-            modbus_map=modbus_maps[device_name],
-            bo=d_info['byte_order'],
-            type_registers=d_info['type_registers'],
-            wo=d_info['word_order'],
+        if d_info['protocole']=='modbus':
+            DEVICES[device_name]=comUtils.ModbusDevice(
+                ip=d_info['ip'],
+                port=d_info['port'],
+                device_name=device_name,
+                modbus_map=modbus_maps[device_name],
+                bo=d_info['byte_order'],
+                type_registers=d_info['type_registers'],
+                wo=d_info['word_order'],
         )
-    for device_name in devicesInfo[devicesInfo['protocole']=='opcua'].index:
-        d_info=devicesInfo.loc[device_name]
-        DEVICES[device_name]=comUtils.Opcua_Client(
-            device_name=device_name,
-            ip=d_info['ip'],
-            port=d_info['port'],
-            dfplc=plcs[device_name],
-            nameSpace=d_info['namespace'],
-        )
-    for device_name in devicesInfo[devicesInfo['protocole']=='ads'].index:
-        d_info=devicesInfo.loc[device_name]
-        # comUtils.print_file(d_info)
-        DEVICES[device_name]=comUtils.ADS_Client(
-            device_name=device_name,
-            ip=d_info['ip'],
-            port=d_info['port'],
-            dfplc=plcs[device_name],
-        )
+        if d_info['protocole']=='opcua':
+            DEVICES[device_name]=comUtils.Opcua_Client(
+                device_name=device_name,
+                ip=d_info['ip'],
+                port=d_info['port'],
+                dfplc=plcs[device_name],
+                nameSpace=d_info['namespace'],
+            )
+        if d_info['protocole']=='ads':
+            DEVICES[device_name]=comUtils.ADS_Client(
+                device_name=device_name,
+                ip=d_info['ip'],
+                port=d_info['port'],
+                dfplc=plcs[device_name],
+            )
     return DEVICES
 import psutil,pandas as pd,subprocess as sp,re
 from sylfenUtils.utils import EmailSmtp
