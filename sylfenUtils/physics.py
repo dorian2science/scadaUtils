@@ -22,7 +22,7 @@ ureg.add_context(c)
 Q_ = ureg.Quantity
 
 def show_pretty(s,p=3):
-    return s.apply(lambda x:[round(x.m,p),x.u if isinstance(x,Q) else x])
+    return s.apply(lambda x:[round(x.m,p),x.u if isinstance(x,Q_) else x])
 
 def show_locals(locs,fa):
     res={k:v for k,v in locs.items() if k not in fa.keys()}
@@ -43,10 +43,15 @@ coolProps_Q={
 'U':'K/kg',
 'A':'m/s',
 'L' :'W/m/K',
-'V':'Pa/s',
+'V':'pascal.s',
 'C' :'J/kg/K',
 'G':'J/kg',
 'M':'kg/mol',
+}
+FLUID_PROPS={}
+FLUID_PROPS['CO']={
+    'L':Q_(0.018,'W/m/K'),
+    'V':Q_(1.65e-5,'pascal.s'),
 }
 
 def get_val(pdf,tag):
@@ -58,8 +63,12 @@ def get_prop(prop,molecule,T=None,P=None,*args,**kwargs):
     if P is None:P=Q_(1,'atm')
     T=T.to('K')
     P=P.to('pascal')
-    value=CP.PropsSI(prop,'P',P.m,'T',T.m,molecule,*args,**kwargs)
-    return Q_(value,coolProps_Q[prop])
+    try:
+        value=CP.PropsSI(prop,'P',P.m,'T',T.m,molecule,*args,**kwargs)
+        return Q_(value,coolProps_Q[prop])
+    except:
+        print_file(prop,'of molecule : ',molecule,'not available with COOl props')
+        return FLUID_PROPS[molecule][prop]
 
 COMMON_UNITS={
     'pressure':'mbarg',
@@ -230,27 +239,30 @@ def volum_to_mass_flow(qm,molecule,T,unit2='Nl/min'):
     return qm.to(unit2,'rsoc',d=d)
 
 def convert_flow(q,molecule,u2,verbose=False):
-    if molecule.lower()=='h2o_gas':
-        molecule='H2O'
-        T=Q_(105,'degC')
-    else:
-        T=Q_(20,'degC')
-    d=get_prop('D',molecule,T=T)
-    mw=get_prop('M',molecule,T=T)
     vlm=get_molar_volume()
+    T=273
+    substance=molecule.split('_')[0]
+    if molecule.lower()=='h2o_gas':
+        T=T+105
+    mw=get_prop('M',substance)
+    ratio=mw/vlm
+    if verbose:print_file(molecule,':',T,':',CP.PhaseSI('T', T, 'P', 101325, substance))
+    if CP.PhaseSI('T', T, 'P', 101325, substance)=='liquid':
+    ### if liquid take the density
+        ratio=get_prop('D',substance)
 
     if units_test(q,'Nl/min'):
         qv=q
-        ### volumetric flow to mass flow
-        qm=qv*d
         ### volumetric flow to molar flow
         q_molps=qv/vlm
+        ### volumetric flow to mass flow
+        qm=qv*ratio
     elif units_test(q,'g/min'):
         qm=q
-        ### mass flow to volumetric flow
-        qv=qm/d
         ### mass flow to molar flow
         q_molps=qm/mw
+        ### mass flow to volumetric flow
+        qv=qm/ratio
 
     elif units_test(q,'mol/s'):
         q_molps=q
@@ -388,3 +400,9 @@ def stack_production(I,molecule,nbCells,unit='g/h',verbose=False):
         df.columns=['current','molar flow','volumetric flow','mass flow','unit selected']
         return df
     return qf
+
+def power_h2(flow,su_fu,verbose=False):
+    flow=convert_flow(flow,'H2','mol/s')
+    pci_h2=Q_(241778.88,'J/mol')
+    p_h2=pci_h2*flow*su_fu
+    return p_h2

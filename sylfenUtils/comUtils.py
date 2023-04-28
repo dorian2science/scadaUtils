@@ -2007,11 +2007,6 @@ class VisualisationMaster(Configurator):
         if not tagMapping:tagMapping = {t:self.getUnitofTag(t) for t in df.columns}
         # print(tagMapping)
         fig = self.utils.multiUnitGraph(df,tagMapping,**kwargs)
-        # self.standardLayout(fig)
-        # self.updatecolorAxes(fig)
-        # self.updatecolortraces(fig)
-        if df.index.max()-df.index.min()>pd.Timedelta(days=2):
-            fig.update_traces(hovertemplate='  %{y:.2f}' + '<br>  %{x|%b %d %Y %H:%M}')
         return fig
 
     multiUnitGraph.__doc__+=Utils.multiUnitGraph.__doc__
