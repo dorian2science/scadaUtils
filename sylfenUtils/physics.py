@@ -22,18 +22,25 @@ ureg.add_context(c)
 Q_ = ureg.Quantity
 
 def show_pretty(s,p=3):
-    return s.apply(lambda x:[round(x.m,p),x.u if isinstance(x,Q_) else x])
+    return s.apply(lambda x:[round(x.m,p),x.u] if isinstance(x,Q_) else x)
 
+units=['W','degC','mbarg','g/h','Nl/min']
+units_test=lambda v,u2:v.to_root_units().u==Q_(u2).to_root_units().u
+
+def convert_to_common_unit(v):
+    for u in units:
+        if units_test(v,u):
+            return v.to(u)
+    return v
 def show_locals(locs,fa):
     res={k:v for k,v in locs.items() if k not in fa.keys()}
     for k,v in res.items():
         if isinstance(v,Q_):
-            res[k]=v.to_root_units()
-    res=pd.Series(res).T
+            val=v.to_root_units()
+            res[k]=convert_to_common_unit(val)
+    res=show_pretty(pd.Series(res).T)
     print(res)
     return res
-    # res=res.apply(lambda x:[round(x.m,3),x.u if isinstance(x,Q_) else x])
-
 
 coolProps_Q={
 'D':'kg/m**3',
@@ -192,7 +199,6 @@ def update_graph(fig,Qs):
         yaxis_title=get_unit(Qs[cur_yaxis],'label')
     )
     return fig
-units_test=lambda v,u2:v.to_root_units().u==Q_(u2).to_root_units().u
 
 constants=pd.Series({k:convert_u1_to_u2(1,k,'si',format='~eP') for k in dir(ureg) if 'constant' in k }).T
 
@@ -237,6 +243,11 @@ def mass_to_volum_flow(qm,molecule,T,unit2='Nl/min'):
 def volum_to_mass_flow(qm,molecule,T,unit2='Nl/min'):
     d=get_prop('D',molecule,T=T)
     return qm.to(unit2,'rsoc',d=d)
+
+def convert_flow_mixture(q,molecules,u2,verbose=False):
+    flows={mol:convert_flow(x*q,mol,u2) for mol,x in molecules.items()}
+    if verbose:print_file(flows)
+    return sum(flows.values())
 
 def convert_flow(q,molecule,u2,verbose=False):
     vlm=get_molar_volume()
@@ -406,3 +417,34 @@ def power_h2(flow,su_fu,verbose=False):
     pci_h2=Q_(241778.88,'J/mol')
     p_h2=pci_h2*flow*su_fu
     return p_h2
+
+
+## GRAPHICS
+import pickle
+def build_layout_figure(fig,title='',*args,params=None,fig_name=None,round_data=2,**kwargs):
+    if not params is None:
+        # max_length = max([len(k) for k in params.keys()])
+        #### build list of params
+        list_params=[]
+        for k,v in params.items():
+            if isinstance(v,Q_):
+                value = f"{round(v,round_data)}"
+            else :
+                value = v
+            list_params.append(k+' : ' + value)
+
+        fig.add_annotation(
+                text='<br>'.join(list_params),
+                xref='paper',
+                yref='paper',
+                x=0.1,
+                y=0.8,
+                font_size=20,bordercolor='black',bgcolor='white',align='left')
+
+    fig.update_layout(title_text=title,*args,**kwargs)
+    if not fig_name is None:
+        fig.write_html(fig_name+'.html')
+        with open(fig_name+'.fig','wb') as f:
+            pickle.dump(fig.to_dict(),f)
+
+    return fig

@@ -494,7 +494,7 @@ class GAIA():
     import flask
     run_GUI.__doc__=flask.app.Flask.run.__doc__
 
-    def _quick_log_read(self,filename='dumper',n=100,last=True):
+    def quick_log_read(self,filename='dumper',n=100,last=True):
         '''
         filename:[str] either the filename or one of 'dumper','dashboard' or the name of a device.
         '''

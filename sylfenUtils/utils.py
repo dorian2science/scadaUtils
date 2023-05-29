@@ -43,8 +43,6 @@ def delta_strftime(delta,format='H,M'):
     if format=='H,M':
         delta_str = "{:02d} hours {:02d} minutes".format(int(hours), int(minutes))
     return delta_str
-
-
 class Graphics():
     def __init__(self):
         raw_symbols = pd.Series(SymbolValidator().values[2::3])
@@ -184,22 +182,22 @@ class Graphics():
         dfGroups = pd.DataFrame.from_dict(dictGroups,orient='index',columns=['group'])
         groups=dfGroups.group.unique()
 
-        yaxes=['yaxis'] + ['yaxis'+str(k) for k in range(2,len(groups)+1)]
+        yaxes = ['yaxis'] + ['yaxis'+str(k) for k in range(2,len(groups)+1)]
         minx = (len(groups)-1)//2*axisSpace
-        xdomain =[minx,1-minx]
+        xdomain = [minx,1-minx]
         sides,positions = self._getAutoYAxes(len(groups),xdomain,inc=axisSpace)
-        colors=self.sample_colorscale(len(groups),colormap)
-        dfGroups['color']=colors[0]
+        colors = self.sample_colorscale(len(groups),colormap)
+        dfGroups['color'] = colors[0]
         dfGroups['symbol'] = 'circle'
-        dfGroups['line']   = 'solid'
-        dictYaxis={}
-        yscales=['y'] + ['y'+str(k) for k in range(2,len(groups)+1)]
+        dfGroups['line'] = 'solid'
+        dictYaxis = {}
+        yscales = ['y'] + ['y'+str(k) for k in range(2,len(groups)+1)]
         for g,c,s,p,y,ys in zip(groups,colors,sides,positions,yaxes,yscales):
             dfGroups.loc[dfGroups.group==g,'color'] = c
             dfGroups.loc[dfGroups.group==g,'yscale'] = ys
             lenGroup=len(dfGroups[dfGroups.group==g])
-            dfGroups.loc[dfGroups.group==g,'line']=self.listLines[:lenGroup]
-            dfGroups.loc[dfGroups.group==g,'symbol']=self.raw_symbols[:lenGroup]
+            dfGroups.loc[dfGroups.group==g,'line'] = self.listLines[:lenGroup]
+            dfGroups.loc[dfGroups.group==g,'symbol'] = self.raw_symbols[:lenGroup]
             if ys=='y' : ov = None
             else : ov = 'y'
             dictYaxis[y] = dict(
@@ -464,6 +462,17 @@ class Graphics():
         fig.update_layout(dictYaxis)
         return fig,dfGroups
 
+    def save_figure(self,filename):
+        # fig.write_html(filename+'.html')
+        with open(filename+'.fig','wb') as f:
+            pickle.dump(fig.to_dict(),f)
+
+    def load_figure(self,filename):
+        with open(filename+'.fig','rb') as f:
+            fig2=go.Figure(pickle.load(f))
+
+        fig2.show(config={'editable':True})
+
 graphics=Graphics()
 
 class Structs():
@@ -594,6 +603,7 @@ class Structs():
             newList.append(k[li[0]:li[-1]+1].capitalize())
         return newList
 
+structs=Structs()
 class Physics():
     def __init__(self):
         self.phyQties = Structs().df2dict(pd.read_csv(CONFDIR+ '/units.csv'))

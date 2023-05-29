@@ -75,6 +75,7 @@ def html_table(df,title='table',useLinux=True):
     f=open(path_linux,'w')
     f.write('<h1>'+title+'</h1>')
     if isinstance(df,pd.Series):df=df.to_frame()
+    if isinstance(df,np.ndarray):df=pd.DataFrame(df   )
     df.to_html(f)
     f.close()
     sp.run('firefox '+path_linux,shell=True)
