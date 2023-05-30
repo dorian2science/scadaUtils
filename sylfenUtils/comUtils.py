@@ -35,21 +35,27 @@ DATATYPES={
     'uint32' : 'int',
     'int64' : 'int',
     'uint64' : 'int',
-    'STRING(40)': 'string'
+    'STRING(40)': 'string',
+    'IEEE754': 'float',
+    'INT64': 'int'
+
      }
 def create_folder_if_not(folder_path,*args,**kwargs):
+    '''
+    Checks if a folder exists and creates it if it does not exist
+
+    :param str folder_path: path of the folder
+    '''
     if not os.path.exists(folder_path):
         os.mkdir(folder_path)
         print_file('folder ' + folder_path + ' created!',*args,**kwargs)
 def print_file(*args,filename=None,mode='a',with_infos=True,**kwargs):
-    """
-    Print with color code in a file with line number in code.
+    '''
+    Prints with color code in a file with line number in code.
 
-    :parameters:
-
-        - **filename**:file to print in.
-        - with_infos:using line numbering and color code.
-    """
+    :param str filename: file to print in, default None
+    :param bool with_infos: default, True. If True, using line numbering and color code.
+    '''
     entete=''
     if with_infos:
         frameinfo = currentframe().f_back
@@ -68,8 +74,16 @@ def print_error(tb,filename=None):
         ff+=Fore.RED + res[0]+Fore.BLUE+res[1]+Fore.GREEN + res[2] + Fore.WHITE + '\n'
     print_file(ff,exc_format[-1],with_infos=False,filename=filename)
 def html_table(df,title='table',useLinux=True):
+    '''
+    Render a DataFrame as an HTML table
+
+    :param pd.Series or pd.DataFrame df: Serie or DataFrame
+    :param str title: title of the table, default *table*
+    :param bool useLinux:
+    '''
     if useLinux:
-        path_linux='/tmp/table.html'
+        # path_linux='/tmp/table.html'
+        path_linux=os.path.join(os.curdir,'table.html')
     else:
         path_linux=os.path.join(os.curdir,'table.html')
     f=open(path_linux,'w')
@@ -81,15 +95,14 @@ def html_table(df,title='table',useLinux=True):
     sp.run('firefox '+path_linux,shell=True)
 def read_db(db_parameters,db_table,t=None,tag=None,verbose=False,delete=False,regExp=True):
     '''
-    read the database.
-    Parameters :
-    -----------
-        - db_parameters:[dict] with localhost,port,dbnamme,user, and password keys
-        - db_table : [str]name of the table
-        - t : [str] timestamp with timezone under which data will be read (default None ==> read all)
-        - tag : [str] a regular expression or a tag (default None ==> read all)
-        - delete : [bool]if True will just delete and not read
-        - regExp : [bool] if True reg exp are used for tag
+    Read the database.
+
+    :param dict db_parameters: dict with localhost, port, dbnamme, user, and password keys
+    :param str db_table: name of the table
+    :param str t: timestamp with timezone under which data will be read (default None ==> read all)
+    :param str tag: a regular expression or a tag (default None ==> read all)
+    :param bool delete: if True, will just delete and not read
+    :param bool regExp: if True, reg exp are used for tag
     '''
     connReq = ''.join([k + "=" + v + " " for k,v in db_parameters.items()])
     dbconn = psycopg2.connect(connReq)
@@ -127,6 +140,12 @@ def read_db(db_parameters,db_table,t=None,tag=None,verbose=False,delete=False,re
     dbconn.close()
     return df
 def dfplc_from_modbusmap(modbus_map):
+    '''
+    Returns a DataFrame *dfplc* from a modbus_map
+    with columns description, unit, type and frequency
+
+    :param pd.DataFrame modbus_map: a modbus map
+    '''
     dfplc=modbus_map[['description','unit','type','frequency']]
     dfplc.columns=['DESCRIPTION','UNITE','DATATYPE','FREQUENCE_ECHANTILLONNAGE']
     return dfplc
@@ -140,6 +159,13 @@ class FileSystem():
     # FILE SYSTEMS  #
     ######################
     def load_confFile(self,filename,generate_func,generateAnyway=False):
+        '''
+        Load the configuration file
+
+        :param str filename: name of the configuration file (format .pkl)
+        :param generate_func: function to generate confFile if not exists
+        :param bool generateAnyway: If True, will generate the confFile. Default False
+        '''
         start    = time.time()
         if not os.path.exists(filename) or generateAnyway:
             print_file('Start generating the file '+filename+' with function : ')
@@ -157,6 +183,13 @@ class FileSystem():
         return plcObj
 
     def flatten(self,list_of_lists):
+        '''
+        Flatten a given list of lists
+
+        :param list list_of_lists: list of lists
+        :return: a single list from a list of lists.
+        :rtype: list
+        '''
         if len(list_of_lists) == 0:
             return list_of_lists
         if isinstance(list_of_lists[0], list):
@@ -164,6 +197,14 @@ class FileSystem():
         return list_of_lists[:1] + self.flatten(list_of_lists[1:])
 
     def autoTimeRange(self,folderPkl,method='last'):
+        '''
+        Return a list of two strings representing a 8 hours time range
+        determined based on the method specified.
+
+        :param str folderPkl: folder path
+        :param str method: 'last' or 'random'. 'last' will keep the most recent day of the folder, 'random' will choose above all days
+        :rtype: list
+        '''
         listDays = [pd.Timestamp(k.split('/')[-1]) for k in glob.glob(folderPkl+'*')]
         if method=='last':
             lastDay = max(listDays).strftime('%Y-%m-%d')
@@ -172,13 +213,23 @@ class FileSystem():
         elif method=='random':
             t1 = (pd.Series(listDays).sample(n=1).iloc[0]+dt.timedelta(hours=np.random.randint(8))).strftime('%Y-%m-%d')
 
-        t0      = (pd.Timestamp(t1)-dt.timedelta(hours=8)).isoformat()
+        t0 = (pd.Timestamp(t1)-dt.timedelta(hours=8)).isoformat()
         return [t0,t1]
 
     def get_parked_days_not_empty(self,folderPkl,minSize=3,dict_size=3):
+        '''
+        Return a sorted pandas Series containing the dates of folders whose size is greater than *minSize*
+
+        :param str folderPkl: folder path
+        :param int minSize: minimum size in Mo of the folder to be taken in account, default 3
+        :param int dict_size:
+        :rtype: pd.Series
+        '''
+
         '''dict_size:minimum size in Mo of the folder to be taken into account '''
         sizes={'G':1000,'K':0.001,'M':1}
         folders=[k.split('\t') for k in sp.check_output('du -h --max-depth=1 '+ folderPkl + ' | sort -h',shell=True).decode().split('\n')]
+        '''liste la taille et noms de tous les répertoires et fichiers présents dans le répertoire folderPkl, triés par taille croissante.'''
         folders = [k for k in folders if len(k)==2]
         folders = [k for k in folders if len(re.findall('\d{4}-\d{2}-\d',k[1].split('/')[-1]))>0 ]
         folders={v.split('/')[-1]:float(k[:-1].replace(',','.'))*sizes[k[-1]] for k,v in folders}
@@ -188,6 +239,13 @@ class FileSystem():
         return daysnotempty
 
     def createRandomInitalTagValues(self,listTags,dfplc):
+        '''
+        Return a dict valueInit containing initial randomized values for a list of tags
+
+        :param list listTags: list of tags
+        :param dataframe dfplc: dataframe with columns *DESCRIPTION*, *UNITE*, *DATAYPE*, *FREQUENCY* and tags as index.
+        :rtype: dict
+        '''
         valueInit={}
         for tag in listTags:
             tagvar=dfplc.loc[tag]
@@ -198,18 +256,38 @@ class FileSystem():
         return valueInit
 
     def listfiles_folder(self,folder):
+        '''
+        Return a list of files contained in the folder
+
+        :param str folder: path of the folder to search in
+        :rtype: list
+        '''
         listFiles=[]
         if os.path.exists(folder):
             listFiles = os.listdir(folder)
         return listFiles
 
     def listfiles_pattern_folder(self,folder,pattern):
+        '''
+        Return a list of files contained in the folder whose name matches with pattern
+
+        :param str folder: path of the folder to search in
+        :param str pattern: pattern
+        :rtype: list
+        '''
         listFiles=[]
         if os.path.exists(folder):
             listFiles = [k.split('/')[-1] for k in glob.glob(folder+'/*'+pattern+'*')]
         return listFiles
 
     def getUnitofTag(self,tag,dfplc):
+        '''
+        Return the unit of the tag
+
+        :param str tag: name of the tag
+        :param dataframe dfplc: plc dataframe with tags in index
+        :rtype: str
+        '''
         unit=dfplc.loc[tag].UNITE
         # print_file(unit)
         if not isinstance(unit,str):
@@ -217,6 +295,16 @@ class FileSystem():
         return unit
 
     def getTagsTU(self,patTag,dfplc,units=None,onCol='index',cols='tag'):
+        '''
+        Return a dataframe or a list containing tags matching with 'patTag' whose unit matches with 'units'
+
+        :param str patTag: pattern, *insensitive to case*
+        :param dataframe dfplc: plc dataframe with tags in index
+        :param str or list[str] units: list of units, default None
+        :param str onCol: name of the dataframe column to search in, default 'index'
+        :param str cols: {'tag', 'tdu', None} default 'tag'
+        :rtype: list if *cols* is 'tag', else pd.DataFrame
+        '''
         if onCol=='index':
             df = dfplc[dfplc.index.str.contains(patTag,case=False)]
         else:
@@ -233,15 +321,14 @@ class FileSystem():
             return df
 
 class SetInterval:
-    ''' Démarre la fonction "action" tous les "interval" secondes.
-    Démarre sur un multiple de interval. Saute donc des appels intermédiaires si
-    l'action prends plus de temps pour que l'intervalle pour démarrer à pile.
+    '''
+    Run the function *action* every *interval* seconds.
+    Start on a multiple of *interval*
+    Skip intermediate calls if the action takes longer for the interval to start stack.
 
-    Parameters:
-    --------------
-        - interval : le temps en secondes entre 2 appels
-        - action : la fonction a éxécuter
-        - *args : les arguments à passer à la fonction action.
+    :param int interval: time interval
+    :param str action: function to execute
+    :param args: arguments for function *action*
     '''
     def __init__(self,interval,action,*args):
         self.argsAction=args
@@ -251,6 +338,9 @@ class SetInterval:
         self.thread    = threading.Thread(target=self.__SetInterval)
 
     def start(self):
+        '''
+        Start a new thread
+        '''
         self.thread.start()
 
     def __SetInterval(self):
@@ -262,6 +352,9 @@ class SetInterval:
                 nextTime+=self.interval
 
     def stop(self):
+        '''
+        Stop the active thread
+        '''
         self.stopEvent.set()
         self.thread.join()
 
@@ -271,20 +364,22 @@ class SetInterval:
 class Device():
     """
     Construtor: instanciate a device.
-    Parameters:
-    -------------
-        - device_name :[str] name of the device
-        - ip : [str] ip adress of the device
-        - port : [int] port of the connection of the device.
-        - log_file : [str]:path of the file where to log the infos. Default is None will return in the console.
+
+    :param str device_name: name of the device
+    :param str ip: ip adress of the device
+    :param int port: port of the connection of the device
+    :param pd.DataFrame dfplc: plc dataframe with tags in index
+    :param list[tuples] time_outs_reconnection: default None
+    :param str log_file: path of the file where to log the infos. Default is None will return in the console.
+
     For inheritance :
-        - a function <collectData> should be written  to collect data from the device.
-        - a function <connectDevice> to connect to the device.
+        - a function **collectData** should be written  to collect data from the device.
+        - a function **connectDevice** to connect to the device.
     """
     def __init__(self,device_name,ip,port,dfplc,time_outs_reconnection=None,log_file=None):
         STREAMER               = FileSystem()
         self._utils            = Utils()
-        self._protocole             = 'undefined'
+        self._protocole        = 'undefined'
         self.device_name       = device_name
         self.ip                = ip
         self.port              = port
@@ -311,6 +406,11 @@ class Device():
             self._get_frequencies()
 
     def _update_log_file(self,log_file):
+        '''
+        Update *log_file* and create an attribute '_collect_file' which is the path of the .csv file where to collect logs
+
+        :param str log_file: path of the file where to log the infos.
+        '''
         self.log_file=log_file
         if self.log_file is None:
             self._collect_file = None
@@ -319,6 +419,10 @@ class Device():
                 self.device_name + '_collectTimes.csv')
 
     def _get_frequencies(self,):
+        '''
+        Return a dictionnary containing frequencies as keys and list of tags as values
+
+        '''
         col_freq='FREQUENCE_ECHANTILLONNAGE'
         # self.tags_freqs = {freq: list(group.index) for freq, group in self.dfplc.groupby(col_freq)}
         self.tags_freqs = {freq: group.index for freq, group in self.dfplc.groupby(col_freq)}
@@ -326,11 +430,19 @@ class Device():
 
     # @abstract_method
     def connectDevice(self,state=None):
+        '''
+        **function description missing**
+
+        :param bool state: status of connection, default None
+        '''
         if state is None:self._isConnected=np.random.randint(0,2)==1
         else:self._isConnected=state
         return self._isConnected
 
     def start_auto_reconnect(self):
+        '''
+        **function description missing**
+        '''
         if self._auto_connect.is_set():
             self.stop_auto_reconnect()
         self._auto_connect.clear()
@@ -339,11 +451,17 @@ class Device():
         self._thread_reconnection.start()
 
     def stop_auto_reconnect(self):
+        '''
+        **function description missing**
+        '''
         if not self._auto_connect.is_set():
             self._auto_connect.set()
             self._thread_reconnection.join()
 
     def _checkConnection(self):
+        '''
+        Check connection
+        '''
         while not self._auto_connect.wait(self._current_timeOut):
             # print_file('checking if device still connected')
             if not self._isConnected:
@@ -369,7 +487,10 @@ class Device():
 
     def _generate_sql_insert_tag(self,tag,value,timestampz,dbTable):
         '''
-        - dbTable : name of table in database where to insert
+        Generate a query to insert tag, value and timestamp into database *dbTable*
+
+        :param str dbTable: name of table in database where to insert
+        :rtype: str
         '''
         sqlreq = "insert into " + dbTable + " (tag,value,timestampz) values ('"
         if value==None:value = 'null'
@@ -379,13 +500,13 @@ class Device():
 
     def insert_intodb(self,dbParameters,dbTable,*args,verbose=False,**kwargs):
         '''
-        Insert into database data that are collected with self.collectData.
+        Insert into database datas that are collected with *self.collectData*.
         Function only works if there is a valid dfplc attribute.
-        Parameters :
-        ------------------
-            - dbParameters: [dict] database parameters
-            - dbTable: [str] name of the database table
-            - *args,**kwargs:arguments of self.collectData
+
+        :param dict dbParameters: database parameters
+        :param str dbTable: name of the database table
+        :param \*args: arguments of *self.collectData*
+        :param \**kwargs: arguments of *self.collectData*
         '''
         if self.dfplc is None:return 'pb dfplc'
         if not self._isConnected:
@@ -399,6 +520,7 @@ class Device():
             return 'pb database'
         cur  = dbconn.cursor()
         start=pd.Timestamp.now().timestamp()
+
 
         ##### collect data ########
         data = self.collectData(*args,**kwargs)
@@ -444,12 +566,35 @@ class Device():
         return 1
 
     def createRandomInitalTagValues(self):
+        '''
+        Return a dict valueInit containing initial randomized values for a list of tags.
+
+        .. note:: See **FileSystem.createRandomInitalTagValues()**
+
+        :rtype: dict
+        '''
         return STREAMER.createRandomInitalTagValues(list(self.device.index),self.dfplc)
 
     def getUnitofTag(self,tag):
+        '''
+        Return the unit of the tag from dfplc.
+
+        .. note:: See **FileSystem.getUnitofTag()**
+
+        :param str tag:
+        :rtype: str
+        '''
         return STREAMER.getUnitofTag(tag,self.dfplc)
 
     def getTagsTU(self,patTag,units=None,*args,**kwargs):
+        '''
+        Return a dataframe or a list containing tags matching with *patTag* whose unit matches with *units*.
+
+        .. note:: See **FileSystem.getTagsTU()**
+
+        :param str patTag: pattern of tag, insensitive to case
+        :param str or list[str] units: list of units, default None
+        '''
         if self.dfplc is None:
             print_file('no dfplc. Function unavailable.')
             return
@@ -457,6 +602,10 @@ class Device():
         return FileSystem().getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
 
     def get_connection_status(self):
+        '''
+        Print connection status
+
+        '''
         print('is connected'.ljust(50),self._isConnected)
         reconnecting=not self._auto_connect.is_set()
         print('is trying reconnection'.ljust(50),reconnecting)
@@ -469,7 +618,18 @@ from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from pymodbus.payload import BinaryPayloadDecoder
 from pymodbus.constants import Endian
 class ModbusDevice(Device):
-    def __init__(self,ip,port=502,device_name='',modbus_map=None,type_registers='holding',bo='big',wo='big',**kwargs):
+    '''
+    Instanciate a ModbusDevice, inherited of the class *Device*
+
+    :param str ip: ip adress of the device
+    :param int port: port of the connection of the device, default 502
+    :param str device_name: name of the device
+    :param pd.DataFrame modbus_map: map of the modbus, default None
+    :param str bo: byte order, default big
+    :param str wo: word order, default big
+
+    '''
+    def __init__(self,ip,port=502,device_name='',modbus_map=None,bo='big',wo='big',**kwargs):
         self.modbus_map = modbus_map
         self.byte_order,self.word_order = bo,wo
         self.type_registers=type_registers
@@ -485,6 +645,11 @@ class ModbusDevice(Device):
         self._client = ModbusClient(host=self.ip,port=int(self.port))
 
     def connectDevice(self):
+        '''
+        Connect the Modbus Client
+
+        :returns: connection status
+        '''
         self._isConnected=False
         try:
             self._isConnected=self._client.connect()
@@ -499,7 +664,15 @@ class ModbusDevice(Device):
         nbs=int(4*int(re.findall('\d{2}',dtype)[0])/64)
         return self.quick_modbus_single_register_decoder(reg,nbs,dtype,unit=unit,input=input,scale=scale)
 
-    def quick_modbus_single_register_decoder(self,reg,nbs,dtype,unit=1,input=input,scale=1):
+    def quick_modbus_single_register_decoder(self,reg,nbs,dtype,unit=1):
+        '''
+        Decode modbus single registers
+
+        :param int reg: register address (0 to 65535)
+        :param int nbs: **number of registers to decode (1 to 125)**
+        :param str dtype: **data type ?**
+        :rtype: dictionnary
+        '''
         # self._client.connect()
         # print_file(locals())
         if input:
@@ -516,18 +689,33 @@ class ModbusDevice(Device):
         return values
 
     def decode_bloc_registers(self,bloc,*args,**kwargs):
+        '''
+        Return a dataframe
+
+        :param pd.DataFrame bloc: should be continuous and contain:
+
+            - type column with the datatypes
+            - intaddress with the adress of the registers
+            - scale with scales to apply
+        :rtype: pd.DataFrame
+        '''
         blocks=self._get_continuous_blocks(bloc)
         index_name=bloc.index.name
         if index_name is None:index_name='index'
         return pd.concat([self._decode_continuous_bloc(b,*args,**kwargs) for b in blocks],axis=0).set_index(index_name)
 
     def collectData(self,tz,tags=None):
-        '''It will collect all the data if a dataframe modbus_map is present with columns
-        - index : name of the registers or tags.
-        - type  : datatype{uint16,int32,float...}
-        - scale : the multiplication factor
-        - intaddress :  for the adress in decimal format
-        - slave_unit : the slave unit
+        '''
+        It will collect all the data if a dataframe modbus_map is present with columns
+            - index : name of the registers or tags.
+            - type  : datatype{uint16,int32,float...}
+            - scale : the multiplication factor
+            - intaddress :  for the adress in decimal format
+            - slave_unit : the slave unit
+
+        :param str tz: timezone
+        :param list[str] tags: list of tags whose data you want to collect, default None. If None, collect all datas
+        :rtype: pd.DataFrame
         '''
         try:
             if self.modbus_map is None:
@@ -560,7 +748,9 @@ class ModbusDevice(Device):
     #####################
     def _decode_continuous_bloc(self,bloc,unit_id=1):
         '''
-        - bloc[pd.DataFrame] should be continuous and contain:
+        **function description missing**
+
+        :param pd.DataFrame bloc: *bloc* should be continuous and contain:
             - type column with the datatypes
             - intaddress with the adress of the registers
             - scale with scales to apply
@@ -604,6 +794,14 @@ class ModbusDevice(Device):
         return bloc
 
     def _get_size_words_block(self,bloc):
+        '''
+        Return a copy of bloc with column 'size_words' referring to the size of the datatype
+
+        :param pd.DataFrame bloc: *bloc* should be continuous and contain:
+            - type column with the datatypes
+            - intaddress with the adress of the registers
+            - scale with scales to apply
+        '''
         bs=pd.Series(1,index=bloc.index)
         bs=bs.mask(bloc['type']=='IEEE754',2)
         bs=bs.mask(bloc['type']=='INT64',4)
@@ -621,6 +819,14 @@ class ModbusDevice(Device):
         return bloc2
 
     def _cut_into_100_blocks(self,bloc):
+        '''
+        Return a list of blocks from intadress cut into 100 blocks
+
+        :param pd.DataFrame bloc: should be continuous and contain:
+            - type column with the datatypes
+            - intaddress with the adress of the registers
+            - scale with scales to apply
+        '''
         bbs=[]
         bint=bloc['intaddress']
         mini=bint.min()
@@ -632,6 +838,17 @@ class ModbusDevice(Device):
         return bbs
 
     def _get_continuous_blocks(self,bloc):
+        '''
+
+        Return a list of dataframes representing continuous blocks from initial dataframe
+
+        :param pd.DataFrame bloc: should be continuous and contain:
+            - type column with the datatypes
+            - intaddress with the adress of the registers
+            - scale with scales to apply
+        :rtype: list
+
+        '''
         bloc=self._get_size_words_block(bloc)
         index_name=bloc.index.name
         if index_name is None:index_name='index'
@@ -646,6 +863,14 @@ class ModbusDevice(Device):
         return blocks
 
     def _fill_gaps_bloc(self,bloc):
+        '''
+        **function description missing**
+
+        :param pd.DataFrame bloc: should be continuous and contain:
+            - type column with the datatypes
+            - intaddress with the adress of the registers
+            - scale with scales to apply
+        '''
         bloc=bloc.copy().sort_values('intaddress')[['intaddress','type']]
         bloc=self._get_size_words_block(bloc)
         k=0
@@ -661,6 +886,13 @@ class ModbusDevice(Device):
         return bloc
 
     def _decode_register(self,decoder,dtype):
+        '''
+        Decode register
+
+        :param decoder: **param missing**
+        :param str dtype: datatype to decode
+
+        '''
         if dtype.lower()=='float32' or dtype.lower()=='ieee754':
             value=decoder.decode_32bit_float()
         elif dtype.lower()=='int32':
@@ -681,6 +913,18 @@ class ModbusDevice(Device):
 
 import opcua
 class Opcua_Client(Device):
+    '''
+    Instanciate an Opcua_Client, inherited of the class *Device*
+
+    :param str ip: ip adress of the device
+    :param int port: port of the connection of the device, default 502
+    :param str device_name: name of the device
+    :param pd.DataFrame dfplc: plc dataframe with tags as index, default None
+    :param str bo: byte order, default big
+    :param str wo: word order, default big
+    :param str nameSpace: nameSpace
+
+    '''
     def __init__(self,*args,nameSpace,protocole='opc.tcp',**kwargs):
         Device.__init__(self,*args,**kwargs)
         self._protocole = 'opcua'
@@ -695,6 +939,12 @@ class Opcua_Client(Device):
         self._nodes      = list(self._nodesDict.values())
 
     def loadPLC_file(self):
+        '''
+        Load the configuration file of OPCUA Client and returns a pd.DataFrame 'dfplc'
+
+        :return: configuration of plc
+        :rtype: pd.DataFrame
+        '''
         listPLC = glob.glob(self.confFolder + '*Instrum*.pkl')
         if len(listPLC)<1:
             listPLC_xlsm = glob.glob(self.confFolder + '*Instrum*.xlsm')
@@ -709,6 +959,10 @@ class Opcua_Client(Device):
         return dfplc
 
     def connectDevice(self):
+        '''
+        Connect the OPCUA Client
+
+        '''
         try:
             self._client.connect()
             self._isConnected=True
@@ -717,6 +971,16 @@ class Opcua_Client(Device):
         return self._isConnected
 
     def collectData(self,tz,tags):
+        '''
+        Collect the data and returns a dictionnary with tags as keys
+        and values & timestamps as values
+
+        :param str or timezone object tz: timezone to localize to
+        :param list tags: list of tags
+        :returns: a dictionnary with tags as keys and values & timestams as values
+        :rtype: dictionnary
+
+        '''
         nodes = {t:self._nodesDict[t] for t in tags}
         values = self._client.get_values(nodes.values())
         ts = pd.Timestamp.now(tz=tz).isoformat()
@@ -724,6 +988,9 @@ class Opcua_Client(Device):
         return data
 
     def _set_security(self,certif_path,key_path,password,user):
+        '''
+        **Function description missing**
+        '''
         sslString = 'Basic256Sha256,Sign,' + certif_path + ',' + key_path
         if CONF.SIMULATOR:
             print_file('security check succedeed because working with SIMULATOR==>no need to enter credentials and rsa keys\n',filename=self.log_file,with_infos=False)
@@ -738,6 +1005,17 @@ class Opcua_Client(Device):
 
 import pyads
 class ADS_Client(Device):
+    '''
+    Instanciate an ADS_Client, inherited of the class *Device*
+
+    :param str device_name: name of the device
+    :param str ip: ip adress of the device
+    :param int port: port of the connection of the device, default 851
+    :param pd.DataFrame dfplc: plc dataframe with tags in index
+    :param str bo: byte order, default big
+    :param str wo: word order, default big
+    :param str nameSpace: nameSpace
+    '''
     def __init__(self,*args,port=851,check_values=False,**kwargs):
         Device.__init__(self,*args,port=port,**kwargs)
         self._protocole = 'ads'
@@ -754,6 +1032,13 @@ class ADS_Client(Device):
                 sys.exit()
 
     def drop_unreadable_tags(self,tags2Remove=None):
+        '''
+        Remove unreadable or problematic tags and return a dictionnary containing frequencies as keys and list of tags as values
+
+        :param str tags2Remove: tags to remove, default None. If None, will detect problematic tags and remove them
+        :returns: dictionnary containing frequencies as keys and list of tags as values
+        :rtype: dictionnary
+        '''
         if tags2Remove is None:
             tags2Remove=self.detect_tag_pb()
         self.dfplc=self.dfplc.drop(tags2Remove)
@@ -761,12 +1046,14 @@ class ADS_Client(Device):
 
     def detect_tag_pb(self,result='pb_tags',timeDebug=False):
         '''
-        Parameters
-        ------------
-            - result :{'vals','pbs','pb_tags'}.
-                "vals" will return all valid values
-                "pbs" all problematic tags with error messages
-                "pb_tags" only problematic tags
+        Detect problematic tags
+
+        :param str result: 'vals', 'pbs' or 'pb_tags', default 'pb_tags'
+
+            - 'vals' will return all valid values
+            - 'pbs' all problematic tags with error messages
+            - 'pb_tags' only problematic tags
+        :param bool timeDebug: default False. If True, will print debug time
         '''
         pbs,vals={},{}
         tags=list(self.dfplc.index)
@@ -789,6 +1076,9 @@ class ADS_Client(Device):
             return pbs
 
     def _get_machine_ip(self):
+        '''
+        Return IP address
+        '''
         import socket
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
@@ -797,6 +1087,12 @@ class ADS_Client(Device):
         return ip_local
 
     def _initialize_route(self,username="Administrator",password="1"):
+        '''
+        **Function description missing**
+
+        :param str username: name of the user. Default *'Administrator'*
+        :param str password: password of the user. Default *"1"*
+        '''
         import socket
         # create some constants for connection
         CLIENT_IP       = self._get_machine_ip()
@@ -815,6 +1111,9 @@ class ADS_Client(Device):
         # return locals()
 
     def connectDevice(self):
+        '''
+        Connect the ADS Client
+        '''
         if self.unknown_error:
             for plc in self.plcs.values():
                 plc.close()
@@ -833,14 +1132,21 @@ class ADS_Client(Device):
         return self._isConnected
 
     def close_connection(self):
+        '''
+        Close connection
+        '''
         for plc in self.plcs.values():
             plc.close()
 
     def collectData(self,tz,tags,freq=None):
         '''
-        - tz   :[str]timezone to use
-        - tags :[list] of tags
-        - freq :[float] if there are several connections to the device precise the unit.
+        Collect all the data from the device
+
+        :param str or timezone object tz: timezone to use
+        :param list[str] tags: list of tags
+        :param float freq: if there are several connections to the device precise the unit.
+        :returns: a dictionnary with tags as keys and values & timestamps as values
+        :rtype: dictionnary
         '''
         listtags=['GVL.'+t for t in tags]
         ts = pd.Timestamp.now(tz=tz).isoformat()
@@ -875,8 +1181,12 @@ class ADS_Client(Device):
 
 import urllib.request, json
 class Meteo_Client(Device):
+    '''
+    Instanciate a new device Meteo_Client, inherited of the class *Device*
+
+    :param int freq: acquisition time in seconds
+    '''
     def __init__(self,freq=30,**kwargs):
-        '''-freq:acquisition time in seconds '''
         self.freq    = freq
         self.cities  = pd.DataFrame({'le_cheylas':{'lat' : '45.387','lon':'6.0000'}})
         self.baseurl = 'https://api.openweathermap.org/data/2.5/'
@@ -887,6 +1197,13 @@ class Meteo_Client(Device):
         self.t0 = pd.Timestamp('1970-01-01 00:00',tz='UTC')
 
     def build_plcmeteo(self,freq):
+        '''
+        Build a weather dataframe from openweathermap.org with temp, pressure, humidity, clouds and wind_speed from the given city (currently, le cheylas).
+        Columns are *MIN*, *MAX*, *UNITE*, *DESCRIPTION*, *DATATYPE*, *DATASCIENTISM*, *PRECISION*, *FREQUENCE_ECHANTILLONNAGE*, *VAL_DEF*
+
+        :param int freq: acquisition time in seconds
+        :rtype: pd.DataFrame
+        '''
         vars = ['temp','pressure','humidity','clouds','wind_speed']
         tags=['XM_'+ city+'_' + var for var in vars for city in self.cities]
         descriptions=[var +' '+city for var in vars for city in self.cities]
@@ -913,6 +1230,9 @@ class Meteo_Client(Device):
         return dfplc
 
     def connectDevice(self):
+        '''
+        Connect the objects to the meteo server
+        '''
         try:
             request = urllib.request.urlopen('https://api.openweathermap.org/',timeout=2)
             print_file("Meteo : Connected to the meteo server.",filename=self.log_file)
@@ -923,13 +1243,26 @@ class Meteo_Client(Device):
         return self._isConnected
 
     def collectData(self,tz='CET',tags=None):
+        '''
+        Collect weather data for the given city
+
+        :param str or timezone object tz: timezone, default *CET*
+        :param list[str] tags: default None
+        :rtype: dictionnary
+        '''
         df = pd.concat([self.get_dfMeteo(city,tz) for city in self.cities])
         return {tag:{'value':v,'timestampz':df.name} for tag,v in df.to_dict().items()}
 
     def get_dfMeteo(self,city,tz,ts_from_meteo=False):
         '''
-        ts_from_meteo : if True the timestamp corresponds to the one given by the weather data server.
-        Can lead to dupplicates in the data.
+        Return the weather (temperature, pressure, humidity, cloud cover and wind speed) for the given cities (currently, le cheylas).
+        Can lead to duplicates in the data
+
+        :param str city: city
+        :param str or timezone object: timezone
+        :param bool ts_from_meteo: default None. If True, the timestamp corresponds to the one given by the weather data server.
+        :returns:
+        :rtype: pd.DataFrame
         '''
         gps = self.cities[city]
         url = self.baseurl + 'weather?lat='+gps.lat+'&lon=' + gps.lon + '&units=metric&appid=' + self.apitoken
@@ -951,7 +1284,10 @@ class Meteo_Client(Device):
         df = df.loc[self.dfplc.index]
         return df
 
-    def dfMeteoForecast():
+    def dfMeteoForecast(self):
+        '''
+        Build a forecast weather dataframe
+        '''
         url = baseurl + 'onecall?lat='+lat+'&lon=' + lon + '&units=metric&appid=' + apitoken ## prediction
         # url = 'http://history.openweathermap.org/data/2.5/history/city?q='+ +',' + country + '&appid=' + apitoken
         listInfos = list(data['hourly'][0].keys())
@@ -977,8 +1313,14 @@ class Meteo_Client(Device):
 # #  SUPER INSTANCES    #
 # #######################
 class Basic_streamer():
-    '''Streamer enables to perform action on parked Day/Hour/Minute folders.
-    It comes with basic functions like loaddata_minutefolder/create_minutefolder/parktagminute.'''
+    '''
+    Instanciate the object **Basic_streamer**
+    Streamer enables to perform action on parked Day/Hour/Minute folders.
+    It comes with basic functions like loaddata_minutefolder/create_minutefolder/parktagminute.
+
+    :param str log_file: path of the file
+
+    '''
     def __init__(self,log_file=None):
         self.methods=['ffill','nearest','mean','max','min','median','interpolate','rolling_mean','mean_mix']
         self._num_cpus = psutil.cpu_count(logical=False)
@@ -986,7 +1328,11 @@ class Basic_streamer():
         self.log_file=log_file
 
     def _to_folderday(self,timestamp):
-        '''convert timestamp to standard day folder format'''
+        '''
+        Convert timestamp to standard day folder format
+
+        :param str or timestamp object timestamp: timestamp
+        '''
         return timestamp.strftime(self._format_dayFolder)
 
 def to_type(x,dtype):
@@ -1001,13 +1347,25 @@ def to_type(x,dtype):
         return np.nan
 
 class Streamer(Basic_streamer):
-    '''Streamer enables to perform action on parked Day/Hour/Minute folders.
-    It comes with basic functions like loaddata_minutefolder/create_minutefolder/parktagminute.'''
+    '''
+    Instanciate an object *Streamer*, inherited of the class **Basic_streamer**
+    Streamer enables to perform action on parked Day/Hour/Minute folders.
+    It comes with basic functions like loaddata_minutefolder/create_minutefolder/parktagminute.
+    '''
     def __init__(self,*args,**kwargs):
         Basic_streamer.__init__(self,*args,**kwargs)
         self._format_dayFolder='%Y-%m-%d'
 
     def park_tags(self,df,tag,folder,dtype,showtag=False):
+        '''
+        Park all the values from a dataframe *df* for a given tag in a pickle file
+
+        :param pd.DataFrame df: dataframe
+        :param str tag: tag whose data to save
+        :param str folder: path of the folder
+        :param str dtype: data type
+        :param bool showtag: default False. If True, applies the **print_file** function with *tag* as parameter
+        '''
         if showtag:print_file(tag)
         dftag=df[df.tag==tag]['value'].astype(dtype)
         pickle.dump(dftag,open(folder + tag + '.pkl', "wb" ))
@@ -1016,6 +1374,14 @@ class Streamer(Basic_streamer):
     #   MODIFY EXISTING DATA #
     # ########################
     def process_dbtag(self,s,dtype):
+        '''
+        Convert the values of a pd.Series in the given data type
+
+        :param pd.Series s: pd.Series to convert
+        :param str dtype: data type to convert *s*
+        :returns: converted pd.Series
+        :rtype: the given data type
+        '''
         s=s.replace('null',np.nan)
         s=s.replace('False',False)
         s=s.replace('True',True)
@@ -1034,10 +1400,20 @@ class Streamer(Basic_streamer):
     #      DAY FUNCTIONS     #
     # ########################
     def _to_folderday(self,timestamp):
-        '''convert timestamp to standard day folder format'''
+        '''
+        Convert timestamp to standard day folder format *%Y-%m-%d*
+
+        :param tr or timestamp object timestamp: timestamp
+        :rtype: timestamp
+        '''
         return timestamp.strftime(self._format_dayFolder)
 
     def create_dayfolder(self,folderday):
+        '''
+        Create a folder it not exists
+
+        :param str folderday: name of the folder
+        '''
         if not os.path.exists(folderday):
             os.mkdir(folderday)
             return folderday +' created '
@@ -1045,6 +1421,14 @@ class Streamer(Basic_streamer):
             return folderday +' already exists '
 
     def park_DFday(self,dfday,folderpkl,pool=False,showtag=False):
+        '''
+        Apply the function **parkdaytag** to all the present tags in *dfday*
+
+        :param pd.DataFrame dfday: pd.DataFrame with columns *tag*, *timestampz* and *value*
+        :param str folderpkl: name of the pickle file to save datas
+        :param bool pool: default False. If True, parallelizes the execution of the **parkdaytag** function with a Pool object
+        :param bool showtag: default False. If True, applies the **print_file** function with *tag* as parameter
+        '''
         correctColumns=['tag','timestampz','value']
         if not list(dfday.columns.sort_values())==correctColumns:
             print_file('PROBLEM: the df dataframe should have the following columns : ',correctColumns,'''
@@ -1067,13 +1451,29 @@ class Streamer(Basic_streamer):
             for tag in listTags:self.parkdaytag(dfday,tag,folderday,showtag)
 
     def parkdaytag(self,dfday,tag,folderday,showtag=False):
+        '''
+        Park all the values from a dataframe *dfday* for a given tag in a pickle file
+
+        :param pd.DataFrame dfday: dataframe of the day
+        :param str tag: tag
+        :param str folderday: path of the folder
+        :param bool showtag: default False. If True, applies the **print_file** function with *tag* as parameter
+        '''
         if showtag:print_file(tag,filename=self.log_file)
         dftag=dfday[dfday.tag==tag]['value']
         pickle.dump(dftag,open(folderday + tag + '.pkl', "wb" ))
 
     def actiondays(self,t0,t1,folderPkl,action,*args,pool=True):
         '''
-        -t0,t1:timestamps
+        Run the function *action* for each day between *t0* and *t1*
+
+        :param timestamp t0: timestamp
+        :param timestamp t1: timestamp
+        :param str folderPkl:
+        :param str action: name of the function
+        :param bool pool: default True.
+        :returns: a dictionnary with days as keys and result of the function **action** as values
+        :rtype: dictionnary
         '''
         print_file(t0,t1,filename=self.log_file)
         days=pd.date_range(t0,t1,freq='1D')
@@ -1086,6 +1486,12 @@ class Streamer(Basic_streamer):
         return {d.strftime(self._format_dayFolder):df for d,df in zip(days,dfs)}
 
     def remove_tags_day(self,d,tags):
+        '''
+        Remove the pickle files for a given day and for a given tag
+
+        :param str d: path of the folder
+        :param list[str] tags: list of tags
+        '''
         print_file(d,filename=self.log_file)
         for t in tags:
             tagpath=os.path.join(d,t+'.pkl')
@@ -1096,9 +1502,19 @@ class Streamer(Basic_streamer):
                 # print_file('no file :',tagpath)
 
     def dumy_day(self,day):
+        '''
+        **que dire...**
+        '''
         return day
 
     def zip_day(self,folderday,basename,zipfolder):
+        '''
+        Create a unique dataframe with all tags for a given day and saves it as zip file
+
+        :param str folderday: path of the folder
+        :param str basename: basename of the zip file
+        :param str zipfolder: path of the zip folder
+        '''
         listtags=glob.glob(folderday+'/*')
         dfs=[]
         for tag in listtags:
@@ -1116,6 +1532,9 @@ class Streamer(Basic_streamer):
         os.remove(filecsv)
 
     def zip_day_v2(self,folderday,basename,zipfolder):
+        '''
+        **Same as zip_day ?**
+        '''
         listtags=glob.glob(folderday+'/*')
         dfs=[]
         for tag in listtags:
@@ -1133,6 +1552,9 @@ class Streamer(Basic_streamer):
         os.remove(filecsv)
 
     def dummy_daily(self,days=[],nCores=4):
+        '''
+        **fonction utile ?**
+        '''
         if len(days)==0:
             days=[k for k in pd.date_range(start='2021-10-02',end='2021-10-10',freq='1D')]
         with Pool(nCores) as p:
@@ -1140,6 +1562,14 @@ class Streamer(Basic_streamer):
         return dfs
 
     def remove_tags_daily(self,tags,folderPkl,patPeriod='**',nCores=6):
+        '''
+        Remove the pickle files for a given day and for a given tag
+
+        :param list[str] tags: list of tags
+        :param str folderPkl: path of the folder
+        :param str parPeriod: pattern of the period, default *'**'*
+        :param int nCores: number of cores, default 6
+        '''
         days=glob.glob(folderPkl + patPeriod)
         if len(days)==1:
             self.remove_tags_day(days[0])
@@ -1148,10 +1578,18 @@ class Streamer(Basic_streamer):
 
     def process_tag(self,s,rsMethod='nearest',rs='auto',tz='CET',rmwindow='3000s',closed='left',checkTime=False,verbose=False):
         '''
-            - s : [pd.Series] with timestampz as index and name='value'
-            - rsMethod : [str] see Basic_streamer().methods => {XXX}
-            - rs : argument for pandas.resample. See pandas.DataFrame.resample?
-            - rmwindow : argument for method pandas rollingmean.
+        Resample a pd.Series with a given method
+
+        :param pd.Series s: pd.Series with timestampz as index and name='value'
+        :param str rsMethod: see Basic_streamer().methods, default *nearest*
+        :param str rs: argument for pd.resample. See pandas.DataFrame.resample?
+        :param str timezone: timezone, default CET
+        :param str rmwindow: argument for method pandas.rollingmean, default *3000s*
+        :param str closed: default *left*
+        :param bool checkTime: if True, prints the compute time. Default False
+        :param bool verbose: default False
+        :returns: resampled pd.Series
+        :rtype: pd.Series
         '''
         if s.empty:
             if verbose:print_file('processing : series is empty')
@@ -1208,6 +1646,10 @@ class Streamer(Basic_streamer):
         return s
 
     def _load_raw_day_tag(self,day,tag,folderpkl,rs,rsMethod,closed,showTag_day=True):
+        '''
+
+        :param str day: date in the format '%Y-%m-%d'
+        '''
         filename = os.path.join(folderpkl,day,tag+'.pkl')
         if os.path.exists(filename):
             s= pd.read_pickle(filename)
@@ -1218,6 +1660,20 @@ class Streamer(Basic_streamer):
         return s
 
     def _pool_tag_daily(self,t0,t1,tag,folderpkl,rs='auto',rsMethod='nearest',closed='left',ncores=None,time_debug=False,verbose=False,**kwargs):
+        '''
+        **Function description missing**
+
+        :param timestamp t0: timestamp
+        :param timestamp t1: timestamp
+        :param str tag: tag
+        :param str folderpkl: path of the folder containing the pkl file
+        :param str rsMethod: see Basic_streamer().methods, default *nearest*
+        :param str rs: argument for pd.resample. See pandas.DataFrame.resample
+        :param str closed: {‘right’, ‘left’}, default *left*. Which side of bin interval is closed
+        :param int ncores: number of cores, default None
+        :param bool time_debug: if True, prints the compute time. Default False
+        :param bool verbose: default False
+        '''
         start=time.time()
 
         listDays=[self._to_folderday(k) for k in pd.date_range(t0,t1,freq='D',ambiguous=True)]
@@ -1235,6 +1691,17 @@ class Streamer(Basic_streamer):
         return s_tag
 
     def load_tag_daily(self,t0,t1,tag,folderpkl,showTag=False,time_debug=False,verbose=False,**kwargs):
+        '''
+        **Function description missing**
+
+        :param timestamp t0: timestamp
+        :param timestamp t1: timestamp
+        :param str tag: tag
+        :param str folderpkl: path of the folder containing the pkl file
+        :param bool showTag: default False. If True,
+        :param bool time_debug: default False
+        :param bool verbose: default False
+        '''
         if showTag:print_file(tag,filename=self.log_file)
         start=time.time()
         dfs={}
@@ -1261,15 +1728,29 @@ class Streamer(Basic_streamer):
         return s_tag
 
     def load_tag_daily_kwargs(self,t0,t1,tag,folderpkl,args, kwargs):
+        '''
+        **function description missing**
+
+        :param timestamp t0: timestamp
+        :param timestamp t1: timestamp
+        :param str tag: tag
+        :param str folderpkl: path of the folder containing the pkl file
+        :param args: arguments of the function *load_tag_daily*
+        '''
         return self.load_tag_daily(t0,t1,tag,folderpkl,*args, **kwargs)
 
     def load_parkedtags_daily(self,t0,t1,tags,folderpkl,*args,verbose=False,pool='auto',**kwargs):
         '''
-        :Parameters:
-            pool : {'tag','day','auto',False}, default 'auto'
-                'auto': pool on days if more days to load than tags otherwise pool on tags
-                False or any other value will not pool the loading
-            **kwargs Streamer._pool_tag_daily and Streamer.load_tag_daily
+        **Function description missing**
+
+        :param timestamp t0: timestamp
+        :param timestamp t1: timestamp
+        :param str tag: tag
+        :param str folderpkl: path of the folder containing the pkl file
+        :param str pool: {'tag','day','auto',False}, default 'auto'
+            - 'auto': pool on days if more days to load than tags otherwise pool on tags
+            - False or any other value will not pool the loading
+        :param \**kwargs: Streamer._pool_tag_daily and Streamer.load_tag_daily
         '''
         if not len(tags)>0:return pd.DataFrame()
         loc_pool=pool
@@ -1313,6 +1794,13 @@ class Streamer(Basic_streamer):
     #   HIGH LEVEL FUNCTIONS #
     # ########################
     def park_alltagsDF_minutely(self,df,folderpkl,pool=True):
+        '''
+        **Function description missing**
+
+        :param pd.DataFrame df:
+        :param str folderpkl:
+        param bool pool: default True
+        '''
         # check if the format of the file is correct
         correctColumns=['tag','timestampz','value']
         if not list(df.columns.sort_values())==correctColumns:
@@ -1348,6 +1836,15 @@ class Streamer(Basic_streamer):
             print_file(computetimeshow('',start),filename=self.log_file)
 
     def createFolders_period(self,t0,t1,folderPkl,frequence='day'):
+        '''
+        **Function description missing**
+
+        :param str or timestamp object t0:
+        :param str or timestamp object t1:
+        :param str folderPkl: path of the folder
+        :param str frequence: {'day', 'minute'}
+
+        '''
         if frequence=='minute':
             return self.foldersaction(t0,t1,folderPkl,self.create_minutefolder)
         elif frequence=='day':
@@ -1371,11 +1868,21 @@ class Streamer(Basic_streamer):
         # return dfs
 
     def listfiles_pattern_period(self,t0,t1,pattern,folderpkl,pool=True):
+        '''
+        **Function description missing**
+        '''
         return self.actiondays(t0,t1,folderpkl,STREAMER.listfiles_pattern_folder,pattern,pool=pool)
     # ########################
     #   STATIC COMPRESSION   #
     # ########################
     def staticCompressionTag(self,s,precision,method='reduce'):
+        '''
+        **Function description missing**
+
+        :param pd.Series s:
+        :param precision:
+        :param method: {'diff', 'dynamic', 'reduce'}, default 'reduce'
+        '''
         if method=='diff':
             return s[np.abs(s.diff())>precision]
 
@@ -1406,6 +1913,9 @@ class Streamer(Basic_streamer):
             return pd.DataFrame(newvalues,columns=['timestamp',s.name]).set_index('timestamp')[s.name]
 
     def compareStaticCompressionMethods(self,s,prec,show=False):
+        '''
+        **Function description missing**
+        '''
         res={}
 
         start = time.time()
@@ -1435,6 +1945,9 @@ class Streamer(Basic_streamer):
         return pd.Series(res),df
 
     def generateRampPlateau(self,br=0.1,nbpts=1000,valPlateau=100):
+        '''
+        **Function description missing**
+        '''
         m=np.linspace(0,valPlateau,nbpts)+br*np.random.randn(nbpts)
         p=valPlateau*np.ones(nbpts)+br*np.random.randn(nbpts)
         d=np.linspace(valPlateau,0,nbpts)+br*np.random.randn(nbpts)
@@ -1442,6 +1955,9 @@ class Streamer(Basic_streamer):
         return pd.Series(np.concatenate([m,p,d]),index=idx)
 
     def testCompareStaticCompression(self,s,precs,fcw=3):
+        '''
+        **Function description missing**
+        '''
         import plotly.express as px
         results=[self.compareStaticCompressionMethods(s=s,prec=p) for p in precs]
         timelens=pd.concat([k[0] for k in results],axis=1)
@@ -1459,12 +1975,16 @@ class Streamer(Basic_streamer):
 
 STREAMER = Streamer()
 class Configurator():
+    '''
+    Instanciate an object *Configurator*
+
+    :param conf: an instance of sylfenUtils.ConfGenerator
+
+    ..note:: See **sylfenUtils.ConfGenerator**
+
+    '''
     def __init__(self,conf):
-        '''
-        Parameters:
-        ------------------------
-        - conf : an instance of sylfenUtils.ConfGenerator
-        '''
+
         self.conf         = conf
         self.folderPkl    = conf.FOLDERPKL
         self.dbParameters = conf.DB_PARAMETERS
@@ -1495,15 +2015,15 @@ class Configurator():
         return self.conf.getTagsTU(*args,**kwargs)
 
 class SuperDumper(Configurator):
+    '''
+    Instanciate an object *SuperDumper*, inherited of the class **Configurator**
+
+    :param dict devices: dictionnary of device_name : comUtils.Device instances
+    :param sylfenUtils.ConfGenerator conf: ConfGenerator instance
+    :param bool log_console: if True, the infos will be displayed in the CLI(console), otherwise in the log file in the folder of the project. Default, False
+    '''
     def __init__(self,devices,conf,log_console=False):
-        '''
-        Parameters:
-        ------------------------
-        - devices : [dict] of device_name:comUtils.Device instances.
-        - conf :[sylfenUtils.ConfGenerator] a conf instance.
-        - log_console : [bool]. If True the infos will be displayed in the CLI(console)
-        otherwise in the log file in the folder of the project
-        '''
+
         Configurator.__init__(self,conf)
         self.devices  = devices
         self.log_file = os.path.join(self.conf.LOG_FOLDER,self.conf.project_name+'_dumper.log')
@@ -1517,6 +2037,12 @@ class SuperDumper(Configurator):
         # print_file(' '*20+'INSTANCIATION OF THE DUMPER'+'\n',filename=self.log_file)
 
     def _get_possible_jobs(self):
+        '''
+        Loop on devices and read all frequencies
+
+        :returns: list of concatenations of devices and frequencies
+        :rtype: list
+        '''
         possible_jobs=[]
         for device_name,device in self.devices.items():#### loop on devices
             for freq in device.tags_freqs.keys():#### loop on frequencies
@@ -1530,9 +2056,8 @@ class SuperDumper(Configurator):
 
     def start_job(self,device_name,freq):
         '''
-        Parameters:
-        -------------
-            - freq should be in seconds
+        :param str device_name: name of the device
+        :param int freq: frequency in seconds
         '''
         device=self.devices[device_name]
         job_name=device_name+'_' + str(freq) + 's'
@@ -1559,9 +2084,10 @@ class SuperDumper(Configurator):
 
     def stop_job(self,job_name,del_item=True):
         '''
-        Parameters:
-        -------------
-            - job_name: device_name + '_' + freq + 's'
+        Stop the current job
+
+        :param str job_name: job name (device_name + '_' + freq + 's'). See attribute self.possible_jobs
+        :param bool del_item: if True, delete job. Default True
         '''
         if job_name in list(self.jobs.keys()):
             self.jobs[job_name].stop()
@@ -1569,13 +2095,23 @@ class SuperDumper(Configurator):
             print_file(job_name,'deleted',filename=self.log_file)
 
     def read_db(self,*args,**kwargs):
+        '''
+        Read database
+
+        :param dict df_parameters: dictionnary with localhost, port, dbnamme, user and password keys
+        :param str db_table: name of the table
+        :param str timestamp: timestamp with timezone under which data will be read (default None ==> read all)
+        :param str tag: a regular expression or a tag (default None ==> read all)
+        :param bool delete: if True, will just delete and not read
+        :param bool regExp: if True, reg exp are used for tag
+        '''
         return read_db(self.dbParameters,self.dbTable,*args,**kwargs)
 
     def flushdb(self,t=None):
         '''
-        Parameters :
-        ------------
-            - t:[str] timestamp. Everything before this timestamp will be deleted from the db.
+        Delete data from database
+
+        :param str t:: timestamp. Everything before this timestamp will be deleted from the db. Default None
         '''
         connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
         dbconn = psycopg2.connect(connReq)
@@ -1589,6 +2125,10 @@ class SuperDumper(Configurator):
         dbconn.close()
 
     def feed_db_random_data(self,*args,**kwargs):
+        '''
+        Insert into database random data
+
+        '''
         df = self.generateRandomParkedData(*args,**kwargs)
         dbconn = self.connect2db()
         cur  = dbconn.cursor()
@@ -1634,6 +2174,13 @@ class SuperDumper(Configurator):
         dbconn.close()
 
     def generateRandomParkedData(self,t0,t1,vol=1.5,listTags=None):
+        '''
+
+        :param str t0: timestamp
+        :param str t1: timestamp
+        :param float vol: default *1.5*
+        :param str listTags: default None
+        '''
         valInits = self.createRandomInitalTagValues()
         if listTags==None:listTags=list(self.dfplc.index)
         valInits = {tag:valInits[tag] for tag in listTags}
@@ -1673,6 +2220,9 @@ class SuperDumper(Configurator):
         return fig
 
     def stop_dumping(self):
+        '''
+        Stop dumping data
+        '''
         for job_name in self.jobs.keys():
             self.stop_job(job_name,False)
         self.jobs={}
@@ -1697,19 +2247,30 @@ class SuperDumper(Configurator):
         return df
 
     def quick_analysis(self,tag):
+        '''
+        For the given tag, deliver a quick analysis (count, mean, std, min, max and some percentiles) of duration between 2 values.
+        Return statistics and dataframe
+
+        :param str tag: tag
+        '''
         df=self.read_db(tag=tag,regExp=False).set_index('timestampz')
         df['ms']=pd.Series(df.index).diff().apply(lambda k:k.total_seconds()*1000).to_list()
         print(df.ms.describe(percentiles=[0.5,0.75,0.9,0.95]))
         return df
+
 SuperDumper.read_db.__doc__=read_db.__doc__
 
 class SuperDumper_daily(SuperDumper):
+    '''
+    Instanciate an object *SuperDumper_daily*, inherited of the class **SuperDumper**
+    '''
     def start_dumping(self,park_on_time=True):
         '''
-        Parameters
-        ----------------
-            - park_on_time:[bool] if True it will wait for the parking to start at a round time.
-            For example if it is 11:17 and parkingTime is 10 minutes, it will wait until 11:20 to start parking the data.
+        Start dumping data
+
+        :param bool park_on_time: if True, it will wait for the parking to start at a round time.
+
+        For example, if it is 11:17 and parkingTime is 10 minutes, it will wait until 11:20 to start parking the data.
         '''
         import time
         print_file(timenowstd(),': START DUMPING',filename=self.log_file,with_infos=False)
@@ -1750,14 +2311,14 @@ class SuperDumper_daily(SuperDumper):
 
     def _park_singletag_DB(self,tag,t_park=None,deleteFromDb=False,verbose=False):
         '''
-        :Parameters:
-            - tag : [str]
-            - t_park : [str] timestamp before which data should be parked. Default is now.
-            - deleteFromDb: [bool] if True tag will be flushed individually from the database after having been parked.
+
+        :param str tag: tag
+        :param str t_park: timestamp before which data should be parked. Default, None. If None, t_park is now.
+        :param bool deleteFromDb: if True, tag will be flushed individually from the database after having been parked.
         '''
         if verbose:print_file(tag)
         start = time.time()
-        ######### read database
+        ######### rekad database
         if t_park is None:t_park=pd.Timestamp.now(tz=self.tz_record).isoformat()
         df=self.read_db(t=t_park,tag=tag,regExp=False,verbose=verbose).set_index('timestampz')
         if verbose:print_file(computetimeshow('tag : '+tag+ ' read in '+self.dbTable + ' in '+ self.dbParameters['dbname'],start),filename=self.log_file)
@@ -1789,6 +2350,13 @@ class SuperDumper_daily(SuperDumper):
             self.read_db(tag=tag,verbose=verbose,delete=True,regExp=False)
 
     def parktagfromdb(self,tag,s_tag,folderday,verbose=False):
+        '''
+        Park the data for the given tag in a pickle file in the *folderday*
+
+        :param str tag: tag
+        :param pd.Series s_tag: pd.Series to park
+        :param str folderday: path of the folder
+        '''
         namefile = os.path.join(folderday,tag + '.pkl')
         if verbose:print_file(namefile)
         if os.path.exists(namefile):
@@ -1798,7 +2366,7 @@ class SuperDumper_daily(SuperDumper):
 
     def park_database(self,flush_tag=False,verbose=False):
         '''
-        - flush_tag:[bool] if True all tag will be flushed from the database separately otherwise the database will be flushed all together.
+        :param bool flush_tag: if True, all tag will be flushed from the database separately, otherwise the database will be flushed all together.
         '''
         start = time.time()
         now = pd.Timestamp.now(tz=self.tz_record)
@@ -1840,6 +2408,13 @@ class SuperDumper_daily(SuperDumper):
 
 import plotly.graph_objects as go, plotly.express as px
 class VisualisationMaster(Configurator):
+    '''
+    Instanciate an object *VisualisationMaster*, inherited of the class **Configurator**
+
+    :param conf: an instance of sylfenUtils.ConfGenerator
+
+    ..note:: See sylfenUtils.Configurator
+    '''
     def __init__(self,*args,**kwargs):
         Configurator.__init__(self,*args,**kwargs)
         self.methods = STREAMER.methods
@@ -1885,19 +2460,18 @@ class VisualisationMaster(Configurator):
         return df
 
     def loadtags_period(self,t0,t1,tags,*args,pool='auto',verbose=False,**kwargs):
-        """
-        Loads tags between times t0 and t1.
-        Parameters
-        ----------------
-            - t0,t1 : [pd.Timestamp] Timestamps, t0 start and t1 end.
-            - tags : [list]
-                List of tags available from self.dfplc.listtags
+        '''
+        Load tags between times t0 and t1.
 
-        :return:
-            pd.DataFrame with ntags columns
+        :param pd.Timestamp t0: timestamp. t0 start
+        :param pd.Timestamp t1: timestamp. t1 end
+        :param list[str] tags: list of tags available from self.dfplc.listtags
+        :rtype: pd.DataFrame
+        :return: pd.DataFrame with ntags columns
 
-        see also : args of VisualisationMaster.Streamer.process_tag
-        """
+        ..note:: See also args of **VisualisationMaster.Streamer.process_tag**
+        '''
+
         # for k in t0,t1,tags,args,kwargs:print_file(k)
         tags=list(np.unique(tags))
         ############ read parked data
@@ -1915,8 +2489,9 @@ class VisualisationMaster(Configurator):
 
     def toogle_tag_description(self,tagsOrDescriptions,toogleto='tag'):
         '''
-        -tagsOrDescriptions:list of tags or description of tags
-        -toogleto: you can force to toogleto description or tags ('tag','description')
+
+        :param list[str] tagsOrDescriptions: list of tags or description of tags
+        :param str toogleto: {'tag', 'description'} you can force to toogleto description or tags. Default 'tag'
         '''
         current_names = tagsOrDescriptions
         ### automatic detection if it is a tag --> so toogle to description
@@ -2000,10 +2575,8 @@ class VisualisationMaster(Configurator):
 
     def multiUnitGraph(self,df,tagMapping=None,**kwargs):
         '''
-        Parameters:
-        -----------
-            - df : [pd.DataFrame] pivoted.
-            - tagMapping : [dict] same as dictGroups
+        :param pd.DataFrame df: pd.DataFrame pivoted
+        :param dict tagMapping: same as dictGroups
         '''
         if not tagMapping:tagMapping = {t:self.getUnitofTag(t) for t in df.columns}
         # print(tagMapping)
@@ -2014,6 +2587,9 @@ class VisualisationMaster(Configurator):
     loadtags_period.__doc__+=Streamer.process_tag.__doc__
 
 class VisualisationMaster_daily(VisualisationMaster):
+    '''
+    Instanciates an object *VisualisationMaster_daily*, inherited of the class **VisualisationMaster**
+    '''
     def __init__(self,*args,**kwargs):
         VisualisationMaster.__init__(self,*args,**kwargs)
         self.folder_coarse=self.folderPkl.rstrip('/')+'_coarse/'
@@ -2024,9 +2600,12 @@ class VisualisationMaster_daily(VisualisationMaster):
 
     def _load_parked_tags(self,t0,t1,tags,pool):
         '''
-        - t0,t1 : timestamps
-        - tags : list of tags
-        - pool:if true pool on tags
+
+        :param str t0: timestamp
+        :param str t1: timestamp
+        :param list[str] tags: list of tags
+        :param bool pool: if True, pool on tags
+        :rtype: pd.DataFrame
         '''
         if not isinstance(tags,list) or len(tags)==0:
             print_file('tags is not a list or is empty',filename=self.log_file)
@@ -2077,8 +2656,8 @@ class VisualisationMaster_daily(VisualisationMaster):
 
     def park_coarse_data(self,tags=None,*args,**kwargs):
         '''
-        :Parameters:
-            - tags [list] of tags
+
+        :param list[str] tags: list of tags
         '''
         if tags is None : tags=list(self.dfplc.index)
         pb_tags=[]
@@ -2101,13 +2680,14 @@ class VisualisationMaster_daily(VisualisationMaster):
         return t0
 
     def _park_coarse_tag(self,tag,rs='60s',verbose=False,from_start=False):
-        """
-        This Will park coarse data by pre-calculating the mean/max/min of the period from the raw data.
+        '''
+        Will park coarse data by pre-calculating the mean/max/min of the period from the raw data.
         Only missing coarse data will be computed unless from_start is set to True
-        :Parameters:
-            - tag : [str]
-            - from_start :[bool] if set to True will recalculate all from the begining(older day folder)
-        """
+
+        :param str tag: tag
+        :param str rs: default 60s
+        :param bool from_start: if set to True, will recalculate all from the begining(older day folder)
+        '''
 
         methods=['mean','min','max']
         start=time.time()
@@ -2137,12 +2717,11 @@ class VisualisationMaster_daily(VisualisationMaster):
     park_coarse_data.__doc__+=_park_coarse_tag.__doc__
 
 class Fix_daily_data():
+    '''
+    param conf: should be a sylfenUtils.ConfGenerator object
+    '''
     def __init__(self,conf):
-        '''
-        Parameters:
-        ------------
-        - conf:should be a sylfenUtils.ConfGenerator object
-        '''
+
         self.conf=conf
         self._format_day_folder=FORMAT_DAY_FOLDER
         self.checkFolder=os.path.join(os.path.abspath(os.path.join(conf.FOLDERPKL,os.pardir)),conf.project_name+'_fix')
@@ -2152,11 +2731,11 @@ class Fix_daily_data():
     def _load_raw_tag_day(self,tag,day,verbose=True,checkFolder=False):
         """
         Load the raw data from self.conf.FOLDERPKL
-        :Parameters:
-            - tag[str]
-            - day[str]
-            - verbose[bool]
-            - checkFolder[bool]: if True the data will be loaded from self.checkFolder
+
+        :param str tag: tag
+        :param str day: day at the format '%Y-%m-%d'
+        :param bool verbose:
+        :param bool checkFolder: if True, the data will be loaded from self.checkFolder
         """
         if checkFolder:
             filename = os.path.join(self.checkFolder,day,tag+'.pkl')
@@ -2171,20 +2750,22 @@ class Fix_daily_data():
         return s
 
     def _to_folderday(self,timestamp):
-        '''convert timestamp to standard day folder format'''
+        '''
+        Convert timestamp to standard day folder format
+
+        :param str or timestamp object timestamp: timestamp
+        '''
         return Streamer()._to_folderday(timestamp)
 
     def applyCorrectFormat_daytag(self,tag,day,newtz='CET',verbose=True,checkFolder=False):
         '''
-        Formats as pd.Series with name values and timestamp as index, remove duplicates, convert timestamp with timezone
+        Format as pd.Series with name values and timestamp as index, remove duplicates, convert timestamp with timezone
         and apply the correct datatype
 
-        :Parameters:
-        ----------------
-            - tag:[str] ==> the tag
-            - day:[str] ==> the day
-            - newtz : [str] timezone
-            - checkFolder:[bool] if True it will save the correct formatted data in self.checkFolder
+        :param str tag: tag
+        :param str day: day at the format '%Y-%m-%d'
+        :param str newtz: timezone
+        :param bool checkFolder: if True, it will save the correct formatted data in self.checkFolder
         '''
         tagpath=os.path.join(self.conf.FOLDERPKL,day,tag+'.pkl')
         if verbose:print(tagpath)
@@ -2230,7 +2811,9 @@ class Fix_daily_data():
     ########### PUBLIC
 
     def load_raw_tag_period(self,tag,t0,t1,*args,**kwargs):
-        '''*args,**kwargs : see _load_raw_tag_day'''
+        '''
+        .. note:: For *args,**kwargs : see _load_raw_tag_day
+        '''
         t=t0
         dfs=[]
         while t<=t1:
@@ -2239,14 +2822,18 @@ class Fix_daily_data():
         return dfs
 
     def load_raw_tags_day(self,tags,day,*args,**kwargs):
-        '''*args,**kwargs : see _load_raw_tag_day'''
+        '''
+        :param list[str] tags: list of tags
+        :param str day: day at the format '%Y-%m-%d'
+        .. note:: For *args,**kwargs : see _load_raw_tag_day
+        '''
         return {tag:self._load_raw_tag_day(tag,day,*args,**kwargs) for tag in tags}
 
     def applyCorrectFormat_day(self,day,dtypes,*args,**kwargs):
         '''
-        - day[str]
-        - dtypes[str] see self.DATATYPES for valid datatypes
-        Doc of applyCorrectFormat_daytag
+        :param str day: day at the format %Y-%m-%d'
+        :param str dtypes: see self.DATATYPES for valid datatypes
+        .. note:: See doc of Fix_daily_data.applyCorrectFormat_daytag()
         '''
         tags = self.conf.dfplc.index.to_list()
         for tag in tags:
@@ -2254,8 +2841,8 @@ class Fix_daily_data():
 
     def applyCorrectFormat_tag(self,tag,*args,**kwargs):
         '''
-        - tag[str]
-        Doc of applyCorrectFormat_daytag
+        :param str tag: tag
+        .. note:: See doc of Fix_daily_data.applyCorrectFormat_daytag()
         '''
         print(tag)
         for day in os.listdir(self.conf.FOLDERPKL):
@@ -2268,34 +2855,31 @@ class Fix_daily_data():
     applyCorrectFormat_tag.__doc__+=applyCorrectFormat_daytag.__doc__
 
 class VisualisatorStatic(VisualisationMaster):
+    '''
+    Visualiser data of folderpkl
+    Instanciate an object *VisualisatorStatic*, inherited of the class **VisualisationMaster**
+
+    :param str folderPkl: path of the data
+    :param pd.DataFrame dfplc : pd.DataFrame with columns DESCRIPTION, UNITE, DATATYPE and tags as index.
+    '''
     def __init__(self,folderPkl,dfplc):
-        '''
-        Visualiser data of folderpkl
-        Parameters :
-        - folderPkl : path of the data
-        - dfplc : pandas dataframe with columns DESCRIPTION, UNITE, DATAYPE tags as index.
-        '''
+
         self.methods = STREAMER.methods
         self.dfplc = dfplc
         self.folderPkl = folderPkl
         self.log_file=None
 
     def loadtags_period(self,t0,t1,tags,*args,pool='auto',verbose=False,**kwargs):
-        """
-        Loads tags between times t0  and t1.
+        '''
+        Load tags between times t0  and t1.
 
-        :Parameters:
-            t0,t1 : [pd.Timestamp]
-                Timestamps, t0 start and t1 end.
-            tags : [list]
-                List of tags available from self.dfplc.listtags
+        :param pd.Timestamp t0: timestamp, t0 start
+        :param pd.Timestamp t1: timestamp, t1 end
+        :param list[str] tags: list of tags available from self.dfplc.listtags
+        :return: pd.DataFrame with ntags columns
 
-        :return:
-            pd.DataFrame with ntags columns
-
-        :see also:
-            *args,**kwargs of VisualisationMaster.Streamer.process_tag
-        """
+        .. note:: See also: *args,**kwargs of VisualisationMaster.Streamer.process_tag()
+        '''
         # for k in t0,t1,tags,args,kwargs:print_file(k)
         tags=list(np.unique(tags))
         ############ read parked data

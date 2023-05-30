@@ -1,8 +1,10 @@
+examples/data/.~lock.*
 __pycache__
 build/
 dist/
 examples/.ipynb_checkpoints/
-*/.ipynb_checkpoints
+*/.ipynb_checkpoints/
+.ipynb_checkpoints/
 .env/
 .dev/
 .env_dev/

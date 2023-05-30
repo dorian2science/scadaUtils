@@ -30,17 +30,26 @@ NOTIFS={
 
 from IPython.core.ultratb import AutoFormattedTB
 class Dashboard():
+    '''
+    Instanciate a dashboard to monitor data.
+
+    :param str cfg: instance of type comUtils.VisualisationMaster
+    :param str log_dir: log directory where to put the logs
+    :param str root_path: path of the directory where the static and templates files are.
+    :param function plot_function: fucntion to plot data. Default, None. If None, plot_funtion will be cfg.multiUnitGraph
+    :param str app_name: optional, name of the app
+    :param dict init_parameters: optional, dictionnary with initial parameters.
+    :param str version_dashboard: optional
+    :param int max_nb_pts: max number of points. Default, 500*1000
+    :param int rs_min_coarse: default, 5*60
+    :param int nb_days_min_coarse: min number of days to coarse data. Default, 3
+    '''
+
     def __init__(self,cfg,log_dir,root_path,
             plot_function=None,app_name='',
             init_parameters={},version_dashboard='',
             max_nb_pts=500*1000,rs_min_coarse=5*60,nb_days_min_coarse=3,
         ):
-        '''
-        Instanciate a dashboard to monitor data.
-        - cfg: instance of type comUtils.VisualisationMaster
-        - log_dir:log directory where to put the logs
-        - root_path:path of the directory where the static and templates files are.
-        '''
 
         cfg.styles = ['default'] + cfg.utils.styles
         self.fig_wh=780
@@ -114,6 +123,8 @@ class Dashboard():
     def _create_dashboard_links(self,root_folder):
         '''
         Copy the static and templates folders into root folder of the dashboard to be able to run the Dashboard instance.
+
+        :param str root_folder: name of the root folder
         '''
         import shutil
         create_folder_if_not(root_folder)
