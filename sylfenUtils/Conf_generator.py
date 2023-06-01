@@ -106,10 +106,11 @@ class Conf_generator():
     :param bool use_color_palettes: will load the palettes of color.
         '''
 
-    def __init__(self,project_name,function_generator,project_folder=None,force_creation=False):
+    def __init__(self,project_name,function_generator,project_folder=None,force_creation=False,verbose=False):
         self.project_name=project_name
         self._function_generator=function_generator
         self._lib_sylfenUtils_path=os.path.dirname(__file__)
+        self._force_creation=force_creation
 
         homepath = {'posix': 'HOME', 'nt':'homepath'}
         if project_folder is None:project_folder=os.path.join(os.getenv(homepath[os.name]),project_name+'_user')

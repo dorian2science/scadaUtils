@@ -440,7 +440,7 @@ class GAIA():
     :param \*args: see sylfenUtils.Conf_generator.Conf_generator arguments
     :param \**kwargs: see sylfenUtils.Conf_generator.Conf_generator arguments
     '''
-    def __init__(self,*args,root_folder=None,realtime=True,**kwargs):
+    def __init__(self,*args,root_folder=None,realtime=True,verbose=False,**kwargs):
         if realtime:self.conf = Conf_generator.Conf_generator_RT(*args,**kwargs)
         else:self.conf        = Conf_generator.Conf_generator_Static(*args,**kwargs)
         self.dfplc            = self.conf.dfplc
@@ -478,6 +478,8 @@ class GAIA():
             self._visualiser,
             self.conf.LOG_FOLDER,
             root_folder,
+            rs_min_coarse=eval(self.conf.RS_MIN_COARSE),
+            nb_days_min_coarse=eval(self.conf.NB_DAYS_MIN_COARSE),
             app_name=self.conf.project_name,
             init_parameters=self._init_parameters,
             plot_function=utils.Graphics().multiUnitGraph, ## you can use your own function to display the data

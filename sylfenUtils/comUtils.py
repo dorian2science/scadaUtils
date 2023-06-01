@@ -629,7 +629,7 @@ class ModbusDevice(Device):
     :param str wo: word order, default big
 
     '''
-    def __init__(self,ip,port=502,device_name='',modbus_map=None,bo='big',wo='big',**kwargs):
+    def __init__(self,ip,port=502,device_name='',modbus_map=None,bo='big',wo='big',type_registers='',**kwargs):
         self.modbus_map = modbus_map
         self.byte_order,self.word_order = bo,wo
         self.type_registers=type_registers
