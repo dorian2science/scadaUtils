@@ -240,7 +240,7 @@ class Dashboard():
             df = df[(df.index>=t0) & (df.index<=t1)]
 
             dateF=[pd.Timestamp(t).strftime('%Y-%m-%d %H_%M') for t in [t0,t1]]
-            filename = 'static/tmp/' + baseName +  '_' + dateF[0]+ '_' + dateF[1]+'.xlsx'
+            filename = os.path.join(self.root_path,'static/tmp/' + baseName +  '_' + dateF[0]+ '_' + dateF[1]+'.xlsx')
             if isinstance(df.index,pd.core.indexes.datetimes.DatetimeIndex):
                 df.index=[k.isoformat() for k in df.index]
             df.to_excel(filename)
