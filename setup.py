@@ -12,6 +12,7 @@ setuptools.setup(
     author="Dorian Drevon",
     author_email="drevondorian@gmail.com",
     description="Utilities package",
+    url='https://github.com/dorian2science/scadaUtils',
     long_description=long_description,
     long_description_content_type="text/markdown",
     classifiers=[

@@ -9,3 +9,4 @@ examples/.ipynb_checkpoints/
 .dev/
 .env_dev/
 sylfenUtils.egg-info/
+scadaUtils.egg-info/
