@@ -1,0 +1,17 @@
+Flask>=2.2.2
+IPython
+Pillow
+colorama==0.4.3
+coolprop>=6.4.3.post1
+cryptography==2.8
+odfpy==1.4.1
+opcua==0.98.13
+openpyxl==3.0.7
+pandas>=1.5.2
+pint>=0.20.1
+plotly>=5.5.0
+psutil>=5.8.0
+psycopg2-binary
+pyads
+pymodbus==2.5.3
+scipy
