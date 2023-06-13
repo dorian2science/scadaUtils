@@ -143,6 +143,11 @@ class Dashboard():
             shutil.copytree(os.path.join(sylfenUtils_env_dir,'static/lib'),lib_folder)
             print('static files have been copied into ',root_folder)
 
+        tmp_folder=os.path.join(static_folder,'tmp')
+        if not os.path.exists(tmp_folder):
+            shutil.copytree(os.path.join(sylfenUtils_env_dir,'static/tmp'),tmp_folder)
+            print('static files have been copied into ',root_folder)
+
     # ###################
     #    MANAGE LOGS    #
     # ###################
