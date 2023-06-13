@@ -3,11 +3,11 @@ import setuptools,re
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-base_version=re.search('(SylfenUtils V)(\d+\.\d*)',long_description).groups()[1]
-v_try='3'
+base_version=re.search('(ScadaUtils V)(\d+\.\d*)',long_description).groups()[1]
+v_try='1'
 
 setuptools.setup(
-    name="sylfenUtils",
+    name="scadaUtils",
     version=base_version+'.'+v_try,
     author="Dorian Drevon",
     author_email="drevondorian@gmail.com",
