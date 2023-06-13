@@ -1,6 +1,6 @@
-import sylfenUtils.comUtils as comUtils
-import sylfenUtils.Conf_generator as Conf_generator
-from sylfenUtils.dashboard import Dashboard
+import .comUtils as comUtils
+import .Conf_generator as Conf_generator
+from .dashboard import Dashboard
 import os,inspect
 from . import utils
 ##### this is the superinstance

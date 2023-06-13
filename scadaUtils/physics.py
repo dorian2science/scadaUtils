@@ -1,12 +1,12 @@
 # import time
 # start=time.time()
 import numpy as np,pandas as pd,os,sys
-from sylfenUtils import utils
-from sylfenUtils.comUtils import (html_table,print_file)
+from . import utils
+from .comUtils import (html_table,print_file)
 import plotly.express as px
 # print(time.time()-start)
 # from conf_modeling import conf as CONF,
-from sylfenUtils.utils import inspect_simple
+from .utils import inspect_simple
 import inspect
 import pint
 from pint import UnitRegistry
@@ -43,17 +43,17 @@ def show_locals(locs,fa):
     return res
 
 coolProps_Q={
-'D':'kg/m**3',
-'H':'J/kg',
-'Q':'mol/mol',
-'S':'J/kg/K',
-'U':'K/kg',
-'A':'m/s',
-'L' :'W/m/K',
-'V':'pascal.s',
-'C' :'J/kg/K',
-'G':'J/kg',
-'M':'kg/mol',
+    'D':'kg/m**3',
+    'H':'J/kg',
+    'Q':'mol/mol',
+    'S':'J/kg/K',
+    'U':'K/kg',
+    'A':'m/s',
+    'L' :'W/m/K',
+    'V':'pascal.s',
+    'C' :'J/kg/K',
+    'G':'J/kg',
+    'M':'kg/mol',
 }
 FLUID_PROPS={}
 FLUID_PROPS['CO']={

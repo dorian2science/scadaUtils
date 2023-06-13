@@ -6,7 +6,7 @@ import numpy as np, pandas as pd
 import psycopg2
 from multiprocessing import Pool
 import traceback
-from sylfenUtils.utils import Utils
+from .utils import Utils
 from dateutil.tz import tzlocal
 from zipfile import ZipFile
 import psutil

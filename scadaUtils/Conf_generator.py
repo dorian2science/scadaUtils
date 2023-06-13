@@ -1,6 +1,6 @@
 import pickle,os,sys,re,subprocess as sp,time,shutil
 import pandas as pd
-from sylfenUtils.comUtils import (print_file,FileSystem,create_folder_if_not)
+from .comUtils import (print_file,FileSystem,create_folder_if_not)
 import psycopg2
 
 FS=FileSystem()

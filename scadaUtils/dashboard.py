@@ -6,8 +6,8 @@ import numpy as np,pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from string import ascii_letters,digits
-from sylfenUtils.comUtils import (timenowstd,computetimeshow,print_file)
-from sylfenUtils.Conf_generator import create_folder_if_not
+from .comUtils import (timenowstd,computetimeshow,print_file)
+from .Conf_generator import create_folder_if_not
 NOTIFS={
     'too_many_datapoints':''' TOO MANY DATAPOINTS\n
         You have requested XXXk datapoints which is over AAAk datapoints.\n
