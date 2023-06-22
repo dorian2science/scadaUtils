@@ -664,17 +664,20 @@ class ModbusDevice(Device):
         nbs=int(4*int(re.findall('\d{2}',dtype)[0])/64)
         return self.quick_modbus_single_register_decoder(reg,nbs,dtype,unit=unit,input=input,scale=scale)
 
-    def quick_modbus_single_register_decoder(self,reg,nbs,dtype,unit=1):
+    def quick_modbus_single_register_decoder(self,reg,dtype,scale=1,unit=1,input=False):
         '''
         Decode modbus single registers
 
         :param int reg: register address (0 to 65535)
-        :param int nbs: **number of registers to decode (1 to 125)**
-        :param str dtype: **data type ?**
+        :param str dtype: **data type uint32,float32...**
+        :param float scale: **coef multiplicateur**
+        :param int unit: **slave unit**
+        :param bool input: **if True use the function read_input_registers otherwise holding**
         :rtype: dictionnary
         '''
         # self._client.connect()
         # print_file(locals())
+        nbs = self._get_nb_registers(dtype)
         if input:
             result = self._client.read_input_registers(reg, nbs, unit=unit)
         else:
@@ -746,6 +749,14 @@ class ModbusDevice(Device):
     #####################
     # PRIVATE FUNCTIONS #
     #####################
+    def _get_nb_registers(self,dtype):
+        if '16' in dtype:
+            return 1
+        elif '32' in dtype:
+            return 2
+        elif '64' in dtype:
+            return 3
+
     def _decode_continuous_bloc(self,bloc,unit_id=1):
         '''
         **function description missing**
