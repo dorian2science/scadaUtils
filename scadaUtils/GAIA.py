@@ -1,5 +1,5 @@
-import .comUtils as comUtils
-import .Conf_generator as Conf_generator
+from . import comUtils
+from . import Conf_generator
 from .dashboard import Dashboard
 import os,inspect
 from . import utils
@@ -49,8 +49,8 @@ def build_devices(df_devices,modbus_maps=None,plcs=None,verbose=False):
             )
     return DEVICES
 import psutil,pandas as pd,subprocess as sp,re
-from sylfenUtils.utils import EmailSmtp
-from sylfenUtils.comUtils import print_file
+from .utils import EmailSmtp
+from .comUtils import print_file
 import time
 
 class Services_creator():
@@ -443,6 +443,7 @@ class GAIA():
     def __init__(self,*args,root_folder=None,realtime=True,verbose=False,**kwargs):
         if realtime:self.conf = Conf_generator.Conf_generator_RT(*args,**kwargs)
         else:self.conf        = Conf_generator.Conf_generator_Static(*args,**kwargs)
+        self.conf._realtime   = realtime
         self.dfplc            = self.conf.dfplc
         #### INITIALIZE DEVICES
         # comUtils.print_file(self.conf)

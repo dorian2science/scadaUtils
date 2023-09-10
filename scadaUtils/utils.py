@@ -32,7 +32,7 @@ def flattenList(l):return [item for sublist in l for item in sublist]
 CONFDIR=os.path.dirname(os.path.realpath(__file__)) + '/conf'
 def delta_strftime(delta,format='H,M'):
     '''
-    - delta:[float] in seconds
+    - delta:[float] in secondss
     '''
     delta=pd.Timedelta(seconds=delta)
     total_seconds = delta.total_seconds()
@@ -46,17 +46,17 @@ def delta_strftime(delta,format='H,M'):
 class Graphics():
     def __init__(self):
         raw_symbols = pd.Series(SymbolValidator().values[2::3])
-        self.raw_symbols = list(pd.concat([raw_symbols[::4],raw_symbols[1::4],raw_symbols[2::4]]))
-        self.listLines = 40*DashValidator().values[:-1]
+        self.raw_symbols = list(pd.concat([raw_symbols[::4],raw_symbols[1::4],raw_symbols[2::4]]))*5
+        self.listLines = 100*DashValidator().values[:-1]
         self.lineshapes = ShapeValidator().values
         allcolors=px.colors.qualitative.Plotly.copy()
         allcolors+=px.colors.qualitative.Dark24.copy()+px.colors.qualitative.Light24
         allcolors+=px.colors.qualitative.Alphabet
         allcolors+=px.colors.qualitative.Set1+px.colors.qualitative.Pastel1
         allcolors+=px.colors.qualitative.Antique
-        self.colors_mostdistincs = allcolors
+        self.colors_mostdistincs = allcolors*5
         self.styles = ['lines+markers','markers','stairs','lines']
-        self.colorPalettes=pd.read_pickle(CONFDIR + '/palettes.pkl')
+        # self.colorPalettes=pd.read_pickle(CONFDIR + '/palettes.pkl')
 
         from PIL import Image # new import
         self._sylfenlogo  = Image.open(CONFDIR +  '/logo_sylfen.png')

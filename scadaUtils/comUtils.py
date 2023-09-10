@@ -1990,7 +1990,7 @@ class Configurator():
         self.dbParameters = conf.DB_PARAMETERS
         self.dbTable      = conf.DB_TABLE
         self.dfplc        = conf.dfplc
-        self._alltags        = list(conf.dfplc.index)
+        self._alltags     = list(conf.dfplc.index)
         self._dataTypes   = DATATYPES
         self.tz_record    = conf.TZ_RECORD
         self.parkingTime  = conf.PARKING_TIME##seconds
@@ -2477,7 +2477,7 @@ class VisualisationMaster(Configurator):
         ############ read parked data
         df = STREAMER.load_parkedtags_daily(t0,t1,tags,self.folderPkl,*args,pool=pool,verbose=verbose,**kwargs)
         ############ read database
-        if t1<pd.Timestamp.now(self.tz_record)-pd.Timedelta(seconds=self.parkingTime):
+        if t1<pd.Timestamp.now(self.tz_record)-pd.Timedelta(seconds=self.parkingTime) or not self.conf._realtime:
             if verbose:print_file('no need to read in the database')
         else:
             df_db = self._load_database_tags(t0,t1,tags,*args,**kwargs)

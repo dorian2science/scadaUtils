@@ -279,6 +279,7 @@ class Conf_generator_Static(Conf_generator):
     def __init__(self,*args,**kwargs):
         self._realtime=''
         Conf_generator.__init__(self,*args,**kwargs)
+        self.PARKING_TIME=eval(self.PARKING_TIME)
 
 class Conf_generator_RT(Conf_generator):
     def __init__(self,*args,**kwargs):
