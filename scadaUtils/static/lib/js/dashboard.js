@@ -1,15 +1,15 @@
 // ########################
 //#   GLOBAL VARIABLES    #
 // ########################
-var REALTIME_CHECK=document.getElementsByName('realtime_check')[0]
-var datetimepicker=document.getElementById('datetimepicker')
-var TABLE_TAGS=document.getElementById('table_tags')
+var REALTIME_CHECK = document.getElementsByName('realtime_check')[0]
+var datetimepicker = document.getElementById('datetimepicker')
+var TABLE_TAGS = document.getElementById('table_tags')
 var TIME_REFRESH_COUNTER = 0;
-var TIME_REFRESH_VALUE=parseInt(document.getElementsByName('in_refresh_time')[0].value)
-const MIN_REFRESH_TIME=0
-const DEFAULT_TIME_REFRESH_VALUE=50
-const PAPER_BG_COLOR_RT='#929dbf'
-const LIST_DISTINCT_COLORS=['#636EFA',
+var TIME_REFRESH_VALUE = parseInt(document.getElementsByName('in_refresh_time')[0].value)
+const MIN_REFRESH_TIME = 0
+const DEFAULT_TIME_REFRESH_VALUE = 50
+const PAPER_BG_COLOR_RT = '#929dbf'
+const LIST_DISTINCT_COLORS = ['#636EFA',
  '#EF553B',
  '#00CC96',
  '#AB63FA',
@@ -235,11 +235,10 @@ const LIST_DISTINCT_COLORS=['#636EFA',
  'rgb(160, 97, 119)',
  'rgb(140, 120, 93)',
  'rgb(124, 124, 124)']
-const LIST_ORIGINAL_COLORS=[]
-
+const LIST_ORIGINAL_COLORS = []
 
 // ########################
-//#       FUNCTIONS       #
+// #      FUNCTIONS       #
 // ########################
 function update_legend() {
   let mode=Array.from($('input[type=radio][name=legend]')).filter(x=>x.checked)[0].value
@@ -285,7 +284,11 @@ function data2excel(){
   })
 }
 
-function transform_x_axis(deltaT=1000,DIS_FACTOR=100){
+const delta_dict={"hours":3600,"minutes":60,"days":3600*24,"seconds":1}
+DIS_FACTOR=0
+DELTAT='seconds'
+function transform_x_axis(){
+  DELTA_SECS=delta_dict[DELTAT]
   fig = document.getElementById('plotly_fig')
   x = fig.data[0].x
   start = new Date(x[0]);
@@ -315,7 +318,7 @@ function transform_x_axis(deltaT=1000,DIS_FACTOR=100){
       } else {
           cumulativeDistance += delta_diffs[i];
       }
-      new_x.push(cumulativeDistance / deltaT);
+      new_x.push(cumulativeDistance / DELTA_SECS);
   }
 
   // Median function
@@ -342,6 +345,30 @@ function formatDateTime(date) {
     return `${year}-${month}-${day} ${hours}h${minutes}:${seconds}`;
 }
 
+var TIMES = []
+function toogle_gaps(){
+  fig=document.getElementById('plotly_fig')
+  is_checked = document.getElementById('gap_switch').checked
+  if (is_checked){
+    x_wo_gaps = transform_x_axis()
+    // remove gaps and keep track of previous states
+    TIMES = fig.data[0].x
+    text_date = TIMES.map(k=>formatDateTime(new Date(k)))
+    update={
+      x:[x_wo_gaps],
+      hovertemplate : '<i>value</i>: %{y:.4f}<br>'+'<b>%{text}</b>',
+      text:[text_date],
+    }
+    Plotly.relayout('plotly_fig', {xaxis:{title:'elapsed time[' + DELTAT + ']'}});
+  }else{
+    // get back to timestamps
+    update={
+      x:[TIMES],
+    }
+    Plotly.relayout('plotly_fig', {xaxis:{title:'time(CET)'}});
+}
+Plotly.restyle('plotly_fig', update)
+}
 
 function build_request_parameters() {
   let parameters={}
@@ -436,7 +463,6 @@ function update_style_fig(e) {
 
 var converter = new showdown.Converter()
 // $('#pop_indicators').load('../static/html/indicators.html')
-
 
 function pop_menu(e){
   // console.log(e)
@@ -599,6 +625,7 @@ $.when(
     // console.log(data);
     data['tags'].map(tag=>addRow_tagTable(tag) )
     $('#dd_resMethod')[0].value="mean"
+    $('#gap_switch').checked=false
     $('#legend_tag')[0].checked=true;
     $('#dd_enveloppe')[0].value="no tag"
     $('#select_dd_x')[0].value="time"
@@ -638,9 +665,13 @@ function update_timerange_picker(delay=0) {
     timePicker: true,
     timePicker24Hour:true,
     timePickerSeconds:true,
+    // startDate:start,
+    // endDate:end,
+
+    startDate:"7 September,2023 08:43:42",
     endDate:end,
+
     maxDate:end,
-    startDate:start,
     locale: {
       monthNamesShort: ['Janv.', 'Févr.', 'Mars', 'Avril', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'],
       // format: 'd-MMM-YY HH:mm',
