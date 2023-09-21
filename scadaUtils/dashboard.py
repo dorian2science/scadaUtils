@@ -51,7 +51,7 @@ class Dashboard():
             max_nb_pts=500*1000,rs_min_coarse=5*60,nb_days_min_coarse=3,
         ):
 
-        cfg.styles = ['default'] + cfg.utils.styles
+        cfg.styles = ['default','new distinct colors'] + cfg.utils.styles
         self.fig_wh=780
         self.cfg=cfg
         self.max_nb_pts=max_nb_pts
@@ -179,8 +179,8 @@ class Dashboard():
         parameters=json.loads(data.decode())
         if debug:print_file(parameters)
 
-        t0,t1=[pd.Timestamp(t,tz='CET') for t in parameters['timerange'].split(' - ')]
-        tag_x=parameters['x']
+        t0,t1 = [pd.Timestamp(t,tz='CET') for t in parameters['timerange'].split(' - ')]
+        tag_x = parameters['x']
 
         if debug:print_file('t0,t1:',t0,t1)
         tags = parameters['tags']
@@ -200,7 +200,7 @@ class Dashboard():
             # t0=pd.Timestamp('2023-09-05 10:00',tz='CET')
             # t1=pd.Timestamp('2023-09-05 16:00',tz='CET')
             # dspv1._visualiser.loadtags_period(t0,t1,tags,rs='60s')
-            df=self.cfg.loadtags_period(t0,t1,tags,rs=rs)
+            df=self.cfg.loadtags_period(t0,t1,tags,rs=rs,rsMethod=rsMethod)
             # df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False,pool=pool)
             if debug :print_file(df)
         if df.empty:
@@ -217,6 +217,7 @@ class Dashboard():
 
         if not tag_x.lower()=='time':
             df.index=df[tag_x]
+            fig = self.plot_function(df)
             fig.update_traces(hovertemplate='  x:%{x:.1f}<br>  y:%{y:.1f}')
             fig.update_layout(xaxis_title=tag_x+ '('+self.cfg.getUnitofTag(tag_x) + ')')
             fig.update_traces(mode='markers')

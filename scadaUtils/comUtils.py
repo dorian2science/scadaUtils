@@ -15,7 +15,7 @@ import psutil
 # #      BASIC Utils    #
 # #######################
 # basic utilities for Streamer and DumpingClientMaster
-timenowstd=lambda :pd.Timestamp.now().strftime('%d %b %H:%M:%S')
+timenowstd=lambda :pd.Timestamp.now(tz='CET').strftime('%d %b %H:%M:%S')
 computetimeshow=lambda x,y:timenowstd() + ' : ' + x + ' in {:.2f} ms'.format((time.time()-y)*1000)
 from inspect import currentframe, getframeinfo
 from colorama import Fore
@@ -73,7 +73,7 @@ def print_error(tb,filename=None):
         res=re.match('(.*.py")(.*line \d+)(.*)',exc_format[k]).groups()
         ff+=Fore.RED + res[0]+Fore.BLUE+res[1]+Fore.GREEN + res[2] + Fore.WHITE + '\n'
     print_file(ff,exc_format[-1],with_infos=False,filename=filename)
-def html_table(df,title='table',useLinux=True):
+def html_table(df,title='table',useLinux=True,new_colors=False):
     '''
     Render a DataFrame as an HTML table
 
@@ -87,12 +87,26 @@ def html_table(df,title='table',useLinux=True):
     else:
         path_linux=os.path.join(os.curdir,'table.html')
     f=open(path_linux,'w')
-    f.write('<h1>'+title+'</h1>')
+
+    ### add header
+    with open(os.path.join(os.path.dirname(__file__),'tableHeader.html'),'r') as g:t=g.read()
+    f.write(t)
+
+    ### add table
+    f.write('<body><h1>'+title+'</h1>')
     if isinstance(df,pd.Series):df=df.to_frame()
-    if isinstance(df,np.ndarray):df=pd.DataFrame(df   )
+    if isinstance(df,np.ndarray):df=pd.DataFrame(df)
     df.to_html(f)
+    f.write('</body>\n')
+
+    ### add script
+    with open(os.path.join(os.path.dirname(__file__),'tableScript.html'),'r') as g:t=g.read()
+    f.write(t)
+    if new_colors:
+        with open(os.path.join(os.path.dirname(__file__),'change_rows_color.js'),'r') as g:t=g.read()
+        f.write('<script>'+t+'</script>')
     f.close()
-    sp.run('firefox '+path_linux,shell=True)
+    # sp.run('firefox '+path_linux,shell=True)
 def read_db(db_parameters,db_table,t=None,tag=None,verbose=False,delete=False,regExp=True):
     '''
     Read the database.

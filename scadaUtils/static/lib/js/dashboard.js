@@ -9,6 +9,233 @@ var TIME_REFRESH_VALUE=parseInt(document.getElementsByName('in_refresh_time')[0]
 const MIN_REFRESH_TIME=0
 const DEFAULT_TIME_REFRESH_VALUE=50
 const PAPER_BG_COLOR_RT='#929dbf'
+const LIST_DISTINCT_COLORS=['#636EFA',
+ '#EF553B',
+ '#00CC96',
+ '#AB63FA',
+ '#FFA15A',
+ '#19D3F3',
+ '#FF6692',
+ '#B6E880',
+ '#FF97FF',
+ '#FECB52',
+ '#2E91E5',
+ '#E15F99',
+ '#1CA71C',
+ '#FB0D0D',
+ '#DA16FF',
+ '#222A2A',
+ '#B68100',
+ '#750D86',
+ '#EB663B',
+ '#511CFB',
+ '#00A08B',
+ '#FB00D1',
+ '#FC0080',
+ '#B2828D',
+ '#6C7C32',
+ '#778AAE',
+ '#862A16',
+ '#A777F1',
+ '#620042',
+ '#1616A7',
+ '#DA60CA',
+ '#6C4516',
+ '#0D2A63',
+ '#AF0038',
+ '#FD3216',
+ '#00FE35',
+ '#6A76FC',
+ '#FED4C4',
+ '#FE00CE',
+ '#0DF9FF',
+ '#F6F926',
+ '#FF9616',
+ '#479B55',
+ '#EEA6FB',
+ '#DC587D',
+ '#D626FF',
+ '#6E899C',
+ '#00B5F7',
+ '#B68E00',
+ '#C9FBE5',
+ '#FF0092',
+ '#22FFA7',
+ '#E3EE9E',
+ '#86CE00',
+ '#BC7196',
+ '#7E7DCD',
+ '#FC6955',
+ '#E48F72',
+ '#AA0DFE',
+ '#3283FE',
+ '#85660D',
+ '#782AB6',
+ '#565656',
+ '#1C8356',
+ '#16FF32',
+ '#F7E1A0',
+ '#E2E2E2',
+ '#1CBE4F',
+ '#C4451C',
+ '#DEA0FD',
+ '#FE00FA',
+ '#325A9B',
+ '#FEAF16',
+ '#F8A19F',
+ '#90AD1C',
+ '#F6222E',
+ '#1CFFCE',
+ '#2ED9FF',
+ '#B10DA1',
+ '#C075A6',
+ '#FC1CBF',
+ '#B00068',
+ '#FBE426',
+ '#FA0087',
+ 'rgb(228,26,28)',
+ 'rgb(55,126,184)',
+ 'rgb(77,175,74)',
+ 'rgb(152,78,163)',
+ 'rgb(255,127,0)',
+ 'rgb(255,255,51)',
+ 'rgb(166,86,40)',
+ 'rgb(247,129,191)',
+ 'rgb(153,153,153)',
+ 'rgb(251,180,174)',
+ 'rgb(179,205,227)',
+ 'rgb(204,235,197)',
+ 'rgb(222,203,228)',
+ 'rgb(254,217,166)',
+ 'rgb(255,255,204)',
+ 'rgb(229,216,189)',
+ 'rgb(253,218,236)',
+ 'rgb(242,242,242)',
+ 'rgb(133, 92, 117)',
+ 'rgb(217, 175, 107)',
+ 'rgb(175, 100, 88)',
+ 'rgb(115, 111, 76)',
+ 'rgb(82, 106, 131)',
+ 'rgb(98, 83, 119)',
+ 'rgb(104, 133, 92)',
+ 'rgb(156, 156, 94)',
+ 'rgb(160, 97, 119)',
+ 'rgb(140, 120, 93)',
+ 'rgb(124, 124, 124)',
+ '#636EFA',
+ '#EF553B',
+ '#00CC96',
+ '#AB63FA',
+ '#FFA15A',
+ '#19D3F3',
+ '#FF6692',
+ '#B6E880',
+ '#FF97FF',
+ '#FECB52',
+ '#2E91E5',
+ '#E15F99',
+ '#1CA71C',
+ '#FB0D0D',
+ '#DA16FF',
+ '#222A2A',
+ '#B68100',
+ '#750D86',
+ '#EB663B',
+ '#511CFB',
+ '#00A08B',
+ '#FB00D1',
+ '#FC0080',
+ '#B2828D',
+ '#6C7C32',
+ '#778AAE',
+ '#862A16',
+ '#A777F1',
+ '#620042',
+ '#1616A7',
+ '#DA60CA',
+ '#6C4516',
+ '#0D2A63',
+ '#AF0038',
+ '#FD3216',
+ '#00FE35',
+ '#6A76FC',
+ '#FED4C4',
+ '#FE00CE',
+ '#0DF9FF',
+ '#F6F926',
+ '#FF9616',
+ '#479B55',
+ '#EEA6FB',
+ '#DC587D',
+ '#D626FF',
+ '#6E899C',
+ '#00B5F7',
+ '#B68E00',
+ '#C9FBE5',
+ '#FF0092',
+ '#22FFA7',
+ '#E3EE9E',
+ '#86CE00',
+ '#BC7196',
+ '#7E7DCD',
+ '#FC6955',
+ '#E48F72',
+ '#AA0DFE',
+ '#3283FE',
+ '#85660D',
+ '#782AB6',
+ '#565656',
+ '#1C8356',
+ '#16FF32',
+ '#F7E1A0',
+ '#E2E2E2',
+ '#1CBE4F',
+ '#C4451C',
+ '#DEA0FD',
+ '#FE00FA',
+ '#325A9B',
+ '#FEAF16',
+ '#F8A19F',
+ '#90AD1C',
+ '#F6222E',
+ '#1CFFCE',
+ '#2ED9FF',
+ '#B10DA1',
+ '#C075A6',
+ '#FC1CBF',
+ '#B00068',
+ '#FBE426',
+ '#FA0087',
+ 'rgb(228,26,28)',
+ 'rgb(55,126,184)',
+ 'rgb(77,175,74)',
+ 'rgb(152,78,163)',
+ 'rgb(255,127,0)',
+ 'rgb(255,255,51)',
+ 'rgb(166,86,40)',
+ 'rgb(247,129,191)',
+ 'rgb(153,153,153)',
+ 'rgb(251,180,174)',
+ 'rgb(179,205,227)',
+ 'rgb(204,235,197)',
+ 'rgb(222,203,228)',
+ 'rgb(254,217,166)',
+ 'rgb(255,255,204)',
+ 'rgb(229,216,189)',
+ 'rgb(253,218,236)',
+ 'rgb(242,242,242)',
+ 'rgb(133, 92, 117)',
+ 'rgb(217, 175, 107)',
+ 'rgb(175, 100, 88)',
+ 'rgb(115, 111, 76)',
+ 'rgb(82, 106, 131)',
+ 'rgb(98, 83, 119)',
+ 'rgb(104, 133, 92)',
+ 'rgb(156, 156, 94)',
+ 'rgb(160, 97, 119)',
+ 'rgb(140, 120, 93)',
+ 'rgb(124, 124, 124)']
+const LIST_ORIGINAL_COLORS=[]
 
 
 // ########################
@@ -36,6 +263,15 @@ function update_legend() {
   }
 }
 
+function update_colors_figure() {
+  update={
+    'line.color':LIST_DISTINCT_COLORS,
+    // 'marker.size':10,
+    'marker.color':LIST_DISTINCT_COLORS,
+  }
+  Plotly.restyle('plotly_fig', update);
+}
+
 function data2excel(){
   let fig=document.getElementById('plotly_fig')
   $.post('/export2excel',JSON.stringify({data:fig.data,layout:fig.layout}),function(res,status){
@@ -48,6 +284,64 @@ function data2excel(){
     }
   })
 }
+
+function transform_x_axis(deltaT=1000,DIS_FACTOR=100){
+  fig = document.getElementById('plotly_fig')
+  x = fig.data[0].x
+  start = new Date(x[0]);
+
+  // Calculate the time differences in seconds
+  deltas = x.map((date) => (new Date(date) - start) / 1000);
+
+  // Calculate differences between consecutive timestamps
+  delta_diffs = [];
+  for (let i = 1; i < deltas.length; i++) {
+      delta_diffs.push(deltas[i] - deltas[i - 1]);
+  }
+
+  // Calculate the threshold (seuil) as the median of delta_diffs times 100
+  seuil = median(delta_diffs) * 100;
+
+  // Calculate the distance
+  distance = median(delta_diffs) * DIS_FACTOR;
+
+  // Calculate the new_x values
+  new_x = [0];
+  cumulativeDistance = 0;
+
+  for (let i = 0; i < delta_diffs.length; i++) {
+      if (delta_diffs[i] > seuil) {
+          cumulativeDistance += distance;
+      } else {
+          cumulativeDistance += delta_diffs[i];
+      }
+      new_x.push(cumulativeDistance / deltaT);
+  }
+
+  // Median function
+  function median(values) {
+      values.sort((a, b) => a - b);
+      middle = Math.floor(values.length / 2);
+      if (values.length % 2 === 0) {
+          return (values[middle - 1] + values[middle]) / 2;
+      } else {
+          return values[middle];
+      }
+  }
+  return new_x
+}
+
+function formatDateTime(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+
+    return `${year}-${month}-${day} ${hours}h${minutes}:${seconds}`;
+}
+
 
 function build_request_parameters() {
   let parameters={}
@@ -130,12 +424,12 @@ function update_style_fig(e) {
     mode='lines+markers'
     line_shape='hv'
   }
+  else if (style=='new distinct colors'){
+    update_colors_figure()
+  }
   var update = {
     mode:mode,
     line:{shape:line_shape},
-    // marker_line_width:0.2,
-    // marker_size:6,
-    // line_width:3
   }
   Plotly.restyle('plotly_fig', update);
 }

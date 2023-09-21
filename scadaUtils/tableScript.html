@@ -1,0 +1,60 @@
+<!-- Include jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- Include DataTables JS -->
+<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+
+<script>
+  $(document).ready(function() {
+    document.getElementsByTagName('table')[0].id='example'
+      // Initialize DataTable
+      $('#example').DataTable({
+        paging: false,
+        autoWidth:false,
+        // scrollY: 400,
+        // searching: false,
+        // ordering:  false
+        select:true,
+      }).on('order.dt', function () {
+        console.log('Sorting operation has been triggered.');
+        redraw()
+      });
+      redraw()
+})
+  function redraw(){
+    var rowss = document.getElementsByTagName('tr');
+    for (let i = 1; i < rowss.length; i++) {
+      const row = rowss[i];
+      // const colors = ['#df678e', '#7eadd7', 'grey', '#7ed77f'];
+      const colors = ['white','#b3b4b4'];
+      // const colors = ['white','#df678e', '#7eadd7', '#f7e6cf', '#7ed77f'];
+      const colorIndex = i % colors.length;
+      row.style.backgroundColor = colors[colorIndex];
+    }
+  }
+
+  function check_value_data(){
+
+  // Get the table element by ID
+  // const table = document.getElementById('example');
+  const table = document.getElementsByTagName('table')[0];
+
+  // Loop through table cells and apply styling based on the content
+  for (let row of table.rows) {
+      for (let cell of row.cells) {
+          const content = cell.textContent.trim(); // Get the cell content
+
+          // Check if the content is a number
+          if (!isNaN(content)) {
+              const number = parseFloat(content);
+              // Apply styling based on whether it's positive or negative
+              if (number > 0) {
+                  cell.classList.add('positive');
+              } else if (number < 0) {
+                  cell.classList.add('negative');
+              }
+            }
+        }
+    }
+  }
+</script>
