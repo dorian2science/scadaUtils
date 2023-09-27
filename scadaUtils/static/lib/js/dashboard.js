@@ -262,7 +262,8 @@ function update_legend() {
   }
 }
 
-function update_size_markers(size){
+function update_size_markers(e){
+  size=e.value
   update = {
     'marker.size':size
   }
@@ -420,6 +421,17 @@ function build_request_parameters() {
   return parameters
 }
 
+var CONFIG = {
+  showEditInChartStudio: true,
+  // locale: 'fr',
+  displaylogo: false,
+  plotlyServerURL: "https://chart-studio.plotly.com",
+  editable:true,
+  modeBarButtonsToRemove: ['select2d','lasso2d'],
+  modeBarButtonsToAdd: ['toggleSpikelines','lasso2d'],
+}
+
+
 function fetch_figure() {
   let btn_update=$('#btn_update')[0]
   btn_update.innerHTML='updating...'
@@ -441,7 +453,7 @@ function fetch_figure() {
     // make sure the colors are original state and the gaps as well
     $('#color_switch')[0].checked=false
     // plot the new figure
-    Plotly.newPlot('plotly_fig', fig.data,fig.layout);
+    Plotly.newPlot('plotly_fig', fig.data,fig.layout,CONFIG);
     // update finish
     $('#btn_update')[0].innerHTML='get my data!'
     btn_update.classList.remove('updating')
