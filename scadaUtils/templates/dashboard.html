@@ -61,6 +61,7 @@
         <div name='buttons' class="">
           <button class='p_but' id="btn_update" type="button" onclick="fetch_figure()">get the data!</button>
           <button class='p_but' id="btn_export" type="button" onclick="data2excel()">export to excel</button>
+          <button class='p_but' id="btn_fig" type="button" onclick="export_figure()">export figure</button>
           <button class='p_but' id="btn_bg_color" type="button" onclick="popup_color_picker()">background <br> color</button>
           <div id='html_color_picker' class="html_color_picker" acp-color="#EFE9E7" acp-show-rgb="no" acp-show-hsl="yes" acp-show-hex="yes" acp-show-alpha></div>
         </div>
@@ -143,6 +144,7 @@
 
       </div>
     </div>
+    <a id="download-link" style="display: none;">Download Figure</a>
     <div class="fig_container">
       <input class='title_fig' onchange="change_title(this)"></input>
       <div id=plotly_fig></div>

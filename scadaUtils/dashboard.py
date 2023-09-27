@@ -116,6 +116,10 @@ class Dashboard():
         def export2excel():
             return self._export2excel()
 
+        @self.app.route('/exportFigure', methods=['POST'])
+        def exportFigure():
+            return self._exportFigure()
+
         @self.app.route('/send_description_names',methods=['POST'])
         def send_names():
             return self._send_names()
@@ -238,41 +242,50 @@ class Dashboard():
         return jsonify(res)
 
     def _export2excel(self):
-        try:
-            start=time.time()
-            data=request.get_data()
-            fig=json.loads(data.decode())
-            baseName='data'
-            dfs = [pd.Series(trace['y'],index=trace['x'],name=trace['name']) for trace in fig['data']]
-            df = pd.concat(dfs,axis=1)
-            df.index = [pd.Timestamp(t) for t in df.index]
-            t0,t1 = fig['layout']['xaxis']['range']
-            df = df[(df.index>=t0) & (df.index<=t1)]
+        # try:
+        start = time.time()
+        data = request.get_data()
+        fig = json.loads(data.decode())
+        baseName = 'data'
+        dfs = [pd.Series(trace['y'],index=trace['x'],name=trace['name']) for trace in fig['data']]
+        df = pd.concat(dfs,axis=1)
+        df.index = [pd.Timestamp(t) for t in df.index]
+        t0,t1 = fig['layout']['xaxis']['range']
+        df = df[(df.index>=t0) & (df.index<=t1)]
 
-            dateF=[pd.Timestamp(t).strftime('%Y-%m-%d %H_%M') for t in [t0,t1]]
-            filename = 'static/tmp/' + baseName +  '_' + dateF[0]+ '_' + dateF[1]+'.xlsx'
-            if isinstance(df.index,pd.core.indexes.datetimes.DatetimeIndex):
-                df.index=[k.isoformat() for k in df.index]
-            df.to_excel(os.path.join(self.root_path,filename))
-            self.log_info(computetimeshow('.xlsx downloaded',start))
-            res={'status':'ok','filename':filename}
-        except:
-            error={'msg':'service export2excel not working','code':3}
-            self.notify_error(sys.exc_info(),error)
-            res={'status':'failed','notif':NOTIFS['excel_generation_impossible']}
+        dateF = [pd.Timestamp(t).strftime('%Y-%m-%d %H_%M') for t in [t0,t1]]
+        filename = 'static/tmp/' + baseName +  '_' + dateF[0]+ '_' + dateF[1]+'.xlsx'
+        if isinstance(df.index,pd.core.indexes.datetimes.DatetimeIndex):
+            df.index = [k.isoformat() for k in df.index]
+        df.to_excel(os.path.join(self.root_path,filename))
+        self.log_info(computetimeshow('.xlsx downloaded',start))
+        res = {'status':'ok','filename':filename}
+        # except:
+        #     error = {'msg':'service export2excel not working','code':3}
+        #     self.notify_error(sys.exc_info(),error)
+        #     res = {'status':'failed','notif':NOTIFS['excel_generation_impossible']}
         return jsonify(res)
 
-    def _send_names(self):
-        try:
-            data=request.get_data()
-            data=json.loads(data.decode())
-            new_names=self.cfg.toogle_tag_description(data['tags'],data['mode'])
-            print(data['mode'])
-            return pd.Series(new_names).to_json()
-        except:
-            error={'msg':'impossible to send the description names','code':1}
-            self.notify_error(sys.exc_info(),error)
-            return error,201
+    def _exportFigure(self):
+        # try:
+        start = time.time()
+        data = request.get_data()
+        fig_data = json.loads(data.decode())
+        fig = go.Figure()
+        for trace in fig_data['data']:
+            fig.add_trace(trace)
+        fig.update_layout(fig_data['layout'])
+        baseName = 'figure'
+        dateF = pd.Timestamp.now(tz='CET').strftime('%Y-%m-%d %H_%M')
+        filename = os.path.join('static/tmp',baseName +  '_' + dateF + '.html')
+        fig.write_html(os.path.join(self.root_path,filename))
+        self.log_info(computetimeshow('.html downloaded',start))
+        res = {'status':'ok','filename':filename}
+        # except:
+        #     error={'msg':'service export_figure not working','code':3}
+        #     self.notify_error(sys.exc_info(),error)
+        #     res={'status':'failed','notif':NOTIFS['excel_generation_impossible']}
+        return jsonify(res)
 
 class StaticDashboard(Dashboard):
     def __init__(self,*args,**kwargs):

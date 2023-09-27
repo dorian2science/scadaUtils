@@ -284,6 +284,30 @@ function data2excel(){
   })
 }
 
+function export_figure() {
+    // Convert the figure to HTML
+    let fig = document.getElementById('plotly_fig')
+    $.post('/exportFigure',JSON.stringify({data:fig.data,layout:fig.layout}),function(res,status){
+      var status=res['status']
+      if( status=='ok') {
+      // Create an anchor element for downloading
+      url = res['filename']
+      a = document.getElementById('download-link')
+      a.href = url;
+      a.download = 'plotly_figure.html';
+
+      // Trigger a click event on the anchor element to start the download
+      a.click();
+
+      // Clean up by revoking the URL
+      URL.revokeObjectURL(url);
+      }else {
+        alert(res['notif'])
+      }
+    })
+
+  };
+
 const delta_dict={"hours":3600,"minutes":60,"days":3600*24,"seconds":1}
 DIS_FACTOR=0
 DELTAT='seconds'
