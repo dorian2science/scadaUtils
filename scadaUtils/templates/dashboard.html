@@ -126,20 +126,29 @@
         </div>
       </div>
 
-        <p>select style: </p>
-        <select class="dd" id="dd_style" onchange="update_style_fig(this)"></select>
+      <p>select style: </p>
+      <select class="dd" id="dd_style" onchange="update_style_fig(this)"></select>
 
-
-        <div name='display legend' class="legend_para" id=legend_para>
-        <span><b>display legend mode:</b></span>
-        <!-- radio items defined in smallpower_dash.js -->
+      <div name='distinct_colors' id=distinct_colors_div>
+        <span><b>new colors:</b></span>
+        <label class="switch">
+          <input type="checkbox" name='colors_switch' id=color_switch onclick="update_colors_figure(this)">
+          <span class="slider round"></span>
+        </label>
       </div>
+
+
       <div name='toogle_gaps' id=toogle_gaps_div>
         <span><b>remove gaps(temps morts):</b></span>
         <label class="switch">
           <input type="checkbox" name='gaps_switch' id=gap_switch onclick="toogle_gaps()">
           <span class="slider round"></span>
         </label>
+      </div>
+
+      <div name='display legend' class="legend_para" id=legend_para>
+        <span><b>display legend mode:</b></span>
+        <!-- radio items defined in smallpower_dash.js -->
       </div>
 
       </div>

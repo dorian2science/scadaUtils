@@ -51,7 +51,7 @@ class Dashboard():
             max_nb_pts=500*1000,rs_min_coarse=5*60,nb_days_min_coarse=3,
         ):
 
-        cfg.styles = ['default','new distinct colors'] + cfg.utils.styles
+        cfg.styles = ['default'] + cfg.utils.styles
         self.fig_wh=780
         self.cfg=cfg
         self.max_nb_pts=max_nb_pts

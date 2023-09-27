@@ -235,7 +235,7 @@ const LIST_DISTINCT_COLORS = ['#636EFA',
  'rgb(160, 97, 119)',
  'rgb(140, 120, 93)',
  'rgb(124, 124, 124)']
-const LIST_ORIGINAL_COLORS = []
+var LIST_ORIGINAL_COLORS = []
 
 // ########################
 // #      FUNCTIONS       #
@@ -262,11 +262,25 @@ function update_legend() {
   }
 }
 
-function update_colors_figure() {
-  update={
-    'line.color':LIST_DISTINCT_COLORS,
-    // 'marker.size':10,
-    'marker.color':LIST_DISTINCT_COLORS,
+function update_size_markers(size){
+  update = {
+    'marker.size':size
+  }
+    Plotly.restyle('plotly_fig', update);
+}
+
+function update_colors_figure(e) {
+  if (e.checked) {
+    colors = LIST_DISTINCT_COLORS
+    old_colors = document.getElementById('plotly_fig')['data'].map(x => x['marker']['color'])
+    LIST_ORIGINAL_COLORS = old_colors
+  }else{
+    colors = LIST_ORIGINAL_COLORS
+  }
+
+  update = {
+    'line.color':colors,
+    'marker.color':colors,
   }
   Plotly.restyle('plotly_fig', update);
 }
@@ -370,6 +384,7 @@ function formatDateTime(date) {
 }
 
 var TIMES = []
+
 function toogle_gaps(){
   fig=document.getElementById('plotly_fig')
   is_checked = document.getElementById('gap_switch').checked
@@ -419,10 +434,12 @@ function fetch_figure() {
   // console.log(tags_hidden);
   // post request
   $.post('/generate_fig',JSON.stringify(parameters),function(res,status){
-    style =document.getElementById('dd_style').value
+    style = document.getElementById('dd_style').value
 
-    var notif=res['notif']
-    var fig=JSON.parse(res['fig'])
+    var notif = res['notif']
+    var fig = JSON.parse(res['fig'])
+    // make sure the colors are original state and the gaps as well
+    $('#color_switch')[0].checked=false
     // plot the new figure
     Plotly.newPlot('plotly_fig', fig.data,fig.layout);
     // update finish
@@ -474,9 +491,6 @@ function update_style_fig(e) {
   else if (style=='stairs'){
     mode='lines+markers'
     line_shape='hv'
-  }
-  else if (style=='new distinct colors'){
-    update_colors_figure()
   }
   var update = {
     mode:mode,
@@ -650,7 +664,7 @@ $.when(
     // console.log(data);
     data['tags'].map(tag=>addRow_tagTable(tag) )
     $('#dd_resMethod')[0].value="mean"
-    $('#gap_switch').checked=false
+    $('#gap_switch')[0].checked=false
     $('#legend_tag')[0].checked=true;
     $('#dd_enveloppe')[0].value="no tag"
     $('#dd_operation')[0].value="no operation"
