@@ -31,7 +31,7 @@
 <body>
   <title>dashboard smallpower</title>
   <div class="header">
-    <img width=120px src='../static/lib/pictures/logo_sylfen.png' alt='logo sylfen'>
+    <img width=120px src='../static/lib/pictures/inocel.jpeg' alt='logo inocel'>
     <button onclick="pop_menu(this)" class="button_header" id='version_title'> {{ version_title }}</button>
     <!-- <button onclick="pop_menu(this)" class="button_header" name="button_eq">show indicators</button> -->
     <a class="button_header" href={{ helpmelink }} >help me!</a>
@@ -110,8 +110,12 @@
             </tr>
           </table>
 
-          <p>add enveloppe(min max) for tag: </p>
+          <p>select the tag on which the operation will be done: </p>
           <select class="dd" name="dd_enveloppe" id="dd_enveloppe" onchange="addEnveloppe()"></select>
+
+          <p>Select the operation you want to perfrom: </p>
+          <select class="dd" name="dd_operation" id="dd_operation"></select>
+          <button name=btn_add_operation onclick="add_operation()">compute the variable</button>
 
           <div class="">
             <p>select x-axis: </p>
@@ -129,6 +133,14 @@
         <span><b>display legend mode:</b></span>
         <!-- radio items defined in smallpower_dash.js -->
       </div>
+      <div name='toogle_gaps' id=toogle_gaps_div>
+        <span><b>remove gaps(temps morts):</b></span>
+        <label class="switch">
+          <input type="checkbox" name='gaps_switch' id=gap_switch onclick="toogle_gaps()">
+          <span class="slider round"></span>
+        </label>
+      </div>
+
       </div>
     </div>
     <div class="fig_container">

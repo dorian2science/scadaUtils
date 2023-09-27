@@ -613,6 +613,7 @@ $.when(
     init_dropdown('dd_resMethod',values=data['rsMethods'])
     init_dropdown('dd_style',values=data['styles'])
     init_dropdown('dd_categorie',values=['no categorie'].concat(data['categories']))
+    init_dropdown('dd_operation',values=['no operation'].concat(['derivative','integral','regression p1','regression p2','regression p3']))
     init_tags_dropdown('dd_y',values=data['all_tags'],addRow_tagTable)
     init_tags_dropdown('dd_x',values=['time'].concat(data['all_tags']),select_tag_xaxis)
     init_dropdown('select_dd_x',values=['time'].concat(data['all_tags']))
@@ -628,6 +629,7 @@ $.when(
     $('#gap_switch').checked=false
     $('#legend_tag')[0].checked=true;
     $('#dd_enveloppe')[0].value="no tag"
+    $('#dd_operation')[0].value="no operation"
     $('#select_dd_x')[0].value="time"
     // $('#select_dd_x')[0].value=data['x']
     $('#in_time_res')[0].value=data['rs']
