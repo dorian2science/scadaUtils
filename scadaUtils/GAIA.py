@@ -66,7 +66,7 @@ class Services_creator():
     :param str user: the user owner of the services. Default, 'sylfen'
     '''
 
-    def __init__(self,project_name,folder_project,gaia_instance_name,url_dashboard=None,port=15000,user='sylfen'):
+    def __init__(self,project_name,folder_project,gaia_instance_name,url_dashboard=None,port=15000,user='dorian'):
         self.user=user
         self.name_env='.env'
         self.project_name=project_name
@@ -143,12 +143,12 @@ class Services_creator():
         :param str name_service: name of the service {dumper, dashboard, coarse_parker, heartbeat}
         :param function function_name: name of the function
         '''
-        template_script="""from PROJECT_NAME import GAIA_INSTANCE\n"""
-        template_script=template_script.replace('PROJECT_NAME',self.project_name).replace("GAIA_INSTANCE",self.gaia_instance)
+        template_script = """from PROJECT_NAME import GAIA_INSTANCE\n"""
+        template_script = template_script.replace('PROJECT_NAME',self.project_name).replace("GAIA_INSTANCE",self.gaia_instance)
 
-        service_script=template_script + function_name
+        service_script = template_script + function_name
 
-        file_script=os.path.join(self.folder_tmp,self.filenames[name_service+'_script'])
+        file_script = os.path.join(self.folder_tmp,self.filenames[name_service+'_script'])
         with open(file_script,'w') as f:f.write(service_script)
 
     def _create_service_file(self,service_name,name_script):
@@ -159,16 +159,16 @@ class Services_creator():
         :param str name_script: name of the script
         '''
         ### READ THE CONTENT OF THE SERVICE TEMPLATE FILE ####
-        filename=os.path.join(os.path.dirname(__file__),'template_service.txt')
+        filename = os.path.join(os.path.dirname(__file__),'template_service.txt')
         with open(filename,'r') as f:content=''.join(f.readlines())
 
         infos=self.services[service_name]
         ### adjust the content of the file.service
-        serviceContent=content.replace('DESCRIPTION',infos['DESCRIPTION']).replace('USER',self.user)
-        serviceContent=serviceContent.replace('PROJECT_FOLDER',self.folder_project).replace('NAME_ENV',self.name_env)
-        serviceContent=serviceContent.replace('SERVICE_PROJECT_NAME',infos['script_name']).replace('APP_NAME',infos['appname'])
+        serviceContent = content.replace('DESCRIPTION',infos['DESCRIPTION']).replace('USER',self.user)
+        serviceContent = serviceContent.replace('PROJECT_FOLDER',self.folder_project).replace('NAME_ENV',self.name_env)
+        serviceContent = serviceContent.replace('SERVICE_PROJECT_NAME',infos['script_name']).replace('APP_NAME',infos['appname'])
 
-        file_service=os.path.join('/tmp',self.filenames[service_name + '_service'])
+        file_service = os.path.join('/tmp',self.filenames[service_name + '_service'])
         ### write the content of the service file
         with open(file_service,'w') as f:f.write(serviceContent)
 

@@ -428,7 +428,7 @@ var CONFIG = {
   plotlyServerURL: "https://chart-studio.plotly.com",
   editable:true,
   modeBarButtonsToRemove: ['select2d','lasso2d'],
-  modeBarButtonsToAdd: ['toggleSpikelines','lasso2d'],
+  modeBarButtonsToAdd: ['toggleSpikelines','lasso2d','toggleHover'],
 }
 
 
