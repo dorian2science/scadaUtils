@@ -192,9 +192,9 @@ class Dashboard():
         if parameters['categorie'] in self.init_parameters['categories']:
             tags+=self.cfg.conf.tag_categories[parameters['categorie']]
         if debug:print_file('alltags:',tags)
-        rs,rsMethod=parameters['rs_time'],parameters['rs_method']
+        rs,rsMethod = parameters['rs_time'],parameters['rs_method']
 
-        pool='auto'
+        pool = 'auto'
         ####### determine if it should be loaded with COARSE DATA or fine data
         if pd.to_timedelta(rs)>=pd.Timedelta(seconds=self.rs_min_coarse) or t1-t0>pd.Timedelta(days=self.nb_days_min_coarse):
             pool='coarse'
@@ -212,22 +212,22 @@ class Dashboard():
             raise Exception('no data')
 
         ####### check that the request does not have TOO MANY DATAPOINTS
-        nb_datapoints=len(df)*len(df.columns)
+        nb_datapoints = len(df)*len(df.columns)
         if nb_datapoints>self.max_nb_pts:
-            df=self.cfg.auto_resample_df(df,self.max_nb_pts)
-            new_rs=df.index.freq.freqstr.replace('S',' seconds')
-            notif=NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)+' ').replace('YYY',new_rs).replace('AAA',str(self.max_nb_pts//1000))
+            df = self.cfg.auto_resample_df(df,self.max_nb_pts)
+            new_rs = df.index.freq.freqstr.replace('S',' seconds')
+            notif = NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)+' ').replace('YYY',new_rs).replace('AAA',str(self.max_nb_pts//1000))
         if debug:print_file(df)
 
         if not tag_x.lower()=='time':
-            df.index=df[tag_x]
+            df.index = df[tag_x]
             fig = self.plot_function(df)
             fig.update_traces(hovertemplate='  x:%{x:.1f}<br>  y:%{y:.1f}')
             fig.update_layout(xaxis_title=tag_x+ '('+self.cfg.getUnitofTag(tag_x) + ')')
             fig.update_traces(mode='markers')
         else:
             fig = self.plot_function(df)
-        fig.update_layout(width=1260,height=750,legend_title='tags')
+        # fig.update_layout(width=1260,height=750,legend_title='tags')
         self.log_info(computetimeshow('fig generated with pool =' + str(pool),start))
 
         # except:

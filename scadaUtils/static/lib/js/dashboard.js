@@ -1,11 +1,12 @@
 // ########################
 //#   GLOBAL VARIABLES    #
 // ########################
+REALTIME=false
 var REALTIME_CHECK = document.getElementsByName('realtime_check')[0]
 var datetimepicker = document.getElementById('datetimepicker')
 var TABLE_TAGS = document.getElementById('table_tags')
 var TIME_REFRESH_COUNTER = 0;
-var TIME_REFRESH_VALUE = parseInt(document.getElementsByName('in_refresh_time')[0].value)
+// var TIME_REFRESH_VALUE = parseInt(document.getElementsByName('in_refresh_time')[0].value)
 const MIN_REFRESH_TIME = 0
 const DEFAULT_TIME_REFRESH_VALUE = 50
 const PAPER_BG_COLOR_RT = '#929dbf'
@@ -236,6 +237,20 @@ const LIST_DISTINCT_COLORS = ['#636EFA',
  'rgb(140, 120, 93)',
  'rgb(124, 124, 124)']
 var LIST_ORIGINAL_COLORS = []
+var STABLE_PARAMETERS_PANEL=true
+var TIMES = []
+var FIG
+DIS_FACTOR=0
+DELTAT='seconds'
+var CONFIG = {
+  showEditInChartStudio: false,
+  locale: 'fr',
+  displaylogo: false,
+  plotlyServerURL: "https://chart-studio.plotly.com",
+  editable:false,
+  modeBarButtonsToRemove: ['select2d','lasso2d'],
+  modeBarButtonsToAdd: ['toggleSpikelines','lasso2d','toggleHover'],
+}
 
 // ########################
 // #      FUNCTIONS       #
@@ -262,8 +277,8 @@ function update_legend() {
   }
 }
 
-function update_size_markers(e){
-  size=e.value
+function update_size_markers(){
+  size = parseInt(document.getElementById('marker_size').value)
   update = {
     'marker.size':size
   }
@@ -324,8 +339,6 @@ function export_figure() {
   };
 
 const delta_dict={"hours":3600,"minutes":60,"days":3600*24,"seconds":1}
-DIS_FACTOR=0
-DELTAT='seconds'
 function transform_x_axis(){
   DELTA_SECS=delta_dict[DELTAT]
   fig = document.getElementById('plotly_fig')
@@ -384,20 +397,14 @@ function formatDateTime(date) {
     return `${year}-${month}-${day} ${hours}h${minutes}:${seconds}`;
 }
 
-var TIMES = []
-
 function toogle_gaps(){
-  fig=document.getElementById('plotly_fig')
+  fig = document.getElementById('plotly_fig')
   is_checked = document.getElementById('gap_switch').checked
   if (is_checked){
     x_wo_gaps = transform_x_axis()
     // remove gaps and keep track of previous states
-    TIMES = fig.data[0].x
-    text_date = TIMES.map(k=>formatDateTime(new Date(k)))
-    update={
+    update = {
       x:[x_wo_gaps],
-      hovertemplate : '<i>value</i>: %{y:.4f}<br>'+'<b>%{text}</b>',
-      text:[text_date],
     }
     Plotly.relayout('plotly_fig', {xaxis:{title:'elapsed time[' + DELTAT + ']'}});
   }else{
@@ -421,17 +428,6 @@ function build_request_parameters() {
   return parameters
 }
 
-var CONFIG = {
-  showEditInChartStudio: true,
-  // locale: 'fr',
-  displaylogo: false,
-  plotlyServerURL: "https://chart-studio.plotly.com",
-  editable:true,
-  modeBarButtonsToRemove: ['select2d','lasso2d'],
-  modeBarButtonsToAdd: ['toggleSpikelines','lasso2d','toggleHover'],
-}
-
-
 function fetch_figure() {
   let btn_update=$('#btn_update')[0]
   btn_update.innerHTML='updating...'
@@ -452,36 +448,63 @@ function fetch_figure() {
     var fig = JSON.parse(res['fig'])
     // make sure the colors are original state and the gaps as well
     $('#color_switch')[0].checked=false
+
     // plot the new figure
     Plotly.newPlot('plotly_fig', fig.data,fig.layout,CONFIG);
+    resize_figure()
+    update_hover()
+    update_axes()
+    update_size_markers()
+    update_button_colors()
+    update_legend()
+    modify_grid()
     // update finish
-    $('#btn_update')[0].innerHTML='get my data!'
+    $('#btn_update')[0].innerHTML='request data!'
     btn_update.classList.remove('updating')
     if ( notif!=200){
       alert(notif)
       return
     }
-    // update the legend
-    update_legend()
-    // hide the old legendonly traces
-    let new_traces=$('#plotly_fig')[0].data.map(x=>x.name)
-    let indexes=tags_hidden.map(x=>new_traces.indexOf(x))
-    // console.log(indexes);
+    let new_traces = $('#plotly_fig')[0].data.map(x=>x.name)
+    let indexes = tags_hidden.map(x=>new_traces.indexOf(x))
     if (indexes.length!=0){Plotly.restyle('plotly_fig', {visible:'legendonly'},indexes);}
-    if (REALTIME_CHECK.checked) {
-      Plotly.relayout('plotly_fig', {'paper_bgcolor':PAPER_BG_COLOR_RT})
+    if (REALTIME) {
+      if (REALTIME_CHECK.checked) {
+        Plotly.relayout('plotly_fig', {'paper_bgcolor':PAPER_BG_COLOR_RT})
+      }
     }
   })
 }
 
-function popup_color_picker() {
-    return 'hello'
+function update_hover(){
+
+  fig = document.getElementById('plotly_fig')
+  TIMES = fig.data[0].x
+  text_date = TIMES.map(k=>formatDateTime(new Date(k)))
+  precision = parseInt(document.getElementById('n_digits').value)
+
+  units = Array()
+  for (trace of fig.data){
+    ynb = trace['yaxis'].slice(1,)
+    len_data = trace.y.length
+    yaxis_name = 'yaxis'+ynb
+    unit = fig.layout[yaxis_name]['title']['text']
+    units.push(Array(len_data).fill(unit))
+  }
+  update={
+    customdata:units,
+    text:[text_date],
+    hovertemplate : '<i>value</i>: %{y:.'+precision+'f} %{customdata}<br>'+'<b>%{text}</b>',
+    hoverlabel:{
+        // bgcolor:"white",
+        font:{size:parseInt(document.getElementById('fs_hover').value)},
+        font_family:"Rockwell"
+  }
+}
+  Plotly.restyle('plotly_fig', update)
+
 }
 
-function modify_plot_background_color(color) {
-  Plotly.relayout('plotly_fig', {'plot_bgcolor':color})
-}
-var FIG
 function addEnveloppe() {
   let fig = $('#plotly_fig')[0]
   parameters={fig_layout:fig.layout,fig_data:fig.data,tag:$('#dd_enveloppe')[0].value}
@@ -510,7 +533,97 @@ function update_style_fig(e) {
   }
   Plotly.restyle('plotly_fig', update);
 }
+function modify_grid(){
+  layout = document.getElementById('plotly_fig').layout
+  xaxis=layout['xaxis']
 
+  let grid_box = {
+    linecolor: '#636363',
+    linewidth: 6
+  }
+
+  xaxis['showgrid'] = document.getElementById('grid_x').checked
+  xaxis['showline'] = true
+  xaxis['mirror']= 'ticks'
+  xaxis['gridcolor']= '#bdbdbd'
+  xaxis['gridwidth']= 2
+
+  let yaxis = {
+    showgrid: document.getElementById('grid_y').checked,
+    zeroline: document.getElementById('zeroline').checked,
+    showline: true,
+    mirror: 'ticks',
+    gridcolor: '#bdbdbd',
+    gridwidth: 2,
+    zerolinecolor: '#969696',
+    zerolinewidth: 4,
+    }
+  if (document.getElementById('grid_box').checked){
+    xaxis = Object.assign({}, xaxis, grid_box);
+    yaxis = Object.assign({}, yaxis, grid_box);
+  }
+  layout = {
+    xaxis:xaxis,
+    // yaxis:yaxis
+  }
+  Plotly.relayout('plotly_fig', layout)
+}
+
+function update_axes(){
+
+
+  layout = document.getElementById('plotly_fig').layout
+  axes = Object.keys(layout).filter(x=>x.includes('yaxis')).reduce((obj, key) => {
+    obj[key] = layout[key];
+    return obj;
+  }, {})
+  new_layout = {}
+  var k = 0
+  var p1 = 0
+  var p2 = 1
+  // s = parseFloat(document.getElementById('s_axes').value)
+  s =0.06
+  console.log("space",s);
+  for (axisname in axes){
+    curaxis = axes[axisname]
+    if (k%2){
+      p = p1
+      p1+=s
+      curaxis['side'] = 'left'
+    }else{
+      p = p2
+      p2-=s
+      curaxis['side'] = 'right'
+    }
+    k++
+    ax_col = curaxis['title']['font']['color']
+    curaxis['linecolor'] = ax_col
+    curaxis['linewidth'] = 4
+    curaxis['autotick']= true
+    // curaxis['nticks'] = parseFloat(document.getElementById('nticks').value)
+    curaxis['nticks'] = 10
+    curaxis['ticks'] = 'outside'
+    curaxis['tick0'] = 0
+    curaxis['dtick'] = 0.15
+    curaxis['ticklen'] = 8
+    curaxis['title'] = {
+        text: curaxis['title']['text'],
+        font: curaxis['title']['font'],
+        standoff: 0, // Adjust the standoff to move the title outside
+      },
+    curaxis['tickwidth'] = 2
+    curaxis['tickcolor'] = ax_col
+    curaxis['position'] = p
+    new_layout[axisname] = curaxis
+
+  }
+  xaxis=layout['xaxis']
+  minis = -1.0*s
+  xaxis['domain']=[p1+minis,p2-minis]
+  new_layout['xaxis'] = xaxis
+Plotly.relayout('plotly_fig', new_layout)
+
+}
 var converter = new showdown.Converter()
 // $('#pop_indicators').load('../static/html/indicators.html')
 
@@ -591,7 +704,7 @@ function pop_listTags_up() {
   document.getElementById('popup_listTags').style.display='block'
   document.getElementById('popup_listTags').style.zIndex=10
   // retrieve the list of tags
-  let listtags=extract_listTags_from_html_table()
+  let listtags = extract_listTags_from_html_table()
   document.getElementById('taglist').value=listtags.join('\n')
 }
 
@@ -625,6 +738,7 @@ function addRow_tagTable(tagname) {
       row.insertCell(0).innerHTML= '<input style="width:35px" type="button" value = "X" onClick="deleteRow(this)">';
       // row.insertCell(1).innerHTML= '<b>'+tagname+'</b>';
       row.insertCell(1).innerHTML= tagname;
+      row.insertCell(2).innerHTML= '<input id=color_' + tagname + ' class="color_button" type="button" value=color onClick="popup_trace_color_picker(this)">';;
   }
   update_dd_enveloppe()
 }
@@ -653,9 +767,9 @@ function update_dd_enveloppe() {
   }
 }
 
-//# ########################
-//#      INITIALIZATION    #
-//# ########################
+//# ###########################
+//# Backend INITIALIZATION    #
+//# ###########################
 $.when(
   $.get('init',function(data) {
     data=JSON.parse(data)
@@ -684,18 +798,20 @@ $.when(
     // $('#select_dd_x')[0].value=data['x']
     $('#in_time_res')[0].value=data['rs']
     $('.title_fig')[0].value=data['fig_name']
-    document.getElementsByName('time_window')[0].value=data['time_window']
-    DELAY_REAL_TIME=data['delay_minutes']
 
+    DELAY_REAL_TIME = data['delay_minutes']
     $(update_timerange_picker(DELAY_REAL_TIME))
+    if (REALTIME){
+      document.getElementsByName('time_window')[0].value=data['time_window']
+      // DEFAULT REAL-TIME
+      let refresh_time=document.getElementsByName('in_refresh_time')[0]
+      refresh_time.value=DEFAULT_TIME_REFRESH_VALUE
+      refresh_time.min=MIN_REFRESH_TIME
+      REALTIME_CHECK.checked=false;
+  }
 
 
     document.title=data['title'] +':'+$('.title_fig')[0].value
-    // DEFAULT REAL-TIME
-    let refresh_time=document.getElementsByName('in_refresh_time')[0]
-    refresh_time.value=DEFAULT_TIME_REFRESH_VALUE
-    refresh_time.min=MIN_REFRESH_TIME
-    REALTIME_CHECK.checked=false;
     // ****** load the logversion file info ******
     $.get('../static/'+data['log_versions'], function(md_text) {
       $('#pop_version_info')[0].innerHTML=converter.makeHtml(md_text)
@@ -710,16 +826,15 @@ $.when(
 //#    REAL TIME FEATURES  #
 //# ########################
 function update_timerange_picker(delay=0) {
-  let time_window=parseInt(document.getElementsByName('time_window')[0].value)
-  let start=moment().startOf('second').subtract(delay,'minute').subtract(time_window,'minute')
-  let end=moment().startOf('second').subtract(delay,'minute')
+  let time_window = parseInt(document.getElementsByName('time_window')[0].value)
+  let start = moment().startOf('second').subtract(delay,'minute').subtract(time_window,'minute')
+  let end = moment().startOf('second').subtract(delay,'minute')
   $('input[name="datetimes"]').daterangepicker({
     timePicker: true,
     timePicker24Hour:true,
     timePickerSeconds:true,
     // startDate:start,
     // endDate:end,
-
     startDate:"7 September,2023 08:43:42",
     endDate:end,
 
@@ -732,8 +847,7 @@ function update_timerange_picker(delay=0) {
       format: 'D MMMM,YYYY HH:mm:ss'
     }
   });
-};
-
+}
 function pop_menu_refresh(e) {
   // console.log(e.checked)
   if (e.checked) {
@@ -747,33 +861,33 @@ function pop_menu_refresh(e) {
     Plotly.relayout('plotly_fig', {'paper_bgcolor':'#fff'});
   }
 }
-
+if (REALTIME){
 // update TIME_REFRESH_VALUE on pressing enter
-document.getElementsByName('in_refresh_time')[0].onkeyup=function(e){
-  if (e.key=='Enter'){
-    let value = parseInt(document.getElementsByName('in_refresh_time')[0].value)
-    if (value<MIN_REFRESH_TIME){
-      alert('please select a refresh time value > '+ (MIN_REFRESH_TIME-1) +' seconds')
-    }else
-    {
-      TIME_REFRESH_VALUE=value
-      TIME_REFRESH_COUNTER=TIME_REFRESH_VALUE
+  document.getElementsByName('in_refresh_time')[0].onkeyup=function(e){
+    if (e.key=='Enter'){
+      let value = parseInt(document.getElementsByName('in_refresh_time')[0].value)
+      if (value<MIN_REFRESH_TIME){
+        alert('please select a refresh time value > '+ (MIN_REFRESH_TIME-1) +' seconds')
+      }else
+      {
+        TIME_REFRESH_VALUE=value
+        TIME_REFRESH_COUNTER=TIME_REFRESH_VALUE
+      }
     }
   }
+  // update datetimepicker if in refresh mode
+  setInterval(()=>{
+    if (REALTIME_CHECK.checked){
+      if (TIME_REFRESH_COUNTER==0) {
+        TIME_REFRESH_COUNTER = TIME_REFRESH_VALUE
+        update_timerange_picker()
+        fetch_figure()
+      }
+      // console.log(TIME_REFRESH_COUNTER)
+      TIME_REFRESH_COUNTER-=1
+    }
+  },1000)
 }
-
-// update datetimepicker if in refresh mode
-setInterval(()=>{
-  if (REALTIME_CHECK.checked){
-    if (TIME_REFRESH_COUNTER==0) {
-      TIME_REFRESH_COUNTER = TIME_REFRESH_VALUE
-      update_timerange_picker()
-      fetch_figure()
-    }
-    // console.log(TIME_REFRESH_COUNTER)
-    TIME_REFRESH_COUNTER-=1
-  }
-},1000)
 // title of the graph callback
 function change_title(e){
   // document.title='smallPower:'+e.value
@@ -785,7 +899,7 @@ function change_title(e){
 //#       of them           #
 //# #########################
 //
-var listpop_ids=['popup_listTags',"dd_x","dd_y","pop_version_info","pop_indicators","html_color_picker"]
+var listpop_ids=['popup_listTags',"dd_x","dd_y","pop_version_info","pop_indicators","bg_color_picker","trace_color_picker"]
 // var listpop_ids=['popup_listTags',"dd_x","dd_y","pop_version_info","pop_indicators"]
 document.addEventListener("mouseup", function(event) {
   for (id of listpop_ids) {
@@ -807,3 +921,121 @@ document.getElementById('plotly_fig').onkeyup=function(e){
   else if (e.key == 'd') {$('#legend_description')[0].checked=true;update_legend($('input[name="legend"]')[0].value)}
   else if (e.key == 'u') {$('#legend_unvisible')[0].checked=true;update_legend($('input[name="legend"]')[0].value)}
 }
+
+
+function pop_param_div(action){
+  // console.log(action);
+  let fig_container=document.getElementsByClassName('fig_container')[0]
+  let param_div=document.getElementsByClassName('parameters')[0]
+  // console.log(param_div.style.display);
+
+  if (!STABLE_PARAMETERS_PANEL){
+    if (action=='appear'){
+      param_div.style.display='block'
+    }else if (action=='disappear')
+    {
+      param_div.style.display='none'
+    }
+  }
+  if (action=='toggle'){
+    if (!STABLE_PARAMETERS_PANEL){
+      param_div.style.display='block'
+      STABLE_PARAMETERS_PANEL=true
+      Plotly.relayout('plotly_fig', {'width': 1200});
+    } else {
+      param_div.style.display='none'
+      STABLE_PARAMETERS_PANEL=false
+      Plotly.relayout('plotly_fig', {'width': 1700});
+    }
+    // console.log('new STABLE_PARAMETERS_PANEL:'+STABLE_PARAMETERS_PANEL);
+  }
+}
+//# ############################
+//# HTML COLOR PICKER for plot #
+//#      background            #
+//# ############################
+let width=400
+var CURTRACE = 0
+
+AColorPicker.from('#bg_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[width,150]})
+.on('change', (picker, color) => {
+  hex_color_value=AColorPicker.parseColor(color, "hex");
+  console.log('bg');
+  Plotly.relayout('plotly_fig', {'plot_bgcolor':color})
+})
+
+AColorPicker.from('#trace_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[width,150]})
+.on('change', (picker, color) => {
+  hex_color_value=AColorPicker.parseColor(color, "hex");
+  console.log(hex_color_value,CURTRACE);
+  update = {
+    'line.color':hex_color_value,
+    'marker.color':hex_color_value,
+  }
+  Plotly.restyle('plotly_fig', update, CURTRACE);
+  update_button_colors()
+});
+
+function update_button_colors(){
+  for (trace of fig.data){
+    id = 'color_' + trace.name
+    color = trace.marker.color
+    // console.log(id,color);
+    btn = document.getElementById(id)
+    btn.style.backgroundColor=color
+    btn.value = color
+  }
+}
+
+function test(){
+
+layout = document.getElementById('plotly_fig').layout
+curaxis = 'yaxis3'
+axis = layout[curaxis]
+// axis['range']=[0,1000]
+axis['tickvals'] = ['0','2','6','8','10']
+axis['ticktext'] = ['0','2','6','8','10']
+axis['range'] = [0,60]
+axis['autorange'] = false
+axis['showgrid'] = true
+layout[curaxis] = axis
+Plotly.relayout('plotly_fig', layout)
+layout = document.getElementById('plotly_fig').layout
+axis = layout[curaxis]
+axis
+
+layout = document.getElementById('plotly_fig').layout
+curaxis = 'yaxis'
+axis = layout[curaxis]
+axis['range'] = [0,700]
+axis['showgrid'] = true
+layout[curaxis] = axis
+Plotly.relayout('plotly_fig', layout)
+layout = document.getElementById('plotly_fig').layout
+axis = layout[curaxis]
+axis
+
+}
+
+function resize_figure(){
+  Plotly.relayout('plotly_fig',{width:window.screen.width*0.75,height:window.screen.height*0.75})
+}
+
+
+function resize_domain(s){
+  let xaxis = document.getElementById('plotly_fig').layout['xaxis']
+  xaxis['domain']=[s,1-s]
+  Plotly.relayout('plotly_fig',{xaxis:xaxis})
+}
+
+function popup_bg_color_picker(){
+    picker = document.getElementById('bg_color_picker')
+    picker.style.display = 'flex'
+    picker.style.zIndex=1
+  }
+function popup_trace_color_picker(e){
+    picker = document.getElementById('trace_color_picker')
+    CURTRACE = fig.data.map(x=>x.name).indexOf(e.id.split('color_')[1])
+    picker.style.display = 'flex'
+    picker.style.zIndex=1
+  }
