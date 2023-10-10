@@ -583,7 +583,7 @@ function update_axes(){
   var p2 = 1
   // s = parseFloat(document.getElementById('s_axes').value)
   s =0.06
-  console.log("space",s);
+  // console.log("space",s);
   for (axisname in axes){
     curaxis = axes[axisname]
     if (k%2){
@@ -812,8 +812,10 @@ $.when(
 
 
     document.title=data['title'] +':'+$('.title_fig')[0].value
+    // path_log_version='../static/lib/'+data['log_versions']
+    path_log_version='../static/lib/log_versions.md'
     // ****** load the logversion file info ******
-    $.get('../static/'+data['log_versions'], function(md_text) {
+    $.get(path_log_version, function(md_text) {
       $('#pop_version_info')[0].innerHTML=converter.makeHtml(md_text)
     })
     //BUILD THE INITIAL FIGURE
