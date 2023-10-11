@@ -554,12 +554,12 @@ class GAIA():
         Will park coarse data by pre-calculating the mean/max/min of the period from the raw data.
         Only missing coarse data will be computed unless from_start is set to True
         '''
-        start=time.time()
-        log_file=os.path.join(self.conf.LOG_FOLDER,'coarse_parker.log')
+        start = time.time()
+        log_file = os.path.join(self.conf.LOG_FOLDER,'coarse_parker.log')
         def compute_coarse():
             for tag in self._alltags:
                 try:
-                    smallpower_gaia._visualiser._park_coarse_tag(tag,verbose=False)
+                    self._visualiser._park_coarse_tag(tag,verbose=False)
                 except:
                     print_file(timenowstd()+tag + ' not possible to coarse-compute',log_file)
             print_file('coarse computation done in ' + str(time.time()-start) + ' seconds',filename=log_file,mode='a')

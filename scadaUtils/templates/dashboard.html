@@ -53,9 +53,9 @@
     <div id="tab_panels">
 
       <div class="tabs_container">
-        <div class="tab-button active" onclick="showTab('tab_parameters')">data parameters</div>
+        <div class="tab-button" onclick="showTab('tab_parameters')">data parameters</div>
         <div class="tab-button" onclick="showTab('tab_models')">models</div>
-        <div class="tab-button " onclick="showTab('tab_display')">display</div>
+        <div class="tab-button active" onclick="showTab('tab_display')">display</div>
         <div class="tab-button" onclick="showTab('tab_processing')">processing</div>
       </div>
       <div class="tab-content" id="tab_parameters" >
@@ -63,6 +63,8 @@
           <button class='p_but' id="btn_update" type="button" onclick="fetch_figure()">request data!</button>
           <button class='p_but' id="btn_export" type="button" onclick="data2excel()">export to excel</button>
           <button class='p_but' id="btn_fig" type="button" onclick="export_figure()">export figure</button>
+          <br>
+          <input id="check_coarse" type="checkbox">Use coarse data</button>
         </div>
 
         <div class="request_parameters">
@@ -176,10 +178,14 @@
         <div name='toogle_gaps' id=toogle_gaps_div>
           <span><b>remove gaps(temps morts):</b></span>
           <label class="switch">
-            <input type="checkbox" name='gaps_switch' id=gap_switch onclick="toogle_gaps()">
+            <input type="checkbox" name='gaps_switch' id=gap_switch onclick="toggle_gaps()">
             <span class="slider round"></span>
           </label>
         </div>
+        <select id="method_rgaps" class="dd">
+          <option value="I>1">I>1</option>
+          <option value="no data">no data</option>
+        </select>
         <div name='display legend' class="legend_para" id=legend_para>
           <span><b>display legend mode:</b></span>
           <!-- radio items defined in smallpower_dash.js -->
@@ -243,5 +249,7 @@
     document.getElementById('grid_y').checked = true
     document.getElementById('grid_box').checked = true
     document.getElementById('zeroline').checked = true
+    document.getElementById('gap_switch').checked = false
+    // document.getElementById('check_coarse').checked = true
 
 </script>

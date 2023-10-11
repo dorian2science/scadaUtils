@@ -66,7 +66,8 @@ class Dashboard():
         self.plot_function = plot_function
         self.infofile_name  = log_dir+'dashboard_' + app_name + '.log';
         self.helpmelink=''
-        self.version_dashboard = version_dashboard
+        import pkg_resources
+        self.version_dashboard = '.'.join(pkg_resources.get_distribution('scadaUtils').version.split('.')[:-1])
         start_msg=timenowstd() + ' '*10+ ('starting ' + app_name + ' dashboard\n').upper() + '*'*60 + '\n'
         # start_msg=timenowstd() + ' STARTING DASHBOARD\n'
         with open(self.infofile_name,'a') as logfile:logfile.write(start_msg)
@@ -101,7 +102,8 @@ class Dashboard():
         def main_viewport():
             return render_template('dashboard.html',
                 helpmelink=self.helpmelink,
-                version_title=self.app_name+' '+self.version_dashboard,
+                # version_title=self.app_name+' '+self.version_dashboard,
+                version_title='gaia ' + self.version_dashboard,
                 )
 
         @self.app.route('/init', methods=['GET'])
@@ -196,14 +198,13 @@ class Dashboard():
 
         pool = 'auto'
         ####### determine if it should be loaded with COARSE DATA or fine data
-        if pd.to_timedelta(rs)>=pd.Timedelta(seconds=self.rs_min_coarse) or t1-t0>pd.Timedelta(days=self.nb_days_min_coarse):
+        # if pd.to_timedelta(rs)>=pd.Timedelta(seconds=self.rs_min_coarse) or t1-t0>pd.Timedelta(days=self.nb_days_min_coarse):
+        if parameters['coarse']:
             pool='coarse'
             df = self.cfg.load_coarse_data(t0,t1,tags,rs=rs,rsMethod=rsMethod)
+            print('coarse activated')
         else:
             if debug :print_file(tags)
-            # t0=pd.Timestamp('2023-09-05 10:00',tz='CET')
-            # t1=pd.Timestamp('2023-09-05 16:00',tz='CET')
-            # dspv1._visualiser.loadtags_period(t0,t1,tags,rs='60s')
             df=self.cfg.loadtags_period(t0,t1,tags,rs=rs,rsMethod=rsMethod)
             # df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False,pool=pool)
             if debug :print_file(df)
@@ -214,9 +215,11 @@ class Dashboard():
         ####### check that the request does not have TOO MANY DATAPOINTS
         nb_datapoints = len(df)*len(df.columns)
         if nb_datapoints>self.max_nb_pts:
-            df = self.cfg.auto_resample_df(df,self.max_nb_pts)
-            new_rs = df.index.freq.freqstr.replace('S',' seconds')
-            notif = NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)+' ').replace('YYY',new_rs).replace('AAA',str(self.max_nb_pts//1000))
+            nb_pts_curve = self.max_nb_pts//len(df.columns)
+            total_seconds = (df.index[-1]-df.index[0]).total_seconds()
+            new_rs = str(total_seconds//nb_pts_curve)
+            df = df.resample(new_rs+'S').mean()
+            notif = NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)).replace('YYY',new_rs).replace('AAA',str(self.max_nb_pts//1000))
         if debug:print_file(df)
 
         if not tag_x.lower()=='time':

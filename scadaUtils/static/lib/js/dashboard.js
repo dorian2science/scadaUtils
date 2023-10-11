@@ -299,6 +299,7 @@ function update_colors_figure(e) {
     'marker.color':colors,
   }
   Plotly.restyle('plotly_fig', update);
+  update_button_colors()
 }
 
 function data2excel(){
@@ -339,8 +340,26 @@ function export_figure() {
   };
 
 const delta_dict={"hours":3600,"minutes":60,"days":3600*24,"seconds":1}
+
+function get_xaxis_I_above0(seuil=1){
+  DELTA_SECS = delta_dict['seconds']
+  fig = document.getElementById('plotly_fig')
+  current = fig.data.filter(x=>x.name=='CurrentPV')[0]
+  condition = current.y.map(x=>x>seuil)
+  let new_x=[0]
+
+  for (let i = 1; i < current.x.length; i++) {
+    val = new_x[new_x.length-1]
+    if(condition[i]){
+      val+=1
+    }
+    new_x.push(val);
+  }
+  return new_x
+}
+
 function transform_x_axis(){
-  DELTA_SECS=delta_dict[DELTAT]
+  DELTA_SECS = delta_dict[DELTAT]
   fig = document.getElementById('plotly_fig')
   x = fig.data[0].x
   start = new Date(x[0]);
@@ -397,11 +416,16 @@ function formatDateTime(date) {
     return `${year}-${month}-${day} ${hours}h${minutes}:${seconds}`;
 }
 
-function toogle_gaps(){
+function toggle_gaps(){
   fig = document.getElementById('plotly_fig')
   is_checked = document.getElementById('gap_switch').checked
   if (is_checked){
-    x_wo_gaps = transform_x_axis()
+    method = document.getElementById('method_rgaps').value
+    if (method=='I>1'){
+      x_wo_gaps = get_xaxis_I_above0()
+    }else {
+      x_wo_gaps = transform_x_axis()
+    }
     // remove gaps and keep track of previous states
     update = {
       x:[x_wo_gaps],
@@ -415,7 +439,9 @@ function toogle_gaps(){
     Plotly.relayout('plotly_fig', {xaxis:{title:'time(CET)'}});
 }
 Plotly.restyle('plotly_fig', update)
+update_axes()
 }
+
 
 function build_request_parameters() {
   let parameters={}
@@ -425,6 +451,7 @@ function build_request_parameters() {
   parameters['categorie']=document.getElementById('dd_categorie').value
   parameters['x']=document.getElementById('select_dd_x').value
   parameters['tags']=extract_listTags_from_html_table()
+  parameters['coarse']=document.getElementById('check_coarse').checked
   return parameters
 }
 
@@ -451,6 +478,9 @@ function fetch_figure() {
 
     // plot the new figure
     Plotly.newPlot('plotly_fig', fig.data,fig.layout,CONFIG);
+    for (trace of document.getElementById('plotly_fig').data){
+      addRow_tagTable(trace.name)
+    }
     resize_figure()
     update_hover()
     update_axes()
@@ -463,7 +493,6 @@ function fetch_figure() {
     btn_update.classList.remove('updating')
     if ( notif!=200){
       alert(notif)
-      return
     }
     let new_traces = $('#plotly_fig')[0].data.map(x=>x.name)
     let indexes = tags_hidden.map(x=>new_traces.indexOf(x))
@@ -581,8 +610,8 @@ function update_axes(){
   var k = 0
   var p1 = 0
   var p2 = 1
-  // s = parseFloat(document.getElementById('s_axes').value)
-  s =0.06
+  s = parseFloat(document.getElementById('s_axes').value)
+  // s =0.06
   // console.log("space",s);
   for (axisname in axes){
     curaxis = axes[axisname]
@@ -810,7 +839,6 @@ $.when(
       REALTIME_CHECK.checked=false;
   }
 
-
     document.title=data['title'] +':'+$('.title_fig')[0].value
     // path_log_version='../static/lib/'+data['log_versions']
     path_log_version='../static/lib/log_versions.md'
@@ -820,24 +848,39 @@ $.when(
     })
     //BUILD THE INITIAL FIGURE
     fetch_figure()
-    // data2excel()
   }),
 )
+
+
+// var ALLCOLORS=[]
+// fetch('../static/lib/colors.json')
+//   .then(response => response.json())
+//   .then(data => {
+//     // Use the JSON data here
+//     console.log(data);
+//   })
+//   .catch(error => {
+//     console.error('Error loading JSON:', error);
+//   });
+
+
+
 
 //# ########################
 //#    REAL TIME FEATURES  #
 //# ########################
 function update_timerange_picker(delay=0) {
-  let time_window = parseInt(document.getElementsByName('time_window')[0].value)
+  // let time_window = parseInt(document.getElementsByName('time_window')[0].value)
+  let time_window = 60*24*7
   let start = moment().startOf('second').subtract(delay,'minute').subtract(time_window,'minute')
   let end = moment().startOf('second').subtract(delay,'minute')
   $('input[name="datetimes"]').daterangepicker({
     timePicker: true,
     timePicker24Hour:true,
     timePickerSeconds:true,
-    // startDate:start,
+    startDate:start,
     // endDate:end,
-    startDate:"7 September,2023 08:43:42",
+    // startDate:"7 September,2023 08:43:42",
     endDate:end,
 
     maxDate:end,
@@ -984,7 +1027,7 @@ function update_button_colors(){
     color = trace.marker.color
     // console.log(id,color);
     btn = document.getElementById(id)
-    btn.style.backgroundColor=color
+    btn.style.backgroundColor = color
     btn.value = color
   }
 }
@@ -1035,6 +1078,7 @@ function popup_bg_color_picker(){
     picker.style.display = 'flex'
     picker.style.zIndex=1
   }
+
 function popup_trace_color_picker(e){
     picker = document.getElementById('trace_color_picker')
     CURTRACE = fig.data.map(x=>x.name).indexOf(e.id.split('color_')[1])

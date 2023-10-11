@@ -2606,11 +2606,12 @@ class VisualisationMaster_daily(VisualisationMaster):
     '''
     def __init__(self,*args,**kwargs):
         VisualisationMaster.__init__(self,*args,**kwargs)
+        self.coarse_methods=['mean','min','max','median']
         self.folder_coarse=self.folderPkl.rstrip('/')+'_coarse/'
         if not os.path.exists(self.folder_coarse):os.mkdir(self.folder_coarse)
-        if not os.path.exists(self.folder_coarse+'mean'):os.mkdir(self.folder_coarse+'mean')
-        if not os.path.exists(self.folder_coarse+'max'):os.mkdir(self.folder_coarse+'max')
-        if not os.path.exists(self.folder_coarse+'min'):os.mkdir(self.folder_coarse+'min')
+        for m in self.coarse_methods:
+            folder_method = os.path.join(self.folder_coarse,m)
+            if not os.path.exists(folder_method):os.mkdir(folder_method)
 
     def _load_parked_tags(self,t0,t1,tags,pool):
         '''
@@ -2670,7 +2671,6 @@ class VisualisationMaster_daily(VisualisationMaster):
 
     def park_coarse_data(self,tags=None,*args,**kwargs):
         '''
-
         :param list[str] tags: list of tags
         '''
         if tags is None : tags=list(self.dfplc.index)
@@ -2678,6 +2678,7 @@ class VisualisationMaster_daily(VisualisationMaster):
         for tag in tags:
             try:
                 self._park_coarse_tag(tag,*args,**kwargs)
+                print(timenowstd(),tag,'coarse-computed and parked.')
             except:
                 pb_tags.append(tag)
                 print(timenowstd(),tag,' not possible to coarse-compute')
@@ -2703,10 +2704,9 @@ class VisualisationMaster_daily(VisualisationMaster):
         :param bool from_start: if set to True, will recalculate all from the begining(older day folder)
         '''
 
-        methods=['mean','min','max']
         start=time.time()
         ########### determine t0
-        t0=min([self._get_t0(os.path.join(self.folder_coarse,m,tag + '.pkl'),from_start=from_start) for m in methods])
+        t0=min([self._get_t0(os.path.join(self.folder_coarse,m,tag + '.pkl'),from_start=from_start) for m in self.coarse_methods])
         ######### load the raw data
         if verbose:print(tag,t0)
         s=STREAMER.load_tag_daily(t0,pd.Timestamp.now(self.tz_record),tag,self.folderPkl,rsMethod='raw',verbose=False)
@@ -2718,10 +2718,11 @@ class VisualisationMaster_daily(VisualisationMaster):
             s_new['min']  = tmp
             s_new['max']  = tmp
         else:
+            s_new['median'] = s.resample(rs,closed='right',label='right').median()
             s_new['mean'] = s.resample(rs,closed='right',label='right').mean()
             s_new['min']  = s.resample(rs,closed='right',label='right').min()
             s_new['max']  = s.resample(rs,closed='right',label='right').max()
-        for m in methods:
+        for m in self.coarse_methods:
             filename=os.path.join(self.folder_coarse, m,tag + '.pkl')
             if os.path.exists(filename) and not from_start:
                 tmp=pd.concat([pd.read_pickle(filename),s_new[m]],axis=0).sort_index()
