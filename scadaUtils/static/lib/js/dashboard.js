@@ -419,27 +419,22 @@ function formatDateTime(date) {
 function toggle_gaps(){
   fig = document.getElementById('plotly_fig')
   is_checked = document.getElementById('gap_switch').checked
+  xx = [TIMES]
+  title='timestamp(CET)'
   if (is_checked){
     method = document.getElementById('method_rgaps').value
     if (method=='I>1'){
-      x_wo_gaps = get_xaxis_I_above0()
+      xx = [get_xaxis_I_above0()]
+      title = 'datapoint number'
     }else {
-      x_wo_gaps = transform_x_axis()
+      xx = [transform_x_axis()]
+      title='elapsed time[' + DELTAT + ']'
     }
     // remove gaps and keep track of previous states
-    update = {
-      x:[x_wo_gaps],
-    }
-    Plotly.relayout('plotly_fig', {xaxis:{title:'elapsed time[' + DELTAT + ']'}});
-  }else{
-    // get back to timestamps
-    update={
-      x:[TIMES],
-    }
-    Plotly.relayout('plotly_fig', {xaxis:{title:'time(CET)'}});
-}
-Plotly.restyle('plotly_fig', update)
-update_axes()
+  }
+  Plotly.restyle('plotly_fig', {x:xx})
+  Plotly.relayout('plotly_fig', {xaxis:{title:title}})
+  update_axes()
 }
 
 
