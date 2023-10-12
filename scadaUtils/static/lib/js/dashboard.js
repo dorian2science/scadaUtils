@@ -437,7 +437,6 @@ function toggle_gaps(){
   update_axes()
 }
 
-
 function build_request_parameters() {
   let parameters={}
   parameters['timerange']=datetimepicker.value
@@ -447,6 +446,7 @@ function build_request_parameters() {
   parameters['x']=document.getElementById('select_dd_x').value
   parameters['tags']=extract_listTags_from_html_table()
   parameters['coarse']=document.getElementById('check_coarse').checked
+  parameters['model']=document.getElementById('dd_models').value
   return parameters
 }
 
@@ -455,6 +455,7 @@ function fetch_figure() {
   btn_update.innerHTML='updating...'
   btn_update.classList.add('updating')
   let parameters = build_request_parameters()
+  // console.log(parameters);
   // remember visible states of previous traces
   if ($('#plotly_fig')[0].data==null){
     var tags_hidden=[]
@@ -684,6 +685,7 @@ function filterTag(e) {
 // FUNCTION TO INIT SOME COMPONENTS
 function init_dropdown(dd_id,values) {
   let dd_html=document.getElementById(dd_id)
+  // renove first elements
     for (const val of values)
     {
         var option = document.createElement("option");
@@ -720,7 +722,7 @@ function init_tags_dropdown(dd_id,values,fun_on_click) {
         dd_html.appendChild(a);
         a.addEventListener("mouseup",()=>{fun_on_click(val)})
     }
-  }
+}
 
 // ----------------------------------------
 // FUNCTIONS FOR LIST OF TAGS TABLE
@@ -732,13 +734,18 @@ function pop_listTags_up() {
   document.getElementById('taglist').value=listtags.join('\n')
 }
 
+function empty_tableOfTags(){
+  nbrows=TABLE_TAGS.rows.length
+  for (let index=1;index<nbrows;index++){
+    TABLE_TAGS.deleteRow(1)
+  }
+}
+
 function apply_changes() {
   let listtags=document.getElementById('taglist').value.split('\n')
   listtags = listtags.filter((el)=> {return el != ""});
-
   // delete all rows in TABLE_TAGS
-  let nbrows=TABLE_TAGS.rows.length
-  for (let index=1;index<nbrows;index++){TABLE_TAGS.deleteRow(1);}
+  empty_tableOfTags()
   // add rows
   for (tag of listtags) {addRow_tagTable(tag)}
   // close the pop up
@@ -791,20 +798,44 @@ function update_dd_enveloppe() {
   }
 }
 
+function empyt_select(dd_id){
+  cat_select = document.getElementById(dd_id)
+  nb_children = cat_select.children.length
+  for (k=0;k<nb_children;k++){
+    cat_select.removeChild(cat_select.children[0])
+  }
+}
+
+function update_model_tags(e){
+  model = e.value
+  $.post('/get_model_tags',JSON.stringify(model),function(data,status){
+    model_tags = JSON.parse(data)
+    // console.log(model_tags);
+    empyt_select('dd_categorie')
+    empyt_select('dd_y')
+    empyt_select('select_dd_x')
+    empty_tableOfTags()
+    init_tags_dropdown('dd_y',values=model_tags['all_tags'],addRow_tagTable)
+    init_dropdown('dd_categorie',values=['no categorie'].concat(model_tags['categories']))
+    // init_tags_dropdown('dd_x',values=['time'].concat(data['all_tags']),select_tag_xaxis)
+    init_dropdown('select_dd_x',values=['Time'].concat(model_tags['all_tags']))
+    // $('#select_dd_x')[0].value = "time"
+  })
+}
+
 //# ###########################
 //# Backend INITIALIZATION    #
 //# ###########################
 $.when(
   $.get('init',function(data) {
-    data=JSON.parse(data)
+    data = JSON.parse(data)
     // ------- INITIALIZATION of myDropdown menus --------
+    init_dropdown('dd_models',values=data['models'],update_model_tags)
+    $('#dd_models')[0].value = data['model']
+    $('#dd_models')[0].dispatchEvent(new Event("change"));
     init_dropdown('dd_resMethod',values=data['rsMethods'])
     init_dropdown('dd_style',values=data['styles'])
-    init_dropdown('dd_categorie',values=['no categorie'].concat(data['categories']))
     init_dropdown('dd_operation',values=['no operation'].concat(['derivative','integral','regression p1','regression p2','regression p3']))
-    init_tags_dropdown('dd_y',values=data['all_tags'],addRow_tagTable)
-    init_tags_dropdown('dd_x',values=['time'].concat(data['all_tags']),select_tag_xaxis)
-    init_dropdown('select_dd_x',values=['time'].concat(data['all_tags']))
     init_radioButton(id='legend_para',values=['unvisible','tag','description'],'legend')
     $('input[type=radio][name=legend]').change(function() {
       update_legend(this.value)
@@ -813,15 +844,12 @@ $.when(
     //--------- DEFAULT VALUES FOR REQUEST_PARAMETERS ------------
     // console.log(data);
     data['tags'].map(tag=>addRow_tagTable(tag) )
-    $('#dd_resMethod')[0].value="mean"
-    $('#gap_switch')[0].checked=false
-    $('#legend_tag')[0].checked=true;
-    $('#dd_enveloppe')[0].value="no tag"
-    $('#dd_operation')[0].value="no operation"
-    $('#select_dd_x')[0].value="time"
-    // $('#select_dd_x')[0].value=data['x']
-    $('#in_time_res')[0].value=data['rs']
-    $('.title_fig')[0].value=data['fig_name']
+    $('#gap_switch')[0].checked = false
+    $('#legend_tag')[0].checked = true;
+    $('#dd_enveloppe')[0].value = "no tag"
+    $('#dd_operation')[0].value = "no operation"
+    $('#in_time_res')[0].value = data['rs']
+    $('.title_fig')[0].value = data['fig_name']
 
     DELAY_REAL_TIME = data['delay_minutes']
     $(update_timerange_picker(DELAY_REAL_TIME))
@@ -857,8 +885,6 @@ $.when(
 //   .catch(error => {
 //     console.error('Error loading JSON:', error);
 //   });
-
-
 
 
 //# ########################
@@ -1007,7 +1033,6 @@ AColorPicker.from('#bg_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[wi
 AColorPicker.from('#trace_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[width,150]})
 .on('change', (picker, color) => {
   hex_color_value=AColorPicker.parseColor(color, "hex");
-  console.log(hex_color_value,CURTRACE);
   update = {
     'line.color':hex_color_value,
     'marker.color':hex_color_value,

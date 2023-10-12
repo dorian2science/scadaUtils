@@ -53,9 +53,9 @@
     <div id="tab_panels">
 
       <div class="tabs_container">
-        <div class="tab-button" onclick="showTab('tab_parameters')">data parameters</div>
+        <div class="tab-button active" onclick="showTab('tab_parameters')">data parameters</div>
         <div class="tab-button" onclick="showTab('tab_models')">models</div>
-        <div class="tab-button active" onclick="showTab('tab_display')">display</div>
+        <div class="tab-button" onclick="showTab('tab_display')">display</div>
         <div class="tab-button" onclick="showTab('tab_processing')">processing</div>
       </div>
       <div class="tab-content" id="tab_parameters" >
@@ -69,6 +69,9 @@
 
         <div class="request_parameters">
           <span class="small_title">data parameters:</span>
+          <p>select your model : </p>
+          <select id=dd_models onchange="update_model_tags(this)"></select>
+          <br>
           <p>select start and end time : </p>
           <br>
           <input id='datetimepicker' type="text" name="datetimes" />
@@ -130,7 +133,8 @@
       </div>
 
       <div class="tab-content" id="tab_models">
-        <input id="in_dd_models" type="text" placeholder="add a model, search it.." class="in_dd_tag" onclick="show_tag_model(this)" onkeyup="filterModel(this)">
+        <input id="in_dd_models" type="text" placeholder="add a model, search it.." class="in_dd_tag" onclick="show_tag_list(this)" onkeyup="filterTag(this)">
+        <!-- <div id="dd_models" class="dropdown-content"></div> -->
       </div>
 
       <div class="tab-content" id="tab_processing">

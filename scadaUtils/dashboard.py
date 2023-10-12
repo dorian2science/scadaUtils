@@ -77,10 +77,12 @@ class Dashboard():
 
         #### initial parameters
         init_par_keys=list(init_parameters.keys())
-        if not 'all_tags' in init_par_keys:init_parameters['all_tags']=self.cfg.getTagsTU('')
+        init_parameters['models'] = list(self.cfg.dfplc['MODEL'].unique())
+        if not 'model' in init_par_keys:init_parameters['model']='dspv1'
+        if not 'all_tags' in init_par_keys:init_parameters['all_tags']=self.cfg.getTagsTU('',model=init_parameters['model'])
         if not 'styles' in init_par_keys:init_parameters['styles']=self.cfg.styles
         if hasattr(cfg.conf,'tag_categories'):
-            tag_categories=list(cfg.conf.tag_categories.keys())
+            tag_categories=list(cfg.conf.tag_categories[init_parameters['model']].keys())
         else:
             tag_categories=[]
         if not 'categories' in init_par_keys:init_parameters['categories']=tag_categories
@@ -125,6 +127,10 @@ class Dashboard():
         @self.app.route('/send_description_names',methods=['POST'])
         def send_names():
             return self._send_names()
+
+        @self.app.route('/get_model_tags',methods=['POST'])
+        def send_model_tags():
+            return self._send_model_tags()
 
     def _create_dashboard_links(self,root_folder):
         '''
@@ -176,6 +182,14 @@ class Dashboard():
     def _init_dashboard(self):
         return json.dumps(self.init_parameters)
 
+    def _send_model_tags(self):
+        data = request.get_data()
+        model = json.loads(data.decode())
+        data={}
+        data['categories'] = list(self.cfg.conf.tag_categories[model].keys())
+        data['all_tags'] = self.cfg.getTagsTU('',model=model)
+        return json.dumps(data)
+
     def _generate_fig(self):
         debug=False
         notif=200
@@ -195,21 +209,19 @@ class Dashboard():
             tags+=self.cfg.conf.tag_categories[parameters['categorie']]
         if debug:print_file('alltags:',tags)
         rs,rsMethod = parameters['rs_time'],parameters['rs_method']
-
+        model = parameters['model']
         pool = 'auto'
         ####### determine if it should be loaded with COARSE DATA or fine data
         # if pd.to_timedelta(rs)>=pd.Timedelta(seconds=self.rs_min_coarse) or t1-t0>pd.Timedelta(days=self.nb_days_min_coarse):
         if parameters['coarse']:
             pool='coarse'
-            df = self.cfg.load_coarse_data(t0,t1,tags,rs=rs,rsMethod=rsMethod)
-            print('coarse activated')
+            df = self.cfg.load_coarse_data(t0,t1,tags,model=model,rs=rs,rsMethod=rsMethod)
         else:
             if debug :print_file(tags)
-            df=self.cfg.loadtags_period(t0,t1,tags,rs=rs,rsMethod=rsMethod)
-            # df = self.cfg.loadtags_period(t0,t1,tags,rsMethod=rsMethod,rs=rs,checkTime=False,pool=pool)
+            df = self.cfg.loadtags_period(t0,t1,model=model,tags=tags,rs=rs,rsMethod=rsMethod)
             if debug :print_file(df)
         if df.empty:
-            notif=NOTIFS['no_data']
+            notif = NOTIFS['no_data']
             raise Exception('no data')
 
         ####### check that the request does not have TOO MANY DATAPOINTS
@@ -221,15 +233,14 @@ class Dashboard():
             df = df.resample(new_rs+'S').mean()
             notif = NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)).replace('YYY',new_rs).replace('AAA',str(self.max_nb_pts//1000))
         if debug:print_file(df)
-
+        print_file(tag_x)
         if not tag_x.lower()=='time':
             df.index = df[tag_x]
-            fig = self.plot_function(df)
-            fig.update_traces(hovertemplate='  x:%{x:.1f}<br>  y:%{y:.1f}')
+            fig = self.plot_function(df,model)
             fig.update_layout(xaxis_title=tag_x+ '('+self.cfg.getUnitofTag(tag_x) + ')')
             fig.update_traces(mode='markers')
         else:
-            fig = self.plot_function(df)
+            fig = self.plot_function(df,model)
         # fig.update_layout(width=1260,height=750,legend_title='tags')
         self.log_info(computetimeshow('fig generated with pool =' + str(pool),start))
 

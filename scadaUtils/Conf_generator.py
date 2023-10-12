@@ -246,19 +246,23 @@ class Conf_generator():
     def getUnitofTag(self,tag):
         return FS.getUnitofTag(tag,self.dfplc)
 
-    def getTagsTU(self,patTag,whole_df=False):
+    def getTagsTU(self,patTag,model=None,whole_df=False):
         '''
         Get the list of tags corresponding to the given pattern *patTag*
-        :param str patTag: pattern of the tag
+        :param str patTag: pattern of the tag. if patTag is a number it means we want random samples.
+        :param str model: name of the model
         :param bool whole_df: if True, return all the tags from dfplc
         :rtype: list
         '''
-    # def getTagsTU(self,patTag,units=None,*args,**kwargs):
-        # if not units : units = self.listUnits
-        # return FS.getTagsTU(patTag,self.dfplc,units,*args,**kwargs)
-        tags=pd.Series(self.dfplc.index)
-        res=tags[tags.str.contains(patTag)].to_list()
-        if whole_df:res=self.dfplc.loc[res,:]
+        if model is None:
+            tags = pd.Series(self.dfplc.index)
+        else:
+            tags = pd.Series(self.dfplc[self.dfplc['MODEL']==model].index)
+        if isinstance(patTag,int):
+            res = tags.sample(n=patTag).to_list()
+        else:
+            res = tags[tags.str.contains(patTag)].to_list()
+        if whole_df:res = self.dfplc.loc[res,:]
         return res
 
     def open_conf_file(self,file_conf=None):

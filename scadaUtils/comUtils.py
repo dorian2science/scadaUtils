@@ -73,7 +73,7 @@ def print_error(tb,filename=None):
         res=re.match('(.*.py")(.*line \d+)(.*)',exc_format[k]).groups()
         ff+=Fore.RED + res[0]+Fore.BLUE+res[1]+Fore.GREEN + res[2] + Fore.WHITE + '\n'
     print_file(ff,exc_format[-1],with_infos=False,filename=filename)
-def html_table(df,title='table',useLinux=True,new_colors=False):
+def html_table(df,title='table',new_colors=False,open_firefox=False):
     '''
     Render a DataFrame as an HTML table
 
@@ -81,12 +81,8 @@ def html_table(df,title='table',useLinux=True,new_colors=False):
     :param str title: title of the table, default *table*
     :param bool useLinux:
     '''
-    if useLinux:
-        # path_linux='/tmp/table.html'
-        path_linux=os.path.join(os.curdir,'table.html')
-    else:
-        path_linux=os.path.join(os.curdir,'table.html')
-    f=open(path_linux,'w')
+    file_path=os.path.join(os.curdir,'table.html')
+    f=open(file_path,'w')
 
     ### add header
     with open(os.path.join(os.path.dirname(__file__),'tableHeader.html'),'r') as g:t=g.read()
@@ -106,7 +102,9 @@ def html_table(df,title='table',useLinux=True,new_colors=False):
         with open(os.path.join(os.path.dirname(__file__),'change_rows_color.js'),'r') as g:t=g.read()
         f.write('<script>'+t+'</script>')
     f.close()
-    # sp.run('firefox '+path_linux,shell=True)
+    if open_firefox:
+        sp.run('firefox '+file_path,shell=True)
+
 def read_db(db_parameters,db_table,t=None,tag=None,verbose=False,delete=False,regExp=True):
     '''
     Read the database.
@@ -2473,13 +2471,14 @@ class VisualisationMaster(Configurator):
         df = df[df.index<=t1]
         return df
 
-    def loadtags_period(self,t0,t1,tags,*args,pool='auto',verbose=False,**kwargs):
+    def loadtags_period(self,t0,t1,tags,model,*args,pool='auto',verbose=False,**kwargs):
         '''
         Load tags between times t0 and t1.
 
         :param pd.Timestamp t0: timestamp. t0 start
         :param pd.Timestamp t1: timestamp. t1 end
         :param list[str] tags: list of tags available from self.dfplc.listtags
+        :param str model: name of the model. The data architecture is folder_data/model/day/tag.pkl
         :rtype: pd.DataFrame
         :return: pd.DataFrame with ntags columns
 
@@ -2489,7 +2488,7 @@ class VisualisationMaster(Configurator):
         # for k in t0,t1,tags,args,kwargs:print_file(k)
         tags=list(np.unique(tags))
         ############ read parked data
-        df = STREAMER.load_parkedtags_daily(t0,t1,tags,self.folderPkl,*args,pool=pool,verbose=verbose,**kwargs)
+        df = STREAMER.load_parkedtags_daily(t0,t1,tags,os.path.join(self.folderPkl,model),*args,pool=pool,verbose=verbose,**kwargs)
         ############ read database
         if t1<pd.Timestamp.now(self.tz_record)-pd.Timedelta(seconds=self.parkingTime) or not self.conf._realtime:
             if verbose:print_file('no need to read in the database')
@@ -2709,7 +2708,8 @@ class VisualisationMaster_daily(VisualisationMaster):
         t0=min([self._get_t0(os.path.join(self.folder_coarse,m,tag + '.pkl'),from_start=from_start) for m in self.coarse_methods])
         ######### load the raw data
         if verbose:print(tag,t0)
-        s=STREAMER.load_tag_daily(t0,pd.Timestamp.now(self.tz_record),tag,self.folderPkl,rsMethod='raw',verbose=False)
+        s = STREAMER.load_tag_daily(t0,pd.Timestamp.now(self.tz_record),tag,self.folderPkl,rsMethod='raw',verbose=False)
+        if verbose:print(tag,'read in ',time.time()-start)
         ######### build the new data
         s_new = {}
         if 'string' in self.dfplc.loc[tag,'DATATYPE'].lower():
