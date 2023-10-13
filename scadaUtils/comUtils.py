@@ -236,11 +236,11 @@ class FileSystem():
         :param int minSize: minimum size in Mo of the folder to be taken in account, default 3
         :param int dict_size:
         :rtype: pd.Series
+        dict_size:minimum size in Mo of the folder to be taken into account
         '''
 
-        '''dict_size:minimum size in Mo of the folder to be taken into account '''
-        sizes={'G':1000,'K':0.001,'M':1}
-        folders=[k.split('\t') for k in sp.check_output('du -h --max-depth=1 '+ folderPkl + ' | sort -h',shell=True).decode().split('\n')]
+        sizes = {'G':1000,'K':0.001,'M':1}
+        folders = [k.split('\t') for k in sp.check_output('du -h --max-depth=1 '+ folderPkl + ' | sort -h',shell=True).decode().split('\n')]
         '''liste la taille et noms de tous les répertoires et fichiers présents dans le répertoire folderPkl, triés par taille croissante.'''
         folders = [k for k in folders if len(k)==2]
         folders = [k for k in folders if len(re.findall('\d{4}-\d{2}-\d',k[1].split('/')[-1]))>0 ]
