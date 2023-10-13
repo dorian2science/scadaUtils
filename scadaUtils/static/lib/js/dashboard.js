@@ -341,7 +341,8 @@ function export_figure() {
 
 const delta_dict={"hours":3600,"minutes":60,"days":3600*24,"seconds":1}
 
-function get_xaxis_I_above0(seuil=1){
+function get_xaxis_I_above0(seuil){
+  seuil = seuil || 1;
   DELTA_SECS = delta_dict['seconds']
   fig = document.getElementById('plotly_fig')
   current = fig.data.filter(x=>x.name=='CurrentPV')[0]
@@ -438,15 +439,18 @@ function toggle_gaps(){
 }
 
 function build_request_parameters() {
-  let parameters={}
-  parameters['timerange']=datetimepicker.value
-  parameters['rs_time']=document.getElementById('in_time_res').value
-  parameters['rs_method']=document.getElementById('dd_resMethod').value
-  parameters['categorie']=document.getElementById('dd_categorie').value
-  parameters['x']=document.getElementById('select_dd_x').value
-  parameters['tags']=extract_listTags_from_html_table()
-  parameters['coarse']=document.getElementById('check_coarse').checked
-  parameters['model']=document.getElementById('dd_models').value
+  let parameters = {}
+
+  parameters['timerange'] = datetimepicker.value
+  parameters['rs_time'] = document.getElementById('in_time_res').value
+  parameters['rs_method'] = document.getElementById('dd_resMethod').value
+  parameters['categorie'] = document.getElementById('dd_categorie').value
+  parameters['x'] = document.getElementById('select_dd_x').value
+  parameters['tags'] = extract_listTags_from_html_table()
+  parameters['coarse'] = document.getElementById('check_coarse').checked
+  parameters['model'] = document.getElementById('dd_models').value
+
+  console.log(parameters);
   return parameters
 }
 
@@ -806,22 +810,34 @@ function empyt_select(dd_id){
   }
 }
 
-function update_model_tags(e){
-  model = e.value
+function change_model(event){
+  model = document.getElementById('dd_models').value
   $.post('/get_model_tags',JSON.stringify(model),function(data,status){
     model_tags = JSON.parse(data)
     // console.log(model_tags);
+    if (event.detail==undefined){
+      empty_tableOfTags()
+    }
     empyt_select('dd_categorie')
     empyt_select('dd_y')
     empyt_select('select_dd_x')
-    empty_tableOfTags()
+
     init_tags_dropdown('dd_y',values=model_tags['all_tags'],addRow_tagTable)
     init_dropdown('dd_categorie',values=['no categorie'].concat(model_tags['categories']))
     // init_tags_dropdown('dd_x',values=['time'].concat(data['all_tags']),select_tag_xaxis)
     init_dropdown('select_dd_x',values=['Time'].concat(model_tags['all_tags']))
-    // $('#select_dd_x')[0].value = "time"
-  })
-}
+
+    // update timepicker
+    max_date = moment(model_tags['max_date']).startOf('second').add(24*3600-1,'second')
+    opt = {
+      max_date:max_date,
+      end_date:max_date,
+      min_date:moment(model_tags['min_date']),
+      excludeddates:model_tags['excludeddates']
+    }
+    update_timerange_picker(opt)
+  }
+)}
 
 //# ###########################
 //# Backend INITIALIZATION    #
@@ -830,9 +846,11 @@ $.when(
   $.get('init',function(data) {
     data = JSON.parse(data)
     // ------- INITIALIZATION of myDropdown menus --------
-    init_dropdown('dd_models',values=data['models'],update_model_tags)
+    init_dropdown('dd_models',values=data['models'],change_model)
     $('#dd_models')[0].value = data['model']
-    $('#dd_models')[0].dispatchEvent(new Event("change"));
+    $('#dd_models')[0].dispatchEvent(new CustomEvent("change",{bubbles: true,detail:true}));
+    data['tags'].map(tag => addRow_tagTable(tag))
+
     init_dropdown('dd_resMethod',values=data['rsMethods'])
     init_dropdown('dd_style',values=data['styles'])
     init_dropdown('dd_operation',values=['no operation'].concat(['derivative','integral','regression p1','regression p2','regression p3']))
@@ -840,19 +858,13 @@ $.when(
     $('input[type=radio][name=legend]').change(function() {
       update_legend(this.value)
     })
-
     //--------- DEFAULT VALUES FOR REQUEST_PARAMETERS ------------
-    // console.log(data);
-    data['tags'].map(tag=>addRow_tagTable(tag) )
+    $('#dd_resMethod')[0].value = 'mean'
+    $('#in_time_res')[0].value = data['rs']
     $('#gap_switch')[0].checked = false
     $('#legend_tag')[0].checked = true;
-    $('#dd_enveloppe')[0].value = "no tag"
-    $('#dd_operation')[0].value = "no operation"
-    $('#in_time_res')[0].value = data['rs']
     $('.title_fig')[0].value = data['fig_name']
 
-    DELAY_REAL_TIME = data['delay_minutes']
-    $(update_timerange_picker(DELAY_REAL_TIME))
     if (REALTIME){
       document.getElementsByName('time_window')[0].value=data['time_window']
       // DEFAULT REAL-TIME
@@ -870,7 +882,9 @@ $.when(
       $('#pop_version_info')[0].innerHTML=converter.makeHtml(md_text)
     })
     //BUILD THE INITIAL FIGURE
-    fetch_figure()
+    document.getElementById('dd_categorie').value = 'no categorie'
+    $('#select_dd_x')[0].value = 'Time'
+
   }),
 )
 
@@ -890,30 +904,37 @@ $.when(
 //# ########################
 //#    REAL TIME FEATURES  #
 //# ########################
-function update_timerange_picker(delay=0) {
+function update_timerange_picker(options){
   // let time_window = parseInt(document.getElementsByName('time_window')[0].value)
-  let time_window = 60*24*7
-  let start = moment().startOf('second').subtract(delay,'minute').subtract(time_window,'minute')
-  let end = moment().startOf('second').subtract(delay,'minute')
-  $('input[name="datetimes"]').daterangepicker({
+  time_window = options.time_window=3*24*60-1/60
+  max_date = options.max_date || moment().startOf('second')
+  end_date = options.end_date || max_date
+  start_date = options.start_date || moment(end_date).subtract(time_window,'minute')
+  min_date = options.min_date || moment('2022-01-01')
+  excludeddates = options.excludeddates || []
+
+  $('#datetimepicker').daterangepicker({
     timePicker: true,
     timePicker24Hour:true,
     timePickerSeconds:true,
-    startDate:start,
-    // endDate:end,
-    // startDate:"7 September,2023 08:43:42",
-    endDate:end,
-
-    maxDate:end,
+    startDate:start_date,
+    endDate:end_date,
+    minDate:min_date,
+    maxDate:max_date,
+    showDropdowns:true,
+    isInvalidDate: function(date) {
+    var dateString = date.format('YYYY-MM-DD'); // Assuming you can format the date with the library
+    return excludeddates.includes(dateString);
+  },
     locale: {
       monthNamesShort: ['Janv.', 'Févr.', 'Mars', 'Avril', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'],
-      // format: 'd-MMM-YY HH:mm',
       monthNames: ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Aout","Septembre","Octobre","Novembre","Decembre"],
-
-      format: 'D MMMM,YYYY HH:mm:ss'
+      format: 'D MMM YYYY HH:mm:ss',
+      // format: 'D MMMM,YYYY HH:mm:ss'
     }
-  });
+  })
 }
+
 function pop_menu_refresh(e) {
   // console.log(e.checked)
   if (e.checked) {
@@ -1085,7 +1106,6 @@ axis
 function resize_figure(){
   Plotly.relayout('plotly_fig',{width:window.screen.width*0.75,height:window.screen.height*0.75})
 }
-
 
 function resize_domain(s){
   let xaxis = document.getElementById('plotly_fig').layout['xaxis']

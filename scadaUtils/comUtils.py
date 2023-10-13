@@ -2011,8 +2011,8 @@ class Configurator():
         # self.daysnotempty    = self.getdaysnotempty()
         # self.tmin,self.tmax  = self.daysnotempty.min(),self.daysnotempty.max()
 
-    def getdaysnotempty(self):
-        return self.conf.getdaysnotempty()
+    def getdaysnotempty(self,*args,**kwargs):
+        return self.conf.getdaysnotempty(*args,**kwargs)
 
     def connect2db(self):
         return self.conf.connect2db()

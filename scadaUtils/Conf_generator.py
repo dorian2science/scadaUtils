@@ -221,7 +221,7 @@ class Conf_generator():
             setattr(self,k,v)
 
     ####### public useful ####
-    def getdaysnotempty(self):
+    def getdaysnotempty(self,model):
         '''
         Return a sorted pandas Series containing the dates of folders whose size is greater than *minSize*
 
@@ -230,7 +230,7 @@ class Conf_generator():
         :param int dict_size:
         :rtype: pd.Series
         '''
-        return FS.get_parked_days_not_empty(self.FOLDERPKL)
+        return FS.get_parked_days_not_empty(os.path.join(self.FOLDERPKL,model))
 
     def connect2db(self):
         connReq = ''.join([k + "=" + v + " " for k,v in self.DB_PARAMETERS.items()])

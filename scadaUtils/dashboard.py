@@ -6,7 +6,7 @@ import numpy as np,pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from string import ascii_letters,digits
-from .comUtils import (timenowstd,computetimeshow,print_file)
+from .comUtils import (timenowstd,computetimeshow,print_file,to_folderday)
 from .Conf_generator import create_folder_if_not
 NOTIFS={
     'too_many_datapoints':''' TOO MANY DATAPOINTS\n
@@ -27,8 +27,8 @@ NOTIFS={
         Impossible to generate your excel file.\n
         Please take note of your settings or take a screenshot of your screen and report it to the webmaster: dorian.drevon@sylfen.com.'''
 }
-
 from IPython.core.ultratb import AutoFormattedTB
+
 class Dashboard():
     '''
     Instanciate a dashboard to monitor data.
@@ -185,9 +185,18 @@ class Dashboard():
     def _send_model_tags(self):
         data = request.get_data()
         model = json.loads(data.decode())
-        data={}
+        data = {}
         data['categories'] = list(self.cfg.conf.tag_categories[model].keys())
         data['all_tags'] = self.cfg.getTagsTU('',model=model)
+        list_days = self.cfg.getdaysnotempty(model)
+        max_day =  list_days.max()
+        min_day = list_days.min()
+        all_days=pd.date_range(start=min_day,end=max_day)
+        all_days
+        excludeddates = [k for k in all_days if k not in list_days.to_list()]
+        data['max_date'] = to_folderday(max_day)
+        data['min_date'] = to_folderday(min_day)
+        data['excludeddates'] = [to_folderday(k) for k in excludeddates]
         return json.dumps(data)
 
     def _generate_fig(self):

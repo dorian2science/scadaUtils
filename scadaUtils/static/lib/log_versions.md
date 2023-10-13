@@ -2,7 +2,8 @@
 What's new in V1.3 ?
 --------------
 ### v1.3
-- possible to chose the model. Model z92 is available! 
+- possible to chose the model. Model z92 is available!
+- the range of possible datetimes is automatically according to the availability of the data for model selected. 
 ### v1.2
 - panel **parameters**: check button  *Use coarse data* check button available to speed up the request of data. The "coarse data" are resampled at 10s so it does not make any sense to select a resampling rate bellow this value.
 - panel **dispay** : remove gaps can be based on the current (I>1). To use this option instead of "no data" it is necessary to load CurrentPV.
