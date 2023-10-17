@@ -242,3 +242,11 @@ p {
 #tab_processing{
   background-color : #b4b4cc
 }
+.formula{
+  width:400px;
+  border-radius:0;
+}
+.big_btn{
+  width: 30px;
+  height: 30px;
+}

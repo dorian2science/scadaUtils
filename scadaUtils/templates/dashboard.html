@@ -53,10 +53,10 @@
     <div id="tab_panels">
 
       <div class="tabs_container">
-        <div class="tab-button active" onclick="showTab('tab_parameters')">data parameters</div>
+        <div class="tab-button" onclick="showTab('tab_parameters')">data parameters</div>
         <div class="tab-button" onclick="showTab('tab_models')">models</div>
         <div class="tab-button" onclick="showTab('tab_display')">display</div>
-        <div class="tab-button" onclick="showTab('tab_processing')">processing</div>
+        <div class="tab-button active" onclick="showTab('tab_processing')">processing</div>
       </div>
       <div class="tab-content" id="tab_parameters" >
         <div name='buttons' class="">
@@ -138,15 +138,29 @@
       </div>
 
       <div class="tab-content" id="tab_processing">
-        <p>select the tag on which the operation will be done: </p>
+        <p>Select the tag on which the operation will be done: </p>
         <br>
-        <select class="dd" name="dd_enveloppe" id="dd_enveloppe" onchange="addEnveloppe()"></select>
+        <select class="dd" id="dd_var"></select>
+        <button name=btn_add_var onclick="add_operation(this)">add variable</button>
         <br>
         <p>Select the operation you want to perfrom: </p>
         <br>
-        <select class="dd" name="dd_operation" id="dd_operation"></select>
+        <!-- <select class="dd" name="dd_operation" id="dd_operation"></select> -->
+        <button name=btn_op_plus class="big_btn" onclick="add_operation(this)">+</button>
+        <button name=btn_op_mois class="big_btn" onclick="add_operation(this)">-</button>
+        <button name=btn_op_fois class="big_btn" onclick="add_operation(this)">*</button>
+        <button name=btn_op_divide class="big_btn" onclick="add_operation(this)">/</button>
+        <button name=btn_op_power class="big_btn" onclick="add_operation(this)">^</button>
         <br>
-        <button name=btn_add_operation onclick="add_operation()">compute the variable</button>
+        <p>Formula of the new variable to create(press enter to adjust the name of the formula): </p>
+        <br>
+        <input class='formula' id='in_formula' type="text"/ onchange=update_formula()>
+        <br>
+        <p>Name of your new created variable : </p>
+        <br>
+        <input class='formula' id='new_var_name' type="text"/>
+        <br>
+        <button name=btn_add_formula onclick="add_formula_variable()">compute the variable</button>
 
       </div>
 
@@ -186,6 +200,7 @@
             <span class="slider round"></span>
           </label>
         </div>
+        <span>criterion to remove gaps:</span>
         <select id="method_rgaps" class="dd">
           <option value="I>1">I>1</option>
           <option value="no data">no data</option>

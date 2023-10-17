@@ -450,7 +450,7 @@ function build_request_parameters() {
   parameters['coarse'] = document.getElementById('check_coarse').checked
   parameters['model'] = document.getElementById('dd_models').value
 
-  console.log(parameters);
+  // console.log(parameters);
   return parameters
 }
 
@@ -775,7 +775,6 @@ function addRow_tagTable(tagname) {
       row.insertCell(1).innerHTML= tagname;
       row.insertCell(2).innerHTML= '<input id=color_' + tagname + ' class="color_button" type="button" value=color onClick="popup_trace_color_picker(this)">';;
   }
-  update_dd_enveloppe()
 }
 
 function select_tag_xaxis(tagname) {
@@ -785,21 +784,113 @@ function select_tag_xaxis(tagname) {
 function deleteRow(obj) {
     var index = obj.parentNode.parentNode.rowIndex;
     TABLE_TAGS.deleteRow(index);
-    update_dd_enveloppe()
 }
 
-function update_dd_enveloppe() {
-  let dd_enveloppe=$('#dd_enveloppe')[0]
-  // console.log(extract_listTags_from_html_table())
-  let previous_val=dd_enveloppe.value
-  dd_enveloppe.innerHTML=''
-  let listtags=['no tag'].concat(extract_listTags_from_html_table())
-  init_dropdown('dd_enveloppe', listtags)
-  if (listtags.includes(previous_val)) {
-    dd_enveloppe.value=previous_val
-  } else{
-    dd_enveloppe.value='no tag'
+const LISTOPERATIONS = ['+','*','/','-','^']
+function parse_formula(){
+  formula = document.getElementById('in_formula').value
+  // tags =
+  // return
+}
+
+function computeArrayFromFormula(formula, data) {
+  result = [];
+
+  // Loop through each index of the arrays
+  for (i = 0; i < data['var1'].length; i++) {
+      // Create a temporary formula for evaluation
+      tempFormula = formula;
+
+      // Substitute the data with the actual values from the arrays
+      for (variable in data) {
+          regex = new RegExp(variable, 'g');
+          tempFormula = tempFormula.replace(regex, data[variable][i]);
+      }
+      // Evaluate the formula and push the result to the result array
+      result.push(eval(tempFormula));
   }
+  return result;
+}
+
+
+function add_formula_variable(){
+
+  data = document.getElementById('plotly_fig').data
+  formula = document.getElementById('in_formula').value
+  var variables = {}
+  var var_names = {}
+  for (opt of document.getElementById('dd_var').options){
+      tmp = opt.value.split('_')
+      varid = tmp[0]
+      tag = tmp.slice(1,).join('_')
+      variables[varid]= data.filter(x=>x.name==tag)[0].y
+   }
+  new_var = computeArrayFromFormula(formula, variables)
+  new_var_name = document.getElementById('new_var_name').value
+  // get the hightest number of y-axes
+  highest_axisnb = Object.keys(fig.layout).filter(x=>x.includes('yaxis')).map(x=>parseInt(x.split('yaxis').slice(1,))).filter(x=>!isNaN(x))
+  highest_axisnb = Math.max(...highest_axisnb)
+
+  var layoutUpdate = {}
+  layoutUpdate["yaxis" + String(highest_axisnb+1)] = {
+     title: {text:new_var_name,font:{color:"black"}},
+     overlaying: 'y',        // Overlay the new y-axis on top of the existing one
+     side: 'right',
+     position:0.5
+  }
+  // Use Plotly.relayout to update the layout of the existing figure
+  Plotly.relayout('plotly_fig',layoutUpdate );
+  // add the new trace
+  new_trace = {
+    x: data[0].x,
+    y: new_var,
+    name: new_var_name,
+    type:"scattergl",
+    line:{color:'black'},
+    marker:{color:'black',size:5},
+    yaxis:"y" + String(highest_axisnb+1)
+  }
+  Plotly.addTraces('plotly_fig', new_trace);
+  update_axes()
+  $('#dd_style')[0].dispatchEvent(new CustomEvent("change",{bubbles: true}));
+  update_size_markers()
+  addRow_tagTable(new_var_name)
+
+}
+
+function update_formula(){
+  let formula = document.getElementById('in_formula').value
+  for (opt of document.getElementById('dd_var').options){
+     tmp = opt.value.split('_')
+     varid = tmp[0]
+     tag = tmp.slice(1,).join('_')
+     regex = new RegExp(varid, 'g');
+     formula = formula.replace(regex, tag);
+   }
+  document.getElementById('new_var_name').value = formula
+}
+
+function add_operation(e){
+  operation = e.innerText
+  formula = document.getElementById('in_formula')
+  if (LISTOPERATIONS.includes(operation)){
+    formula.value+=operation
+  }
+  else {
+    tmp = document.getElementById('dd_var').value.split('_')
+    varid = tmp[0]
+    tag = tmp.slice(1,).join('_')
+    formula.value += varid
+  }
+}
+
+function update_dd_tag_for_formula() {
+  dd_tags_formula=$('#dd_var')[0]
+  // console.log(extract_listTags_from_html_table())
+  previous_val = dd_tags_formula.value
+  dd_tags_formula.innerHTML=''
+  listtags = extract_listTags_from_html_table()
+  init_dropdown('dd_var', listtags)
 }
 
 function empyt_select(dd_id){
@@ -821,11 +912,15 @@ function change_model(event){
     empyt_select('dd_categorie')
     empyt_select('dd_y')
     empyt_select('select_dd_x')
+    empyt_select('dd_var')
 
     init_tags_dropdown('dd_y',values=model_tags['all_tags'],addRow_tagTable)
     init_dropdown('dd_categorie',values=['no categorie'].concat(model_tags['categories']))
     // init_tags_dropdown('dd_x',values=['time'].concat(data['all_tags']),select_tag_xaxis)
     init_dropdown('select_dd_x',values=['Time'].concat(model_tags['all_tags']))
+    possible_vars=extract_listTags_from_html_table()
+
+    init_dropdown('dd_var',possible_vars.map((item, index) => `var${index + 1}_${item}`))
 
     // update timepicker
     max_date = moment(model_tags['max_date']).startOf('second').add(24*3600-1,'second')
@@ -842,18 +937,16 @@ function change_model(event){
 //# ###########################
 //# Backend INITIALIZATION    #
 //# ###########################
-$.when(
-  $.get('init',function(data) {
+function initialisation(data){
     data = JSON.parse(data)
     // ------- INITIALIZATION of myDropdown menus --------
     init_dropdown('dd_models',values=data['models'],change_model)
     $('#dd_models')[0].value = data['model']
     $('#dd_models')[0].dispatchEvent(new CustomEvent("change",{bubbles: true,detail:true}));
     data['tags'].map(tag => addRow_tagTable(tag))
-
     init_dropdown('dd_resMethod',values=data['rsMethods'])
     init_dropdown('dd_style',values=data['styles'])
-    init_dropdown('dd_operation',values=['no operation'].concat(['derivative','integral','regression p1','regression p2','regression p3']))
+    // init_dropdown('dd_operation',values=['no operation'].concat(['derivative','integral','regression p1','regression p2','regression p3']))
     init_radioButton(id='legend_para',values=['unvisible','tag','description'],'legend')
     $('input[type=radio][name=legend]').change(function() {
       update_legend(this.value)
@@ -884,22 +977,32 @@ $.when(
     //BUILD THE INITIAL FIGURE
     document.getElementById('dd_categorie').value = 'no categorie'
     $('#select_dd_x')[0].value = 'Time'
+}
 
-  }),
-)
-
-
-// var ALLCOLORS=[]
-// fetch('../static/lib/colors.json')
-//   .then(response => response.json())
-//   .then(data => {
-//     // Use the JSON data here
-//     console.log(data);
-//   })
-//   .catch(error => {
-//     console.error('Error loading JSON:', error);
+// function fetchData() {
+//   return new Promise((resolve, reject) => {
+//     // Simulate an asynchronous operation (e.g., fetching data from an API)
+//     setTimeout(() => {
+//       const data = { message: 'Data fetched successfully' };
+//       const error = null; // Set to an error object if something went wrong
+//
+//       if (error) {
+//         reject(error); // Reject the promise with an error
+//       } else {
+//         resolve(data); // Resolve the promise with the fetched data
+//       }
+//     }, 2000); // Simulated delay of 2 seconds
 //   });
+// }
 
+$.when(
+  $.get('init',function(data){
+    initialisation(data)
+  })
+  // .then(
+  //   fetch_figure()
+  // )
+)
 
 //# ########################
 //#    REAL TIME FEATURES  #
