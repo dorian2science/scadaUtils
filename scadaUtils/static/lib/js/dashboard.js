@@ -1038,6 +1038,10 @@ function update_timerange_picker(options){
   })
 }
 
+function change_color_paper_background(color){
+  Plotly.relayout('plotly_fig', {'paper_bgcolor':color});
+}
+
 function pop_menu_refresh(e) {
   // console.log(e.checked)
   if (e.checked) {

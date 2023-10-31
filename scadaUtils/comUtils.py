@@ -60,7 +60,8 @@ def print_file(*args,filename=None,mode='a',with_infos=True,**kwargs):
     if with_infos:
         frameinfo = currentframe().f_back
         frameinfo = getframeinfo(frameinfo)
-        entete=Fore.BLUE + frameinfo.filename + ','+ Fore.GREEN + str(frameinfo.lineno) + '\n'+Fore.WHITE
+        # entete=Fore.BLUE + frameinfo.filename + ','+ Fore.GREEN + str(frameinfo.lineno) + '\n'+Fore.WHITE
+        entete=Fore.BLUE + frameinfo.filename + ','+ Fore.GREEN + str(frameinfo.lineno) + Fore.WHITE
     if filename is None:
         print(entete,*args,**kwargs)
     else:
