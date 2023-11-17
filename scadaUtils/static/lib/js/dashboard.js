@@ -470,12 +470,18 @@ function fetch_figure() {
   // post request
   $.post('/generate_fig',JSON.stringify(parameters),function(res,status){
     style = document.getElementById('dd_style').value
-
+    
     var notif = res['notif']
+    if ( notif!=200){
+      alert(notif)
+      $('#btn_update')[0].innerHTML='request data!'
+      btn_update.classList.remove('updating')
+      return
+    }
     var fig = JSON.parse(res['fig'])
     // make sure the colors are original state and the gaps as well
     $('#color_switch')[0].checked=false
-
+    
     // plot the new figure
     Plotly.newPlot('plotly_fig', fig.data,fig.layout,CONFIG);
     for (trace of document.getElementById('plotly_fig').data){
@@ -488,12 +494,8 @@ function fetch_figure() {
     update_button_colors()
     update_legend()
     modify_grid()
-    // update finish
     $('#btn_update')[0].innerHTML='request data!'
     btn_update.classList.remove('updating')
-    if ( notif!=200){
-      alert(notif)
-    }
     let new_traces = $('#plotly_fig')[0].data.map(x=>x.name)
     let indexes = tags_hidden.map(x=>new_traces.indexOf(x))
     if (indexes.length!=0){Plotly.restyle('plotly_fig', {visible:'legendonly'},indexes);}
@@ -981,7 +983,7 @@ function initialisation(data){
 
 // function fetchData() {
 //   return new Promise((resolve, reject) => {
-//     // Simulate an asynchronous operation (e.g., fetching data from an API)
+    // Simulate an asynchronous operation (e.g., fetching data from an API)
 //     setTimeout(() => {
 //       const data = { message: 'Data fetched successfully' };
 //       const error = null; // Set to an error object if something went wrong

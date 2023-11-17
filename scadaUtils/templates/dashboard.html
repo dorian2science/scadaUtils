@@ -53,16 +53,17 @@
     <div id="tab_panels">
 
       <div class="tabs_container">
-        <div class="tab-button" onclick="showTab('tab_parameters')">data parameters</div>
+        <div class="tab-button active" onclick="showTab('tab_parameters')">data parameters</div>
         <div class="tab-button" onclick="showTab('tab_models')">models</div>
         <div class="tab-button" onclick="showTab('tab_display')">display</div>
-        <div class="tab-button active" onclick="showTab('tab_processing')">processing</div>
+        <div class="tab-button" onclick="showTab('tab_processing')">processing</div>
       </div>
       <div class="tab-content" id="tab_parameters" >
         <div name='buttons' class="">
           <button class='p_but' id="btn_update" type="button" onclick="fetch_figure()">request data!</button>
           <button class='p_but' id="btn_export" type="button" onclick="data2excel()">export to excel</button>
           <button class='p_but' id="btn_fig" type="button" onclick="export_figure()">export figure</button>
+          <button class='p_but' id="btn_state_machine" type="button" onclick="get_state_machine_report()">get state machine report</button>
           <br>
           <input id="check_coarse" type="checkbox">Use coarse data</button>
         </div>

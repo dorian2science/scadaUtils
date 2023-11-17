@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 from string import ascii_letters,digits
 from .comUtils import (timenowstd,computetimeshow,print_file,to_folderday)
 from .Conf_generator import create_folder_if_not
+
 NOTIFS={
     'too_many_datapoints':''' TOO MANY DATAPOINTS\n
         You have requested XXXk datapoints which is over AAAk datapoints.\n
@@ -16,16 +17,16 @@ NOTIFS={
         If you are not happy with these settings please select another period or/and resampling period or/and total number of tags keeping in mind that you should not exceed AAAk datapoints in total.
         Take into account as well that the more datapoints you ask the more you have to wait for the figure to load.
         ''',
-    'figure_generation_impossible':'''Impossible to generate your figure.\n
-        Please take note of your settings or take a screenshot of your screen and report it to the webmaster: dorian.drevon@sylfen.com.
+    'figure_generation_impossible':'''Impossible to generate your figure because of an unexpeccted BUG in the application backend!!! .\n
+        Please take a screenshot of your screen with the message error and report it to the devTeam : dorian.drevon@inocel.com.
         ''',
     'no_data':'''NO DATA\n
         There is no data for your list of tags and the selected period.\n
-        if this is not supposed to be the case please report it to the webmaster: dorian.drevon@sylfen.com.
+        if this is not supposed to be the case please report it to the devTeam: dorian.drevon@inocel.com.
         ''',
     'excel_generation_impossible': '''EXCEL BUG\n
         Impossible to generate your excel file.\n
-        Please take note of your settings or take a screenshot of your screen and report it to the webmaster: dorian.drevon@sylfen.com.'''
+        Please take note of your settings or take a screenshot of your screen and report it to the devTeam: dorian.drevon@inocel.com.'''
 }
 from IPython.core.ultratb import AutoFormattedTB
 
@@ -202,112 +203,114 @@ class Dashboard():
     def _generate_fig(self):
         debug=False
         notif=200
-        # try:
-        start=time.time()
-        data=request.get_data()
-        parameters=json.loads(data.decode())
-        if debug:print_file(parameters)
+        try:
+            start=time.time()
+            data=request.get_data()
+            parameters=json.loads(data.decode())
+            if debug:print_file(parameters)
 
-        t0,t1 = [pd.Timestamp(t,tz='CET') for t in parameters['timerange'].split(' - ')]
-        tag_x = parameters['x']
+            t0,t1 = [pd.Timestamp(t,tz='CET') for t in parameters['timerange'].split(' - ')]
+            tag_x = parameters['x']
 
-        if debug:print_file('t0,t1:',t0,t1)
-        tags = parameters['tags']
-        if not tag_x.lower()=='time':tags+=[tag_x]
-        if parameters['categorie'] in self.init_parameters['categories']:
-            tags+=self.cfg.conf.tag_categories[parameters['categorie']]
-        if debug:print_file('alltags:',tags)
-        rs,rsMethod = parameters['rs_time'],parameters['rs_method']
-        model = parameters['model']
-        pool = 'auto'
-        ####### determine if it should be loaded with COARSE DATA or fine data
-        # if pd.to_timedelta(rs)>=pd.Timedelta(seconds=self.rs_min_coarse) or t1-t0>pd.Timedelta(days=self.nb_days_min_coarse):
-        if parameters['coarse']:
-            pool='coarse'
-            df = self.cfg.load_coarse_data(t0,t1,tags,model=model,rs=rs,rsMethod=rsMethod)
-        else:
-            if debug :print_file(tags)
-            df = self.cfg.loadtags_period(t0,t1,model=model,tags=tags,rs=rs,rsMethod=rsMethod)
-            if debug :print_file(df)
-        if df.empty:
-            notif = NOTIFS['no_data']
-            raise Exception('no data')
+            if debug:print_file('t0,t1:',t0,t1)
+            tags = parameters['tags']
+            if not tag_x.lower()=='time':tags+=[tag_x]
+            if parameters['categorie'] in self.init_parameters['categories']:
+                tags+=self.cfg.conf.tag_categories[parameters['categorie']]
+            if debug:print_file('alltags:',tags)
+            rs,rsMethod = parameters['rs_time'],parameters['rs_method']
+            model = parameters['model']
+            pool = 'auto'
+            ####### determine if it should be loaded with COARSE DATA or fine data
+            # if pd.to_timedelta(rs)>=pd.Timedelta(seconds=self.rs_min_coarse) or t1-t0>pd.Timedelta(days=self.nb_days_min_coarse):
+            if parameters['coarse']:
+                pool='coarse'
+                df = self.cfg.load_coarse_data(t0,t1,tags,model=model,rs=rs,rsMethod=rsMethod)
+            else:
+                if debug :print_file(tags)
+                df = self.cfg.loadtags_period(t0,t1,model=model,tags=tags,rs=rs,rsMethod=rsMethod)
+                if debug :print_file(df)
+            if df.empty:
+                notif = NOTIFS['no_data']
+                raise Exception('no data')
 
-        ####### check that the request does not have TOO MANY DATAPOINTS
-        nb_datapoints = len(df)*len(df.columns)
-        if nb_datapoints>self.max_nb_pts:
-            nb_pts_curve = self.max_nb_pts//len(df.columns)
-            total_seconds = (df.index[-1]-df.index[0]).total_seconds()
-            new_rs = str(total_seconds//nb_pts_curve)
-            df = df.resample(new_rs+'S').mean()
-            notif = NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)).replace('YYY',new_rs).replace('AAA',str(self.max_nb_pts//1000))
-        if debug:print_file(df)
-        print_file(tag_x)
-        if not tag_x.lower()=='time':
-            df.index = df[tag_x]
-            fig = self.plot_function(df,model)
-            fig.update_layout(xaxis_title=tag_x+ '('+self.cfg.getUnitofTag(tag_x) + ')')
-            fig.update_traces(mode='markers')
-        else:
-            fig = self.plot_function(df,model)
-        # fig.update_layout(width=1260,height=750,legend_title='tags')
-        self.log_info(computetimeshow('fig generated with pool =' + str(pool),start))
+            ####### check that the request does not have TOO MANY DATAPOINTS
+            nb_datapoints = len(df)*len(df.columns)
+            if nb_datapoints>self.max_nb_pts:
+                nb_pts_curve = self.max_nb_pts//len(df.columns)
+                total_seconds = (df.index[-1]-df.index[0]).total_seconds()
+                new_rs = str(total_seconds//nb_pts_curve)
+                df = df.resample(new_rs+'S').mean()
+                notif = NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)).replace('YYY',new_rs).replace('AAA',str(self.max_nb_pts//1000))
+            if debug:print_file(df)
+            print_file(tag_x)
+            if not tag_x.lower()=='time':
+                df.index = df[tag_x]
+                fig = self.plot_function(df,model)
+                fig.update_layout(xaxis_title=tag_x+ '('+self.cfg.getUnitofTag(tag_x) + ')')
+                fig.update_traces(mode='markers')
+            else:
+                fig = self.plot_function(df,model)
+            # fig.update_layout(width=1260,height=750,legend_title='tags')
+            self.log_info(computetimeshow('fig generated with pool =' + str(pool),start))
 
-        # except:
-        #     if notif==200:
-        #         notif='figure_generation_impossible'
-        #         error={'msg':' problem in the figure generation with generate_fig','code':1}
-        #         notif=NOTIFS[notif]
-        #         self.notify_error(sys.exc_info(),error)
-        #     fig=go.Figure()
+        except:
+            if notif==200:
+                notif = 'figure_generation_impossible'
+                error = {'msg':' problem in the figure generation with generate_fig','code':1}
+                # error_message = self.notify_error(sys.exc_info(),error)
+                error_message = traceback.format_exc()
 
-        res={'fig':fig.to_json(),'notif':notif}
+                notif = NOTIFS[notif] + error_message 
+            fig = go.Figure()
+
+        res = {'fig':fig.to_json(),'notif':notif}
         return jsonify(res)
 
     def _export2excel(self):
-        # try:
-        start = time.time()
-        data = request.get_data()
-        fig = json.loads(data.decode())
-        baseName = 'data'
-        dfs = [pd.Series(trace['y'],index=trace['x'],name=trace['name']) for trace in fig['data']]
-        df = pd.concat(dfs,axis=1)
-        df.index = [pd.Timestamp(t) for t in df.index]
-        t0,t1 = fig['layout']['xaxis']['range']
-        df = df[(df.index>=t0) & (df.index<=t1)]
+        try:
+            start = time.time()
+            data = request.get_data()
+            fig = json.loads(data.decode())
+            baseName = 'data'
+            dfs = [pd.Series(trace['y'],index=trace['x'],name=trace['name']) for trace in fig['data']]
+            df = pd.concat(dfs,axis=1)
+            df.index = [pd.Timestamp(t) for t in df.index]
+            t0,t1 = fig['layout']['xaxis']['range']
+            df = df[(df.index>=t0) & (df.index<=t1)]
 
-        dateF = [pd.Timestamp(t).strftime('%Y-%m-%d %H_%M') for t in [t0,t1]]
-        filename = 'static/tmp/' + baseName +  '_' + dateF[0]+ '_' + dateF[1]+'.xlsx'
-        if isinstance(df.index,pd.core.indexes.datetimes.DatetimeIndex):
-            df.index = [k.isoformat() for k in df.index]
-        df.to_excel(os.path.join(self.root_path,filename))
-        self.log_info(computetimeshow('.xlsx downloaded',start))
-        res = {'status':'ok','filename':filename}
-        # except:
-        #     error = {'msg':'service export2excel not working','code':3}
-        #     self.notify_error(sys.exc_info(),error)
-        #     res = {'status':'failed','notif':NOTIFS['excel_generation_impossible']}
+            dateF = [pd.Timestamp(t).strftime('%Y-%m-%d %H_%M') for t in [t0,t1]]
+            filename = 'static/tmp/' + baseName +  '_' + dateF[0]+ '_' + dateF[1]+'.xlsx'
+            if isinstance(df.index,pd.core.indexes.datetimes.DatetimeIndex):
+                df.index = [k.isoformat() for k in df.index]
+            df.to_excel(os.path.join(self.root_path,filename))
+            self.log_info(computetimeshow('.xlsx downloaded',start))
+            res = {'status':'ok','filename':filename}
+        except:
+            error = {'msg':'service export2excel not working','code':3}
+            self.notify_error(sys.exc_info(),error)
+            res = {'status':'failed','notif':NOTIFS['excel_generation_impossible']}
         return jsonify(res)
 
     def _exportFigure(self):
-        # try:
-        start = time.time()
-        data = request.get_data()
-        fig_data = json.loads(data.decode())
-        fig = go.Figure()
-        for trace in fig_data['data']:
-            fig.add_trace(trace)
-        fig.update_layout(fig_data['layout'])
-        baseName = 'figure'
-        dateF = pd.Timestamp.now(tz='CET').strftime('%Y-%m-%d %H_%M')
-        filename = os.path.join('static/tmp',baseName +  '_' + dateF + '.html')
-        fig.write_html(os.path.join(self.root_path,filename))
-        self.log_info(computetimeshow('.html downloaded',start))
-        res = {'status':'ok','filename':filename}
-        # except:
-        #     error={'msg':'service export_figure not working','code':3}
-        #     self.notify_error(sys.exc_info(),error)
-        #     res={'status':'failed','notif':NOTIFS['excel_generation_impossible']}
+        try:
+            start = time.time()
+            data = request.get_data()
+            fig_data = json.loads(data.decode())
+            fig = go.Figure()
+            for trace in fig_data['data']:
+                fig.add_trace(trace)
+            fig.update_layout(fig_data['layout'])
+            baseName = 'figure'
+            dateF = pd.Timestamp.now(tz='CET').strftime('%Y-%m-%d %H_%M')
+            filename = os.path.join('static/tmp',baseName +  '_' + dateF + '.html')
+            fig.write_html(os.path.join(self.root_path,filename))
+            self.log_info(computetimeshow('.html downloaded',start))
+            res = {'status':'ok','filename':filename}
+        except:
+            error={'msg':'service export_figure not working','code':3}
+            self.notify_error(sys.exc_info(),error)
+            res={'status':'failed','notif':NOTIFS['excel_generation_impossible']}
         return jsonify(res)
 
 class StaticDashboard(Dashboard):

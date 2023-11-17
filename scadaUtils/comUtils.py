@@ -74,7 +74,7 @@ def print_error(tb,filename=None):
         res=re.match('(.*.py")(.*line \d+)(.*)',exc_format[k]).groups()
         ff+=Fore.RED + res[0]+Fore.BLUE+res[1]+Fore.GREEN + res[2] + Fore.WHITE + '\n'
     print_file(ff,exc_format[-1],with_infos=False,filename=filename)
-def html_table(df,title='table',new_colors=False,open_firefox=False):
+def html_table(df,title='table',new_colors=False,open_firefox=False,file_path=None):
     '''
     Render a DataFrame as an HTML table
 
@@ -82,7 +82,8 @@ def html_table(df,title='table',new_colors=False,open_firefox=False):
     :param str title: title of the table, default *table*
     :param bool useLinux:
     '''
-    file_path=os.path.join(os.curdir,'table.html')
+    if file_path is None:
+       file_path=os.path.join(os.curdir,'table.html')
     f=open(file_path,'w')
 
     ### add header
