@@ -30,6 +30,11 @@ NOTIFS={
 }
 from IPython.core.ultratb import AutoFormattedTB
 
+def detect_empty_columns(df):
+    s = df.isna().all()
+    return s[s].index.to_list()
+
+
 class Dashboard():
     '''
     Instanciate a dashboard to monitor data.
@@ -201,8 +206,8 @@ class Dashboard():
         return json.dumps(data)
 
     def _generate_fig(self):
-        debug=False
-        notif=200
+        debug = False
+        notif = 200
         try:
             start=time.time()
             data=request.get_data()
@@ -243,7 +248,10 @@ class Dashboard():
                 df = df.resample(new_rs+'S').mean()
                 notif = NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)).replace('YYY',new_rs).replace('AAA',str(self.max_nb_pts//1000))
             if debug:print_file(df)
-            print_file(tag_x)
+            
+            tags_empty = detect_empty_columns(df)
+            if len(tags_empty)>0:
+                notif = "No data could be found for the tags " + ', '.join(tags_empty)
             if not tag_x.lower()=='time':
                 df.index = df[tag_x]
                 fig = self.plot_function(df,model)
@@ -260,7 +268,6 @@ class Dashboard():
                 error = {'msg':' problem in the figure generation with generate_fig','code':1}
                 # error_message = self.notify_error(sys.exc_info(),error)
                 error_message = traceback.format_exc()
-
                 notif = NOTIFS[notif] + error_message 
             fig = go.Figure()
 
@@ -312,6 +319,13 @@ class Dashboard():
             self.notify_error(sys.exc_info(),error)
             res={'status':'failed','notif':NOTIFS['excel_generation_impossible']}
         return jsonify(res)
+
+    def _send_names(self):
+        data = request.get_data()
+        data = json.loads(data.decode())
+        new_names = self.cfg.toogle_tag_description(data['tags'],data['mode'])
+        return jsonify(new_names)
+
 
 class StaticDashboard(Dashboard):
     def __init__(self,*args,**kwargs):

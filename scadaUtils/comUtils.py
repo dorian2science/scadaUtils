@@ -1690,16 +1690,16 @@ class Streamer(Basic_streamer):
         '''
         start=time.time()
 
-        listDays=[self._to_folderday(k) for k in pd.date_range(t0,t1,freq='D',ambiguous=True)]
+        listDays = [self._to_folderday(k) for k in pd.date_range(t0,t1,freq='D',ambiguous=True)]
         if ncores is None:
-            ncores=min(len(listDays),self._num_cpus)
+            ncores = min(len(listDays),self._num_cpus)
         with Pool(ncores) as p:
             dfs=p.starmap(self._load_raw_day_tag,[(d,tag,folderpkl,rs,rsMethod,closed,verbose) for d in listDays])
         if time_debug:print_file(computetimeshow('pooling ' + tag+' finished',start))
         s_tag = pd.concat(dfs)
         if time_debug:print_file(computetimeshow('concatenation ' + tag+' finished',start))
         s_tag = s_tag[(s_tag.index>=t0)&(s_tag.index<=t1)]
-        s_tag.name=tag
+        s_tag.name = tag
         s_tag=s_tag[~s_tag.index.duplicated(keep='first')]
         if time_debug:print_file(computetimeshow(tag + ' finished',start))
         return s_tag
@@ -1734,10 +1734,12 @@ class Streamer(Basic_streamer):
         s_tag = pd.DataFrame(pd.concat(dfs.values()))
         if time_debug:computetimeshow('contatenation done in ',start)
         s_tag.index.name='timestampz'
+        s_tag = s_tag['value']
         start = time.time()
-        s_tag = s_tag[(s_tag.index>=t0)&(s_tag.index<=t1)]
-        s_tag = self.process_tag(s_tag['value'],**kwargs)
-        s_tag.name=tag
+        if not s_tag.empty: 
+            s_tag = s_tag[(s_tag.index>=t0)&(s_tag.index<=t1)]
+            s_tag = self.process_tag(s_tag,**kwargs)
+        s_tag.name = tag
         if time_debug:computetimeshow('processing done in ',start)
         return s_tag
 
@@ -1781,19 +1783,19 @@ class Streamer(Basic_streamer):
             if loc_pool=='day':
                 n_cores=min(self._num_cpus,nbdays)
                 if verbose:print_file('pool on days with',n_cores,'cores for',nbdays,'days')
-                dftags={tag:self._pool_tag_daily(t0,t1,tag,folderpkl,ncores=n_cores,**kwargs) for tag in tags}
+                dftags = {tag:self._pool_tag_daily(t0,t1,tag,folderpkl,ncores=n_cores,**kwargs) for tag in tags}
             elif loc_pool=='tag':
                 n_cores=min(self._num_cpus,len(tags))
                 if verbose:print_file('pool on tags with',n_cores,'cores for',len(tags),'tags')
                 with Pool(n_cores) as p:
-                    dftags=p.starmap(self.load_tag_daily_kwargs,[(t0,t1,tag,folderpkl,args,kwargs) for tag in tags])
-                dftags={k.name:k for k in dftags}
+                    dftags = p.starmap(self.load_tag_daily_kwargs,[(t0,t1,tag,folderpkl,args,kwargs) for tag in tags])
+                dftags = {k.name:k for k in dftags}
 
         else:
             dftags = {}
             for tag in tags:
                 if verbose:print(tag)
-                dftags[tag]=self.load_tag_daily(t0,t1,tag,folderpkl,*args,**kwargs)
+                dftags[tag] = self.load_tag_daily(t0,t1,tag,folderpkl,*args,**kwargs)
 
         empty_tags=[t for t,v in dftags.items() if v.empty]
         dftags = {tag:v for tag,v in dftags.items() if not v.empty}

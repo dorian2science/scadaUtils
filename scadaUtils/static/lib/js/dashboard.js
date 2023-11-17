@@ -256,25 +256,25 @@ var CONFIG = {
 // #      FUNCTIONS       #
 // ########################
 function update_legend() {
-  let mode=Array.from($('input[type=radio][name=legend]')).filter(x=>x.checked)[0].value
-  // console.log(mode)
-  if (mode=='unvisible') {
-    Plotly.restyle('plotly_fig', {'showlegend': false});
-  } else {
-    Plotly.restyle('plotly_fig', {'showlegend': true})
-    let tags=Array.from($('.legendtext')).map(x=>x.dataset.unformatted)
-    $.post('/send_description_names',JSON.stringify({mode:mode,tags:tags}),function(data,status){
-      // console.log(data);
-      let new_names=JSON.parse(data)
-      new_names=Object.values(new_names)
-      // console.log(new_names);
-      update={
-        'name':new_names,
-        'showlegend': true
-      }
-      Plotly.restyle('plotly_fig', update);
-    })
-  }
+  // let mode = Array.from($('input[type=radio][name=legend]')).filter(x=>x.checked)[0].value
+  // // console.log(mode)
+  // if (mode=='unvisible') {
+  //   Plotly.restyle('plotly_fig', {'showlegend': false});
+  // } else {
+  //   Plotly.restyle('plotly_fig', {'showlegend': true})
+  //   let tags=Array.from($('.legendtext')).map(x=>x.dataset.unformatted)
+  //   $.post('/send_description_names',JSON.stringify({mode:mode,tags:tags}),function(data,status){
+  //     console.log(data);
+  //     // let new_names=JSON.parse(data)
+  //     // new_names=Object.values(new_names)
+  //     // console.log(new_names);
+  //     update={
+  //       'name':Object.values(data),
+  //       'showlegend': true
+  //     }
+  //     Plotly.restyle('plotly_fig', update);
+  //   })
+  // }
 }
 
 function update_size_markers(){
@@ -476,7 +476,6 @@ function fetch_figure() {
       alert(notif)
       $('#btn_update')[0].innerHTML='request data!'
       btn_update.classList.remove('updating')
-      return
     }
     var fig = JSON.parse(res['fig'])
     // make sure the colors are original state and the gaps as well

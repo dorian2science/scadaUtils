@@ -1,6 +1,8 @@
 # Log new features
-What's new in V1.4 ?
+What's new in V1.5 ?
 --------------
+### v1.5
+- If missing data or if there is a bug an alert will pop up.
 ### v1.4
 - possible to create new variables by doing some simple computations in the tab **processing**.
 ### v1.3
