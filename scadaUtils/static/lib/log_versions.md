@@ -1,6 +1,8 @@
 # Log new features
-What's new in V1.5 ?
+What's new in V1.6 ?
 --------------
+### v1.6
+- CS-512 Gaia - Protéger le champ de résolution temporelle -- implémenté
 ### v1.5
 - If missing data or if there is a bug an alert will pop up.
 ### v1.4

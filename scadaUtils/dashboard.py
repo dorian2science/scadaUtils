@@ -4,6 +4,7 @@ import json,os,sys,glob,time,traceback
 from IPython.core.ultratb import AutoFormattedTB
 import numpy as np,pandas as pd
 import plotly.express as px
+import re
 import plotly.graph_objects as go
 from string import ascii_letters,digits
 from .comUtils import (timenowstd,computetimeshow,print_file,to_folderday)
@@ -100,6 +101,9 @@ class Dashboard():
         if not 'title' in init_par_keys:init_parameters['title']=app_name
         if not 'delay_minutes' in init_par_keys:init_parameters['delay_minutes']=0
         if not 'log_versions' in init_par_keys:init_parameters['log_versions']=''
+        rs_number,rs_unit = re.search('(\d+)(\w)',init_parameters['rs']).groups()
+        init_parameters['rs_number'] = rs_number
+        init_parameters['rs_unit'] = rs_unit
 
         self.init_parameters=init_parameters
 

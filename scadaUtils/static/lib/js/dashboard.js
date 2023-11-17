@@ -442,7 +442,7 @@ function build_request_parameters() {
   let parameters = {}
 
   parameters['timerange'] = datetimepicker.value
-  parameters['rs_time'] = document.getElementById('in_time_res').value
+  parameters['rs_time'] = document.getElementById('in_time_res').value + document.getElementById('dd_time_unit').value
   parameters['rs_method'] = document.getElementById('dd_resMethod').value
   parameters['categorie'] = document.getElementById('dd_categorie').value
   parameters['x'] = document.getElementById('select_dd_x').value
@@ -954,7 +954,9 @@ function initialisation(data){
     })
     //--------- DEFAULT VALUES FOR REQUEST_PARAMETERS ------------
     $('#dd_resMethod')[0].value = 'mean'
-    $('#in_time_res')[0].value = data['rs']
+    $('#dd_time_unit')[0].value = data['rs_unit']
+    console.log(data['rs_unit']);
+    $('#in_time_res')[0].value = data['rs_number']
     $('#gap_switch')[0].checked = false
     $('#legend_tag')[0].checked = true;
     $('.title_fig')[0].value = data['fig_name']

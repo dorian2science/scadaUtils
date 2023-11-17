@@ -1,4 +1,4 @@
-# ScadaUtils V1.5
+# ScadaUtils V1.6
 
 ## DESCRIPTION
 
