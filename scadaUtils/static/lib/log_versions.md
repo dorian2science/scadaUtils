@@ -1,6 +1,9 @@
 # Log new features
-What's new in V1.6 ?
+What's new in V1.7 ?
 --------------
+### v1.7
+- CS-514 Gaia - Ajouter la possibilité d'exporter les signaux tracés avec leur code couleur. Il s'agit de pouvoir [sauvegarder une planche de tags avec leur code couleur](https://inocel.atlassian.net/wiki/spaces/Diagnostiq/pages/123535485/Importer+les+signaux+trac+s+avec+leur+code+couleur). 
+- possibilité d'utiliser la fonction ["Compare multiple HOVER"](https://inocel.atlassian.net/wiki/spaces/Diagnostiq/pages/123568158/Compare+multiple+HOVER)
 ### v1.6
 - CS-512 Gaia - Protéger le champ de résolution temporelle -- implémenté
 ### v1.5

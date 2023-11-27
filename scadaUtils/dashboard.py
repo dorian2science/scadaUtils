@@ -225,7 +225,7 @@ class Dashboard():
             tags = parameters['tags']
             if not tag_x.lower()=='time':tags+=[tag_x]
             if parameters['categorie'] in self.init_parameters['categories']:
-                tags+=self.cfg.conf.tag_categories[parameters['categorie']]
+                tags+=self.cfg.conf.tag_categories[parameters['model']][parameters['categorie']]
             if debug:print_file('alltags:',tags)
             rs,rsMethod = parameters['rs_time'],parameters['rs_method']
             model = parameters['model']

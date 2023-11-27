@@ -29,12 +29,12 @@
 </head>
 
 <body>
-  <title>dashboard smallpower</title>
+  <title>inodiag</title>
   <div class="header">
     <img width=120px src='../static/lib/pictures/inocel.jpeg' alt='logo inocel'>
     <button onclick="pop_menu(this)" class="button_header" id='version_title'> {{ version_title }}</button>
     <!-- <button onclick="pop_menu(this)" class="button_header" name="button_eq">show indicators</button> -->
-    <a class="button_header" href={{ helpmelink }} >help me!</a>
+    <a class="button_header" href="https://inocel.atlassian.net/wiki/spaces/Diagnostiq/overview" >help me!</a>
   </div>
   <!-- pop-ups of the header -->
   <div class="center_pop_up" id="pop_indicators"></div>
@@ -42,10 +42,15 @@
   <!-- internal pop=ups -->
   <div class="center_pop_up" id="popup_listTags">
     <div class="dropdown">
+      <p>Enter your list of tags. Separate the color with a dot-comma ";" and separate the tags by going to the next line.
+        <br>A color is either rgb... or an html color starting with #. 
+        <br>Exemple : current_PV;rgb(0,200,200)</p>
+        <br>
       <textarea id="taglist" name="taglist" rows="40" cols="75"
         value="d">
       </textarea>
     </div>
+    <button id=btn_update_colors onclick="update_colors()">update colors only </button>
     <button name=apply_changes onclick="apply_changes()">apply changes </button>
   </div>
   <!-- main container -->
@@ -63,7 +68,7 @@
           <button class='p_but' id="btn_update" type="button" onclick="fetch_figure()">request data!</button>
           <button class='p_but' id="btn_export" type="button" onclick="data2excel()">export to excel</button>
           <button class='p_but' id="btn_fig" type="button" onclick="export_figure()">export figure</button>
-          <button class='p_but' id="btn_state_machine" type="button" onclick="get_state_machine_report()">get state machine report</button>
+          <!-- <button class='p_but' id="btn_state_machine" type="button" onclick="get_state_machine_report()">get state machine report</button> -->
           <br>
           <input id="check_coarse" type="checkbox">Use coarse data</button>
         </div>

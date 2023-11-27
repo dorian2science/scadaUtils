@@ -249,7 +249,7 @@ var CONFIG = {
   plotlyServerURL: "https://chart-studio.plotly.com",
   editable:false,
   modeBarButtonsToRemove: ['select2d','lasso2d'],
-  modeBarButtonsToAdd: ['toggleSpikelines','lasso2d','toggleHover'],
+  modeBarButtonsToAdd: ['toggleSpikelines','lasso2d','toggleHover','hoverclosest','hovercompare'],
 }
 
 // ########################
@@ -299,7 +299,6 @@ function update_colors_figure(e) {
     'marker.color':colors,
   }
   Plotly.restyle('plotly_fig', update);
-  update_button_colors()
 }
 
 function data2excel(){
@@ -413,8 +412,8 @@ function formatDateTime(date) {
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const seconds = String(date.getSeconds()).padStart(2, '0');
-
-    return `${year}-${month}-${day} ${hours}h${minutes}:${seconds}`;
+    const milliseconds = String(date.getMilliseconds()).padStart(2, '0').slice(0,1)
+    return `${year}-${month}-${day} ${hours}h${minutes}:${seconds}.${milliseconds}`;
 }
 
 function toggle_gaps(){
@@ -446,12 +445,65 @@ function build_request_parameters() {
   parameters['rs_method'] = document.getElementById('dd_resMethod').value
   parameters['categorie'] = document.getElementById('dd_categorie').value
   parameters['x'] = document.getElementById('select_dd_x').value
-  parameters['tags'] = extract_listTags_from_html_table()
+  parameters['tags'] = extract_listTags_from_html_table().map(x=>x[0])
   parameters['coarse'] = document.getElementById('check_coarse').checked
   parameters['model'] = document.getElementById('dd_models').value
 
   // console.log(parameters);
   return parameters
+}
+
+
+function update_traces_color(){
+  config_colors = Array.from(TABLE_TAGS.children[0].children).slice(1,).map(x=>[x.children[1].textContent,x.children[2].children[0].value])
+  for (let x of config_colors) {
+    console.log(x);
+    trace_id = fig.data.map(x=>x.name).indexOf(x[0])
+    update = {
+      'line.color':x[1],
+      'marker.color':x[1],
+    }
+    Plotly.restyle('plotly_fig', update, trace_id);
+  }
+}
+
+function addRow_tagTable(tagname,color) {
+  list_tags = extract_listTags_from_html_table().map(x=>x[0])
+  if (!list_tags.includes(tagname)) {
+    var row = TABLE_TAGS.insertRow(TABLE_TAGS.rows.length);
+    row.insertCell(0).innerHTML = '<input style="width:35px" type="button" value = "X" onClick="deleteRow(this)">';
+    // row.insertCell(1).innerHTML= '<b>'+tagname+'</b>';
+    row.insertCell(1).innerHTML = tagname;
+    if(!color){
+      color = LIST_DISTINCT_COLORS[(Math.floor(Math.random() * LIST_DISTINCT_COLORS.length))];
+    }
+    row.insertCell(2).innerHTML = '<input id=color_' + tagname + ' class="color_button" type="button" value='+ color +' onClick="popup_trace_color_picker(this)">';;
+    btn = row.children[2].children[0]
+    btn.style.backgroundColor = color
+    btn.value = color
+  }
+}
+
+
+function parse_tag(inputString){
+  // Define a regular expression pattern to match the desired parts
+  regexPattern = /(.*);(rgb\(\d+,\d+,\d+\))$/;
+  matches = inputString.match(regexPattern);
+  matches
+
+  if (matches){
+    return {tag:matches[1],color:matches[2]}
+  }
+
+  regexPattern = /(.*);(#\w{6})$/;
+  matches = inputString.match(regexPattern);
+
+  if (matches){
+    return {tag:matches[1],color:matches[2]}
+  }
+  else {
+    return {tag:inputString}
+  }
 }
 
 function fetch_figure() {
@@ -487,10 +539,10 @@ function fetch_figure() {
       addRow_tagTable(trace.name)
     }
     resize_figure()
+    update_traces_color()
     update_hover()
     update_axes()
     update_size_markers()
-    update_button_colors()
     update_legend()
     modify_grid()
     $('#btn_update')[0].innerHTML='request data!'
@@ -676,7 +728,7 @@ function show_tag_list(e) {
 
 function filterTag(e) {
   // console.log(e.id);
-  dd_div=document.getElementById(e.id.replace('in_',''))
+  dd_div = document.getElementById(e.id.replace('in_',''))
   let filter = new RegExp(e.value.toUpperCase().replaceAll(' ','.*'));
   // console.log(filter);
   for (let a of dd_div.getElementsByTagName("a")) {
@@ -735,7 +787,7 @@ function pop_listTags_up() {
   document.getElementById('popup_listTags').style.display='block'
   document.getElementById('popup_listTags').style.zIndex=10
   // retrieve the list of tags
-  let listtags = extract_listTags_from_html_table()
+  let listtags = extract_listTags_from_html_table().map(x=>x[0]+';'+x[1])
   document.getElementById('taglist').value=listtags.join('\n')
 }
 
@@ -747,35 +799,23 @@ function empty_tableOfTags(){
 }
 
 function apply_changes() {
-  let listtags=document.getElementById('taglist').value.split('\n')
-  listtags = listtags.filter((el)=> {return el != ""});
+  listtags = document.getElementById('taglist').value.split('\n').filter((el)=> {return el != ""}).map(x=>parse_tag(x))
   // delete all rows in TABLE_TAGS
   empty_tableOfTags()
   // add rows
-  for (tag of listtags) {addRow_tagTable(tag)}
+  for (tag of listtags) {
+    color = tag['color']
+    if (!color){
+      color = LIST_DISTINCT_COLORS[(Math.floor(Math.random() * LIST_DISTINCT_COLORS.length))];
+    }
+    addRow_tagTable(tag['tag'],color)
+  }
   // close the pop up
   document.getElementById('popup_listTags').style.display='none'
-
 }
 
 function extract_listTags_from_html_table() {
-  let listTags=[]
-  let listrows= TABLE_TAGS.children[0].children
-  for (let row of listrows) {
-    // console.log(row.children[1].innerHTML);
-    listTags.push(row.children[1].innerHTML)
-  }
-  return listTags.slice(1,)
-}
-
-function addRow_tagTable(tagname) {
-    if (!extract_listTags_from_html_table().includes(tagname)) {
-      var row = TABLE_TAGS.insertRow(TABLE_TAGS.rows.length);
-      row.insertCell(0).innerHTML= '<input style="width:35px" type="button" value = "X" onClick="deleteRow(this)">';
-      // row.insertCell(1).innerHTML= '<b>'+tagname+'</b>';
-      row.insertCell(1).innerHTML= tagname;
-      row.insertCell(2).innerHTML= '<input id=color_' + tagname + ' class="color_button" type="button" value=color onClick="popup_trace_color_picker(this)">';;
-  }
+  return Array.from(TABLE_TAGS.children[0].children).slice(1,).map(x=>[x.children[1].innerHTML,x.children[2].children[0].value])
 }
 
 function select_tag_xaxis(tagname) {
@@ -890,7 +930,7 @@ function update_dd_tag_for_formula() {
   // console.log(extract_listTags_from_html_table())
   previous_val = dd_tags_formula.value
   dd_tags_formula.innerHTML=''
-  listtags = extract_listTags_from_html_table()
+  listtags = extract_listTags_from_html_table().map(x=>x[0])
   init_dropdown('dd_var', listtags)
 }
 
@@ -1163,25 +1203,17 @@ AColorPicker.from('#bg_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[wi
 
 AColorPicker.from('#trace_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[width,150]})
 .on('change', (picker, color) => {
-  hex_color_value=AColorPicker.parseColor(color, "hex");
+  hex_color_value = AColorPicker.parseColor(color, "hex");
   update = {
     'line.color':hex_color_value,
     'marker.color':hex_color_value,
   }
   Plotly.restyle('plotly_fig', update, CURTRACE);
-  update_button_colors()
+  btn = Array.from(TABLE_TAGS.children[0].children).slice(1,).filter(x=>x.children[1].textContent == fig.data[CURTRACE].name)[0].children[2].children[0]
+  btn.style.backgroundColor = hex_color_value
+  btn.value = hex_color_value
 });
 
-function update_button_colors(){
-  for (trace of fig.data){
-    id = 'color_' + trace.name
-    color = trace.marker.color
-    // console.log(id,color);
-    btn = document.getElementById(id)
-    btn.style.backgroundColor = color
-    btn.value = color
-  }
-}
 
 function test(){
 
@@ -1235,3 +1267,18 @@ function popup_trace_color_picker(e){
     picker.style.display = 'flex'
     picker.style.zIndex=1
   }
+
+
+function update_traces_color(){
+  config_colors = Array.from(TABLE_TAGS.children[0].children).slice(1,).map(x=>[x.children[1].textContent,x.children[2].children[0].value])
+  for (let x of config_colors) {
+    // console.log(x);
+    trace_id = document.getElementById('plotly_fig').data.map(x=>x.name).indexOf(x[0])
+    update = {
+      'line.color':x[1],
+      'marker.color':x[1],
+    }
+    Plotly.restyle('plotly_fig', update, trace_id);
+    }
+  }
+  
