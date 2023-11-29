@@ -1,0 +1,50 @@
+<div id="drop-area">
+    <p>Drag and drop files here or click to select files</p>
+    <input type="file" id="file-input" multiple style="display: none;">
+</div>
+<ul id="file-list"></ul>
+
+<span class="small_title">data parameters:</span>
+
+<p>select your session : </p>
+<select id=dd_session onchange="update_data_sets(event)"></select>
+<br>
+<p>select your dataset : </p>
+<select id=dd_data_set onchange="change_dataSet()"></select>
+<br>
+<p>select start and end time : </p>
+<br>
+<input id='datetimepicker' type="text" name="datetimes" />
+<input type="checkbox" id="check_times">
+<label for="check_times"> select the whole date</label><br>
+<br>
+
+<div id="div_time_resolution"></div>
+
+<p>select the resampling method: </p>
+<select class=dd id="dd_resMethod"><select/>
+<br>
+
+<div id=div_tags>
+    <input type="checkbox" id="check_all_tags">
+    <label for="check_all_tags"> select all tags</label><br>
+    <br>
+    <span class='list_tags'>your list of tags:</span>
+    <input id="in_dd_y" type="text" placeholder="add a tag, search it.." class="in_dd_tag" onclick="show_tag_list(this)" onkeyup="filterTag(this)">
+    <div id="dd_y" class="dropdown-content"></div>
+    <button name=btn_add_tags onclick="pop_listTags_up()">enter your list of tags </button>
+</div>
+
+<div>
+  <p>select x-axis: </p>
+  <br>
+  <select class="dd" id="select_dd_x"></select>
+  <div id="dd_x" class="dropdown-content"></div>
+  <table name="table_tags" id="table_tags" border="1" cellpadding="2">
+    <tr>
+        <td>delete</td>
+        <td><b>Tags selected</b></td>
+        <td>color</td>
+    </tr>
+  </table>
+</div>

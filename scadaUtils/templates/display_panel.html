@@ -1,0 +1,58 @@
+<p>change background color: </p>
+<button class='p_but' id="btn_bg_color" type="button" onclick="popup_bg_color_picker()">background <br> color</button>
+<div id='bg_color_picker' class="html_color_picker" acp-color="#EFE9E7" acp-show-rgb="no" acp-show-hsl="yes" acp-show-hex="yes" acp-show-alpha></div>
+<br>
+<p>grid parameters:</p>
+<br>
+<input type="checkbox" id="grid_x" class="grid_params">
+<label for="grid_x"> grid on x axes</label><br>
+<input type="checkbox" id="grid_y" class="grid_params">
+<label for="grid_y"> grid on y axes</label><br>
+<input type="checkbox" id="grid_box" class="grid_params">
+<label for="grid_box"> grid box</label><br>
+<input type="checkbox" id="zeroline" class="grid_params">
+<label for="zeroline"> zeroline</label><br>
+<br>
+<p>select style: </p>
+<select class="dd" id="dd_style" onchange="update_style_fig(this)"></select>
+<br>
+<span>maker size:</span>
+<input type="number" id=marker_size onchange="update_size_markers()" value="5">
+<br>
+<div name='distinct_colors' id=distinct_colors_div>
+  <span><b>new colors:</b></span>
+  <label class="switch">
+    <input type="checkbox" name='colors_switch' id=color_switch onclick="update_colors_figure(this)">
+    <span class="slider round"></span>
+  </label>
+</div>
+<div name='toogle_gaps' id=toogle_gaps_div>
+  <span><b>remove gaps(temps morts):</b></span>
+  <label class="switch">
+    <input type="checkbox" name='gaps_switch' id=gap_switch onclick="toggle_gaps()">
+    <span class="slider round"></span>
+  </label>
+</div>
+<span>criterion to remove gaps:</span>
+<select id="method_rgaps" class="dd">
+  <option value="I>1">I>1</option>
+  <option value="no data">no data</option>
+</select>
+<div name='display legend' class="legend_para" id=legend_para>
+  <span><b>display legend mode:</b></span>
+  <!-- radio items defined in smallpower_dash.js -->
+</div>
+    <br>
+    <p>space between axes:</p>
+    <input type="range" id="s_axes" min="0" max="0.2" value="0.05" step="0.001" onchange="update_axes()"/>
+    <br>
+    <p>number of ticks:</p>
+    <input type="number" id="nticks" min="2" max="30" value="10" step="1" onchange="update_axes()"/>
+    <br>
+    <p>precision in hover mode:</p>
+    <input type="number" id="n_digits" min="0" max="10" value="1" step="1" onchange="update_hover()"/>
+    <br>
+    <p>font size hover:</p>
+    <input type="number" id="fs_hover" min="10" max="30" value="12" step="1" onchange="update_hover()"/>
+    <br>
+</div>

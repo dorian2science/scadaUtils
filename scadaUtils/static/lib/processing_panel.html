@@ -1,0 +1,23 @@
+<p>Select the tag on which the operation will be done: </p>
+<br>
+<select class="dd" id="dd_var"></select>
+<button name=btn_add_var onclick="add_operation(this)">add variable</button>
+<br>
+<p>Select the operation you want to perfrom: </p>
+<br>
+<!-- <select class="dd" name="dd_operation" id="dd_operation"></select> -->
+<button name=btn_op_plus class="big_btn" onclick="add_operation(this)">+</button>
+<button name=btn_op_mois class="big_btn" onclick="add_operation(this)">-</button>
+<button name=btn_op_fois class="big_btn" onclick="add_operation(this)">*</button>
+<button name=btn_op_divide class="big_btn" onclick="add_operation(this)">/</button>
+<button name=btn_op_power class="big_btn" onclick="add_operation(this)">^</button>
+<br>
+<p>Formula of the new variable to create(press enter to adjust the name of the formula): </p>
+<br>
+<input class='formula' id='in_formula' type="text"/ onchange=update_formula()>
+<br>
+<p>Name of your new created variable : </p>
+<br>
+<input class='formula' id='new_var_name' type="text"/>
+<br>
+<button name=btn_add_formula onclick="add_formula_variable()">compute the variable</button>

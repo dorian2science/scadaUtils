@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- <link rel="shortcut icon" href="{{ url_for('static', filename='/lib/sylfen_logo.ico') }}"> -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="../static/lib/css/styles.css">
+  <link rel="icon" type="image/jpeg" href="../static/lib/pictures/inocel.jpeg">
+  <link rel="stylesheet" href="../static/lib/css/dropdown_filter.css">
+  <link rel="stylesheet" href="../static/lib/css/toggle_switch.css">
+  <script type="text/javascript" src="../static/lib/acolorpicker.js"></script>
+  <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script> -->
+  <script type="text/javascript" src="../static/lib/js/jquery.min.js"></script>
+
+  <!-- <script src="https://cdn.plot.ly/plotly-latest.min.js"></script> -->
+  <script type="text/javascript" src="../static/lib/js/plotly.js"></script>
+
+  <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js"></script> -->
+  <script type="text/javascript" src="../static/lib/js/showdown.min.js"></script>
+
+  <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script> -->
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+  <script type="text/javascript" src="../static/lib/js/moment.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
+  <script type="text/javascript" src="../static/lib/js/daterangepicker.js"></script>
+
+  <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script> -->
+
+</head>
+
+<body>
+  <title>inodiag</title>
+  <div class="header">
+    <img width=120px src='../static/lib/pictures/inocel.jpeg' alt='logo inocel'>
+    <button onclick="pop_menu(this)" class="button_header" id='version_title'> {{ version_title }}</button>
+    <!-- <button onclick="pop_menu(this)" class="button_header" name="button_eq">show indicators</button> -->
+    <a class="button_header" href="https://inocel.atlassian.net/wiki/spaces/Diagnostiq/overview" >help me!</a>
+  </div>
+
+  <!-- pop-ups of the header -->
+  <div class="center_pop_up" id="pop_indicators"></div>
+  <div class="center_pop_up" id="pop_version_info"></div>
+  <!-- internal pop=ups -->
+  <div class="center_pop_up" id="popup_listTags">
+    <div class="dropdown">
+      <p>Enter your list of tags. Separate the color with a dot-comma ";" and separate the tags by going to the next line.
+        <br>A color is either rgb... or an html color starting with #. 
+        <br>Exemple : current_PV;rgb(0,200,200)</p>
+        <br>
+      <textarea id="taglist" name="taglist" rows="40" cols="75"
+        value="d">
+      </textarea>
+    </div>
+    <button id=btn_update_colors onclick="update_colors()">update colors only </button>
+    <button name=apply_changes onclick="apply_changes()">apply changes </button>
+  </div>
+  <div id='trace_color_picker' class="html_color_picker" acp-color="#EFE9E7" acp-show-rgb="no" acp-show-hsl="yes" acp-show-hex="yes" acp-show-alpha></div>
+
+
+  <div class="flex_container">
+    <div id="tab_panels">
+        <div class="tabs_container">
+            <div id="btn_tab_parameters" class="tab-button active" onclick="showTab('tab_parameters')">data parameters</div>
+            <div id="btn_tab_models" class="tab-button" onclick="showTab('tab_models')">models</div>
+            <div id="btn_tab_display" class="tab-button" onclick="showTab('tab_display')">display</div>
+            <div id="btn_tab_processing" class="tab-button" onclick="showTab('tab_processing')">processing</div>
+        </div>
+
+        <div class="tab-content" id="tab_parameters" >
+            <div name='buttons' id="list_buttons_request">
+            <button class='p_but' id="btn_update" type="button" onclick="fetch_figure()">request data!</button>
+            <button class='p_but' id="btn_export" type="button" onclick="data2excel()">export to excel</button>
+            <button class='p_but' id="btn_fig" type="button" onclick="export_figure()">export figure</button>
+            <!-- <button class='p_but' id="btn_state_machine" type="button" onclick="get_state_machine_report()">get state machine report</button> -->
+            <br>
+            </div>
+            <div class="request_parameters" id="tab_dataParameters"></div>
+        </div>
+
+        <div class="tab-content" id="tab_models">
+            <input id="in_dd_models" type="text" placeholder="add a model, search it.." class="in_dd_tag" onclick="show_tag_list(this)" onkeyup="filterTag(this)">
+        </div>
+
+        <div class="tab-content" id="tab_processing"></div>
+        <div class="tab-content" id ="tab_display"></div>
+    </div>
+    <div>
+        <a id="download-link" style="display: none;">Download Figure</a>
+        <input class='title_fig' onchange="change_title(this)"></input>
+        <div id=plotly_fig></div>
+    </div>
+</div>
+
+</body>
+
+</html>
+
+
+<script type="text/javascript" src="../static/lib/js/initialisation_v2.js"> </script>
+<script type="text/javascript" src="../static/lib/js/dashboard.js"> </script>

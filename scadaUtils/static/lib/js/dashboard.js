@@ -1,256 +1,4 @@
-// ########################
-//#   GLOBAL VARIABLES    #
-// ########################
-REALTIME=false
-var REALTIME_CHECK = document.getElementsByName('realtime_check')[0]
-var datetimepicker = document.getElementById('datetimepicker')
-var TABLE_TAGS = document.getElementById('table_tags')
-var TIME_REFRESH_COUNTER = 0;
-// var TIME_REFRESH_VALUE = parseInt(document.getElementsByName('in_refresh_time')[0].value)
-const MIN_REFRESH_TIME = 0
-const DEFAULT_TIME_REFRESH_VALUE = 50
-const PAPER_BG_COLOR_RT = '#929dbf'
-const LIST_DISTINCT_COLORS = ['#636EFA',
- '#EF553B',
- '#00CC96',
- '#AB63FA',
- '#FFA15A',
- '#19D3F3',
- '#FF6692',
- '#B6E880',
- '#FF97FF',
- '#FECB52',
- '#2E91E5',
- '#E15F99',
- '#1CA71C',
- '#FB0D0D',
- '#DA16FF',
- '#222A2A',
- '#B68100',
- '#750D86',
- '#EB663B',
- '#511CFB',
- '#00A08B',
- '#FB00D1',
- '#FC0080',
- '#B2828D',
- '#6C7C32',
- '#778AAE',
- '#862A16',
- '#A777F1',
- '#620042',
- '#1616A7',
- '#DA60CA',
- '#6C4516',
- '#0D2A63',
- '#AF0038',
- '#FD3216',
- '#00FE35',
- '#6A76FC',
- '#FED4C4',
- '#FE00CE',
- '#0DF9FF',
- '#F6F926',
- '#FF9616',
- '#479B55',
- '#EEA6FB',
- '#DC587D',
- '#D626FF',
- '#6E899C',
- '#00B5F7',
- '#B68E00',
- '#C9FBE5',
- '#FF0092',
- '#22FFA7',
- '#E3EE9E',
- '#86CE00',
- '#BC7196',
- '#7E7DCD',
- '#FC6955',
- '#E48F72',
- '#AA0DFE',
- '#3283FE',
- '#85660D',
- '#782AB6',
- '#565656',
- '#1C8356',
- '#16FF32',
- '#F7E1A0',
- '#E2E2E2',
- '#1CBE4F',
- '#C4451C',
- '#DEA0FD',
- '#FE00FA',
- '#325A9B',
- '#FEAF16',
- '#F8A19F',
- '#90AD1C',
- '#F6222E',
- '#1CFFCE',
- '#2ED9FF',
- '#B10DA1',
- '#C075A6',
- '#FC1CBF',
- '#B00068',
- '#FBE426',
- '#FA0087',
- 'rgb(228,26,28)',
- 'rgb(55,126,184)',
- 'rgb(77,175,74)',
- 'rgb(152,78,163)',
- 'rgb(255,127,0)',
- 'rgb(255,255,51)',
- 'rgb(166,86,40)',
- 'rgb(247,129,191)',
- 'rgb(153,153,153)',
- 'rgb(251,180,174)',
- 'rgb(179,205,227)',
- 'rgb(204,235,197)',
- 'rgb(222,203,228)',
- 'rgb(254,217,166)',
- 'rgb(255,255,204)',
- 'rgb(229,216,189)',
- 'rgb(253,218,236)',
- 'rgb(242,242,242)',
- 'rgb(133, 92, 117)',
- 'rgb(217, 175, 107)',
- 'rgb(175, 100, 88)',
- 'rgb(115, 111, 76)',
- 'rgb(82, 106, 131)',
- 'rgb(98, 83, 119)',
- 'rgb(104, 133, 92)',
- 'rgb(156, 156, 94)',
- 'rgb(160, 97, 119)',
- 'rgb(140, 120, 93)',
- 'rgb(124, 124, 124)',
- '#636EFA',
- '#EF553B',
- '#00CC96',
- '#AB63FA',
- '#FFA15A',
- '#19D3F3',
- '#FF6692',
- '#B6E880',
- '#FF97FF',
- '#FECB52',
- '#2E91E5',
- '#E15F99',
- '#1CA71C',
- '#FB0D0D',
- '#DA16FF',
- '#222A2A',
- '#B68100',
- '#750D86',
- '#EB663B',
- '#511CFB',
- '#00A08B',
- '#FB00D1',
- '#FC0080',
- '#B2828D',
- '#6C7C32',
- '#778AAE',
- '#862A16',
- '#A777F1',
- '#620042',
- '#1616A7',
- '#DA60CA',
- '#6C4516',
- '#0D2A63',
- '#AF0038',
- '#FD3216',
- '#00FE35',
- '#6A76FC',
- '#FED4C4',
- '#FE00CE',
- '#0DF9FF',
- '#F6F926',
- '#FF9616',
- '#479B55',
- '#EEA6FB',
- '#DC587D',
- '#D626FF',
- '#6E899C',
- '#00B5F7',
- '#B68E00',
- '#C9FBE5',
- '#FF0092',
- '#22FFA7',
- '#E3EE9E',
- '#86CE00',
- '#BC7196',
- '#7E7DCD',
- '#FC6955',
- '#E48F72',
- '#AA0DFE',
- '#3283FE',
- '#85660D',
- '#782AB6',
- '#565656',
- '#1C8356',
- '#16FF32',
- '#F7E1A0',
- '#E2E2E2',
- '#1CBE4F',
- '#C4451C',
- '#DEA0FD',
- '#FE00FA',
- '#325A9B',
- '#FEAF16',
- '#F8A19F',
- '#90AD1C',
- '#F6222E',
- '#1CFFCE',
- '#2ED9FF',
- '#B10DA1',
- '#C075A6',
- '#FC1CBF',
- '#B00068',
- '#FBE426',
- '#FA0087',
- 'rgb(228,26,28)',
- 'rgb(55,126,184)',
- 'rgb(77,175,74)',
- 'rgb(152,78,163)',
- 'rgb(255,127,0)',
- 'rgb(255,255,51)',
- 'rgb(166,86,40)',
- 'rgb(247,129,191)',
- 'rgb(153,153,153)',
- 'rgb(251,180,174)',
- 'rgb(179,205,227)',
- 'rgb(204,235,197)',
- 'rgb(222,203,228)',
- 'rgb(254,217,166)',
- 'rgb(255,255,204)',
- 'rgb(229,216,189)',
- 'rgb(253,218,236)',
- 'rgb(242,242,242)',
- 'rgb(133, 92, 117)',
- 'rgb(217, 175, 107)',
- 'rgb(175, 100, 88)',
- 'rgb(115, 111, 76)',
- 'rgb(82, 106, 131)',
- 'rgb(98, 83, 119)',
- 'rgb(104, 133, 92)',
- 'rgb(156, 156, 94)',
- 'rgb(160, 97, 119)',
- 'rgb(140, 120, 93)',
- 'rgb(124, 124, 124)']
-var LIST_ORIGINAL_COLORS = []
-var STABLE_PARAMETERS_PANEL=true
-var TIMES = []
-var FIG
-DIS_FACTOR=0
-DELTAT='seconds'
-var CONFIG = {
-  showEditInChartStudio: false,
-  locale: 'fr',
-  displaylogo: false,
-  plotlyServerURL: "https://chart-studio.plotly.com",
-  editable:false,
-  modeBarButtonsToRemove: ['select2d','lasso2d'],
-  modeBarButtonsToAdd: ['toggleSpikelines','lasso2d','toggleHover','hoverclosest','hovercompare'],
-}
+
 
 // ########################
 // #      FUNCTIONS       #
@@ -440,7 +188,7 @@ function toggle_gaps(){
 function build_request_parameters() {
   let parameters = {}
 
-  parameters['timerange'] = datetimepicker.value
+  parameters['timerange'] = DATETIMEPICKER.value
   parameters['rs_time'] = document.getElementById('in_time_res').value + document.getElementById('dd_time_unit').value
   parameters['rs_method'] = document.getElementById('dd_resMethod').value
   parameters['categorie'] = document.getElementById('dd_categorie').value
@@ -448,7 +196,21 @@ function build_request_parameters() {
   parameters['tags'] = extract_listTags_from_html_table().map(x=>x[0])
   parameters['coarse'] = document.getElementById('check_coarse').checked
   parameters['model'] = document.getElementById('dd_models').value
+  
+  // console.log(parameters);
+  return parameters
+}
 
+function build_request_parameters_v2() {
+  let parameters = {}
+  parameters['rs_time'] = document.getElementById('in_time_res').value + document.getElementById('dd_time_unit').value
+  parameters['rs_method'] = document.getElementById('dd_resMethod').value
+  parameters['data_set'] = document.getElementById('dd_data_set').value
+  parameters['session'] = document.getElementById('dd_session').value
+  parameters['timerange'] = DATETIMEPICKER.value
+  parameters['all_times'] = document.getElementById('check_times').checked
+  parameters['tags'] = extract_listTags_from_html_table().map(x=>x[0])
+  parameters['all_tags'] = document.getElementById('check_all_tags').checked
   // console.log(parameters);
   return parameters
 }
@@ -477,7 +239,8 @@ function addRow_tagTable(tagname,color) {
     if(!color){
       color = LIST_DISTINCT_COLORS[(Math.floor(Math.random() * LIST_DISTINCT_COLORS.length))];
     }
-    row.insertCell(2).innerHTML = '<input id=color_' + tagname + ' class="color_button" type="button" value='+ color +' onClick="popup_trace_color_picker(this)">';;
+    row.insertCell(2).innerHTML = 
+    "<input id='color_" + tagname + "' class='color_button' type=button value="+ color + ' onClick=popup_trace_color_picker(this)>'
     btn = row.children[2].children[0]
     btn.style.backgroundColor = color
     btn.value = color
@@ -510,7 +273,8 @@ function fetch_figure() {
   let btn_update=$('#btn_update')[0]
   btn_update.innerHTML='updating...'
   btn_update.classList.add('updating')
-  let parameters = build_request_parameters()
+  // let parameters = build_request_parameters()
+  let parameters = build_request_parameters_v2()
   // console.log(parameters);
   // remember visible states of previous traces
   if ($('#plotly_fig')[0].data==null){
@@ -550,7 +314,8 @@ function fetch_figure() {
     let new_traces = $('#plotly_fig')[0].data.map(x=>x.name)
     let indexes = tags_hidden.map(x=>new_traces.indexOf(x))
     if (indexes.length!=0){Plotly.restyle('plotly_fig', {visible:'legendonly'},indexes);}
-    if (REALTIME) {
+
+    if (REAL_TIME) {
       if (REALTIME_CHECK.checked) {
         Plotly.relayout('plotly_fig', {'paper_bgcolor':PAPER_BG_COLOR_RT})
       }
@@ -615,12 +380,13 @@ function update_style_fig(e) {
   }
   Plotly.restyle('plotly_fig', update);
 }
+const GRID_BOX_COLOR = '#636363'
 function modify_grid(){
   layout = document.getElementById('plotly_fig').layout
   xaxis=layout['xaxis']
 
   let grid_box = {
-    linecolor: '#636363',
+    linecolor: GRID_BOX_COLOR,
     linewidth: 6
   }
 
@@ -652,8 +418,6 @@ function modify_grid(){
 }
 
 function update_axes(){
-
-
   layout = document.getElementById('plotly_fig').layout
   axes = Object.keys(layout).filter(x=>x.includes('yaxis')).reduce((obj, key) => {
     obj[key] = layout[key];
@@ -662,10 +426,9 @@ function update_axes(){
   new_layout = {}
   var k = 0
   var p1 = 0
+  // var p2 = 0.97
   var p2 = 1
   s = parseFloat(document.getElementById('s_axes').value)
-  // s =0.06
-  // console.log("space",s);
   for (axisname in axes){
     curaxis = axes[axisname]
     if (k%2){
@@ -678,7 +441,8 @@ function update_axes(){
       curaxis['side'] = 'right'
     }
     k++
-    ax_col = curaxis['title']['font']['color']
+    // ax_col = curaxis['title']['font']['color']
+    ax_col = GRID_BOX_COLOR
     curaxis['linecolor'] = ax_col
     curaxis['linewidth'] = 4
     curaxis['autotick']= true
@@ -686,11 +450,12 @@ function update_axes(){
     curaxis['nticks'] = 10
     curaxis['ticks'] = 'outside'
     curaxis['tick0'] = 0
+    curaxis['tickfont'] = {'color':GRID_BOX_COLOR}
     curaxis['dtick'] = 0.15
     curaxis['ticklen'] = 8
     curaxis['title'] = {
         text: curaxis['title']['text'],
-        font: curaxis['title']['font'],
+        font: {'color': GRID_BOX_COLOR,'size':12},
         standoff: 0, // Adjust the standoff to move the title outside
       },
     curaxis['tickwidth'] = 2
@@ -704,10 +469,7 @@ function update_axes(){
   xaxis['domain']=[p1+minis,p2-minis]
   new_layout['xaxis'] = xaxis
 Plotly.relayout('plotly_fig', new_layout)
-
 }
-var converter = new showdown.Converter()
-// $('#pop_indicators').load('../static/html/indicators.html')
 
 function pop_menu(e){
   // console.log(e)
@@ -718,8 +480,6 @@ function pop_menu(e){
   obj_html.style.zIndex=10
 }
 
-// ----------------------------------
-// TAGS DROPDOWN
 function show_tag_list(e) {
   dd_div=document.getElementById(e.id.replace('in_',''))
   dd_div.style.display='block';
@@ -727,8 +487,8 @@ function show_tag_list(e) {
 }
 
 function filterTag(e) {
-  // console.log(e.id);
   dd_div = document.getElementById(e.id.replace('in_',''))
+  console.log(dd_div);
   let filter = new RegExp(e.value.toUpperCase().replaceAll(' ','.*'));
   // console.log(filter);
   for (let a of dd_div.getElementsByTagName("a")) {
@@ -959,7 +719,7 @@ function change_model(event){
     init_dropdown('dd_categorie',values=['no categorie'].concat(model_tags['categories']))
     // init_tags_dropdown('dd_x',values=['time'].concat(data['all_tags']),select_tag_xaxis)
     init_dropdown('select_dd_x',values=['Time'].concat(model_tags['all_tags']))
-    possible_vars=extract_listTags_from_html_table()
+    possible_vars = extract_listTags_from_html_table()
 
     init_dropdown('dd_var',possible_vars.map((item, index) => `var${index + 1}_${item}`))
 
@@ -975,84 +735,36 @@ function change_model(event){
   }
 )}
 
-//# ###########################
-//# Backend INITIALIZATION    #
-//# ###########################
-function initialisation(data){
-    data = JSON.parse(data)
-    // ------- INITIALIZATION of myDropdown menus --------
-    init_dropdown('dd_models',values=data['models'],change_model)
-    $('#dd_models')[0].value = data['model']
-    $('#dd_models')[0].dispatchEvent(new CustomEvent("change",{bubbles: true,detail:true}));
-    data['tags'].map(tag => addRow_tagTable(tag))
-    init_dropdown('dd_resMethod',values=data['rsMethods'])
-    init_dropdown('dd_style',values=data['styles'])
-    // init_dropdown('dd_operation',values=['no operation'].concat(['derivative','integral','regression p1','regression p2','regression p3']))
-    init_radioButton(id='legend_para',values=['unvisible','tag','description'],'legend')
-    $('input[type=radio][name=legend]').change(function() {
-      update_legend(this.value)
-    })
-    //--------- DEFAULT VALUES FOR REQUEST_PARAMETERS ------------
-    $('#dd_resMethod')[0].value = 'mean'
-    $('#dd_time_unit')[0].value = data['rs_unit']
-    console.log(data['rs_unit']);
-    $('#in_time_res')[0].value = data['rs_number']
-    $('#gap_switch')[0].checked = false
-    $('#legend_tag')[0].checked = true;
-    $('.title_fig')[0].value = data['fig_name']
-
-    if (REALTIME){
-      document.getElementsByName('time_window')[0].value=data['time_window']
-      // DEFAULT REAL-TIME
-      let refresh_time=document.getElementsByName('in_refresh_time')[0]
-      refresh_time.value=DEFAULT_TIME_REFRESH_VALUE
-      refresh_time.min=MIN_REFRESH_TIME
-      REALTIME_CHECK.checked=false;
-  }
-
-    document.title=data['title'] +':'+$('.title_fig')[0].value
-    // path_log_version='../static/lib/'+data['log_versions']
-    path_log_version='../static/lib/log_versions.md'
-    // ****** load the logversion file info ******
-    $.get(path_log_version, function(md_text) {
-      $('#pop_version_info')[0].innerHTML=converter.makeHtml(md_text)
-    })
-    //BUILD THE INITIAL FIGURE
-    document.getElementById('dd_categorie').value = 'no categorie'
-    $('#select_dd_x')[0].value = 'Time'
+function get_sessions(){
+  $.get('send_sessions',function(sessions,status){
+    // console.log(sessions)
+    init_dropdown('dd_session',values=sessions)
+  })
 }
 
-// function fetchData() {
-//   return new Promise((resolve, reject) => {
-    // Simulate an asynchronous operation (e.g., fetching data from an API)
-//     setTimeout(() => {
-//       const data = { message: 'Data fetched successfully' };
-//       const error = null; // Set to an error object if something went wrong
-//
-//       if (error) {
-//         reject(error); // Reject the promise with an error
-//       } else {
-//         resolve(data); // Resolve the promise with the fetched data
-//       }
-//     }, 2000); // Simulated delay of 2 seconds
-//   });
-// }
-
-$.when(
-  $.get('init',function(data){
-    initialisation(data)
+function update_data_sets(){
+  session = document.getElementById('dd_session').value
+  $.post('send_data_sets',session,function(data_sets){
+      document.getElementById("dd_data_set").innerHTML = ""
+      init_dropdown('dd_data_set',values=data_sets)
   })
-  // .then(
-  //   fetch_figure()
-  // )
-)
+}
+
+function change_dataSet(){
+  dataset = document.getElementById('dd_data_set').value
+  session = document.getElementById('dd_session').value
+  data={'dataset':dataset,'session':session}
+  $.post('send_dfplc',JSON.stringify(data),function(tags,status){
+    init_tags_dropdown('dd_y',values=tags,addRow_tagTable)
+  })
+}
 
 //# ########################
 //#    REAL TIME FEATURES  #
 //# ########################
 function update_timerange_picker(options){
   // let time_window = parseInt(document.getElementsByName('time_window')[0].value)
-  time_window = options.time_window=3*24*60-1/60
+  time_window = options.time_window = 3*24*60-1/60
   max_date = options.max_date || moment().startOf('second')
   end_date = options.end_date || max_date
   start_date = options.start_date || moment(end_date).subtract(time_window,'minute')
@@ -1098,67 +810,12 @@ function pop_menu_refresh(e) {
     Plotly.relayout('plotly_fig', {'paper_bgcolor':'#fff'});
   }
 }
-if (REALTIME){
-// update TIME_REFRESH_VALUE on pressing enter
-  document.getElementsByName('in_refresh_time')[0].onkeyup=function(e){
-    if (e.key=='Enter'){
-      let value = parseInt(document.getElementsByName('in_refresh_time')[0].value)
-      if (value<MIN_REFRESH_TIME){
-        alert('please select a refresh time value > '+ (MIN_REFRESH_TIME-1) +' seconds')
-      }else
-      {
-        TIME_REFRESH_VALUE=value
-        TIME_REFRESH_COUNTER=TIME_REFRESH_VALUE
-      }
-    }
-  }
-  // update datetimepicker if in refresh mode
-  setInterval(()=>{
-    if (REALTIME_CHECK.checked){
-      if (TIME_REFRESH_COUNTER==0) {
-        TIME_REFRESH_COUNTER = TIME_REFRESH_VALUE
-        update_timerange_picker()
-        fetch_figure()
-      }
-      // console.log(TIME_REFRESH_COUNTER)
-      TIME_REFRESH_COUNTER-=1
-    }
-  },1000)
-}
+
 // title of the graph callback
 function change_title(e){
   // document.title='smallPower:'+e.value
   document.title=e.value
 }
-//# #########################
-//#  LISTENERS to hide menus#
-//#   when clicking outside #
-//#       of them           #
-//# #########################
-//
-var listpop_ids=['popup_listTags',"dd_x","dd_y","pop_version_info","pop_indicators","bg_color_picker","trace_color_picker"]
-// var listpop_ids=['popup_listTags',"dd_x","dd_y","pop_version_info","pop_indicators"]
-document.addEventListener("mouseup", function(event) {
-  for (id of listpop_ids) {
-    var html_obj = document.getElementById(id);
-    if (!html_obj.contains(event.target)) {
-        html_obj.style.display='none'
-        html_obj.style.zIndex=-1
-    }
-  }
-});
-
-//# ##################
-//#       SHORTCUTS  #
-//# ##################
-document.getElementById('plotly_fig').onkeyup=function(e){
-// document.onkeyup=function(e){
-  // console.log('shortcut triggered');
-  if (e.key == 't') {$('#legend_tag')[0].checked=true;update_legend($('input[name="legend"]')[0].value)}
-  else if (e.key == 'd') {$('#legend_description')[0].checked=true;update_legend($('input[name="legend"]')[0].value)}
-  else if (e.key == 'u') {$('#legend_unvisible')[0].checked=true;update_legend($('input[name="legend"]')[0].value)}
-}
-
 
 function pop_param_div(action){
   // console.log(action);
@@ -1193,27 +850,6 @@ function pop_param_div(action){
 //# ############################
 let width=400
 var CURTRACE = 0
-
-AColorPicker.from('#bg_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[width,150]})
-.on('change', (picker, color) => {
-  hex_color_value=AColorPicker.parseColor(color, "hex");
-  console.log('bg');
-  Plotly.relayout('plotly_fig', {'plot_bgcolor':color})
-})
-
-AColorPicker.from('#trace_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[width,150]})
-.on('change', (picker, color) => {
-  hex_color_value = AColorPicker.parseColor(color, "hex");
-  update = {
-    'line.color':hex_color_value,
-    'marker.color':hex_color_value,
-  }
-  Plotly.restyle('plotly_fig', update, CURTRACE);
-  btn = Array.from(TABLE_TAGS.children[0].children).slice(1,).filter(x=>x.children[1].textContent == fig.data[CURTRACE].name)[0].children[2].children[0]
-  btn.style.backgroundColor = hex_color_value
-  btn.value = hex_color_value
-});
-
 
 function test(){
 
@@ -1263,11 +899,11 @@ function popup_bg_color_picker(){
 
 function popup_trace_color_picker(e){
     picker = document.getElementById('trace_color_picker')
+    console.log(e.id);
     CURTRACE = fig.data.map(x=>x.name).indexOf(e.id.split('color_')[1])
     picker.style.display = 'flex'
     picker.style.zIndex=1
   }
-
 
 function update_traces_color(){
   config_colors = Array.from(TABLE_TAGS.children[0].children).slice(1,).map(x=>[x.children[1].textContent,x.children[2].children[0].value])

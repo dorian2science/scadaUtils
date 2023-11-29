@@ -8,7 +8,9 @@ import re
 import plotly.graph_objects as go
 from string import ascii_letters,digits
 from .comUtils import (timenowstd,computetimeshow,print_file,to_folderday)
+from .utils import graphics
 from .Conf_generator import create_folder_if_not
+import os
 
 NOTIFS={
     'too_many_datapoints':''' TOO MANY DATAPOINTS\n
@@ -35,6 +37,21 @@ def detect_empty_columns(df):
     s = df.isna().all()
     return s[s].index.to_list()
 
+def quick_resample(df,rs,rsMethod):
+    if rsMethod=='min':
+        df = df.resample(rs).min()
+    elif rsMethod=='max':
+        df = df.resample(rs).max()
+    elif rsMethod=='mean':
+        df = df.resample(rs).mean()
+    elif rsMethod=='median':
+        df = df.resample(rs).median()
+    elif rsMethod=='forwardfill':
+        df = df.resample(rs).ffill()
+    elif rsMethod=='nearest':
+        df = df.resample(rs).nearest()
+    return df
+
 
 class Dashboard():
     '''
@@ -59,8 +76,12 @@ class Dashboard():
         ):
 
         cfg.styles = ['default'] + cfg.utils.styles
-        self.fig_wh=780
-        self.cfg=cfg
+        self.dashboard_html = 'dashboard.html'
+        self.tmp_folder = '/data/tmp/'
+        self.folder_upload = '/data/uploaded/'
+        self.folder_dfplc = '/data/dfplc/'
+        self.fig_wh = 780
+        self.cfg = cfg
         self.max_nb_pts=max_nb_pts
         self.rs_min_coarse=rs_min_coarse
         self.nb_days_min_coarse=nb_days_min_coarse
@@ -105,14 +126,14 @@ class Dashboard():
         init_parameters['rs_number'] = rs_number
         init_parameters['rs_unit'] = rs_unit
 
-        self.init_parameters=init_parameters
+        self.init_parameters = init_parameters
 
         # ###############
         #    ROUTING    #
         # ###############
         @self.app.route('/', methods=['GET'])
         def main_viewport():
-            return render_template('dashboard.html',
+            return render_template(self.dashboard_html,
                 helpmelink=self.helpmelink,
                 # version_title=self.app_name+' '+self.version_dashboard,
                 version_title='gaia ' + self.version_dashboard,
@@ -124,7 +145,8 @@ class Dashboard():
 
         @self.app.route('/generate_fig', methods=['POST'])
         def generate_fig():
-            return self._generate_fig()
+            # return self._generate_fig()
+            return self._generate_fig_v2()
 
         @self.app.route('/export2excel', methods=['POST'])
         def export2excel():
@@ -141,6 +163,25 @@ class Dashboard():
         @self.app.route('/get_model_tags',methods=['POST'])
         def send_model_tags():
             return self._send_model_tags()
+
+        @self.app.route('/upload',methods=['POST'])
+        def process_new_file():
+            return self._process_new_file()
+
+        @self.app.route('/send_sessions',methods=['GET'])
+        def send_sessions():
+            return os.listdir(self.folder_upload)
+
+        @self.app.route('/send_data_sets',methods=['POST'])
+        def send_data_sets():
+            data = request.get_data()
+            session = data.decode()
+            print_file(session)
+            return [k.strip('.pkl') for k in os.listdir(os.path.join(self.folder_upload,session)) if '.pkl' in k]
+
+        @self.app.route('/send_dfplc',methods=['POST'])
+        def send_dfplc():
+            return self._send_dfplc()
 
     def _create_dashboard_links(self,root_folder):
         '''
@@ -189,6 +230,37 @@ class Dashboard():
     # ###################
     #    FUNCTIONS      #
     # ###################
+    def check_nb_data_points(self,df):
+        nb_datapoints = len(df)*len(df.columns)
+        notif=200
+        if nb_datapoints>self.max_nb_pts:
+            nb_pts_curve = self.max_nb_pts//len(df.columns)
+            total_seconds = (df.index[-1]-df.index[0]).total_seconds()
+            new_rs = str(total_seconds//nb_pts_curve)
+            df = df.resample(new_rs+'S').mean()
+            notif = NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)).replace('YYY',new_rs).replace('AAA',str(self.max_nb_pts//1000))
+        return df,notif
+
+    def parse_file(self,f):
+        df = pd.read_excel(f)
+        dfplc = df.iloc[:2,1:].T
+        dfplc.columns = ['UNITE','description']
+        dfplc['MODEL'] = 'cea_pacmat2'
+        dfplc['UNITE'].unique()
+        ## find the time
+        t = df['temps'][1]
+        a = re.search(r'\w+ (\d+-\w+-\d+ \d{2}:\d{2}:\d{2}).*',t)
+        t0 = pd.Timestamp(a.groups()[0],tz='CET')
+        df2 = df.iloc[2:,1:]
+        df2.index = [t0+pd.Timedelta(k,'seconds') for k in df2.index]
+        ## save the file
+        file_name = f.split('/')[-1]
+        new_file_name = '.'.join(file_name.split('.')[:-1])
+        new_file_path = self.folder_upload + new_file_name+'.pkl'
+        df2.ffill().bfill().to_pickle(new_file_path)
+        dfplc_path = self.folder_dfplc + new_file_name+'_dfplc.pkl'
+        dfplc.to_pickle(dfplc_path)
+
     def _init_dashboard(self):
         return json.dumps(self.init_parameters)
 
@@ -208,6 +280,15 @@ class Dashboard():
         data['min_date'] = to_folderday(min_day)
         data['excludeddates'] = [to_folderday(k) for k in excludeddates]
         return json.dumps(data)
+    
+    def _send_dfplc(self):
+        data = request.get_data()
+        data = json.loads(data.decode())
+        print_file(data)
+        dfplc_path = os.path.join(self.folder_upload,data['session'],'dfplc',data['dataset'] + '_dfplc.pkl')
+        print_file(dfplc_path)
+        dfplc = pd.read_pickle(dfplc_path)
+        return dfplc.index.to_list()
 
     def _generate_fig(self):
         debug = False
@@ -330,8 +411,84 @@ class Dashboard():
         new_names = self.cfg.toogle_tag_description(data['tags'],data['mode'])
         return jsonify(new_names)
 
+    def _process_new_file(self):
 
-class StaticDashboard(Dashboard):
+        if 'file' not in request.files:
+            return 'No file part'
+        
+        file = request.files['file']
+
+        if file.filename == '':
+            return 'No selected file'
+
+        filepath = self.tmp_folder + file.filename
+        file.save(filepath)
+        print_file('file stored successfully')
+        self.parse_file(filepath)
+        return file.filename
+    
+    def _generate_fig_v2(self):
+        debug = False
+        notif = 200
+        try:
+            start = time.time()
+            data = request.get_data()
+            parameters = json.loads(data.decode())
+            if debug:print_file(parameters)
+
+            data_set = parameters['data_set']
+            session = parameters['session']
+            file_path = os.path.join(self.folder_upload,session,data_set + '.pkl')
+            # print_file(file_path)
+            df = pd.read_pickle(file_path)
+            tags = parameters['tags']
+            if parameters['all_tags'] == True:
+                tags = df.columns
+            df = df[tags]
+            t0,t1 = [pd.Timestamp(t,tz='CET') for t in parameters['timerange'].split(' - ')]
+            if not parameters['all_times']:
+                df = df[(df.index>=t0)&(df.index<=t1)]
+
+            rs,rsMethod = parameters['rs_time'],parameters['rs_method']
+            # print_file(computetimeshow('df read',start))
+
+            df = quick_resample(df,rs,rsMethod)
+            # print_file(computetimeshow('resample done',start))
+
+            if df.empty:
+                notif = NOTIFS['no_data']
+                raise Exception('no data')
+
+            ####### check that the request does not have TOO MANY DATAPOINTS
+            df,notif = self.check_nb_data_points(df)
+
+            ####### generate graph 
+            dfplc_path = os.path.join(self.folder_upload,session,'dfplc',data_set + '_dfplc.pkl')
+            dfplc = pd.read_pickle(dfplc_path)
+            # print_file(computetimeshow('dfplc read',start))
+            if debug:print_file(df)            
+            # desc = {k:k + ':' + dfplc.loc[k,'description'] for k in df.columns}
+            # units = {v:dfplc['UNITE'].loc[k] for k,v in desc.items()}
+            units = dfplc.loc[list(df.columns),'UNITE'].to_dict()
+            print_file(df)
+            print_file(units)
+            # df = df.rename(columns=desc)
+            fig = graphics.multiUnitGraph(df,units)
+            # print_file(computetimeshow('graph generated',start))
+
+        except:
+            if notif==200:
+                notif = 'figure_generation_impossible'
+                error = {'msg':' problem in the figure generation with generate_fig','code':1}
+                # error_message = self.notify_error(sys.exc_info(),error)
+                error_message = traceback.format_exc()
+                notif = NOTIFS[notif] + error_message 
+            fig = go.Figure()
+
+        res = {'fig':fig.to_json(),'notif':notif}
+        return jsonify(res)
+
+class Drag_Drop_dashboard(Dashboard):
     def __init__(self,*args,**kwargs):
         '''
         see Dashboard
@@ -339,3 +496,5 @@ class StaticDashboard(Dashboard):
         Dashboard.__init__(self,*args,**kwargs)
         self.rs_min_coarse=100000000
         self.nb_days_min_coarse=100000
+
+
