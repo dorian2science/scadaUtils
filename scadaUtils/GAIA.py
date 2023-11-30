@@ -434,59 +434,29 @@ class GAIA():
     '''
     Super instance that create a project from scratch to dump data from devices,
     load, visualize, and serve those data on a web GUI.
-
-    :param str root_folder: root_folder of the dashboard web service. Default, None
-    :param bool realtime: if True, Gaia uses postgressql database as buffer otherwise it is just static data loading from folderpkl. Default, True
     :param \*args: see sylfenUtils.Conf_generator.Conf_generator arguments
     :param \**kwargs: see sylfenUtils.Conf_generator.Conf_generator arguments
     '''
-    def __init__(self,*args,root_folder=None,realtime=True,verbose=False,**kwargs):
-        if realtime:self.conf = Conf_generator.Conf_generator_RT(*args,**kwargs)
-        else:self.conf        = Conf_generator.Conf_generator_Static(*args,**kwargs)
-        self.conf._realtime   = realtime
-        self.dfplc            = self.conf.dfplc
+    def __init__(self,*args,realtime=False,verbose=False,**kwargs):
+        if realtime:
+            self.conf = Conf_generator.Conf_generator_RT(*args,**kwargs)
+        else:
+            self.conf = Conf_generator.Conf_generator_Static(*args,**kwargs)
+
+        self.dfplc = self.conf.dfplc
         #### INITIALIZE DEVICES
         # comUtils.print_file(self.conf)
-        if not hasattr(self.conf,'modbus_maps'):self.conf.modbus_maps=None
-        if not hasattr(self.conf,'plcs'):self.conf.plcs=None
-        self.devices     = build_devices(self.conf.df_devices,self.conf.modbus_maps,self.conf.plcs,verbose=verbose)
-        self._dumper     = comUtils.SuperDumper_daily(self.devices,self.conf)
-        self._visualiser = comUtils.VisualisationMaster_daily(self.conf)
-        if root_folder is None:
-            root_folder=os.path.join(self.conf.project_folder,'dashboard')
-
-        _initial_tags=self.conf.INITIAL_TAGS.strip(';').split(';')
-        if len(_initial_tags)==1 and _initial_tags[0].lower().strip()=='random':
-            _initial_tags=self.dfplc.sample(n=min(3,len(self.dfplc.index))).index.to_list()
+        if realtime:
+        # if not hasattr(self.conf,'modbus_maps'):self.conf.modbus_maps=None
+        # if not hasattr(self.conf,'plcs'):self.conf.plcs=None
+            self.devices = build_devices(self.conf.df_devices,self.conf.modbus_maps,self.conf.plcs,verbose=verbose)
+            self._dumper = comUtils.SuperDumper_daily(self.devices,self.conf)
+            self._visualiser = comUtils.VisualisationMaster_daily(self.conf)
         else:
-            alltags=[]
-            for t in _initial_tags:
-                alltags+=self.conf.getTagsTU(t)
-            _initial_tags=alltags
+            self._visualiser = comUtils.VisualisatorStatic(self.conf)
 
-        self._init_parameters={
-            'tags':_initial_tags,
-            'fig_name':self.conf.INITIAL_FIGNAME,
-            'rs':self.conf.INITIAL_RESAMPLING_TIME,
-            'time_window':self.conf.INITIAL_TIME_WINDOW,
-            'delay_minutes':0,
-            'log_versions':None #you can enter the relative path of (in folder static) a .md file summarizing some evolution in your code.
-        }
-        if self.conf.TEST_ENV:
-            self._init_parameters['delay_minutes']=self.conf.DASHBOARD_DELAY_MINUTES
         #### configure web GUI
-        self._dashboard=Dashboard(
-            self._visualiser,
-            self.conf.LOG_FOLDER,
-            root_folder,
-            rs_min_coarse=eval(self.conf.RS_MIN_COARSE),
-            nb_days_min_coarse=eval(self.conf.NB_DAYS_MIN_COARSE),
-            app_name=self.conf.project_name,
-            init_parameters=self._init_parameters,
-            plot_function=utils.Graphics().multiUnitGraph, ## you can use your own function to display the data
-            version_dashboard='1.0')
-        self._dashboard.helpmelink='' ### you can precise a url link on how to use the web interface
-        self._dashboard.fig_wh=780### size of the figure
+        self._dashboard = Dashboard(self.conf,self._visualiser)
 
         print('='*60,'\nYOUR ATTENTION PLEASE.\nPlease check your default settings for the application in the file.\n\n',self.conf.file_parameters)
         print('\nIf necessary change the settings and reinstanciate your GAIA object\n'+'='*60)

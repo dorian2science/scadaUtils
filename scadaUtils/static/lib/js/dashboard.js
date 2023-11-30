@@ -196,7 +196,7 @@ function build_request_parameters() {
   parameters['tags'] = extract_listTags_from_html_table().map(x=>x[0])
   parameters['coarse'] = document.getElementById('check_coarse').checked
   parameters['model'] = document.getElementById('dd_models').value
-  
+
   // console.log(parameters);
   return parameters
 }
@@ -239,7 +239,7 @@ function addRow_tagTable(tagname,color) {
     if(!color){
       color = LIST_DISTINCT_COLORS[(Math.floor(Math.random() * LIST_DISTINCT_COLORS.length))];
     }
-    row.insertCell(2).innerHTML = 
+    row.insertCell(2).innerHTML =
     "<input id='color_" + tagname + "' class='color_button' type=button value="+ color + ' onClick=popup_trace_color_picker(this)>'
     btn = row.children[2].children[0]
     btn.style.backgroundColor = color
@@ -269,6 +269,8 @@ function parse_tag(inputString){
   }
 }
 
+
+
 function fetch_figure() {
   let btn_update=$('#btn_update')[0]
   btn_update.innerHTML='updating...'
@@ -284,9 +286,9 @@ function fetch_figure() {
   }
   // console.log(tags_hidden);
   // post request
-  $.post('/generate_fig',JSON.stringify(parameters),function(res,status){
+  $.post('/generate_dataset_fig',JSON.stringify(parameters),function(res,status){
     style = document.getElementById('dd_style').value
-    
+
     var notif = res['notif']
     if ( notif!=200){
       alert(notif)
@@ -296,7 +298,7 @@ function fetch_figure() {
     var fig = JSON.parse(res['fig'])
     // make sure the colors are original state and the gaps as well
     $('#color_switch')[0].checked=false
-    
+
     // plot the new figure
     Plotly.newPlot('plotly_fig', fig.data,fig.layout,CONFIG);
     for (trace of document.getElementById('plotly_fig').data){
@@ -704,7 +706,7 @@ function empyt_select(dd_id){
 
 function change_model(event){
   model = document.getElementById('dd_models').value
-  $.post('/get_model_tags',JSON.stringify(model),function(data,status){
+  $.post('/send_model_tags',JSON.stringify(model),function(data,status){
     model_tags = JSON.parse(data)
     // console.log(model_tags);
     if (event.detail==undefined){
@@ -736,9 +738,12 @@ function change_model(event){
 )}
 
 function get_sessions(){
-  $.get('send_sessions',function(sessions,status){
-    // console.log(sessions)
-    init_dropdown('dd_session',values=sessions)
+  return new Promise((resolve, reject) => {
+    $.get('send_sessions',function(sessions,status){
+      // console.log(sessions)
+      init_dropdown('dd_session',values=sessions)
+      resolve()
+    })
   })
 }
 
@@ -917,4 +922,3 @@ function update_traces_color(){
     Plotly.restyle('plotly_fig', update, trace_id);
     }
   }
-  

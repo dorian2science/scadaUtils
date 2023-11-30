@@ -2,6 +2,7 @@ import pickle,os,sys,re,subprocess as sp,time,shutil
 import pandas as pd
 from .comUtils import (print_file,FileSystem,create_folder_if_not)
 import psycopg2
+import json 
 
 FS=FileSystem()
 
@@ -120,51 +121,38 @@ class Conf_generator():
         #### if the PROJECT FOLDER does not exists create it
         create_folder_if_not(self.project_folder)
 
-        self._file_conf_pkl=os.path.join(self.project_folder,'conf_' + self.project_name + '.pkl')
-        self.file_parameters=os.path.join(self.project_folder,'parameters.conf')
+        self._file_conf_pkl = os.path.join(self.project_folder,'conf_' + self.project_name + '.pkl')
+        self.file_parameters = os.path.join(self.project_folder,'parameters.json')
+        
 
         ## copy the DEFAULT PARAMETERS file as the parameters File into the user folder
         if not os.path.exists(self.file_parameters) or self._force_creation:
-            _default_file_parameters= os.path.join(self._lib_sylfenUtils_path,'conf/parameters'+self._realtime+'.default.conf')
+            _default_file_parameters= os.path.join(self._lib_sylfenUtils_path,'conf/parameters.json')
             # sp.run('cp ' + _default_file_parameters + ' ' + self.file_parameters,shell=True)
             shutil.copy(_default_file_parameters,self.file_parameters)
 
         ############# LOAD THE PARAMETERS ############
-        with open(self.file_parameters,'r') as f :
-            parameters=f.read()
+        with open(self.file_parameters,'rb') as f:
+            self.parameters = json.load(f)
 
-        for l in parameters.split('\n'):
-            t=re.search('(^[^#].*)=(.*)',l)
-            if not t is None:
-                t=t.groups()
-                if len(t)==2:
-                    setattr(self,t[0].strip(),t[1].strip())
-
-        self.SIMULATOR=self.SIMULATOR=='True'
-        self.TEST_ENV=self.TEST_ENV=='True'
-
-
-        ##### dashboard delay
-        self.DASHBOARD_DELAY_MINUTES=0
-        if self.TEST_ENV:
-            try:
-                td=pd.Timestamp.now(self.TZ_RECORD)-pd.Timestamp(self.TMAX,tz=self.TZ_RECORD)
-                self.DASHBOARD_DELAY_MINUTES = int(td.total_seconds()/60)
-            except:
-                print('='*60,'\n','impossible to parse TMAX in your conf file:\n',self.file_parameters,
-                '\nbecause its value is : \n',self.TMAX,'\n and is not recognized as timestamp\n','='*60)
+        self.SIMULATOR = self.parameters['realtime']['simulator']=='True'
+        self.TEST_ENV = self.parameters['dashboard']['test_env']=='True'
+        self.FOLDERPKL = self.parameters['folderpkl']
 
         ###### DATA FOLDER PKL ######
-        if self.FOLDERPKL=='default':self.FOLDERPKL=os.path.join(self.project_folder,project_name+'_daily')
-        create_folder_if_not(self.FOLDERPKL)
+        if self.parameters['folderpkl'] == 'default':
+            self.parameters['folderpkl'] = os.path.join(self.project_folder,project_name+'_daily')
+        create_folder_if_not(self.parameters['folderpkl'])
+        
         ###### LOG FOLDER ######
-        if self.LOG_FOLDER=='default':self.LOG_FOLDER=os.path.join(self.project_folder,'log/')
-        create_folder_if_not(self.LOG_FOLDER)
+        if self.parameters['log_folder'] == 'default':
+            self.parameters['log_folder'] = os.path.join(self.project_folder,'log/')
+        create_folder_if_not(self.parameters['log_folder'])
 
         ###### load the rest of the Conf
         self._load_conf()
         if hasattr(self,'useful_tags'):
-            self.tag_categories={cat:self.getTagsTU(pattern) for cat,pattern in self.useful_tags.to_dict()['Pattern'].items()}
+            self.tag_categories = {cat:self.getTagsTU(pattern) for cat,pattern in self.useful_tags.to_dict()['Pattern'].items()}
 
     def generate_conf(self):
         '''
@@ -283,7 +271,6 @@ class Conf_generator_Static(Conf_generator):
     def __init__(self,*args,**kwargs):
         self._realtime=''
         Conf_generator.__init__(self,*args,**kwargs)
-        self.PARKING_TIME=eval(self.PARKING_TIME)
 
 class Conf_generator_RT(Conf_generator):
     def __init__(self,*args,**kwargs):

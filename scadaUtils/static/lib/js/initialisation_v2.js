@@ -241,8 +241,8 @@ var LIST_ORIGINAL_COLORS = []
 var STABLE_PARAMETERS_PANEL=true
 var TIMES = []
 var FIG
-DIS_FACTOR=0
-DELTAT='seconds'
+DIS_FACTOR = 0
+DELTAT = 'seconds'
 var CONFIG = {
   showEditInChartStudio: false,
   locale: 'fr',
@@ -255,14 +255,14 @@ var CONFIG = {
 
 
 function showTab(tabName) {
-    
+
     var i, tabContent, tabButton;
-    
+
     tabContent = document.getElementsByClassName("tab-content");
     for (i = 0; i < tabContent.length; i++) {
         tabContent[i].style.display = "none";
     }
-    
+
     tabButton = document.getElementsByClassName("tab-button");
     for (i = 0; i < tabButton.length; i++) {
         tabButton[i].classList.remove("active");
@@ -272,7 +272,7 @@ function showTab(tabName) {
     document.getElementById(tab_btn_name).classList.add("active");
     document.getElementById(tabName).style.display = "block";
 }
-    
+
 function add_mouse_up_to_undisplay(listpop_ids){
     document.addEventListener("mouseup", function(event) {
         for (id of listpop_ids) {
@@ -299,13 +299,13 @@ function load_html_content() {
             console.log('version_features logger is fully loaded.');
             all_done[0]=1
         })
-        
+
         $('#tab_display').load('../static/lib/display_panel.html', function() {
             document.getElementById('grid_x').addEventListener('click',modify_grid)
             document.getElementById('grid_y').addEventListener('click',modify_grid)
             document.getElementById('grid_box').addEventListener('click',modify_grid)
             document.getElementById('zeroline').addEventListener('click',modify_grid)
-            
+
             document.getElementById('grid_x').checked = true
             document.getElementById('grid_y').checked = true
             document.getElementById('grid_box').checked = true
@@ -314,13 +314,13 @@ function load_html_content() {
             all_done[1]=1
             console.log('tab_display is fully loaded.');
         })
-        
+
         $('#tab_processing').load('../static/lib/processing_panel.html', function() {
             console.log('tab_processing is fully loaded.');
             all_done[2]=1
         })
-        
-        $('#tab_dataParameters').load('../static/lib/dataParameters_panel_v2.html', function() {
+
+        $('#tab_dataParameters').load('../static/lib/datasetParameters_panel.html', function() {
             // This callback is executed when the HTML content is fully loaded into the '#div' element
             $('#div_time_resolution').load('../static/lib/time_res_div.html', function() {
                 // document.getElementById('check_coarse').checked = true
@@ -375,15 +375,15 @@ function load_drag_drop_upload(){
             }
         }
     }
-    
+
     function send_file(file) {
         // Send the file to the server using FormData and XMLHttpRequest
         const formData = new FormData();
         formData.append('file', file);
-        
+
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/upload', true);
-        
+
         xhr.onload = function(filename) {
             if (xhr.status === 200) {
                 console.log('File uploaded successfully');
@@ -394,7 +394,7 @@ function load_drag_drop_upload(){
                 console.error('Error uploading file');
             }
         };
-        
+
         xhr.send(formData);
 }
 
@@ -408,7 +408,7 @@ function initialisation(data){
         // ------- INITIALIZATION of myDropdown menus --------
         // init_dropdown('dd_models',values=data['models'],change_data_set)
         init_dropdown('dd_resMethod',values=data['rsMethods'])
-        init_dropdown('dd_style',values=data['styles'])
+        init_dropdown('dd_style',values=['default','lines+markers','markers','lines','stairs'])
         // init_dropdown('dd_operation',values=['no operation'].concat(['derivative','integral','regression p1','regression p2','regression p3']))
         init_radioButton(id='legend_para',values=['unvisible','tag','description'],'legend')
         $('input[type=radio][name=legend]').change(function() {
@@ -418,17 +418,21 @@ function initialisation(data){
         update_data_sets()
         //--------- DEFAULT VALUES FOR REQUEST_PARAMETERS ------------
         $('#in_time_res')[0].value = data['rs_number']
-        $('.title_fig')[0].value = data['fig_name']
+        $('#dd_time_unit')[0].value = data['rs_number']
+        $('.title_fig')[0].value = data['initial_figname']
         $('#legend_tag')[0].checked = true;
-        $('#dd_resMethod')[0].value = 'mean'
+        $('#dd_resMethod')[0].value = data['initial_resampling_method']
         //--------  LISTENERS to hide menus when clicking outside of them ----
         // var listpop_ids=["pop_version_info","pop_indicators","bg_color_picker","trace_color_picker","dd_x","dd_y"]
-        var listpop_ids=['popup_listTags',"dd_x","dd_y","pop_version_info","pop_indicators","bg_color_picker","trace_color_picker"]
+        var listpop_ids = ['popup_listTags',"dd_x","dd_y","pop_version_info","pop_indicators","bg_color_picker","trace_color_picker"]
         add_mouse_up_to_undisplay(listpop_ids)
-
+        
         load_drag_drop_upload()
-        get_sessions()
-        document.getElementById('dd_session').value=''
+        get_sessions().then(()=>{
+            console.log(data['initial_session']);
+            $('#dd_session')[0].value = data['initial_session']
+            update_data_sets()
+        })
         DATETIMEPICKER = document.getElementById('datetimepicker')
         $('#datetimepicker').daterangepicker({
             timePicker: true,
@@ -478,4 +482,3 @@ $.when(
     initialisation(data)
   })
 )
-

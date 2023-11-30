@@ -1,0 +1,42 @@
+{
+  "folderpkl"  : "/data/parked_daily/coco",
+  "log_folder" : "default",
+  "realtime":{
+    "db_parameters":{
+        "host":"localhost",
+        "port":5432,
+        "user":"test",
+        "password":"test"
+      },
+    "db_table":"realtime_data",
+    "parking_time" :"600S",
+    "simulator"    : "False"
+  },
+  "dashboard":{
+      "test_env":"False",
+      "tmax":"2022-06-22 12:00",
+      "initial_model":"dspv1",
+      "initial_session":"AVL",
+      "initial_tags":["H2MassFlowRate","CurrentPV","Port5:CC_HL_TS1"],
+      "initial_resampling_time":"30S",
+      "initial_resampling_method":"mean",
+      "realtime_time_window":"3T",
+      "max_nb_pts":500000,
+      "rs_coarse" : "60S",
+      "period_coarse":"2d",
+      "initial_figname":"change me and press enter",
+      "rsMethods" : ["min","max","mean","median","forwardfill","nearest"],
+      "root_path":"/home/dorian/gitLocals/scadaUtils/scadaUtils",
+      "helpmelink":"",
+      "log_version_file":"/git/scadaUtils/log_versions.md",
+      "folder_datasets":"/data/uploaded/",
+      "tmp_folder":"/data/tmp/"
+    },
+    "dashboard_notifs":{
+        "too_many_datapoints":" TOO MANY DATAPOINTS\nYou have requested XXXk datapoints which is over AAAk datapoints.\nThe plotly graph would be to slow to load and the interaction very unconvenient.\nYour request had been modified to limit the number of data points to AAAk by choosing a higher resampling period of : YYY.\nIf you are not happy with these settings please select another period or/and resampling period or/and total number of tags keeping in mind that you should not exceed AAAk datapoints in total.Take into account well that the more datapoints you ask the more you have to wait for the figure to load.",
+        "figure_generation_impossible":"Impossible to generate your figure because of an unexpeccted BUG in the application backend!!! .\nPlease take a screenshot of your screen with the message error and report it to the devTeam : dorian.drevon@inocel.com.",
+        "no_data":"NO DATA\nThere is no data for your list of tags and the selected period.\nif this is not supposed to be the case please report it to the devTeam: dorian.drevon@inocel.com.",
+        "excel_generation_impossible": "EXCEL BUG\nImpossible to generate your excel file.\nPlease take note of your settings or take a screenshot of your screen and report it to the devTeam: dorian.drevon@inocel.com."
+    }
+
+}

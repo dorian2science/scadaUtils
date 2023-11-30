@@ -2434,7 +2434,7 @@ class VisualisationMaster(Configurator):
     def __init__(self,*args,**kwargs):
         Configurator.__init__(self,*args,**kwargs)
         self.methods = STREAMER.methods
-        self.utils=Utils()
+        self.utils = Utils()
         self.usefulTags=pd.DataFrame()
 
     def _load_database_tags(self,t0,t1,tags,*args,**kwargs):
@@ -2873,20 +2873,19 @@ class Fix_daily_data():
     applyCorrectFormat_day.__doc__+=applyCorrectFormat_daytag.__doc__
     applyCorrectFormat_tag.__doc__+=applyCorrectFormat_daytag.__doc__
 
-class VisualisatorStatic(VisualisationMaster):
+class VisualisatorStatic():
     '''
     Visualiser data of folderpkl
-    Instanciate an object *VisualisatorStatic*, inherited of the class **VisualisationMaster**
-
     :param str folderPkl: path of the data
     :param pd.DataFrame dfplc : pd.DataFrame with columns DESCRIPTION, UNITE, DATATYPE and tags as index.
     '''
-    def __init__(self,folderPkl,dfplc):
-
+    def __init__(self,conf):
+        self.conf = conf
+        self.dfplc = self.conf.dfplc
+        self.folderPkl = self.conf.parameters['folderpkl']
+        self.log_file = None
         self.methods = STREAMER.methods
-        self.dfplc = dfplc
-        self.folderPkl = folderPkl
-        self.log_file=None
+
 
     def loadtags_period(self,t0,t1,tags,*args,pool='auto',verbose=False,**kwargs):
         '''
@@ -2900,7 +2899,7 @@ class VisualisatorStatic(VisualisationMaster):
         .. note:: See also: *args,**kwargs of VisualisationMaster.Streamer.process_tag()
         '''
         # for k in t0,t1,tags,args,kwargs:print_file(k)
-        tags=list(np.unique(tags))
+        tags = list(np.unique(tags))
         ############ read parked data
         df = STREAMER.load_parkedtags_daily(t0,t1,tags,self.folderPkl,*args,pool=pool,verbose=verbose,**kwargs)
         return df.sort_index()
