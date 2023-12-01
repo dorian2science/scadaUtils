@@ -4,7 +4,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 base_version=re.search('(ScadaUtils V)(\d+\.\d*)',long_description).groups()[1]
-v_try='CS577'
+v_try='x'
 
 setuptools.setup(
     name="scadaUtils",
