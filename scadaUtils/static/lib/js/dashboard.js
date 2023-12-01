@@ -270,7 +270,7 @@ function parse_tag(inputString){
 }
 
 
-
+var TIMES
 function fetch_figure() {
   let btn_update=$('#btn_update')[0]
   btn_update.innerHTML='updating...'
@@ -304,6 +304,7 @@ function fetch_figure() {
     for (trace of document.getElementById('plotly_fig').data){
       addRow_tagTable(trace.name)
     }
+    TIMES = fig.data[0].x
     resize_figure()
     update_traces_color()
     update_hover()
@@ -314,6 +315,7 @@ function fetch_figure() {
     $('#btn_update')[0].innerHTML='request data!'
     btn_update.classList.remove('updating')
     let new_traces = $('#plotly_fig')[0].data.map(x=>x.name)
+    init_dropdown('select_dd_x',['Time'].concat(new_traces),change_x_axis)
     let indexes = tags_hidden.map(x=>new_traces.indexOf(x))
     if (indexes.length!=0){Plotly.restyle('plotly_fig', {visible:'legendonly'},indexes);}
 
@@ -326,13 +328,12 @@ function fetch_figure() {
 }
 
 function update_hover(){
-
   fig = document.getElementById('plotly_fig')
-  TIMES = fig.data[0].x
   text_date = TIMES.map(k=>formatDateTime(new Date(k)))
   precision = parseInt(document.getElementById('n_digits').value)
-
   units = Array()
+  tag_x = document.getElementById('select_dd_x').value
+
   for (trace of fig.data){
     ynb = trace['yaxis'].slice(1,)
     len_data = trace.y.length
@@ -342,17 +343,58 @@ function update_hover(){
   }
   update={
     customdata:units,
+    hovertemplate : '<i>value</i>: %{y:.'+precision+'f} %{customdata}<br>'+'<b>%{text}' + '<br>',
     text:[text_date],
-    hovertemplate : '<i>value</i>: %{y:.'+precision+'f} %{customdata}<br>'+'<b>%{text}</b>',
     hoverlabel:{
-        // bgcolor:"white",
         font:{size:parseInt(document.getElementById('fs_hover').value)},
-        font_family:"Rockwell"
+        font_family:"Arial"
+      }
+    }
+  if (tag_x !='Time'){
+    update['hovertemplate']= update['hovertemplate'] + tag_x +'</b> : %{x}'
   }
-}
   Plotly.restyle('plotly_fig', update)
-
 }
+
+function update_size_figure(e){
+  layout = fig.layout
+  if (e.id == 'btn_width'){
+    layout['width'] = e.value
+  }else if (e.id == 'btn_height') {
+    layout['height'] = e.value
+  }
+  Plotly.relayout('plotly_fig', layout)
+}
+
+function change_x_axis(){
+  tag_x = document.getElementById('select_dd_x').value
+  if (tag_x=='Time'){
+    new_x_data = TIMES
+    fig.layout['xaxis']['type'] = "date"
+  }else {
+    cur_trace = fig.data.map(x=>x.name).indexOf(tag_x)
+    new_x_data = fig.data[cur_trace].y
+    fig.layout['xaxis']['type'] = "number"
+  }
+  for(k=0;k<fig.data.length;k++){
+    fig.data[k].x = new_x_data;
+  }
+  fig.layout['xaxis']['title']['text'] = tag_x
+  // Plotly.update('plotly_fig', fig.data, fig.layout);
+  Plotly.update('plotly_fig', fig.data, fig.layout).then(()=>{
+      update_hover()
+      dd_style = document.getElementById('dd_style')
+      if (tag_x=='Time'){
+        dd_style.value = "lines+markers"
+      }else{
+        dd_style.value = 'markers'
+        document.getElementById('marker_size').value = "12"
+        update_size_markers()
+      }
+      dd_style.dispatchEvent(new Event("change"));
+  })
+}
+
 
 function addEnveloppe() {
   let fig = $('#plotly_fig')[0]
@@ -490,9 +532,7 @@ function show_tag_list(e) {
 
 function filterTag(e) {
   dd_div = document.getElementById(e.id.replace('in_',''))
-  console.log(dd_div);
   let filter = new RegExp(e.value.toUpperCase().replaceAll(' ','.*'));
-  // console.log(filter);
   for (let a of dd_div.getElementsByTagName("a")) {
     let txtValue = a.textContent || a.innerText;
     if (filter.exec(txtValue.toUpperCase())!=null) {a.style.display = "";}
@@ -502,14 +542,20 @@ function filterTag(e) {
 
 // ----------------------------------
 // FUNCTION TO INIT SOME COMPONENTS
-function init_dropdown(dd_id,values) {
+function init_dropdown(dd_id,values,fun_on_click) {
   let dd_html=document.getElementById(dd_id)
+  while (dd_html.options.length > 0) {
+    dd_html.remove(0);
+}
   // renove first elements
     for (const val of values)
     {
         var option = document.createElement("option");
         option.value = val;
         option.text = val.charAt(0).toUpperCase() + val.slice(1);
+        if(fun_on_click){
+          option.addEventListener("mouseup",()=>{fun_on_click()})
+        }
         dd_html.appendChild(option);
     }
   }
@@ -748,11 +794,14 @@ function get_sessions(){
 }
 
 function update_data_sets(){
-  session = document.getElementById('dd_session').value
-  $.post('send_data_sets',session,function(data_sets){
-      document.getElementById("dd_data_set").innerHTML = ""
-      init_dropdown('dd_data_set',values=data_sets)
-  })
+  return new Promise(function(resolve, reject) {
+    session = document.getElementById('dd_session').value
+    $.post('send_data_sets',session,function(data_sets){
+        document.getElementById("dd_data_set").innerHTML = ""
+        init_dropdown('dd_data_set',values=data_sets)
+        resolve()
+    })
+  });
 }
 
 function change_dataSet(){

@@ -415,12 +415,12 @@ function initialisation(data){
             update_legend(this.value)
         })
         init_dropdown('select_dd_x',values=['Time'])
-        update_data_sets()
         //--------- DEFAULT VALUES FOR REQUEST_PARAMETERS ------------
         $('#in_time_res')[0].value = data['rs_number']
-        $('#dd_time_unit')[0].value = data['rs_number']
+        $('#dd_time_unit')[0].value = data['rs_unit']
         $('.title_fig')[0].value = data['initial_figname']
         $('#legend_tag')[0].checked = true;
+        $('#check_times')[0].checked = true;
         $('#dd_resMethod')[0].value = data['initial_resampling_method']
         //--------  LISTENERS to hide menus when clicking outside of them ----
         // var listpop_ids=["pop_version_info","pop_indicators","bg_color_picker","trace_color_picker","dd_x","dd_y"]
@@ -431,7 +431,9 @@ function initialisation(data){
         get_sessions().then(()=>{
             console.log(data['initial_session']);
             $('#dd_session')[0].value = data['initial_session']
-            update_data_sets()
+            update_data_sets().then(()=>{
+                change_dataSet()
+            })
         })
         DATETIMEPICKER = document.getElementById('datetimepicker')
         $('#datetimepicker').daterangepicker({
