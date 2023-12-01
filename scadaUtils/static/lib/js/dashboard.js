@@ -68,17 +68,17 @@ function export_figure() {
     $.post('/exportFigure',JSON.stringify({data:fig.data,layout:fig.layout}),function(res,status){
       var status=res['status']
       if( status=='ok') {
-      // Create an anchor element for downloading
-      url = res['filename']
-      a = document.getElementById('download-link')
-      a.href = url;
-      a.download = 'plotly_figure.html';
+        // Create an anchor element for downloading
+        url = res['filename']
+        a = document.getElementById('download-link')
+        a.href = url;
+        a.download = 'plotly_figure.html';
 
-      // Trigger a click event on the anchor element to start the download
-      a.click();
+        // Trigger a click event on the anchor element to start the download
+        a.click();
 
-      // Clean up by revoking the URL
-      URL.revokeObjectURL(url);
+        // Clean up by revoking the URL
+        URL.revokeObjectURL(url);
       }else {
         alert(res['notif'])
       }
@@ -87,6 +87,17 @@ function export_figure() {
   };
 
 const delta_dict={"hours":3600,"minutes":60,"days":3600*24,"seconds":1}
+
+function download_request_to_debug() {
+  const blob = new Blob([JSON.stringify(build_request_parameters_v2())], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'gui_params.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 
 function get_xaxis_I_above0(seuil){
   seuil = seuil || 1;
@@ -577,13 +588,14 @@ function init_radioButton(rb_id,values,name){
 }
 
 function init_tags_dropdown(dd_id,values,fun_on_click) {
-  let dd_html=document.getElementById(dd_id)
+  let dd_html = document.getElementById(dd_id)
+  while (dd_html.children.length > 0) {
+    dd_html.removeChild(dd_html.children[0]);
+  }
     for (const val of values)
     {
         var a = document.createElement("a");
-        // option.value = val;
         a.innerHTML = val;
-        // a.href = '#'+a.innerHTML;
         dd_html.appendChild(a);
         a.addEventListener("mouseup",()=>{fun_on_click(val)})
     }
@@ -938,6 +950,17 @@ axis
 function resize_figure(){
   Plotly.relayout('plotly_fig',{width:window.screen.width*0.75,height:window.screen.height*0.75})
 }
+
+function update_size_figure(e){
+  layout = fig.layout
+  if (e.id == 'btn_width'){
+    layout['width'] = e.value
+  }else if (e.id == 'btn_height') {
+    layout['height'] = e.value
+  }
+  Plotly.relayout('plotly_fig', layout)
+}
+
 
 function resize_domain(s){
   let xaxis = document.getElementById('plotly_fig').layout['xaxis']

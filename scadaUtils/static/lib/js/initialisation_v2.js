@@ -290,7 +290,7 @@ function add_mouse_up_to_undisplay(listpop_ids){
 }
 
 
-var all_done = [0,0,0,0]
+var all_done = [0,0,0,0,0]
 function load_html_content() {
     return new Promise((resolve, reject) => {
         path_log_version='../static/lib/log_versions.md'
@@ -320,13 +320,21 @@ function load_html_content() {
             all_done[2]=1
         })
 
-        $('#tab_dataParameters').load('../static/lib/datasetParameters_panel.html', function() {
-            // This callback is executed when the HTML content is fully loaded into the '#div' element
+        $('#tab_datasetParameters').load('../static/lib/datasetParameters_panel.html', function() {
             $('#div_time_resolution').load('../static/lib/time_res_div.html', function() {
                 // document.getElementById('check_coarse').checked = true
                 $('#select_dd_x')[0].value = 'Time'
                 $('#dd_time_unit')[0].value = 'S'
                 all_done[3] = 1
+                console.log('tab_parameters is fully loaded.');
+                resolve()
+            });
+        })
+
+        $('#tab_dataParameters').load('../static/lib/dataParameters_panel.html', function() {
+            $('#div_time_resolution').load('../static/lib/time_res_div.html', function() {
+                // document.getElementById('check_coarse').checked = true
+                all_done[4] = 1
                 console.log('tab_parameters is fully loaded.');
                 resolve()
             });
@@ -416,9 +424,11 @@ function initialisation(data){
         })
         init_dropdown('select_dd_x',values=['Time'])
         //--------- DEFAULT VALUES FOR REQUEST_PARAMETERS ------------
+        $('#select_dd_x')[0].value = 'Time'
         $('#in_time_res')[0].value = data['rs_number']
         $('#dd_time_unit')[0].value = data['rs_unit']
         $('.title_fig')[0].value = data['initial_figname']
+        document.title = data['initial_figname']
         $('#legend_tag')[0].checked = true;
         $('#check_times')[0].checked = true;
         $('#dd_resMethod')[0].value = data['initial_resampling_method']
