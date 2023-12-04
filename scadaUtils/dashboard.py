@@ -34,7 +34,7 @@ def quick_resample(df,rs,rsMethod):
     return df
 
 class Basic_Dashboard():
-    def __init__(self,conf,startup=False):
+    def __init__(self,conf):
         self.dashboard_html = 'dashboard.html'
         parameters =  conf.parameters
         self.conf = conf
@@ -61,9 +61,6 @@ class Basic_Dashboard():
         project_folder = conf.project_folder
         if self.init_parameters['root_path'] == '':
             self.init_parameters['root_path'] = os.path.join(project_folder,'dashboard/')
-        
-        if startup:
-            self._create_dashboard_links()
 
         if self.init_parameters['log_version_file'] == '':
             self.init_parameters['log_version_file'] = os.path.join(project_folder,'dashboard','static','log_versions.md')
