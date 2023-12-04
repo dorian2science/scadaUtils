@@ -462,7 +462,7 @@ class GAIA():
         print('\nIf necessary change the settings and reinstanciate your GAIA object\n'+'='*60)
     __init__.__doc__ = Conf_generator.Conf_generator.__init__.__doc__
 
-    def _start_up_dashboard():
+    def _start_up_dashboard(self):
         self._dashboard._create_dashboard_links()
 
     def start_dumping(self,*args,**kwargs):
