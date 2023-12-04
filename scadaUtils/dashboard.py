@@ -297,20 +297,20 @@ class Basic_Dashboard():
         Copy the static and templates folders into the root folder of the dashboard to be able to run the Dashboard instance.
         '''
         import shutil
-        create_folder_if_not(self.init_parameters["root_folder"])
+        create_folder_if_not(self.init_parameters["root_path"])
         #### TEMPLATE FOLDER
         scadaUtils_env_dir = os.path.dirname(__file__)
-        templates_folder = os.path.join(self.init_parameters["root_folder"],'templates')
+        templates_folder = os.path.join(self.init_parameters["root_path"],'templates')
         shutil.copytree(os.path.join(scadaUtils_env_dir,'templates'),templates_folder)
-        print('templates files have been copied into ',self.init_parameters["root_folder"])
+        print('templates files have been copied into ',self.init_parameters["root_path"])
 
         #### STATIC FOLDER
-        static_folder = os.path.join(self.init_parameters["root_folder"],'static')
+        static_folder = os.path.join(self.init_parameters["root_path"],'static')
         shutil.copytree(os.path.join(scadaUtils_env_dir,'static'),static_folder)
         # lib_folder = os.path.join(static_folder,'lib')
         # if not os.path.exists(lib_folder):
         #     shutil.copytree(os.path.join(scadaUtils_env_dir,'static/lib'),lib_folder)
-        print('static files have been copied into ',self.init_parameters["root_folder"])
+        print('static files have been copied into ',self.init_parameters["root_path"])
 
         tmp_folder = os.path.join(static_folder,'tmp')
         create_folder_if_not(tmp_folder)
