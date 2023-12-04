@@ -62,29 +62,22 @@ function data2excel(){
   })
 }
 
-function export_figure() {
-    // Convert the figure to HTML
-    let fig = document.getElementById('plotly_fig')
-    $.post('/exportFigure',JSON.stringify({data:fig.data,layout:fig.layout}),function(res,status){
-      var status=res['status']
-      if( status=='ok') {
-        // Create an anchor element for downloading
-        url = res['filename']
-        a = document.getElementById('download-link')
-        a.href = url;
-        a.download = 'plotly_figure.html';
 
-        // Trigger a click event on the anchor element to start the download
-        a.click();
-
-        // Clean up by revoking the URL
-        URL.revokeObjectURL(url);
-      }else {
-        alert(res['notif'])
-      }
-    })
-
+function export_figure(){
+  figure = {
+    data: fig.data,
+    layout: fig.layout,
+    config: fig.config
   };
+  const figureJSON = JSON.stringify(figure);
+  const blob = new Blob([`<!DOCTYPE html><html><head><script src="https://cdn.plot.ly/plotly-latest.min.js"></script></head><body><div id="plotly-plot"></div><script>Plotly.react('plotly-plot', ${figureJSON});</script></body></html>`], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'plotly_figure.html';
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 const delta_dict={"hours":3600,"minutes":60,"days":3600*24,"seconds":1}
 
@@ -911,7 +904,6 @@ function pop_param_div(action){
 //#      background            #
 //# ############################
 let width=400
-var CURTRACE = 0
 
 function test(){
 
@@ -969,11 +961,11 @@ function popup_bg_color_picker(){
     picker.style.display = 'flex'
     picker.style.zIndex=1
   }
-
+var cur_btn_color
 function popup_trace_color_picker(e){
     picker = document.getElementById('trace_color_picker')
     console.log(e.id);
-    CURTRACE = fig.data.map(x=>x.name).indexOf(e.id.split('color_')[1])
+    cur_btn_color = e
     picker.style.display = 'flex'
     picker.style.zIndex=1
   }

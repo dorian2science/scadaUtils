@@ -4,9 +4,9 @@
   <!-- <link rel="shortcut icon" href="{{ url_for('static', filename='/lib/sylfen_logo.ico') }}"> -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="../static/lib/css/styles.css">
+  <link rel="icon" type="image/jpeg" href="../static/lib/pictures/inocel.jpeg">
   <link rel="stylesheet" href="../static/lib/css/dropdown_filter.css">
   <link rel="stylesheet" href="../static/lib/css/toggle_switch.css">
-
   <script type="text/javascript" src="../static/lib/acolorpicker.js"></script>
   <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script> -->
   <script type="text/javascript" src="../static/lib/js/jquery.min.js"></script>
@@ -36,6 +36,7 @@
     <!-- <button onclick="pop_menu(this)" class="button_header" name="button_eq">show indicators</button> -->
     <a class="button_header" href="https://inocel.atlassian.net/wiki/spaces/Diagnostiq/overview" >help me!</a>
   </div>
+
   <!-- pop-ups of the header -->
   <div class="center_pop_up" id="pop_indicators"></div>
   <div class="center_pop_up" id="pop_version_info"></div>
@@ -53,235 +54,48 @@
     <button id=btn_update_colors onclick="update_colors()">update colors only </button>
     <button name=apply_changes onclick="apply_changes()">apply changes </button>
   </div>
-  <!-- main container -->
+  <div id='trace_color_picker' class="html_color_picker" acp-color="#EFE9E7" acp-show-rgb="no" acp-show-hsl="yes" acp-show-hex="yes" acp-show-alpha></div>
+
   <div class="flex_container">
     <div id="tab_panels">
-
-      <div class="tabs_container">
-        <div class="tab-button active" onclick="showTab('tab_parameters')">data parameters</div>
-        <div class="tab-button" onclick="showTab('tab_models')">models</div>
-        <div class="tab-button" onclick="showTab('tab_display')">display</div>
-        <div class="tab-button" onclick="showTab('tab_processing')">processing</div>
-      </div>
-      <div class="tab-content" id="tab_parameters" >
-        <div name='buttons' class="">
-          <button class='p_but' id="btn_update" type="button" onclick="fetch_figure()">request data!</button>
-          <button class='p_but' id="btn_export" type="button" onclick="data2excel()">export to excel</button>
-          <button class='p_but' id="btn_fig" type="button" onclick="export_figure()">export figure</button>
-          <!-- <button class='p_but' id="btn_state_machine" type="button" onclick="get_state_machine_report()">get state machine report</button> -->
-          <br>
-          <input id="check_coarse" type="checkbox">Use coarse data</button>
+        <div class="tabs_container">
+            <div id="btn_tab_parameters" class="tab-button active" onclick="showTab('tab_parameters')">data parameters</div>
+            <div id="btn_tab_dataset" class="tab-button" onclick="showTab('tab_dataset')">dataset</div>
+            <!-- <div id="btn_tab_models" class="tab-button" onclick="showTab('tab_models')">models</div> -->
+            <div id="btn_tab_display" class="tab-button" onclick="showTab('tab_display')">display</div>
+            <div id="btn_tab_processing" class="tab-button" onclick="showTab('tab_processing')">processing</div>
         </div>
 
-        <div class="request_parameters">
-          <span class="small_title">data parameters:</span>
-          <p>select your model : </p>
-          <select id=dd_models onchange="change_model(event)"></select>
-          <br>
-          <p>select start and end time : </p>
-          <br>
-          <input id='datetimepicker' type="text" name="datetimes" />
-          <div class="">
-            <p style='display:inline-block;'>time resolution:</p>
-            <input style='display:inline-block;' id='in_time_res' type="number" min=0 name="time_res" value=30/>
-            <select style='display:inline-block;' id='dd_time_unit' type="text" value="S"/>
-              <option value="L">milliseconds</option>
-              <option value="S">seconds</option>
-              <option value="T">minutes</option>
-              <option value="H">hours</option>
-            </select>
-          </div>
-
-          <p>select the resampling method: </p>
-          <select class=dd id="dd_resMethod"><select/>
-          <br>
-          <p>select your categorie:</p>
-          <select class="dd" name="dd_categorie" id="dd_categorie"></select>
-
-          <div id=div_tags>
-            <span class='list_tags'>your list of tags:</span>
-            <input id="in_dd_y" type="text" placeholder="add a tag, search it.." class="in_dd_tag" onclick="show_tag_list(this)" onkeyup="filterTag(this)">
-            <div id="dd_y" class="dropdown-content"></div>
-            <div id='trace_color_picker' class="html_color_picker" acp-color="#EFE9E7" acp-show-rgb="no" acp-show-hsl="yes" acp-show-hex="yes" acp-show-alpha></div>
-
-
-            <button name=btn_add_tags onclick="pop_listTags_up()">enter your list of tags </button>
-          </div>
-
-          <table name="table_tags" id="table_tags" border="1" cellpadding="2">
-            <tr>
-                <td>delete</td>
-                <td><b>Tags selected</b></td>
-                <td>color</td>
-            </tr>
-          </table>
-          <div class="">
-            <p>select x-axis: </p>
+        <div class="tab-content" id="tab_parameters" >
+            <div name='buttons' id="list_buttons_request">
+            <button class='p_but' id="btn_update" type="button" onclick="fetch_figure()">request data!</button>
+            <button class='p_but' id="btn_export" type="button" onclick="data2excel()">export to excel</button>
+            <button class='p_but' id="btn_fig" type="button" onclick="export_figure()">export figure</button>
             <br>
-            <select class="dd" id="select_dd_x"></select>
-            <!-- <input id="in_dd_x" type="text" placeholder="select your xaxis, search it.." class="in_dd_tag" onclick="show_tag_list(this)" onkeyup="filterTag(this)"> -->
-            <div id="dd_x" class="dropdown-content"></div>
-          </div>
-        </div>
-        <div>
-          <div class='real_time_check' >
-
-            <span >Activate <b>REAL-TIME</b>(inactif):</span>
-              <label class="switch">
-                <input type="checkbox" name='realtime_check' onclick="pop_menu_refresh(this)" disabled>
-                <span class="slider round"></span>
-              </label>
-
             </div>
-          <div class='refresh_parameters'>
-            <span >refresh time(in seconds):</span>
-            <input type="number" name="in_refresh_time" value=50>
-            <br>
-            <span style="display:inline-block">time window(in minutes):</span>
-            <input type="text" name="time_window" value='120'>
-          </div>
+            <div class="request_parameters" id="tab_dataParameters"></div>
         </div>
 
-      </div>
-
-      <div class="tab-content" id="tab_models">
-        <input id="in_dd_models" type="text" placeholder="add a model, search it.." class="in_dd_tag" onclick="show_tag_list(this)" onkeyup="filterTag(this)">
-        <!-- <div id="dd_models" class="dropdown-content"></div> -->
-      </div>
-
-      <div class="tab-content" id="tab_processing">
-        <p>Select the tag on which the operation will be done: </p>
-        <br>
-        <select class="dd" id="dd_var"></select>
-        <button name=btn_add_var onclick="add_operation(this)">add variable</button>
-        <br>
-        <p>Select the operation you want to perfrom: </p>
-        <br>
-        <!-- <select class="dd" name="dd_operation" id="dd_operation"></select> -->
-        <button name=btn_op_plus class="big_btn" onclick="add_operation(this)">+</button>
-        <button name=btn_op_mois class="big_btn" onclick="add_operation(this)">-</button>
-        <button name=btn_op_fois class="big_btn" onclick="add_operation(this)">*</button>
-        <button name=btn_op_divide class="big_btn" onclick="add_operation(this)">/</button>
-        <button name=btn_op_power class="big_btn" onclick="add_operation(this)">^</button>
-        <br>
-        <p>Formula of the new variable to create(press enter to adjust the name of the formula): </p>
-        <br>
-        <input class='formula' id='in_formula' type="text"/ onchange=update_formula()>
-        <br>
-        <p>Name of your new created variable : </p>
-        <br>
-        <input class='formula' id='new_var_name' type="text"/>
-        <br>
-        <button name=btn_add_formula onclick="add_formula_variable()">compute the variable</button>
-
-      </div>
-
-      <div class="tab-content" id ="tab_display">
-        <p>change background color: </p>
-        <button class='p_but' id="btn_bg_color" type="button" onclick="popup_bg_color_picker()">background <br> color</button>
-        <div id='bg_color_picker' class="html_color_picker" acp-color="#EFE9E7" acp-show-rgb="no" acp-show-hsl="yes" acp-show-hex="yes" acp-show-alpha></div>
-        <br>
-        <p>grid parameters:</p>
-        <br>
-        <input type="checkbox" id="grid_x" class="grid_params">
-        <label for="grid_x"> grid on x axes</label><br>
-        <input type="checkbox" id="grid_y" class="grid_params">
-        <label for="grid_y"> grid on y axes</label><br>
-        <input type="checkbox" id="grid_box" class="grid_params">
-        <label for="grid_box"> grid box</label><br>
-        <input type="checkbox" id="zeroline" class="grid_params">
-        <label for="zeroline"> zeroline</label><br>
-        <br>
-        <p>select style: </p>
-        <select class="dd" id="dd_style" onchange="update_style_fig(this)"></select>
-        <br>
-        <span>maker size:</span>
-        <input type="number" id=marker_size onchange="update_size_markers()" value="5">
-        <br>
-        <div name='distinct_colors' id=distinct_colors_div>
-          <span><b>new colors:</b></span>
-          <label class="switch">
-            <input type="checkbox" name='colors_switch' id=color_switch onclick="update_colors_figure(this)">
-            <span class="slider round"></span>
-          </label>
+        <div class="tab-content" id="tab_dataset" >
+          <div id="list_buttons_request_dataset" ></div>
+            <div class="request_parameters" id="tab_datasetParameters"></div>
         </div>
-        <div name='toogle_gaps' id=toogle_gaps_div>
-          <span><b>remove gaps(temps morts):</b></span>
-          <label class="switch">
-            <input type="checkbox" name='gaps_switch' id=gap_switch onclick="toggle_gaps()">
-            <span class="slider round"></span>
-          </label>
-        </div>
-        <span>criterion to remove gaps:</span>
-        <select id="method_rgaps" class="dd">
-          <option value="I>1">I>1</option>
-          <option value="no data">no data</option>
-        </select>
-        <div name='display legend' class="legend_para" id=legend_para>
-          <span><b>display legend mode:</b></span>
-          <!-- radio items defined in smallpower_dash.js -->
-        </div>
-        <br>
-        <p>space between axes:</p>
-        <input type="range" id="s_axes" min="0" max="0.2" value="0.05" step="0.001" onchange="update_axes()"/>
-        <br>
-        <p>number of ticks:</p>
-        <input type="number" id="nticks" min="2" max="30" value="10" step="1" onchange="update_axes()"/>
-        <br>
-        <p>precision in hover mode:</p>
-        <input type="number" id="n_digits" min="0" max="10" value="1" step="1" onchange="update_hover()"/>
-        <br>
-        <p>font size hover:</p>
-        <input type="number" id="fs_hover" min="10" max="30" value="12" step="1" onchange="update_hover()"/>
-        <br>
-      </div>
-
+        
+        <div class="tab-content" id="tab_processing"></div>
+        <div class="tab-content" id ="tab_display"></div>
+        <div class="tab-content" id ="tab_god_mode"></div>
     </div>
-
-    <a id="download-link" style="display: none;">Download Figure</a>
-
-    <div class="fig_container">
-      <input class='title_fig' onchange="change_title(this)"></input>
-      <div id=plotly_fig></div>
+    <div>
+        <a id="download-link" style="display: none;">Download Figure</a>
+        <input class='title_fig' onchange="change_title(this)"></input>
+        <div id=plotly_fig></div>
     </div>
-
-  </div>
+</div>
 
 </body>
 
 </html>
 
-<script type="text/javascript" src="../static/lib/js/dashboard.js"> </script>
+
 <script type="text/javascript" src="../static/lib/js/initialisation.js"> </script>
-<script>
-    function showTab(tabName) {
-
-        var i, tabContent, tabButton;
-
-        tabContent = document.getElementsByClassName("tab-content");
-        for (i = 0; i < tabContent.length; i++) {
-            tabContent[i].style.display = "none";
-        }
-
-        tabButton = document.getElementsByClassName("tab-button");
-        for (i = 0; i < tabButton.length; i++) {
-            tabButton[i].classList.remove("active");
-        }
-
-        document.getElementById(tabName).style.display = "block";
-        event.currentTarget.classList.add("active");
-    }
-    document.querySelector('.tab-button.active').click()
-    document.getElementById('grid_x').addEventListener('click',modify_grid)
-    document.getElementById('grid_y').addEventListener('click',modify_grid)
-    document.getElementById('grid_box').addEventListener('click',modify_grid)
-    document.getElementById('zeroline').addEventListener('click',modify_grid)
-
-    document.getElementById('grid_x').checked = true
-    document.getElementById('grid_y').checked = true
-    document.getElementById('grid_box').checked = true
-    document.getElementById('zeroline').checked = true
-    document.getElementById('gap_switch').checked = false
-    // document.getElementById('check_coarse').checked = true
-
-</script>
+<script type="text/javascript" src="../static/lib/js/dashboard.js"> </script>

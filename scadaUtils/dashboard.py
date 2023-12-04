@@ -33,7 +33,6 @@ def quick_resample(df,rs,rsMethod):
         df = df.resample(rs).nearest()
     return df
 
-
 class Basic_Dashboard():
     def __init__(self,conf):
         self.dashboard_html = 'dashboard.html'
@@ -66,7 +65,6 @@ class Basic_Dashboard():
             ('/init',self.init_dashboard,['GET']),
             ('/generate_dataset_fig',self.generate_dataset_fig,['POST']),
             ('/export2excel',self.export2excel,['POST']),
-            ('/exportFigure',self.exportFigure,['POST']),
             ('/send_description_names',self.send_description_names,['POST']),
             ('/send_dfplc',self.send_dfplc,['POST']),
             ('/send_data_sets',self.send_data_sets,['POST']),
@@ -136,8 +134,8 @@ class Basic_Dashboard():
             # desc = {k:k + ':' + dfplc.loc[k,'description'] for k in df.columns}
             # units = {v:dfplc['UNITE'].loc[k] for k,v in desc.items()}
             units = dfplc.loc[list(df.columns),'UNITE'].to_dict()
-            print_file(df)
-            print_file(units)
+            # print_file(df)
+            # print_file(units)
             # df = df.rename(columns=desc)
             fig = graphics.multiUnitGraph(df,units)
             # print_file(computetimeshow('graph generated',start))
@@ -170,34 +168,16 @@ class Basic_Dashboard():
             filename = 'static/tmp/' + baseName +  '_' + dateF[0]+ '_' + dateF[1]+'.xlsx'
             if isinstance(df.index,pd.core.indexes.datetimes.DatetimeIndex):
                 df.index = [k.isoformat() for k in df.index]
-            df.to_excel(os.path.join(self.root_path,filename))
+            df.to_excel(os.path.join(self.init_parameters['root_path'],filename))
             self.log_info(computetimeshow('.xlsx downloaded',start))
             res = {'status':'ok','filename':filename}
         except:
             error = {'msg':'service export2excel not working','code':3}
-            self.notify_error(sys.exc_info(),error)
-            res = {'status':'failed','notif':NOTIFS['excel_generation_impossible']}
-        return jsonify(res)
-
-    def exportFigure(self):
-        try:
-            start = time.time()
-            data = request.get_data()
-            fig_data = json.loads(data.decode())
-            fig = go.Figure()
-            for trace in fig_data['data']:
-                fig.add_trace(trace)
-            fig.update_layout(fig_data['layout'])
-            baseName = 'figure'
-            dateF = pd.Timestamp.now(tz='CET').strftime('%Y-%m-%d %H_%M')
-            filename = os.path.join('static/tmp',baseName +  '_' + dateF + '.html')
-            fig.write_html(os.path.join(self.root_path,filename))
-            self.log_info(computetimeshow('.html downloaded',start))
-            res = {'status':'ok','filename':filename}
-        except:
-            error={'msg':'service export_figure not working','code':3}
-            self.notify_error(sys.exc_info(),error)
-            res={'status':'failed','notif':NOTIFS['excel_generation_impossible']}
+            notif = 'excel_generation_impossible'
+            # self.notify_error(sys.exc_info(),error)
+            error_message = traceback.format_exc()
+            notif = self.NOTIFS[notif] + error_message
+            res = {'status':'failed','notif':notif}
         return jsonify(res)
 
     def send_description_names(self):

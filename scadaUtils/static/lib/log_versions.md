@@ -1,6 +1,13 @@
 # Log new features
-What's new in V1.7 ?
+What's new in V1.8 ?
 --------------
+### v1.8
+- dataset tab is available. 
+- Possible to drag and drop data as a csv file(works only if the csv is correctly formated) to visualize it.
+- change x-axis is in the **display panel** and it is very fast. 
+- all axes are by default blacks
+- resize the figure in the **display panel** 
+- button *delete all* to empty the table of tags. 
 ### v1.7
 - CS-514 Gaia - Ajouter la possibilité d'exporter les signaux tracés avec leur code couleur. Il s'agit de pouvoir [sauvegarder une planche de tags avec leur code couleur](https://inocel.atlassian.net/wiki/spaces/Diagnostiq/pages/123535485/Importer+les+signaux+trac+s+avec+leur+code+couleur). 
 - possibilité d'utiliser la fonction ["Compare multiple HOVER"](https://inocel.atlassian.net/wiki/spaces/Diagnostiq/pages/123568158/Compare+multiple+HOVER)
