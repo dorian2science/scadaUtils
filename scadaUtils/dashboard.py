@@ -336,6 +336,8 @@ class Dashboard(Basic_Dashboard):
         #### initial parameters
         init_par_keys = list(self.init_parameters.keys())
         self.init_parameters['models'] = list(conf.dfplc['MODEL'].unique())
+        if self.init_parameters['initial_model'] =="":
+            self.init_parameters['initial_model'] = self.init_parameters['models'][0] 
         self.init_parameters['all_tags'] = conf.getTagsTU('',model=self.init_parameters['initial_model'])
         self.init_parameters['tag_categories'] = list(conf.tag_categories[self.init_parameters['initial_model']].keys())
         self.init_parameters['rsMethods'] = visualiser.methods
