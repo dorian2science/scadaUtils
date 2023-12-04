@@ -56,19 +56,20 @@ class Basic_Dashboard():
         self.errorfile_name = os.path.join(self.log_folder,'dashboard_' + conf.project_name + '.err');
         with open(self.errorfile_name,'a') as logfile:
             logfile.write(start_msg)
-    
+
+        project_folder = self.visualiser.conf.project_folder
         if self.init_parameters['root_path'] == '':
-            self.init_parameters['root_path'] = os.path.join(self.project_folder,'dashboard/')
+            self.init_parameters['root_path'] = os.path.join(project_folder,'dashboard/')
         
         if startup:
             self._create_dashboard_links()
 
         if self.init_parameters['log_version_file'] == '':
-            self.init_parameters['log_version_file'] = os.path.join(self.project_folder,'dashboard','static','log_versions.md')
+            self.init_parameters['log_version_file'] = os.path.join(project_folder,'dashboard','static','log_versions.md')
         if self.init_parameters['folder_datasets'] == '':
-            self.init_parameters['folder_datasets'] = os.path.join(self.project_folder,'datasets/')
+            self.init_parameters['folder_datasets'] = os.path.join(project_folder,'datasets/')
         if self.init_parameters['tmp_folder'] == '':
-            self.init_parameters['tmp_folder'] = os.path.join(self.project_folder,'tmp/')
+            self.init_parameters['tmp_folder'] = os.path.join(project_folder,'tmp/')
         self.version_dashboard = '.'.join(pkg_resources.get_distribution('scadaUtils').version.split('.')[:-1])
 
         self.app = Flask(__name__,root_path = self.init_parameters['root_path'])
