@@ -37,6 +37,7 @@ class Basic_Dashboard():
     def __init__(self,conf,startup=False):
         self.dashboard_html = 'dashboard.html'
         parameters =  conf.parameters
+        self.conf = conf
         self.init_parameters = parameters['dashboard']
         self.folder_datasets = parameters['dashboard']['folder_datasets']
         self.tmp_folder = parameters['dashboard']['tmp_folder']
@@ -57,7 +58,7 @@ class Basic_Dashboard():
         with open(self.errorfile_name,'a') as logfile:
             logfile.write(start_msg)
 
-        project_folder = self.visualiser.conf.project_folder
+        project_folder = conf.project_folder
         if self.init_parameters['root_path'] == '':
             self.init_parameters['root_path'] = os.path.join(project_folder,'dashboard/')
         
