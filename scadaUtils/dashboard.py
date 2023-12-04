@@ -301,12 +301,12 @@ class Basic_Dashboard():
         #### TEMPLATE FOLDER
         scadaUtils_env_dir = os.path.dirname(__file__)
         templates_folder = os.path.join(self.init_parameters["root_path"],'templates')
-        shutil.copytree(os.path.join(scadaUtils_env_dir,'templates'),templates_folder)
+        shutil.copytree(os.path.join(scadaUtils_env_dir,'templates'),templates_folder,dirs_exist_ok=True)
         print('templates files have been copied into ',self.init_parameters["root_path"])
 
         #### STATIC FOLDER
         static_folder = os.path.join(self.init_parameters["root_path"],'static')
-        shutil.copytree(os.path.join(scadaUtils_env_dir,'static'),static_folder)
+        shutil.copytree(os.path.join(scadaUtils_env_dir,'static'),static_folder,dirs_exist_ok=True)
         # lib_folder = os.path.join(static_folder,'lib')
         # if not os.path.exists(lib_folder):
         #     shutil.copytree(os.path.join(scadaUtils_env_dir,'static/lib'),lib_folder)
