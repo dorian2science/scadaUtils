@@ -34,6 +34,15 @@ p {
   color: red;
 }
 
+.deleteall_btn{
+  background-color:rgba(100, 180, 180);
+  border-radius:0px;
+
+}
+.btn_delete{
+  width:35px;
+  background-color:rgba(250, 180, 180);
+}
 
 .flex_container{
   display: flex;

@@ -11,40 +11,41 @@
 <br>
 <p>select your dataset : </p>
 <select id=dd_data_set onchange="change_dataSet()"></select>
-<br>
-<p>select start and end time : </p>
-<br>
-<input id='datetimepicker' type="text" name="datetimes" />
-<input type="checkbox" id="check_times">
-<label for="check_times"> whole period</label><br>
-<br>
 
-<div id="div_time_resolution"></div>
 
-<p>select the resampling method: </p>
-<div id="div_res_method_dataset"></div>
-<br>
-
-<div id=div_tags>
-    <input type="checkbox" id="check_all_tags">
-    <label for="check_all_tags"> select all tags</label><br>
-    <br>
-    <span class='list_tags'>your list of tags:</span>
-    <input id="in_dd_y" type="text" placeholder="add a tag, search it.." class="in_dd_tag" onclick="show_tag_list(this)" onkeyup="filterTag(this)">
-    <div id="dd_y" class="dropdown-content"></div>
-    <button name=btn_add_tags onclick="pop_listTags_up()">enter your list of tags </button>
-</div>
-
-<div>
-  <p>select x-axis: </p>
+<div id="div_datetimepicker_dataset">
+  <p>select start and end time : </p>
   <br>
-  <select class="dd" id="select_dd_x"></select>
-  <div id="dd_x" class="dropdown-content"></div>
-  <table name="table_tags" id="table_tags" border="1" cellpadding="2">
-    <tr>
-        <td>delete</td>
-        <td><b>Tags selected</b></td>
-        <td>color</td>
-    </tr>
-  </table>
+  <input type="checkbox" id="check_times">
+  <label for="check_times"> whole period</label><br>
+  <br>
 </div>
+
+<div id="div_time_res_dataset">
+  <p style='display:inline-block;'>time resolution:</p>
+
+</div>
+
+<div id="div_resMethod_dataset">
+  <p>select the resampling method: </p>
+</div>
+<br>
+
+<div id=div_tags_dataset>
+  <span class='list_tags'>your list of tags:</span>
+  <input type="checkbox" id="check_all_tags">
+  <label for="check_all_tags"> select all tags</label><br>
+  <br>
+</div>
+
+<div id="dd_x" class="dropdown-content"></div>
+<table id="table_tags_dataset" border="1" cellpadding="2">
+  <tr>
+    <td>
+      <input type="button" class="deleteall_btn" value = "Delete all" onClick="empty_tableOfTags()">
+    </td>
+    <td><b>Tags selected</b></td>
+    <td>color</td>
+    <td>units</td>
+</tr>
+</table>

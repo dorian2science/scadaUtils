@@ -2,68 +2,44 @@
 <input id="check_coarse" type="checkbox">Use coarse data</button>
 <br>
 <p>select your model : </p>
-<select id=dd_models onchange="change_model(event)"></select>
+<select id=dd_models onchange="change_model()"></select>
 <br>
-<p>select start and end time : </p>
-<br>
-<input id='datetimepicker' type="text" name="datetimes" />
-<div class="">
+<div id="div_datetimepicker">
+  <p>select start and end time : </p>
+  <br>
+  <input id='datetimepicker' type="text" name="datetimes" />
+</div>
+
+<div id = div_time_res>
   <p style='display:inline-block;'>time resolution:</p>
   <input style='display:inline-block;' id='in_time_res' type="number" min=0 name="time_res" value=30/>
   <select style='display:inline-block;' id='dd_time_unit' type="text" value="S"/>
-    <option value="L">milliseconds</option>
-    <option value="S">seconds</option>
-    <option value="T">minutes</option>
-    <option value="H">hours</option>
   </select>
 </div>
 
-<p>select the resampling method: </p>
-<select class=dd id="dd_resMethod"><select/>
-<br>
-<p>select your categorie:</p>
-<select class="dd" name="dd_categorie" id="dd_categorie"></select>
+<div id = div_resMethod>
+  <p>select the resampling method: </p>
+  <select class=dd id="dd_resMethod"><select/>
+</div>
 
 <div id=div_tags>
   <span class='list_tags'>your list of tags:</span>
+  <p>select your categorie:</p>
+  <select class="dd" name="dd_categorie" id="dd_categorie"></select>
+  <br>
   <input id="in_dd_y" type="text" placeholder="add a tag, search it.." class="in_dd_tag" onclick="show_tag_list(this)" onkeyup="filterTag(this)">
   <div id="dd_y" class="dropdown-content"></div>
-  <div id='trace_color_picker' class="html_color_picker" acp-color="#EFE9E7" acp-show-rgb="no" acp-show-hsl="yes" acp-show-hex="yes" acp-show-alpha></div>
-
-
-  <button name=btn_add_tags onclick="pop_listTags_up()">enter your list of tags </button>
+  <button id=btn_add_tags onclick="pop_listTags_up()">enter your list of tags </button>
 </div>
 
 <table name="table_tags" id="table_tags" border="1" cellpadding="2">
   <tr>
-      <td>delete</td>
+      <td>
+        <input type="button" class="deleteall_btn" value = "Delete all" onClick="empty_tableOfTags()">
+      </td>
       <td><b>Tags selected</b></td>
       <td>color</td>
+      <td>units</td>
   </tr>
 </table>
-<div class="">
-  <p>select x-axis: </p>
-  <br>
-  <select class="dd" id="select_dd_x"></select>
-  <!-- <input id="in_dd_x" type="text" placeholder="select your xaxis, search it.." class="in_dd_tag" onclick="show_tag_list(this)" onkeyup="filterTag(this)"> -->
-  <div id="dd_x" class="dropdown-content"></div>
-</div>
-</div>
-<div>
-<div class='real_time_check' >
-
-  <span >Activate <b>REAL-TIME</b>(inactif):</span>
-    <label class="switch">
-      <input type="checkbox" name='realtime_check' onclick="pop_menu_refresh(this)" disabled>
-      <span class="slider round"></span>
-    </label>
-
-  </div>
-<div class='refresh_parameters'>
-  <span >refresh time(in seconds):</span>
-  <input type="number" name="in_refresh_time" value=50>
-  <br>
-  <span style="display:inline-block">time window(in minutes):</span>
-  <input type="text" name="time_window" value='120'>
-</div>
-</div>
+<div id="real_time_panel"></div>

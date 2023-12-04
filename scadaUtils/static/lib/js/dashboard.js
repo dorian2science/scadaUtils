@@ -89,7 +89,7 @@ function export_figure() {
 const delta_dict={"hours":3600,"minutes":60,"days":3600*24,"seconds":1}
 
 function download_request_to_debug() {
-  const blob = new Blob([JSON.stringify(build_request_parameters_v2())], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(build_request_parameters())], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -196,36 +196,6 @@ function toggle_gaps(){
   update_axes()
 }
 
-function build_request_parameters() {
-  let parameters = {}
-
-  parameters['timerange'] = DATETIMEPICKER.value
-  parameters['rs_time'] = document.getElementById('in_time_res').value + document.getElementById('dd_time_unit').value
-  parameters['rs_method'] = document.getElementById('dd_resMethod').value
-  parameters['categorie'] = document.getElementById('dd_categorie').value
-  parameters['x'] = document.getElementById('select_dd_x').value
-  parameters['tags'] = extract_listTags_from_html_table().map(x=>x[0])
-  parameters['coarse'] = document.getElementById('check_coarse').checked
-  parameters['model'] = document.getElementById('dd_models').value
-
-  // console.log(parameters);
-  return parameters
-}
-
-function build_request_parameters_v2() {
-  let parameters = {}
-  parameters['rs_time'] = document.getElementById('in_time_res').value + document.getElementById('dd_time_unit').value
-  parameters['rs_method'] = document.getElementById('dd_resMethod').value
-  parameters['data_set'] = document.getElementById('dd_data_set').value
-  parameters['session'] = document.getElementById('dd_session').value
-  parameters['timerange'] = DATETIMEPICKER.value
-  parameters['all_times'] = document.getElementById('check_times').checked
-  parameters['tags'] = extract_listTags_from_html_table().map(x=>x[0])
-  parameters['all_tags'] = document.getElementById('check_all_tags').checked
-  // console.log(parameters);
-  return parameters
-}
-
 
 function update_traces_color(){
   config_colors = Array.from(TABLE_TAGS.children[0].children).slice(1,).map(x=>[x.children[1].textContent,x.children[2].children[0].value])
@@ -241,10 +211,11 @@ function update_traces_color(){
 }
 
 function addRow_tagTable(tagname,color) {
+  loc_table_tags = get_active_table()
   list_tags = extract_listTags_from_html_table().map(x=>x[0])
   if (!list_tags.includes(tagname)) {
-    var row = TABLE_TAGS.insertRow(TABLE_TAGS.rows.length);
-    row.insertCell(0).innerHTML = '<input style="width:35px" type="button" value = "X" onClick="deleteRow(this)">';
+    var row = loc_table_tags.insertRow(loc_table_tags.rows.length);
+    row.insertCell(0).innerHTML = '<input type="button" class="btn_delete" value = "X" onClick="deleteRow(this)">';
     // row.insertCell(1).innerHTML= '<b>'+tagname+'</b>';
     row.insertCell(1).innerHTML = tagname;
     if(!color){
@@ -281,14 +252,35 @@ function parse_tag(inputString){
 }
 
 
+function build_request_parameters() {
+  let parameters = {}
+  parameters['timerange'] = datetimepicker.value
+  parameters['rs_time'] = document.getElementById('in_time_res').value + document.getElementById('dd_time_unit').value
+  parameters['rs_method'] = document.getElementById('dd_resMethod').value 
+  parameters['tags'] = extract_listTags_from_html_table().map(x=>x[0])
+
+  if (document.getElementById('btn_tab_dataset').classList.contains('active')){
+    parameters['session'] = document.getElementById('dd_session').value
+    parameters['data_set'] = document.getElementById('dd_data_set').value
+    parameters['all_times'] = document.getElementById('check_times').checked
+    parameters['all_tags'] = document.getElementById('check_all_tags').checked
+    parameters['request_url'] =  '/generate_dataset_fig'
+  }else if(document.getElementById('btn_tab_parameters').classList.contains('active')){
+    parameters['model'] = document.getElementById('dd_models').value
+    parameters['categorie'] = document.getElementById('dd_categorie').value
+    parameters['coarse'] = document.getElementById('check_coarse').checked
+    parameters['request_url'] =  '/generate_fig'
+  }
+  console.log(parameters);
+  return parameters
+}
+
 var TIMES
 function fetch_figure() {
-  let btn_update=$('#btn_update')[0]
-  btn_update.innerHTML='updating...'
+  btn_update.innerHTML = 'updating...'
   btn_update.classList.add('updating')
-  // let parameters = build_request_parameters()
-  let parameters = build_request_parameters_v2()
-  // console.log(parameters);
+  let parameters = build_request_parameters()
+
   // remember visible states of previous traces
   if ($('#plotly_fig')[0].data==null){
     var tags_hidden=[]
@@ -296,8 +288,8 @@ function fetch_figure() {
     var tags_hidden=$('#plotly_fig')[0].data.filter(x=>x.visible=='legendonly').map(x=>x.name)
   }
   // console.log(tags_hidden);
-  // post request
-  $.post('/generate_dataset_fig',JSON.stringify(parameters),function(res,status){
+
+  $.post(parameters['request_url'],JSON.stringify(parameters),function(res,status){
     style = document.getElementById('dd_style').value
 
     var notif = res['notif']
@@ -554,6 +546,7 @@ function filterTag(e) {
 // ----------------------------------
 // FUNCTION TO INIT SOME COMPONENTS
 function init_dropdown(dd_id,values,fun_on_click) {
+  // console.log(dd_id);
   let dd_html=document.getElementById(dd_id)
   while (dd_html.options.length > 0) {
     dd_html.remove(0);
@@ -612,16 +605,29 @@ function pop_listTags_up() {
 }
 
 function empty_tableOfTags(){
-  nbrows=TABLE_TAGS.rows.length
+  loc_table = get_active_table()
+  nbrows = loc_table.rows.length
   for (let index=1;index<nbrows;index++){
-    TABLE_TAGS.deleteRow(1)
+    loc_table.deleteRow(1)
+  }
+}
+
+function get_active_tab(){
+  Array.from(document.getElementsByClassName("tab-button")).filter(x=>x.classList.contains('active'))[0].id 
+}
+
+function get_active_table(){
+  if (document.getElementById('btn_tab_dataset').classList.contains('active')){
+    return table_tags_dataset
+  }else if(document.getElementById('btn_tab_parameters').classList.contains('active')){
+    return table_tags
   }
 }
 
 function apply_changes() {
   listtags = document.getElementById('taglist').value.split('\n').filter((el)=> {return el != ""}).map(x=>parse_tag(x))
   // delete all rows in TABLE_TAGS
-  empty_tableOfTags()
+  empty_tableOfTags(loc_table)
   // add rows
   for (tag of listtags) {
     color = tag['color']
@@ -635,7 +641,8 @@ function apply_changes() {
 }
 
 function extract_listTags_from_html_table() {
-  return Array.from(TABLE_TAGS.children[0].children).slice(1,).map(x=>[x.children[1].innerHTML,x.children[2].children[0].value])
+  loc_table = get_active_table()
+  return Array.from(loc_table.children[0].children).slice(1,).map(x=>[x.children[1].innerHTML,x.children[2].children[0].value])
 }
 
 function select_tag_xaxis(tagname) {
@@ -644,7 +651,8 @@ function select_tag_xaxis(tagname) {
 
 function deleteRow(obj) {
     var index = obj.parentNode.parentNode.rowIndex;
-    TABLE_TAGS.deleteRow(index);
+    loc_table = get_active_table()
+    loc_table.deleteRow(index);
 }
 
 const LISTOPERATIONS = ['+','*','/','-','^']
@@ -762,31 +770,19 @@ function empyt_select(dd_id){
   }
 }
 
-function change_model(event){
+function change_model(){
   model = document.getElementById('dd_models').value
   $.post('/send_model_tags',JSON.stringify(model),function(data,status){
     model_tags = JSON.parse(data)
-    // console.log(model_tags);
-    if (event.detail==undefined){
-      empty_tableOfTags()
-    }
     empyt_select('dd_categorie')
     empyt_select('dd_y')
-    empyt_select('select_dd_x')
-    empyt_select('dd_var')
-
     init_tags_dropdown('dd_y',values=model_tags['all_tags'],addRow_tagTable)
     init_dropdown('dd_categorie',values=['no categorie'].concat(model_tags['categories']))
-    // init_tags_dropdown('dd_x',values=['time'].concat(data['all_tags']),select_tag_xaxis)
-    init_dropdown('select_dd_x',values=['Time'].concat(model_tags['all_tags']))
-    possible_vars = extract_listTags_from_html_table()
-
-    init_dropdown('dd_var',possible_vars.map((item, index) => `var${index + 1}_${item}`))
-
     // update timepicker
     max_date = moment(model_tags['max_date']).startOf('second').add(24*3600-1,'second')
     opt = {
       max_date:max_date,
+      time_window:INITIAL_TIMEWINDOW,
       end_date:max_date,
       min_date:moment(model_tags['min_date']),
       excludeddates:model_tags['excludeddates']
@@ -830,7 +826,7 @@ function change_dataSet(){
 //# ########################
 function update_timerange_picker(options){
   // let time_window = parseInt(document.getElementsByName('time_window')[0].value)
-  time_window = options.time_window = 3*24*60-1/60
+  time_window = options.time_window -1/60
   max_date = options.max_date || moment().startOf('second')
   end_date = options.end_date || max_date
   start_date = options.start_date || moment(end_date).subtract(time_window,'minute')
@@ -983,7 +979,8 @@ function popup_trace_color_picker(e){
   }
 
 function update_traces_color(){
-  config_colors = Array.from(TABLE_TAGS.children[0].children).slice(1,).map(x=>[x.children[1].textContent,x.children[2].children[0].value])
+  loc_table = get_active_table()
+  config_colors = Array.from(loc_table.children[0].children).slice(1,).map(x=>[x.children[1].textContent,x.children[2].children[0].value])
   for (let x of config_colors) {
     // console.log(x);
     trace_id = document.getElementById('plotly_fig').data.map(x=>x.name).indexOf(x[0])

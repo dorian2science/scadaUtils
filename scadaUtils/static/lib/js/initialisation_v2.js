@@ -1,5 +1,4 @@
 var DATETIMEPICKER
-var TABLE_TAGS
 var TIME_REFRESH_COUNTER = 0;
 var REAL_TIME = false
 const MIN_REFRESH_TIME = 0
@@ -255,7 +254,6 @@ var CONFIG = {
 
 
 function showTab(tabName) {
-
     var i, tabContent, tabButton;
 
     tabContent = document.getElementsByClassName("tab-content");
@@ -271,6 +269,38 @@ function showTab(tabName) {
     console.log(tab_btn_name);
     document.getElementById(tab_btn_name).classList.add("active");
     document.getElementById(tabName).style.display = "block";
+    switch_tab_dataset()
+}
+
+function switch_tab_dataset(){
+    if (document.getElementById('btn_tab_dataset').classList.contains('active')){
+        div_resMethod_dataset.appendChild(dd_resMethod)
+        div_datetimepicker_dataset.appendChild(datetimepicker)
+        div_time_res_dataset.appendChild(in_time_res)
+        div_time_res_dataset.appendChild(dd_time_unit)
+        div_tags_dataset.appendChild(in_dd_y)
+        div_tags_dataset.appendChild(dd_y)
+        div_tags_dataset.appendChild(btn_add_tags)
+        list_buttons_request_dataset.appendChild(btn_update)
+        list_buttons_request_dataset.appendChild(btn_export)
+        list_buttons_request_dataset.appendChild(btn_fig)        
+        update_data_sets().then(()=>{
+            change_dataSet()
+        })
+
+    }else if(document.getElementById('btn_tab_parameters').classList.contains('active')){
+        div_resMethod.appendChild(dd_resMethod)
+        div_datetimepicker.appendChild(datetimepicker)
+        div_time_res.appendChild(in_time_res)
+        div_time_res.appendChild(dd_time_unit)
+        div_tags.appendChild(in_dd_y)
+        div_tags.appendChild(dd_y)
+        div_tags.appendChild(btn_add_tags)
+        list_buttons_request.appendChild(btn_update)
+        list_buttons_request.appendChild(btn_export)
+        list_buttons_request.appendChild(btn_fig)
+        change_model()
+    }
 }
 
 function add_mouse_up_to_undisplay(listpop_ids){
@@ -321,19 +351,12 @@ function load_html_content() {
         })
 
         $('#tab_datasetParameters').load('../static/lib/datasetParameters_panel.html', function() {
-            $('#div_time_resolution').load('../static/lib/time_res_div.html', function() {
-                // document.getElementById('check_coarse').checked = true
-                $('#select_dd_x')[0].value = 'Time'
-                $('#dd_time_unit')[0].value = 'S'
-                all_done[3] = 1
-                console.log('tab_parameters is fully loaded.');
-                resolve()
-            });
+            all_done[3] = 1
+            console.log('tab_dataset is fully loaded.');
         })
-
+        
         $('#tab_dataParameters').load('../static/lib/dataParameters_panel.html', function() {
-            $('#div_time_resolution').load('../static/lib/time_res_div.html', function() {
-                // document.getElementById('check_coarse').checked = true
+            $('#div_time_res').load('../static/lib/time_res_div.html', function() {
                 all_done[4] = 1
                 console.log('tab_parameters is fully loaded.');
                 resolve()
@@ -341,38 +364,38 @@ function load_html_content() {
         })
         // while (!all_done.every(e => e === 1)){
             // }
-    })
-}
+        })
+    }
 
-
-function load_drag_drop_upload(){
-
-    const dropArea = document.getElementById("drop-area");
+    
+    function load_drag_drop_upload(){
+        
+        const dropArea = document.getElementById("drop-area");
         const fileInput = document.getElementById("file-input");
         const fileList = document.getElementById("file-list");
-
+        
         // Prevent default behavior to open file on drop
         dropArea.addEventListener("dragover", (e) => {
             e.preventDefault();
             dropArea.classList.add("highlight");
         });
-
+        
         dropArea.addEventListener("dragleave", () => {
             dropArea.classList.remove("highlight");
         });
-
+        
         dropArea.addEventListener("drop", (e) => {
             e.preventDefault();
             dropArea.classList.remove("highlight");
             const files = e.dataTransfer.files;
             handleFiles(files);
         });
-
+        
         fileInput.addEventListener("change", () => {
             const files = fileInput.files;
             handleFiles(files);
         });
-
+        
         function handleFiles(files) {
             for (const file of files) {
                 const listItem = document.createElement("li");
@@ -383,15 +406,15 @@ function load_drag_drop_upload(){
             }
         }
     }
-
+    
     function send_file(file) {
         // Send the file to the server using FormData and XMLHttpRequest
         const formData = new FormData();
         formData.append('file', file);
-
+        
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/upload', true);
-
+        
         xhr.onload = function(filename) {
             if (xhr.status === 200) {
                 console.log('File uploaded successfully');
@@ -402,19 +425,21 @@ function load_drag_drop_upload(){
                 console.error('Error uploading file');
             }
         };
-
+        
         xhr.send(formData);
-}
+    }
+    
 
 
+    
 function initialisation(data){
     load_html_content().then(()=>{
         data = JSON.parse(data)
         document.title = data['title'] +':'+$('.title_fig')[0].value
         document.querySelector('.tab-button.active').click()
-
+        
         // ------- INITIALIZATION of myDropdown menus --------
-        // init_dropdown('dd_models',values=data['models'],change_data_set)
+        init_dropdown('dd_models',values=data['models'],change_model)
         init_dropdown('dd_resMethod',values=data['rsMethods'])
         init_dropdown('dd_style',values=['default','lines+markers','markers','lines','stairs'])
         // init_dropdown('dd_operation',values=['no operation'].concat(['derivative','integral','regression p1','regression p2','regression p3']))
@@ -425,6 +450,7 @@ function initialisation(data){
         init_dropdown('select_dd_x',values=['Time'])
         //--------- DEFAULT VALUES FOR REQUEST_PARAMETERS ------------
         $('#select_dd_x')[0].value = 'Time'
+        $('#dd_time_unit')[0].value = 'S'
         $('#in_time_res')[0].value = data['rs_number']
         $('#dd_time_unit')[0].value = data['rs_unit']
         $('.title_fig')[0].value = data['initial_figname']
@@ -432,20 +458,23 @@ function initialisation(data){
         $('#legend_tag')[0].checked = true;
         $('#check_times')[0].checked = true;
         $('#dd_resMethod')[0].value = data['initial_resampling_method']
+        $('#dd_models')[0].value = data['initial_model']
+
         //--------  LISTENERS to hide menus when clicking outside of them ----
-        // var listpop_ids=["pop_version_info","pop_indicators","bg_color_picker","trace_color_picker","dd_x","dd_y"]
         var listpop_ids = ['popup_listTags',"dd_x","dd_y","pop_version_info","pop_indicators","bg_color_picker","trace_color_picker"]
         add_mouse_up_to_undisplay(listpop_ids)
         
+        // ----------- more initialisations ------- 
         load_drag_drop_upload()
         get_sessions().then(()=>{
-            console.log(data['initial_session']);
             $('#dd_session')[0].value = data['initial_session']
             update_data_sets().then(()=>{
                 change_dataSet()
             })
         })
-        DATETIMEPICKER = document.getElementById('datetimepicker')
+
+        change_model()
+        INITIAL_TIMEWINDOW = data['initial_time_window']/60
         $('#datetimepicker').daterangepicker({
             timePicker: true,
             timePicker24Hour:true,
@@ -457,14 +486,14 @@ function initialisation(data){
               format: 'D MMM YYYY HH:mm:ss',
             }
             })
-        TABLE_TAGS = document.getElementById('table_tags')
-        AColorPicker.from('#bg_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[width,150]})
+            AColorPicker.from('#bg_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[width,150]})
             .on('change', (picker, color) => {
                 hex_color_value=AColorPicker.parseColor(color, "hex");
                 console.log('bg');
                 Plotly.relayout('plotly_fig', {'plot_bgcolor':color})
             })
-
+            
+        loc_table = get_active_table()
         AColorPicker.from('#trace_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[width,150]})
             .on('change', (picker, color) => {
                 hex_color_value = AColorPicker.parseColor(color, "hex");
@@ -472,8 +501,8 @@ function initialisation(data){
                     'line.color':hex_color_value,
                     'marker.color':hex_color_value,
                 }
+                btn = Array.from(loc_table.children[0].children).slice(1,).filter(x=>x.children[1].textContent == fig.data[CURTRACE].name)[0].children[2].children[0]
                 Plotly.restyle('plotly_fig', update, CURTRACE);
-                btn = Array.from(TABLE_TAGS.children[0].children).slice(1,).filter(x=>x.children[1].textContent == fig.data[CURTRACE].name)[0].children[2].children[0]
                 btn.style.backgroundColor = hex_color_value
                 btn.value = hex_color_value
             });

@@ -56,7 +56,6 @@
   </div>
   <div id='trace_color_picker' class="html_color_picker" acp-color="#EFE9E7" acp-show-rgb="no" acp-show-hsl="yes" acp-show-hex="yes" acp-show-alpha></div>
 
-
   <div class="flex_container">
     <div id="tab_panels">
         <div class="tabs_container">
@@ -72,24 +71,19 @@
             <button class='p_but' id="btn_update" type="button" onclick="fetch_figure()">request data!</button>
             <button class='p_but' id="btn_export" type="button" onclick="data2excel()">export to excel</button>
             <button class='p_but' id="btn_fig" type="button" onclick="export_figure()">export figure</button>
-            <!-- <button class='p_but' id="btn_state_machine" type="button" onclick="get_state_machine_report()">get state machine report</button> -->
             <br>
             </div>
             <div class="request_parameters" id="tab_dataParameters"></div>
         </div>
+
         <div class="tab-content" id="tab_dataset" >
-            <div name='buttons' id="list_buttons_request_dataset">
-            <button class='p_but' id="btn_update_dataset" type="button" onclick="fetch_figure()">request data!</button>
-            <button class='p_but' id="btn_export_dataset" type="button" onclick="data2excel()">export to excel</button>
-            <button class='p_but' id="btn_fig_dataset" type="button" onclick="export_figure()">export figure</button>
-            <!-- <button class='p_but' id="btn_state_machine" type="button" onclick="get_state_machine_report()">get state machine report</button> -->
-            <br>
-            </div>
+          <div id="list_buttons_request_dataset" ></div>
             <div class="request_parameters" id="tab_datasetParameters"></div>
         </div>
         
         <div class="tab-content" id="tab_processing"></div>
         <div class="tab-content" id ="tab_display"></div>
+        <div class="tab-content" id ="tab_god_mode"></div>
     </div>
     <div>
         <a id="download-link" style="display: none;">Download Figure</a>

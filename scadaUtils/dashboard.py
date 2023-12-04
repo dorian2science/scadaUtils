@@ -45,6 +45,7 @@ class Basic_Dashboard():
         rs_number,rs_unit = re.search('(\d+)(\w)',self.init_parameters['initial_resampling_time']).groups()
         self.init_parameters['rs_number'] = rs_number
         self.init_parameters['rs_unit'] = rs_unit
+        self.init_parameters['initial_time_window'] = pd.Timedelta(self.init_parameters['initial_time_window']).total_seconds()
 
         self.log_folder = parameters['log_folder']
 
@@ -361,8 +362,8 @@ class Dashboard(Basic_Dashboard):
         model = json.loads(data.decode())
         data = {}
         data['categories'] = list(self.visualiser.conf.tag_categories[model].keys())
-        data['all_tags'] = self.visualiser.getTagsTU('',model=model)
-        list_days = self.visualiser.getdaysnotempty(model)
+        data['all_tags'] = self.visualiser.conf.getTagsTU('',model=model)
+        list_days = self.visualiser.conf.getdaysnotempty(model)
         max_day =  list_days.max()
         min_day = list_days.min()
         all_days=pd.date_range(start=min_day,end=max_day)
@@ -383,13 +384,12 @@ class Dashboard(Basic_Dashboard):
             if debug:print_file(parameters)
 
             t0,t1 = [pd.Timestamp(t,tz='CET') for t in parameters['timerange'].split(' - ')]
-            tag_x = parameters['x']
 
             if debug:print_file('t0,t1:',t0,t1)
             tags = parameters['tags']
-            if not tag_x.lower()=='time':tags+=[tag_x]
-            if parameters['categorie'] in self.init_parameters['categories']:
-                tags+=self.visualiser.conf.tag_categories[parameters['model']][parameters['categorie']]
+            model_categories = self.visualiser.conf.tag_categories[parameters['model']]
+            if parameters['categorie'] in model_categories:
+                tags += model_categories[parameters['categorie']]
             if debug:print_file('alltags:',tags)
             rs,rsMethod = parameters['rs_time'],parameters['rs_method']
             model = parameters['model']
@@ -408,26 +408,13 @@ class Dashboard(Basic_Dashboard):
                 raise Exception('no data')
 
             ####### check that the request does not have TOO MANY DATAPOINTS
-            nb_datapoints = len(df)*len(df.columns)
-            if nb_datapoints>MAX_NB_PTS:
-                nb_pts_curve = MAX_NB_PTS//len(df.columns)
-                total_seconds = (df.index[-1]-df.index[0]).total_seconds()
-                new_rs = str(total_seconds//nb_pts_curve)
-                df = df.resample(new_rs+'S').mean()
-                notif = self.NOTIFS['too_many_datapoints'].replace('XXX',str(nb_datapoints//1000)).replace('YYY',new_rs).replace('AAA',str(MAX_NB_PTS//1000))
+            df,notif = self.check_nb_data_points(df)
             if debug:print_file(df)
 
             tags_empty = detect_empty_columns(df)
             if len(tags_empty)>0:
                 notif = "No data could be found for the tags " + ', '.join(tags_empty)
-            if not tag_x.lower()=='time':
-                df.index = df[tag_x]
-                fig = self.plot_function(df,model)
-                fig.update_layout(xaxis_title=tag_x+ '('+self.cfg.getUnitofTag(tag_x) + ')')
-                fig.update_traces(mode='markers')
-            else:
-                fig = self.plot_function(df,model)
-            # fig.update_layout(width=1260,height=750,legend_title='tags')
+            fig = self.plot_function(df,model)
             self.log_info(computetimeshow('fig generated with pool =' + str(pool),start))
 
         except:

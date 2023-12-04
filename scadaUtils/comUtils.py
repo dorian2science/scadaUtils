@@ -1768,6 +1768,7 @@ class Streamer(Basic_streamer):
             - False or any other value will not pool the loading
         :param \**kwargs: Streamer._pool_tag_daily and Streamer.load_tag_daily
         '''
+        if verbose:print_file('reading from the folder : ',folderpkl)
         if not len(tags)>0:return pd.DataFrame()
         loc_pool=pool
         if pool in ['tag','day','auto']:
@@ -2887,7 +2888,7 @@ class VisualisatorStatic():
         self.methods = STREAMER.methods
 
 
-    def loadtags_period(self,t0,t1,tags,*args,pool='auto',verbose=False,**kwargs):
+    def loadtags_period(self,t0,t1,tags,model,*args,pool='auto',verbose=False,**kwargs):
         '''
         Load tags between times t0  and t1.
 
@@ -2901,5 +2902,6 @@ class VisualisatorStatic():
         # for k in t0,t1,tags,args,kwargs:print_file(k)
         tags = list(np.unique(tags))
         ############ read parked data
-        df = STREAMER.load_parkedtags_daily(t0,t1,tags,self.folderPkl,*args,pool=pool,verbose=verbose,**kwargs)
+        parked_folder = os.path.join(self.folderPkl,model)
+        df = STREAMER.load_parkedtags_daily(t0,t1,tags,parked_folder,*args,pool=pool,verbose=verbose,**kwargs)
         return df.sort_index()
