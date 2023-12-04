@@ -34,7 +34,7 @@ def quick_resample(df,rs,rsMethod):
     return df
 
 class Basic_Dashboard():
-    def __init__(self,conf):
+    def __init__(self,conf,startup=False):
         self.dashboard_html = 'dashboard.html'
         parameters =  conf.parameters
         self.init_parameters = parameters['dashboard']
@@ -56,8 +56,21 @@ class Basic_Dashboard():
         self.errorfile_name = os.path.join(self.log_folder,'dashboard_' + conf.project_name + '.err');
         with open(self.errorfile_name,'a') as logfile:
             logfile.write(start_msg)
+    
+        if self.init_parameters['root_path'] == '':
+            self.init_parameters['root_path'] = os.path.join(self.project_folder,'dashboard/')
+        
+        if startup:
+            self._create_dashboard_links()
 
+        if self.init_parameters['log_version_file'] == '':
+            self.init_parameters['log_version_file'] = os.path.join(self.project_folder,'dashboard','static','log_versions.md')
+        if self.init_parameters['folder_datasets'] == '':
+            self.init_parameters['folder_datasets'] = os.path.join(self.project_folder,'datasets/')
+        if self.init_parameters['tmp_folder'] == '':
+            self.init_parameters['tmp_folder'] = os.path.join(self.project_folder,'tmp/')
         self.version_dashboard = '.'.join(pkg_resources.get_distribution('scadaUtils').version.split('.')[:-1])
+
         self.app = Flask(__name__,root_path = self.init_parameters['root_path'])
 
         self.routes = [
@@ -280,34 +293,28 @@ class Basic_Dashboard():
             x=AutoTB(*tb,out=self.errorfile_name)
         print_file('-'*60+'\n',filename=self.errorfile_name)
 
-    def _create_dashboard_links(self,root_folder):
+    def _create_dashboard_links(self):
         '''
-        Copy the static and templates folders into root folder of the dashboard to be able to run the Dashboard instance.
-
-        :param str root_folder: name of the root folder
+        Copy the static and templates folders into the root folder of the dashboard to be able to run the Dashboard instance.
         '''
         import shutil
-        create_folder_if_not(root_folder)
+        create_folder_if_not(self.init_parameters["root_folder"])
         #### TEMPLATE FOLDER
-        sylfenUtils_env_dir = os.path.dirname(__file__)
-        templates_folder = os.path.join(root_folder,'templates')
-        if not os.path.exists(templates_folder):
-            shutil.copytree(os.path.join(sylfenUtils_env_dir,'templates'),templates_folder)
-            print('templates files have been copied into ',root_folder)
+        scadaUtils_env_dir = os.path.dirname(__file__)
+        templates_folder = os.path.join(self.init_parameters["root_folder"],'templates')
+        shutil.copytree(os.path.join(scadaUtils_env_dir,'templates'),templates_folder)
+        print('templates files have been copied into ',self.init_parameters["root_folder"])
+
         #### STATIC FOLDER
-        static_folde = os.path.join(root_folder,'static')
-        if not os.path.exists(static_folder):
-            shutil.copytree(os.path.join(sylfenUtils_env_dir,'static'),static_folder)
-        lib_folder = os.path.join(static_folder,'lib')
-        if not os.path.exists(lib_folder):
-            shutil.copytree(os.path.join(sylfenUtils_env_dir,'static/lib'),lib_folder)
-            print('static files have been copied into ',root_folder)
+        static_folder = os.path.join(self.init_parameters["root_folder"],'static')
+        shutil.copytree(os.path.join(scadaUtils_env_dir,'static'),static_folder)
+        # lib_folder = os.path.join(static_folder,'lib')
+        # if not os.path.exists(lib_folder):
+        #     shutil.copytree(os.path.join(scadaUtils_env_dir,'static/lib'),lib_folder)
+        print('static files have been copied into ',self.init_parameters["root_folder"])
 
         tmp_folder = os.path.join(static_folder,'tmp')
-        if not os.path.exists(tmp_folder):
-            shutil.copytree(os.path.join(sylfenUtils_env_dir,'static/tmp'),tmp_folder)
-            print('static files have been copied into ',root_folder)
-
+        create_folder_if_not(tmp_folder)
 
 class Dashboard(Basic_Dashboard):
     '''
@@ -316,8 +323,8 @@ class Dashboard(Basic_Dashboard):
     :param conf: conf object create by confGenerator 
     '''
 
-    def __init__(self,conf,visualiser,plot_function=None,app_name=''):
-        Basic_Dashboard.__init__(self,conf)
+    def __init__(self,conf,visualiser,plot_function=None,app_name='',**kwargs):
+        Basic_Dashboard.__init__(self,conf,**kwargs)
         self.visualiser = visualiser
         self.app_name = app_name
         if plot_function is None :

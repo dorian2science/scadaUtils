@@ -437,7 +437,7 @@ class GAIA():
     :param \*args: see sylfenUtils.Conf_generator.Conf_generator arguments
     :param \**kwargs: see sylfenUtils.Conf_generator.Conf_generator arguments
     '''
-    def __init__(self,*args,realtime=False,verbose=False,**kwargs):
+    def __init__(self,*args,realtime=False,startup=False,verbose=False,**kwargs):
         if realtime:
             self.conf = Conf_generator.Conf_generator_RT(*args,**kwargs)
         else:
@@ -456,7 +456,7 @@ class GAIA():
             self._visualiser = comUtils.VisualisatorStatic(self.conf)
 
         #### configure web GUI
-        self._dashboard = Dashboard(self.conf,self._visualiser)
+        self._dashboard = Dashboard(self.conf,self._visualiser,startup=startup)
 
         print('='*60,'\nYOUR ATTENTION PLEASE.\nPlease check your default settings for the application in the file.\n\n',self.conf.file_parameters)
         print('\nIf necessary change the settings and reinstanciate your GAIA object\n'+'='*60)

@@ -108,22 +108,22 @@ class Conf_generator():
         '''
 
     def __init__(self,project_name,function_generator,project_folder=None,force_creation=False,verbose=False):
-        self.project_name=project_name
-        self._function_generator=function_generator
-        self._lib_sylfenUtils_path=os.path.dirname(__file__)
+        self.project_name = project_name
+        self._function_generator = function_generator
+        self._lib_sylfenUtils_path = os.path.dirname(__file__)
         self._force_creation=force_creation
 
         homepath = {'posix': 'HOME', 'nt':'homepath'}
-        if project_folder is None:project_folder=os.path.join(os.getenv(homepath[os.name]),project_name+'_user')
+        if project_folder is None:
+            project_folder = os.path.join(os.getenv(homepath[os.name]),project_name + '_user')
 
-        self.project_folder=project_folder
+        self.project_folder = project_folder
 
         #### if the PROJECT FOLDER does not exists create it
         create_folder_if_not(self.project_folder)
 
         self._file_conf_pkl = os.path.join(self.project_folder,'conf_' + self.project_name + '.pkl')
         self.file_parameters = os.path.join(self.project_folder,'parameters.json')
-        
 
         ## copy the DEFAULT PARAMETERS file as the parameters File into the user folder
         if not os.path.exists(self.file_parameters) or self._force_creation:
@@ -140,12 +140,12 @@ class Conf_generator():
         self.FOLDERPKL = self.parameters['folderpkl']
 
         ###### DATA FOLDER PKL ######
-        if self.parameters['folderpkl'] == 'default':
+        if self.parameters['folderpkl'] == '':
             self.parameters['folderpkl'] = os.path.join(self.project_folder,project_name+'_daily')
         create_folder_if_not(self.parameters['folderpkl'])
         
         ###### LOG FOLDER ######
-        if self.parameters['log_folder'] == 'default':
+        if self.parameters['log_folder'] == '':
             self.parameters['log_folder'] = os.path.join(self.project_folder,'log/')
         create_folder_if_not(self.parameters['log_folder'])
 
