@@ -27,6 +27,14 @@ p {
   display: inline-block;
 }
 
+.dd {
+  width:max-content;
+  font-size: 20px;
+  padding-left: 2px;
+  margin: 2px;
+  display: inline;
+}
+
 #arrow_nav{
   font-size: 30px;
   background-color: transparent;
@@ -111,7 +119,7 @@ p {
 .tab-button {
     background-color: #f2f2f2;
     padding: 10px;
-    border: 1px solid #ccc;
+    border: 1px solid black;
     cursor: pointer;
     /* margin: 0px; */
     display: inline-block; /* Display buttons horizontally */
@@ -163,14 +171,7 @@ p {
   /* background-color: blue; */
   display: block;
 }
-.dd {
-    width:max-content;
-    font-size: 20px;
-    padding-left: 2px;
-    margin: 2px;
-    margin: 2px;
-    display: inline;
-}
+
 .real_time_check {
   background-color:#b75ef2;
   width:max-content;
@@ -179,17 +180,17 @@ p {
 }
 
 
-#datetimepicker{
+.datetimepicker{
   width:450px;
   font-size: 18px;
   margin:5px
 }
 #in_time_res{
-  width:80px;
+  width:50px;
   font-size: 18px;
 }
-#dd_style{
-  width:auto;
+#dd_time_unit{
+  margin-left:10px;
 }
 
 .p_but{
@@ -279,4 +280,9 @@ p {
 .big_btn{
   width: 30px;
   height: 30px;
+}
+.state_machine{
+  background-color: white;
+  padding: 10px;
+
 }

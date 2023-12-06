@@ -1,6 +1,9 @@
 # Log new features
-What's new in V1.8 ?
+What's new in V1.9 ?
 --------------
+### v1.9
+- god mode tab available for futur in-depth analysis
+- get state machine report available to [debug state machine](https://inocel.atlassian.net/wiki/spaces/Diagnostiq/pages/132481048/Obtenir+un+rapport+des+tats+de+la+machine+d+tat+du+syst+me) 
 ### v1.8
 - dataset tab is available. 
 - Possible to drag and drop data as a csv file(works only if the csv is correctly formated) to visualize it.

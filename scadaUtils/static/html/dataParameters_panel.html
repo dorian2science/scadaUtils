@@ -2,18 +2,18 @@
 <input id="check_coarse" type="checkbox">Use coarse data</button>
 <br>
 <p>select your model : </p>
-<select id=dd_models onchange="change_model()"></select>
+<select id="dd_models" class="dd" onchange="change_model()"></select>
 <br>
 <div id="div_datetimepicker">
   <p>select start and end time : </p>
   <br>
-  <input id='datetimepicker' type="text" name="datetimes" />
+  <input id='datetimepicker' class="datetimepicker" type="text" name="datetimes" />
 </div>
 
 <div id = div_time_res>
   <p style='display:inline-block;'>time resolution:</p>
   <input style='display:inline-block;' id='in_time_res' type="number" min=0 name="time_res" value=30/>
-  <select style='display:inline-block;' id='dd_time_unit' type="text" value="S"/>
+  <select id='dd_time_unit' type="text" value="S"/>
   </select>
 </div>
 
