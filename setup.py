@@ -4,7 +4,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 base_version=re.search('(ScadaUtils V)(\d+\.\d*)',long_description).groups()[1]
-v_try='3'
+v_try='4'
 
 setuptools.setup(
     name="scadaUtils",
@@ -22,7 +22,7 @@ setuptools.setup(
     ],
     packages=setuptools.find_packages(),
     package_data={'': ['conf/*',
-            'static/',
+            'static/*','static/js/*','static/css/*','static/html/*','static/tmp/',
             'templates/*','rsoc_units.txt']},
     include_package_data=True,
     install_requires=['IPython','pandas>=1.5.2','psycopg2-binary','odfpy==1.4.1','plotly>=5.5.0',
