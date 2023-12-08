@@ -204,8 +204,8 @@ $.get('init',function(data){
         INIT_DATA = data
         document.title = data['title'] +':'+$('.title_fig')[0].value
         img_logo.src = data["logo_path"]
-        document.querySelector('link[rel="icon"]').href = data["logo_path"]
-        document.getElementById("help-me-link").src = data["helpmelink"]
+        document.querySelector('link[rel="icon"]').src = data["logo_path"]
+        document.getElementById("help-me-link").href = data["helpmelink"]
         $.get(data["log_version_file"], function(md_text) {
             converter = new showdown.Converter()
             $('#pop_version_info')[0].innerHTML=converter.makeHtml(md_text)
