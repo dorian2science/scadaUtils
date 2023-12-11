@@ -83,6 +83,8 @@ class Basic_Dashboard():
             ('/send_sessions',self.send_sessions,['GET']),
             ('/upload',self.process_new_file,['POST'])
         ]
+        
+        self.sessions = {}
 
     def define_routes(self):
         for route, route_function,methods in self.routes:
@@ -203,15 +205,27 @@ class Basic_Dashboard():
             return 'No file part'
 
         file = request.files['file']
+        session = request.form['session']
 
         if file.filename == '':
             return 'No selected file'
 
-        filepath = os.path.join(self.tmp_folder, file.filename)
+        print_file(session)        
+        filepath = os.path.join(self.conf.parameters['dashboard']['upload_folder'],session, file.filename)
         file.save(filepath)
         print_file('file stored successfully')
-        self.parse_file(filepath)
-        return file.filename
+        if session in self.sessions.keys():
+            try:
+                self.sessions[session](filepath)
+                return ""
+            except:
+                error_message = traceback.format_exc()
+                notif = "impossible to parse your file : " + file.filename +". Please make sure you are in the correct session."
+                # notif = "impossible to parse your file : " + error_message 
+                return notif
+        else:
+            return 'no available parser for session : '+ session
+
 
     def send_data_sets(self):
         data = request.get_data()
@@ -222,7 +236,7 @@ class Basic_Dashboard():
     def send_dfplc(self):
         data = request.get_data()
         data = json.loads(data.decode())
-        print_file(data)
+        # print_file(data)
         dfplc_path = os.path.join(self.folder_datasets,data['session'],'dfplc',data['dataset'] + '_dfplc.pkl')
         print_file(dfplc_path)
         dfplc = pd.read_pickle(dfplc_path)

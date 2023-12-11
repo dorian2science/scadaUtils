@@ -264,7 +264,7 @@ function build_request_parameters() {
     parameters['coarse'] = document.getElementById('check_coarse').checked
     parameters['request_url'] =  '/generate_fig'
   }
-  console.log(parameters);
+  // console.log(parameters);
   return parameters
 }
 

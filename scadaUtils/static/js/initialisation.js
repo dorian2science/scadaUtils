@@ -178,18 +178,22 @@ function load_drag_drop_upload(){
 
 function send_file(file) {
     // Send the file to the server using FormData and XMLHttpRequest
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/upload');
     const formData = new FormData();
     formData.append('file', file);
-    
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/upload', true);
-    
-    xhr.onload = function(filename) {
+    formData.append('session', dd_session.value);
+    // formData.append('data', {'session':dd_session.value});
+    xhr.onload = function(res) {
+        var response = xhr.responseText;
         if (xhr.status === 200) {
-            console.log('File uploaded successfully');
-            alert('your file has been  processed and is available in the dataset drop down menu.')
-            document.getElementById("file-list").innerHTML = "";
-            update_data_sets()
+            if (response==""){
+                alert('your file has been  processed and is available in the dataset drop down menu.' + response)
+                update_data_sets()
+            }else{
+                alert("ERROR :" + response)
+            }
+        document.getElementById("file-list").innerHTML = "";
         } else {
             console.error('Error uploading file');
         }

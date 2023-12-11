@@ -1,6 +1,9 @@
 # Log new features
-What's new in V1.9 ?
+What's new in V1.10 ?
 --------------
+### v1.10
+- [possible to drag-drop files](https://inocel.atlassian.net/wiki/spaces/Diagnostiq/pages/135757872/Charger+un+fichier+de+donn+es) of pre-defined format for bench\_crio, AVL, cea_pacmat. 
+
 ### v1.9
 - god mode tab available for futur in-depth analysis
 - get state machine report available to [debug state machine](https://inocel.atlassian.net/wiki/spaces/Diagnostiq/pages/132481048/Obtenir+un+rapport+des+tats+de+la+machine+d+tat+du+syst+me) 
