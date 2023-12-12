@@ -310,7 +310,11 @@ function fetch_figure() {
     update_table_traces()
     $('#btn_update')[0].innerHTML='request data!'
     btn_update.classList.remove('updating')
-    let new_traces = $('#plotly_fig')[0].data.map(x=>x.name)
+    let new_traces = plotly_fig.data.map(x=>x.name)
+    for (trace of plotly_fig.data){
+      trace.tag = trace.name
+    }
+    Plotly.restyle(plotly_fig,data)
     init_dropdown('select_dd_x',['Time'].concat(new_traces),change_x_axis)
     let indexes = tags_hidden.map(x=>new_traces.indexOf(x))
     if (indexes.length!=0){Plotly.restyle('plotly_fig', {visible:'legendonly'},indexes);}
@@ -338,6 +342,7 @@ function update_hover(){
     units.push(Array(len_data).fill(unit))
   }
   update={
+    customdata:units,
     customdata:units,
     hovertemplate : '<i>value</i>: %{y:.'+precision+'f} %{customdata}<br>'+'<b>%{text}' + '<br>',
     text:[text_date],
@@ -989,6 +994,7 @@ function add_row_trace_table(){
   
 }
 
+var OLDER_NAMES = {}
 function update_table_traces() {
   nbrows = table_traces.rows.length
   for (let index=1;index<nbrows;index++){
@@ -1043,6 +1049,13 @@ function update_table_traces() {
     label_in.classList.add('table_input')
     label_in.value = trace.name
     label_in.style.width = '150px'
+    label_in.addEventListener('change', function (e) {
+      cur_tag = e.target.parentElement.parentElement.children[0].textContent
+      console.log(cur_tag);
+      trace_id = Array.from(plotly_fig.data).map(x=>x.tag).indexOf(cur_tag)
+      console.log(trace_id);
+      Plotly.restyle(plotly_fig,{name:e.target.value},trace_id)
+    });
     row.insertCell(6).append(label_in)
   }
 }
