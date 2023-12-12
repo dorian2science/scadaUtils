@@ -969,7 +969,6 @@ function popup_bg_color_picker(){
 var cur_btn_color
 function popup_trace_color_picker(e){
     picker = document.getElementById('trace_color_picker')
-    console.log(e.id);
     cur_btn_color = e
     picker.style.display = 'flex'
     picker.style.zIndex=1
@@ -1010,7 +1009,7 @@ function update_table_traces() {
     color_but.textContent = trace.marker.color
     color_but.id = 'color_d_' + trace.name
     color_but.classList.add('color_button')
-    color_but.onclick = popup_trace_color_picker
+    color_but.addEventListener('click', function (e) {popup_trace_color_picker(e.target)})
     row.insertCell(1).append(color_but)
     
     unit_in = document.createElement('input')
@@ -1043,6 +1042,11 @@ function update_table_traces() {
     size_in.value=1
     size_in.step=0.01
     size_in.classList.add('table_input')
+    size_in.addEventListener('change', function (e) {
+      cur_tag = e.target.parentElement.parentElement.children[0].textContent
+      trace_id = Array.from(plotly_fig.data).map(x=>x.tag).indexOf(cur_tag)
+      Plotly.restyle(plotly_fig,{"marker.size":parseInt(marker_size.value)*parseInt(e.target.value)},trace_id)
+    });
     row.insertCell(5).append(size_in)
     
     label_in = document.createElement('input')
@@ -1051,9 +1055,7 @@ function update_table_traces() {
     label_in.style.width = '150px'
     label_in.addEventListener('change', function (e) {
       cur_tag = e.target.parentElement.parentElement.children[0].textContent
-      console.log(cur_tag);
       trace_id = Array.from(plotly_fig.data).map(x=>x.tag).indexOf(cur_tag)
-      console.log(trace_id);
       Plotly.restyle(plotly_fig,{name:e.target.value},trace_id)
     });
     row.insertCell(6).append(label_in)
@@ -1090,11 +1092,6 @@ function apply_traces_changes(){
     axis = 'y' + id_ax
     console.log('axis of ' + name +' is' + axis);
     update = {
-      // "line.color":color,
-      // "marker.color":color,
-      "marker.size":parseInt(marker_size.value)*parseInt(size_mult),
-      // name:row.children[6].children[0].value,
-      // "customdata":[Array(trace.y.length).fill(unit)],
       yaxis:axis,
     }
     Plotly.restyle('plotly_fig', update, id)

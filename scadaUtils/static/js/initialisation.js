@@ -272,7 +272,7 @@ $.get('init',function(data){
                 Plotly.relayout('plotly_fig', {'plot_bgcolor':color})
             })
             
-        loc_table = get_active_table()
+        // loc_table = get_active_table()
         AColorPicker.from('#trace_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[width,150]})
             .on('change', (picker, color) => {
                 hex_color_value = AColorPicker.parseColor(color, "hex");
@@ -282,7 +282,7 @@ $.get('init',function(data){
                 }
                 cur_btn_color.style.backgroundColor = hex_color_value
                 cur_btn_color.value = hex_color_value
-                cur_name = cur_btn_color.parentElement.parentElement.children[1].textContent 
+                cur_name = cur_btn_color.parentElement.parentElement.children[0].textContent 
                 if (typeof fig !== 'undefined'){
                     cur_trace_index = fig.data.map(x=>x.name).indexOf(cur_name)
                     Plotly.restyle('plotly_fig', update, cur_trace_index);
