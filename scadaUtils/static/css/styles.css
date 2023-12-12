@@ -284,5 +284,10 @@ p {
 .state_machine{
   background-color: white;
   padding: 10px;
+}
 
+.table_input{
+  width:50px;
+  padding: 5px;
+  margin: 2px;
 }

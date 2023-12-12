@@ -2,17 +2,6 @@
 <button class='p_but' id="btn_bg_color" type="button" onclick="popup_bg_color_picker()">background <br> color</button>
 <div id='bg_color_picker' class="html_color_picker" acp-color="#EFE9E7" acp-show-rgb="no" acp-show-hsl="yes" acp-show-hex="yes" acp-show-alpha></div>
 <br>
-<p>grid parameters:</p>
-<br>
-<input type="checkbox" id="grid_x" class="grid_params">
-<label for="grid_x"> grid on x axes</label><br>
-<input type="checkbox" id="grid_y" class="grid_params">
-<label for="grid_y"> grid on y axes</label><br>
-<input type="checkbox" id="grid_box" class="grid_params">
-<label for="grid_box"> grid box</label><br>
-<input type="checkbox" id="zeroline" class="grid_params">
-<label for="zeroline"> zeroline</label><br>
-<br>
 <p>select style: </p>
 <select class="dd" id="dd_style" onchange="update_style_fig(this)"></select>
 <br>
@@ -38,9 +27,6 @@
   <option value="I>1">I>1</option>
   <option value="no data">no data</option>
 </select>
-<div name='display legend' class="legend_para" id=legend_para>
-  <span><b>display legend mode:</b></span>
-  <!-- radio items defined in smallpower_dash.js -->
 </div>
     <br>
     <p>space between axes:</p>
@@ -67,3 +53,30 @@
   <br>
   <select class="dd" id="select_dd_x"></select>
 </div>
+<button class='p_but' id="btn_apply_traces_color" type="button" onclick="apply_traces_changes()"> relayout the graph</button>
+<table name="table_traces" id="table_traces" border="1" cellpadding="2">
+  <tr>
+      <td><b>tag</b></td>
+      <td><b>color</b></td>
+      <td><b>unit</b></td>
+      <td><b>row</b></td>
+      <td><b>col</b></td>
+      <td><b>size_mult</b></td>
+      <td><b>label</b></td>
+  </tr>
+</table>
+
+<br>
+<p>grid parameters:</p>
+<br>
+<input type="checkbox" id="grid_x" class="grid_params">
+<label for="grid_x"> grid on x axes</label><br>
+<input type="checkbox" id="grid_y" class="grid_params">
+<label for="grid_y"> grid on y axes</label><br>
+<input type="checkbox" id="grid_box" class="grid_params">
+<label for="grid_box"> grid box</label><br>
+<input type="checkbox" id="zeroline" class="grid_params">
+<label for="zeroline"> zeroline</label><br>
+
+<div name='display legend' class="legend_para" id=legend_para>
+  <span><b>display legend mode:</b></span>

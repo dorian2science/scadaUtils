@@ -193,7 +193,6 @@ function toggle_gaps(){
 function update_traces_color(){
   config_colors = Array.from(TABLE_TAGS.children[0].children).slice(1,).map(x=>[x.children[1].textContent,x.children[2].children[0].value])
   for (let x of config_colors) {
-    console.log(x);
     trace_id = fig.data.map(x=>x.name).indexOf(x[0])
     update = {
       'line.color':x[1],
@@ -308,6 +307,7 @@ function fetch_figure() {
     update_size_markers()
     update_legend()
     modify_grid()
+    update_table_traces()
     $('#btn_update')[0].innerHTML='request data!'
     btn_update.classList.remove('updating')
     let new_traces = $('#plotly_fig')[0].data.map(x=>x.name)
@@ -982,4 +982,119 @@ function update_traces_color(){
     }
     Plotly.restyle('plotly_fig', update, trace_id);
     }
+}
+
+
+function add_row_trace_table(){
+  
+}
+
+function update_table_traces() {
+  nbrows = table_traces.rows.length
+  for (let index=1;index<nbrows;index++){
+    table_traces.deleteRow(1)
   }
+
+  for (trace of plotly_fig.data){
+    var row = table_traces.insertRow(table_traces.rows.length);
+    row.insertCell(0).innerHTML = trace.name
+    
+    color_but = document.createElement('button')
+    color_but.style.backgroundColor = trace.marker.color
+    color_but.textContent = trace.marker.color
+    color_but.id = 'color_d_' + trace.name
+    color_but.classList.add('color_button')
+    color_but.onclick = popup_trace_color_picker
+    row.insertCell(1).append(color_but)
+    
+    unit_in = document.createElement('input')
+    unit_in.value = trace.customdata[0]
+    unit_in.classList.add('table_input')
+    row.insertCell(2).append(unit_in)
+    
+    row_in = document.createElement('input')
+    row_in.type='number'
+    row_in.min=1
+    row_in.max=10
+    row_in.value=1
+    row_in.step=1
+    row_in.classList.add('table_input')
+    row.insertCell(3).append(row_in)
+    
+    col_in = document.createElement('input')
+    col_in.type='number'
+    col_in.min=1
+    col_in.max=10
+    col_in.value=1
+    col_in.step=1
+    col_in.classList.add('table_input')
+    row.insertCell(4).append(col_in)
+    
+    size_in = document.createElement('input')
+    size_in.type='number'
+    size_in.min=0.1
+    size_in.max=10
+    size_in.value=1
+    size_in.step=0.01
+    size_in.classList.add('table_input')
+    row.insertCell(5).append(size_in)
+    
+    label_in = document.createElement('input')
+    label_in.classList.add('table_input')
+    label_in.value = trace.name
+    label_in.style.width = '150px'
+    row.insertCell(6).append(label_in)
+  }
+}
+
+function apply_traces_changes(){
+  all_units = Array.from(table_traces.children[0].children).slice(1,).map(x=>x.children[2].children[0].value)
+  all_units = Array.from(new Set(all_units));
+  layout = {
+  }
+  layout['yaxis'] = {title: {text:all_units[0],font:{color:"black"}}}
+  for (axis=2;axis<=all_units.length;axis++){
+    layout['yaxis'+axis] = {
+      title : {text:all_units[axis-1],font:{color:"black"}},
+      overlaying: 'y',
+    }
+  }
+  Plotly.relayout('plotly_fig', layout)
+  
+  
+  for (row of Array.from(table_traces.children[0].children).slice(1,)){
+    name = row.children[6].children[0].value
+    color = row.children[1].textContent
+    unit =  row.children[2].children[0].value
+    row_id = row.children[3].children[0].value
+    col = row.children[4].children[0].value
+    size_mult = row.children[5].children[0].value
+    
+    id = fig.data.map(x=>x.name).indexOf(name)
+    trace = fig.data[id]
+    id_ax = all_units.indexOf(unit)+1
+    if (id_ax==1){id_ax=""}
+    axis = 'y' + id_ax
+    console.log('axis of ' + name +' is' + axis);
+    update = {
+      // "line.color":color,
+      // "marker.color":color,
+      "marker.size":parseInt(marker_size.value)*parseInt(size_mult),
+      // name:row.children[6].children[0].value,
+      // "customdata":[Array(trace.y.length).fill(unit)],
+      yaxis:axis,
+    }
+    Plotly.restyle('plotly_fig', update, id)
+  }
+ 
+  //// delete unused axes
+  layout = fig.layout
+  axes = Object.keys(layout).filter(x=>x.includes("yaxis")).map(x=>x.slice(5,))
+  for (k=all_units.length+1;k<=axes.length;k++){
+    console.log('yaxis'+k);
+    delete layout['yaxis'+k]
+  }
+  Plotly.relayout('plotly_fig', layout)
+  update_axes()
+}
+
