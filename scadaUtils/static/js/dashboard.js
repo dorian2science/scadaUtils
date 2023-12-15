@@ -248,7 +248,7 @@ function fetch_figure() {
     update_size_markers()
     // update_legend()
     // modify_grid()
-    // update_table_traces()
+    update_table_traces()
     $('#btn_update')[0].innerHTML='request data!'
     btn_update.classList.remove('updating')
     let new_traces = plotly_fig.data.map(x=>x.name)

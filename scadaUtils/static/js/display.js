@@ -223,6 +223,7 @@ function update_table_traces() {
 }
 
 
+
 function create_x_axis(xax_name){
 xax = get_std_axis()
 xax['type'] = 'date'
@@ -442,16 +443,10 @@ function update_size_markers(){
     Plotly.restyle('plotly_fig', update);
 }
 
-function update_traces_color(){
-  config_colors = Array.from(TABLE_TAGS.children[0].children).slice(1,).map(x=>[x.children[1].textContent,x.children[2].children[0].value])
-  for (let x of config_colors) {
-    trace_id = fig.data.map(x=>x.name).indexOf(x[0])
-    update = {
-      'line.color':x[1],
-      'marker.color':x[1],
-    }
-    Plotly.restyle('plotly_fig', update, trace_id);
-  }
+// config_colors = get_table_traces_json()
+function update_trace_color(tag,color){
+  trace_id = fig.data.map(x=>x.tag).indexOf(tag)
+  Plotly.restyle('plotly_fig', {'line.color':color,'marker.color':color}, trace_id);
 }
 
 function update_style_fig(e) {

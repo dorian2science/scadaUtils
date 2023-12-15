@@ -336,15 +336,12 @@ $.get('init',function(data){
                 }
                 cur_btn_color.style.backgroundColor = hex_color_value
                 cur_btn_color.value = hex_color_value
-                cur_name = cur_btn_color.parentElement.parentElement.children[0].textContent 
-                if (typeof fig !== 'undefined'){
-                    cur_trace_index = fig.data.map(x=>x.name).indexOf(cur_name)
-                    Plotly.restyle('plotly_fig', update, cur_trace_index);
-                }
+                tag = cur_btn_color.parentElement.parentElement.children[0].textContent
+                update_trace_color(tag,color)
             });
-        bg_color_picker.style.display='none' 
 
-        
+            bg_color_picker.style.display='none' 
+
         //#################### add SHORTCUTS  ###############
         document.getElementById('plotly_fig').onkeyup=function(e){
             // document.onkeyup=function(e){
