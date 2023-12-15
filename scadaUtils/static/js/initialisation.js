@@ -34,6 +34,60 @@ function get_all_colors(){
 }
 get_all_colors()
 
+
+// ----------------------------------
+// FUNCTION TO INIT SOME COMPONENTS
+function init_dropdown(dd_id,values,fun_on_click) {
+    // console.log(dd_id);
+    let dd_html=document.getElementById(dd_id)
+    while (dd_html.options.length > 0) {
+      dd_html.remove(0);
+  }
+    // renove first elements
+      for (const val of values)
+      {
+          var option = document.createElement("option");
+          option.value = val;
+          option.text = val.charAt(0).toUpperCase() + val.slice(1);
+          if(fun_on_click){
+            option.addEventListener("mouseup",()=>{fun_on_click()})
+          }
+          dd_html.appendChild(option);
+      }
+    }
+  
+  function init_radioButton(rb_id,values,name){
+    let rb_html=document.getElementById(rb_id)
+    for (const val of values)
+    {
+        var div = document.createElement("div");
+        var input = document.createElement("input");
+        input.type = "radio";input.id=name+'_'+val;input.name=name;input.value=val;
+        var label = document.createElement("label");
+        label.setAttribute("for", name+'_'+val);
+        label.append(document.createTextNode(val));
+        div.appendChild(input)
+        div.appendChild(label)
+        rb_html.appendChild(div);
+    }
+  }
+  
+  function init_tags_dropdown(dd_id,values,fun_on_click) {
+    let dd_html = document.getElementById(dd_id)
+    while (dd_html.children.length > 0) {
+      dd_html.removeChild(dd_html.children[0]);
+    }
+      for (const val of values)
+      {
+          var a = document.createElement("a");
+          a.innerHTML = val;
+          dd_html.appendChild(a);
+          a.addEventListener("mouseup",()=>{fun_on_click(val)})
+      }
+  }
+  
+  // ----------------------------------------
+
 function showTab(tabName) {
     var i, tabContent, tabButton;
 
@@ -105,13 +159,11 @@ function load_html_content() {
         $('#tab_display').load('../static/html/display_panel.html', function() {
             document.getElementById('grid_x').addEventListener('click',modify_grid)
             document.getElementById('grid_y').addEventListener('click',modify_grid)
-            document.getElementById('grid_box').addEventListener('click',modify_grid)
-            document.getElementById('zeroline').addEventListener('click',modify_grid)
+            // document.getElementById('grid_box').addEventListener('click',modify_grid)
 
             document.getElementById('grid_x').checked = true
             document.getElementById('grid_y').checked = true
-            document.getElementById('grid_box').checked = true
-            document.getElementById('zeroline').checked = true
+            // document.getElementById('grid_box').checked = true
             document.getElementById('gap_switch').checked = false
             console.log('tab_display is fully loaded.');
         })
@@ -245,6 +297,7 @@ $.get('init',function(data){
         
         // ----------- more initialisations ------- 
         load_drag_drop_upload()
+        Plotly.newPlot('plotly_fig')
         get_sessions().then(()=>{
             $('#dd_session')[0].value = data['initial_session']
             update_data_sets().then(()=>{
@@ -265,12 +318,13 @@ $.get('init',function(data){
               format: 'D MMM YYYY HH:mm:ss',
             }
             })
-            AColorPicker.from('#bg_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[width,150]})
-            .on('change', (picker, color) => {
-                hex_color_value=AColorPicker.parseColor(color, "hex");
-                console.log('bg');
-                Plotly.relayout('plotly_fig', {'plot_bgcolor':color})
-            })
+
+        AColorPicker.from('#bg_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[width,150]})
+        .on('change', (picker, color) => {
+            hex_color_value=AColorPicker.parseColor(color, "hex");
+            console.log('bg');
+            Plotly.relayout('plotly_fig', {'plot_bgcolor':color})
+        })
             
         // loc_table = get_active_table()
         AColorPicker.from('#trace_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[width,150]})
@@ -288,8 +342,10 @@ $.get('init',function(data){
                     Plotly.restyle('plotly_fig', update, cur_trace_index);
                 }
             });
+        bg_color_picker.style.display='none' 
 
-        //# add SHORTCUTS  #
+        
+        //#################### add SHORTCUTS  ###############
         document.getElementById('plotly_fig').onkeyup=function(e){
             // document.onkeyup=function(e){
             // console.log('shortcut triggered');

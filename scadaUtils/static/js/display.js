@@ -1,8 +1,46 @@
+// ################# LAYOUT WIDGETS #############
+const GRID_BOX_COLOR = '#636363'
+function modify_grid(){
+  layout = document.getElementById('plotly_fig').layout
+  xaxis=layout['xaxis']
+
+  let grid_box = {
+    linecolor: GRID_BOX_COLOR,
+    linewidth: 6
+  }
+
+  xaxis['showgrid'] = document.getElementById('grid_x').checked
+  xaxis['showline'] = true
+  xaxis['mirror']= 'ticks'
+  xaxis['gridcolor']= '#bdbdbd'
+  xaxis['gridwidth']= 2
+
+  let yaxis = {
+    showgrid: document.getElementById('grid_y').checked,
+    zeroline: document.getElementById('zeroline').checked,
+    showline: true,
+    mirror: 'ticks',
+    gridcolor: '#bdbdbd',
+    gridwidth: 2,
+    zerolinecolor: '#969696',
+    zerolinewidth: 4,
+    }
+  if (document.getElementById('grid_box').checked){
+    xaxis = Object.assign({}, xaxis, grid_box);
+    yaxis = Object.assign({}, yaxis, grid_box);
+  }
+  layout = {
+    xaxis:xaxis,
+    // yaxis:yaxis
+  }
+  Plotly.relayout('plotly_fig', layout)
+}
+
 function update_ticks(){
   nticks = parseInt(document.getElementById('in_nticks').value)
   for (ax of Object.keys(fig.layout).filter(x=>x.includes('yaxis'))){
     r = fig['layout'][ax]['range']
-    tickvals = linspace(r[0],r[1],10)
+    tickvals = linspace(r[0],r[1],nticks)
     ticktext = tickvals.map(x=>formatNumber(x))
     update = {}
     update[ax+'.tickvals'] = tickvals
@@ -10,60 +48,6 @@ function update_ticks(){
     update[ax+'.tickmode'] = 'array'
     Plotly.relayout('plotly_fig',update)
 }
-}
-
-function update_axes(){
-layout = document.getElementById('plotly_fig').layout
-axes = Object.keys(layout).filter(x=>x.includes('yaxis')).reduce((obj, key) => {
-  obj[key] = layout[key];
-  return obj;
-}, {})
-new_layout = {}
-var k = 0
-var p1 = 0
-// var p2 = 0.97
-var p2 = 1
-s = parseFloat(document.getElementById('s_axes').value)
-for (axisname in axes){
-  curaxis = axes[axisname]
-  if (k%2){
-    p = p1
-    p1+=s
-    curaxis['side'] = 'left'
-  }else{
-    p = p2
-    p2-=s
-    curaxis['side'] = 'right'
-  }
-  k++
-  // ax_col = curaxis['title']['font']['color']
-  ax_col = GRID_BOX_COLOR
-  curaxis['linecolor'] = ax_col
-  curaxis['linewidth'] = 4
-  curaxis['autotick']= true
-  // curaxis['nticks'] = parseFloat(document.getElementById('nticks').value)
-  curaxis['nticks'] = 10
-  curaxis['ticks'] = 'outside'
-  curaxis['tick0'] = 0
-  curaxis['tickfont'] = {'color':GRID_BOX_COLOR}
-  curaxis['dtick'] = 0.15
-  curaxis['ticklen'] = 8
-  curaxis['title'] = {
-      text: curaxis['title']['text'],
-      font: {'color': GRID_BOX_COLOR,'size':12},
-      standoff: 0, // Adjust the standoff to move the title outside
-    },
-  curaxis['tickwidth'] = 2
-  curaxis['tickcolor'] = ax_col
-  curaxis['position'] = p
-  new_layout[axisname] = curaxis
-
-}
-xaxis=layout['xaxis']
-minis = -1.0*s
-xaxis['domain']=[p1+minis,p2-minis]
-new_layout['xaxis'] = xaxis
-Plotly.relayout('plotly_fig', new_layout)
 }
 
 function update_size_figure(e){
@@ -75,12 +59,17 @@ if (e.id == 'btn_width'){
 }
 Plotly.relayout('plotly_fig', layout)
 }
+function change_color_paper_background(color){
+  Plotly.relayout('plotly_fig', {'paper_bgcolor':color});
+}
 
+// #################################################
 function get_std_axis(){
   // ax_col = GRID_BOX_COLOR
   ax_col = 'red'
   gw = 2
   grid_color='#bdbdbd'
+  fs = 12
   return {
       linecolor: ax_col,
       linewidth: 4,
@@ -89,7 +78,7 @@ function get_std_axis(){
       ticklen: 8,
       title: {
       font: {color: ax_col,
-          size:12,
+          size:fs,
           family:"Times New Roman"
       },
       standoff:0,
@@ -254,31 +243,6 @@ layout[yax_name] = yax
 Plotly.relayout('plotly_fig',layout)
 }
 
-function reposition_yaxis(yax_name){
-  lay = {}
-  shift = parseFloat(in_sa.value)
-  //find x axis
-  x_ax=yax_name.slice(6,7)
-  if (x_ax=='1'){x_ax=''}
-  x_ax = 'xaxis'+x_ax
-  //find overlay index
-  k = yax_name.slice(7,8)
-  nb = Math.floor(k/2)
-  console.log(yax_name,x_ax);
-  if (k%2==0){
-    side ='right'
-    position = fig.layout[x_ax].domain[1] + nb*shift
-  }else {
-    side = 'left'
-    position = fig.layout[x_ax].domain[0] - nb*shift
-  }
-  console.log(yax_name + ':',position, side);
-  position = saturates(position,0,1)
-  lay[yax_name+'.side'] = side
-  lay[yax_name+'.position'] = position
-  Plotly.relayout('plotly_fig',lay)
-}
-
 function delete_unused_axes(){
 return new Promise(function(resolve, reject) {
   y_axes_data = fig.data.map(x=>x.yaxis)
@@ -403,7 +367,7 @@ function repositon_trace_layout(e){
       .then(()=>{
         redefine_y_domains_of_col(sp[1])
         .then(()=>{
-          reposition_yaxis(yax_name)
+          reposition_yaxes()
           update_ticks()
         })
       })
@@ -428,6 +392,112 @@ function load_planche(){
   jsonread.readAsText(file)
 }
 
+function reposition_yaxis(yax_name){
+  lay = {}
+  shift = parseFloat(in_sa.value)
+  //find x axis
+  x_ax=yax_name.slice(6,7)
+  if (x_ax=='1'){x_ax=''}
+  x_ax = 'xaxis'+x_ax
+  //find overlay index
+  k = yax_name.slice(7,8)
+  nb = Math.floor((k-1)/2)
+  console.log(yax_name,x_ax,', k:'+k,' nb :'+nb);
+  if (k%2==0){
+    side ='right'
+    position = fig.layout[x_ax].domain[1] + nb*shift
+  }else {
+    side = 'left'
+    position = fig.layout[x_ax].domain[0] - nb*shift
+  }
+  console.log(yax_name + ':',position, side);
+  position = saturates(position,0,1)
+  lay[yax_name+'.side'] = side
+  lay[yax_name+'.position'] = position
+  Plotly.relayout('plotly_fig',lay)
+}
+
 function reposition_yaxes(){
-  
+  for (ax of Object.keys(fig.layout).filter(x=>x.includes('yaxis'))){
+    reposition_yaxis(ax)
+  }
+}
+function update_font_size_axes(){
+  fs = parseFloat(in_fs_axes.value)
+  for (ax of Object.keys(fig.layout).filter(x=>x.includes('axis'))){
+    lay={}
+    lay[ax+'.tickfont.size'] = fs 
+    lay[ax+'.title.font.size'] = fs*1.2
+    Plotly.relayout('plotly_fig',lay)
+  }
+}
+
+
+// ################# TRACES WIDGETS #############
+function update_size_markers(){
+  size = parseInt(document.getElementById('marker_size').value)
+  update = {
+    'marker.size':size
+  }
+    Plotly.restyle('plotly_fig', update);
+}
+
+function update_traces_color(){
+  config_colors = Array.from(TABLE_TAGS.children[0].children).slice(1,).map(x=>[x.children[1].textContent,x.children[2].children[0].value])
+  for (let x of config_colors) {
+    trace_id = fig.data.map(x=>x.name).indexOf(x[0])
+    update = {
+      'line.color':x[1],
+      'marker.color':x[1],
+    }
+    Plotly.restyle('plotly_fig', update, trace_id);
+  }
+}
+
+function update_style_fig(e) {
+  let style=e.value
+  let mode
+  let line_shape = 'linear'
+  if (style=='lines+markers'){mode = 'lines+markers'}
+  else if( style=='markers'){mode='markers'}
+  else if (style=='lines'){mode='lines'}
+  else if (style=='stairs'){
+    mode='lines+markers'
+    line_shape='hv'
+  }
+  var update = {
+    mode:mode,
+    line:{shape:line_shape},
+  }
+  Plotly.restyle('plotly_fig', update);
+}
+
+// #########################################
+function change_x_axis(){
+  tag_x = document.getElementById('select_dd_x').value
+  if (tag_x=='Time'){
+    new_x_data = TIMES
+    fig.layout['xaxis']['type'] = "date"
+  }else {
+    cur_trace = fig.data.map(x=>x.name).indexOf(tag_x)
+    new_x_data = fig.data[cur_trace].y
+    fig.layout['xaxis']['type'] = "number"
+  }
+  for(k=0;k<fig.data.length;k++){
+    fig.data[k].x = new_x_data;
+  }
+  fig.layout['xaxis']['title']['text'] = tag_x
+  // Plotly.update('plotly_fig', fig.data, fig.layout);
+  Plotly.update('plotly_fig', fig.data, fig.layout).then(()=>{
+      update_hover()
+      dd_style = document.getElementById('dd_style')
+      if (tag_x=='Time'){
+        dd_style.value = "lines+markers"
+      }else{
+        dd_style.value = 'markers'
+        document.getElementById('marker_size').value = "12"
+        update_size_markers()
+      }
+      dd_style.dispatchEvent(new Event("change"));
+  })
 }

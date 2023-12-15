@@ -27,15 +27,17 @@
   <input type="checkbox" class="layout_wid" id="grid_y" class="grid_params">
   <!-- <input type="checkbox" class="layout_wid" id="grid_box" class="grid_params"> -->
   <br>
-
+  
   <p class="width_layout2_wid" title="change the space between the subplots along the X-axis">space x-plots</p>
   <p class="width_layout2_wid" title="change the space between the subplots along the Y-axis">space y-plots</p>
   <p class="width_layout2_wid" title="change the space between the y-axis of each subplots">space y-axes</p>
-
+  <p class="width_layout2_wid" title="Change the size of the font of the axes">axes font-size</p>
+  
   <br>
   <input type="range" class="width_layout2_wid" id="in_sx" min="0" max="0.2" value="0.05" step="0.001" onchange="update_axes()"/>
   <input type="range" class="width_layout2_wid" id="in_sy" min="0" max="0.2" value="0.05" step="0.001" onchange="update_axes()"/>
-  <input type="range" class="width_layout2_wid" id="in_sa" min="0" max="0.2" value="0.05" step="0.001" onchange="update_axes()"/>
+  <input type="range" class="width_layout2_wid" id="in_sa" min="0" max="0.05" value="0.05" step="0.001" onchange="reposition_yaxes()"/>
+  <input type="number" class="width_layout2_wid" id="in_fs_axes" class="table_input" min="8" max="30" value="12" step="1" onchange="update_font_size_axes()"/>
   <br>
 </div>
 
@@ -45,8 +47,6 @@
   <p class="width_traces_wid" title="Choose your style(because you should always have a good style )">style</p>
   <p class="width_traces_wid" title="Adjust the size of the markers for each trace">maker size </p>
   <p class="width_traces_wid" title="Shuffle the colors of the traces so that they become all very distincts."><b>new colors</b></p>
-  <p class="width_traces_wid" title="Remove the gaps(enlève les temps morts dans les données)"><b> remove gaps</b></p>
-  <p class="width_traces_wid" title="Select the criterion to remove gaps"><b> gaps criterion</b></p>
   
   <br>
   <select class="dd width_traces_wid" id="dd_style" onchange="update_style_fig(this)"></select>
@@ -55,6 +55,11 @@
     <input type="checkbox" name='colors_switch' id=color_switch onclick="update_colors_figure(this)">
     <span class="slider round"></span>
   </label>
+
+  <br>
+  <p class="width_traces_wid" title="Remove the gaps(enlève les temps morts dans les données)"><b> remove gaps</b></p>
+  <p class="width_traces_wid" title="Select the criterion to remove gaps"><b> gaps criterion</b></p>
+  <br>
   <label class="switch width_traces_wid">
     <input type="checkbox" name='gaps_switch' id=gap_switch onclick="toggle_gaps()">
     <span class="slider round"></span>

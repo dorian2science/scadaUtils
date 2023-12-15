@@ -23,13 +23,6 @@ function update_legend() {
   // }
 }
 
-function update_size_markers(){
-  size = parseInt(document.getElementById('marker_size').value)
-  update = {
-    'marker.size':size
-  }
-    Plotly.restyle('plotly_fig', update);
-}
 
 function update_colors_figure(e) {
   if (e.checked) {
@@ -60,7 +53,6 @@ function data2excel(){
   })
 }
 
-
 function export_figure(){
   figure = {
     data: fig.data,
@@ -78,17 +70,6 @@ function export_figure(){
 }
 
 const delta_dict={"hours":3600,"minutes":60,"days":3600*24,"seconds":1}
-
-function download_request_to_debug() {
-  const blob = new Blob([JSON.stringify(build_request_parameters())], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'gui_params.json';
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 
 function get_xaxis_I_above0(seuil){
   seuil = seuil || 1;
@@ -155,17 +136,6 @@ function transform_x_axis(){
   return new_x
 }
 
-function formatDateTime(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    const milliseconds = String(date.getMilliseconds()).padStart(2, '0').slice(0,1)
-    return `${year}-${month}-${day} ${hours}h${minutes}:${seconds}.${milliseconds}`;
-}
-
 function toggle_gaps(){
   fig = document.getElementById('plotly_fig')
   is_checked = document.getElementById('gap_switch').checked
@@ -187,20 +157,7 @@ function toggle_gaps(){
   update_axes()
 }
 
-
-function update_traces_color(){
-  config_colors = Array.from(TABLE_TAGS.children[0].children).slice(1,).map(x=>[x.children[1].textContent,x.children[2].children[0].value])
-  for (let x of config_colors) {
-    trace_id = fig.data.map(x=>x.name).indexOf(x[0])
-    update = {
-      'line.color':x[1],
-      'marker.color':x[1],
-    }
-    Plotly.restyle('plotly_fig', update, trace_id);
-  }
-}
-
-function addRow_tagTable(tagname,color) {
+function addRow_tagTable(tagname) {
   loc_table_tags = get_active_table()
   list_tags = extract_listTags_from_html_table().map(x=>x[0])
   if (!list_tags.includes(tagname)) {
@@ -208,17 +165,8 @@ function addRow_tagTable(tagname,color) {
     row.insertCell(0).innerHTML = '<input type="button" class="btn_delete" value = "X" onClick="deleteRow(this)">';
     // row.insertCell(1).innerHTML= '<b>'+tagname+'</b>';
     row.insertCell(1).innerHTML = tagname;
-    if(!color){
-      color = LIST_DISTINCT_COLORS[(Math.floor(Math.random() * LIST_DISTINCT_COLORS.length))];
-    }
-    row.insertCell(2).innerHTML =
-    "<input id='color_" + tagname + "' class='color_button' type=button value="+ color + ' onClick=popup_trace_color_picker(this)>'
-    btn = row.children[2].children[0]
-    btn.style.backgroundColor = color
-    btn.value = color
   }
 }
-
 
 function parse_tag(inputString){
   // Define a regular expression pattern to match the desired parts
@@ -241,13 +189,12 @@ function parse_tag(inputString){
   }
 }
 
-
 function build_request_parameters() {
   let parameters = {}
   parameters['timerange'] = datetimepicker.value
   parameters['rs_time'] = document.getElementById('in_time_res').value + document.getElementById('dd_time_unit').value
   parameters['rs_method'] = document.getElementById('dd_resMethod').value
-  parameters['tags'] = extract_listTags_from_html_table().map(x=>x[0])
+  parameters['tags'] = extract_listTags_from_html_table()
 
   if (document.getElementById('btn_tab_dataset').classList.contains('active')){
     parameters['session'] = document.getElementById('dd_session').value
@@ -270,7 +217,6 @@ function fetch_figure() {
   btn_update.innerHTML = 'updating...'
   btn_update.classList.add('updating')
   let parameters = build_request_parameters()
-
   // remember visible states of previous traces
   if ($('#plotly_fig')[0].data==null){
     var tags_hidden=[]
@@ -281,7 +227,7 @@ function fetch_figure() {
 
   $.post(parameters['request_url'],JSON.stringify(parameters),function(res,status){
     style = document.getElementById('dd_style').value
-
+    // threat the notification message sent by the backend
     var notif = res['notif']
     if ( notif!=200){
       alert(notif)
@@ -289,23 +235,20 @@ function fetch_figure() {
       btn_update.classList.remove('updating')
     }
     var fig = JSON.parse(res['fig'])
-    // make sure the colors are original state and the gaps as well
+    // turn off the new_colors and the gaps switches
     $('#color_switch')[0].checked=false
-
     // plot the new figure
     Plotly.newPlot('plotly_fig', fig.data,fig.layout,CONFIG);
-    for (trace of document.getElementById('plotly_fig').data){
-      addRow_tagTable(trace.name)
-    }
+    // save the time - data
     TIMES = fig.data[0].x
-    resize_figure()
-    update_traces_color()
+    auto_resize_figure()
+    // update_traces_color()
     update_hover()
-    update_axes()
+    // update_axes()
     update_size_markers()
-    update_legend()
-    modify_grid()
-    update_table_traces()
+    // update_legend()
+    // modify_grid()
+    // update_table_traces()
     $('#btn_update')[0].innerHTML='request data!'
     btn_update.classList.remove('updating')
     let new_traces = plotly_fig.data.map(x=>x.name)
@@ -313,6 +256,7 @@ function fetch_figure() {
       trace.tag = trace.name
     }
     Plotly.restyle(plotly_fig,data)
+    // update the dropdown menu to change the x-axis
     init_dropdown('select_dd_x',['Time'].concat(new_traces),change_x_axis)
     let indexes = tags_hidden.map(x=>new_traces.indexOf(x))
     if (indexes.length!=0){Plotly.restyle('plotly_fig', {visible:'legendonly'},indexes);}
@@ -355,38 +299,6 @@ function update_hover(){
   Plotly.restyle('plotly_fig', update)
 }
 
-
-
-function change_x_axis(){
-  tag_x = document.getElementById('select_dd_x').value
-  if (tag_x=='Time'){
-    new_x_data = TIMES
-    fig.layout['xaxis']['type'] = "date"
-  }else {
-    cur_trace = fig.data.map(x=>x.name).indexOf(tag_x)
-    new_x_data = fig.data[cur_trace].y
-    fig.layout['xaxis']['type'] = "number"
-  }
-  for(k=0;k<fig.data.length;k++){
-    fig.data[k].x = new_x_data;
-  }
-  fig.layout['xaxis']['title']['text'] = tag_x
-  // Plotly.update('plotly_fig', fig.data, fig.layout);
-  Plotly.update('plotly_fig', fig.data, fig.layout).then(()=>{
-      update_hover()
-      dd_style = document.getElementById('dd_style')
-      if (tag_x=='Time'){
-        dd_style.value = "lines+markers"
-      }else{
-        dd_style.value = 'markers'
-        document.getElementById('marker_size').value = "12"
-        update_size_markers()
-      }
-      dd_style.dispatchEvent(new Event("change"));
-  })
-}
-
-
 function addEnveloppe() {
   let fig = $('#plotly_fig')[0]
   parameters={fig_layout:fig.layout,fig_data:fig.data,tag:$('#dd_enveloppe')[0].value}
@@ -397,59 +309,6 @@ function addEnveloppe() {
     Plotly.newPlot('plotly_fig', fig.data,fig.layout);
   })
 
-}
-function update_style_fig(e) {
-  let style=e.value
-  let mode
-  let line_shape = 'linear'
-  if (style=='lines+markers'){mode = 'lines+markers'}
-  else if( style=='markers'){mode='markers'}
-  else if (style=='lines'){mode='lines'}
-  else if (style=='stairs'){
-    mode='lines+markers'
-    line_shape='hv'
-  }
-  var update = {
-    mode:mode,
-    line:{shape:line_shape},
-  }
-  Plotly.restyle('plotly_fig', update);
-}
-const GRID_BOX_COLOR = '#636363'
-function modify_grid(){
-  layout = document.getElementById('plotly_fig').layout
-  xaxis=layout['xaxis']
-
-  let grid_box = {
-    linecolor: GRID_BOX_COLOR,
-    linewidth: 6
-  }
-
-  xaxis['showgrid'] = document.getElementById('grid_x').checked
-  xaxis['showline'] = true
-  xaxis['mirror']= 'ticks'
-  xaxis['gridcolor']= '#bdbdbd'
-  xaxis['gridwidth']= 2
-
-  let yaxis = {
-    showgrid: document.getElementById('grid_y').checked,
-    zeroline: document.getElementById('zeroline').checked,
-    showline: true,
-    mirror: 'ticks',
-    gridcolor: '#bdbdbd',
-    gridwidth: 2,
-    zerolinecolor: '#969696',
-    zerolinewidth: 4,
-    }
-  if (document.getElementById('grid_box').checked){
-    xaxis = Object.assign({}, xaxis, grid_box);
-    yaxis = Object.assign({}, yaxis, grid_box);
-  }
-  layout = {
-    xaxis:xaxis,
-    // yaxis:yaxis
-  }
-  Plotly.relayout('plotly_fig', layout)
 }
 
 function pop_menu(e){
@@ -477,64 +336,13 @@ function filterTag(e) {
   }
 }
 
-// ----------------------------------
-// FUNCTION TO INIT SOME COMPONENTS
-function init_dropdown(dd_id,values,fun_on_click) {
-  // console.log(dd_id);
-  let dd_html=document.getElementById(dd_id)
-  while (dd_html.options.length > 0) {
-    dd_html.remove(0);
-}
-  // renove first elements
-    for (const val of values)
-    {
-        var option = document.createElement("option");
-        option.value = val;
-        option.text = val.charAt(0).toUpperCase() + val.slice(1);
-        if(fun_on_click){
-          option.addEventListener("mouseup",()=>{fun_on_click()})
-        }
-        dd_html.appendChild(option);
-    }
-  }
 
-function init_radioButton(rb_id,values,name){
-  let rb_html=document.getElementById(rb_id)
-  for (const val of values)
-  {
-      var div = document.createElement("div");
-      var input = document.createElement("input");
-      input.type = "radio";input.id=name+'_'+val;input.name=name;input.value=val;
-      var label = document.createElement("label");
-      label.setAttribute("for", name+'_'+val);
-      label.append(document.createTextNode(val));
-      div.appendChild(input)
-      div.appendChild(label)
-      rb_html.appendChild(div);
-  }
-}
-
-function init_tags_dropdown(dd_id,values,fun_on_click) {
-  let dd_html = document.getElementById(dd_id)
-  while (dd_html.children.length > 0) {
-    dd_html.removeChild(dd_html.children[0]);
-  }
-    for (const val of values)
-    {
-        var a = document.createElement("a");
-        a.innerHTML = val;
-        dd_html.appendChild(a);
-        a.addEventListener("mouseup",()=>{fun_on_click(val)})
-    }
-}
-
-// ----------------------------------------
 // FUNCTIONS FOR LIST OF TAGS TABLE
 function pop_listTags_up() {
   document.getElementById('popup_listTags').style.display='block'
   document.getElementById('popup_listTags').style.zIndex=10
   // retrieve the list of tags
-  let listtags = extract_listTags_from_html_table().map(x=>x[0]+';'+x[1])
+  let listtags = extract_listTags_from_html_table()
   document.getElementById('taglist').value=listtags.join('\n')
 }
 
@@ -576,7 +384,7 @@ function apply_changes() {
 
 function extract_listTags_from_html_table() {
   loc_table = get_active_table()
-  return Array.from(loc_table.children[0].children).slice(1,).map(x=>[x.children[1].innerHTML,x.children[2].children[0].value])
+  return Array.from(loc_table.children[0].children).slice(1,).map(x=>x.children[1].textContent)
 }
 
 function select_tag_xaxis(tagname) {
@@ -587,113 +395,6 @@ function deleteRow(obj) {
     var index = obj.parentNode.parentNode.rowIndex;
     loc_table = get_active_table()
     loc_table.deleteRow(index);
-}
-
-const LISTOPERATIONS = ['+','*','/','-','^']
-function parse_formula(){
-  formula = document.getElementById('in_formula').value
-  // tags =
-  // return
-}
-
-function computeArrayFromFormula(formula, data) {
-  result = [];
-
-  // Loop through each index of the arrays
-  for (i = 0; i < data['var1'].length; i++) {
-      // Create a temporary formula for evaluation
-      tempFormula = formula;
-
-      // Substitute the data with the actual values from the arrays
-      for (variable in data) {
-          regex = new RegExp(variable, 'g');
-          tempFormula = tempFormula.replace(regex, data[variable][i]);
-      }
-      // Evaluate the formula and push the result to the result array
-      result.push(eval(tempFormula));
-  }
-  return result;
-}
-
-
-function add_formula_variable(){
-
-  data = document.getElementById('plotly_fig').data
-  formula = document.getElementById('in_formula').value
-  var variables = {}
-  var var_names = {}
-  for (opt of document.getElementById('dd_var').options){
-      tmp = opt.value.split('_')
-      varid = tmp[0]
-      tag = tmp.slice(1,).join('_')
-      variables[varid]= data.filter(x=>x.name==tag)[0].y
-   }
-  new_var = computeArrayFromFormula(formula, variables)
-  new_var_name = document.getElementById('new_var_name').value
-  // get the hightest number of y-axes
-  highest_axisnb = Object.keys(fig.layout).filter(x=>x.includes('yaxis')).map(x=>parseInt(x.split('yaxis').slice(1,))).filter(x=>!isNaN(x))
-  highest_axisnb = Math.max(...highest_axisnb)
-
-  var layoutUpdate = {}
-  layoutUpdate["yaxis" + String(highest_axisnb+1)] = {
-     title: {text:new_var_name,font:{color:"black"}},
-     overlaying: 'y',        // Overlay the new y-axis on top of the existing one
-     side: 'right',
-     position:0.5
-  }
-  // Use Plotly.relayout to update the layout of the existing figure
-  Plotly.relayout('plotly_fig',layoutUpdate );
-  // add the new trace
-  new_trace = {
-    x: data[0].x,
-    y: new_var,
-    name: new_var_name,
-    type:"scattergl",
-    line:{color:'black'},
-    marker:{color:'black',size:5},
-    yaxis:"y" + String(highest_axisnb+1)
-  }
-  Plotly.addTraces('plotly_fig', new_trace);
-  update_axes()
-  $('#dd_style')[0].dispatchEvent(new CustomEvent("change",{bubbles: true}));
-  update_size_markers()
-  addRow_tagTable(new_var_name)
-
-}
-
-function update_formula(){
-  let formula = document.getElementById('in_formula').value
-  for (opt of document.getElementById('dd_var').options){
-     tmp = opt.value.split('_')
-     varid = tmp[0]
-     tag = tmp.slice(1,).join('_')
-     regex = new RegExp(varid, 'g');
-     formula = formula.replace(regex, tag);
-   }
-  document.getElementById('new_var_name').value = formula
-}
-
-function add_operation(e){
-  operation = e.innerText
-  formula = document.getElementById('in_formula')
-  if (LISTOPERATIONS.includes(operation)){
-    formula.value+=operation
-  }
-  else {
-    tmp = document.getElementById('dd_var').value.split('_')
-    varid = tmp[0]
-    tag = tmp.slice(1,).join('_')
-    formula.value += varid
-  }
-}
-
-function update_dd_tag_for_formula() {
-  dd_tags_formula=$('#dd_var')[0]
-  // console.log(extract_listTags_from_html_table())
-  previous_val = dd_tags_formula.value
-  dd_tags_formula.innerHTML=''
-  listtags = extract_listTags_from_html_table().map(x=>x[0])
-  init_dropdown('dd_var', listtags)
 }
 
 function empyt_select(dd_id){
@@ -789,9 +490,6 @@ function update_timerange_picker(options){
   })
 }
 
-function change_color_paper_background(color){
-  Plotly.relayout('plotly_fig', {'paper_bgcolor':color});
-}
 
 function pop_menu_refresh(e) {
   // console.log(e.checked)
@@ -846,19 +544,12 @@ function pop_param_div(action){
 //# ############################
 let width=400
 
-function resize_figure(){
-  Plotly.relayout('plotly_fig',{width:window.screen.width*0.75,height:window.screen.height*0.75})
+function auto_resize_figure(){
+  Plotly.relayout('plotly_fig',{width:window.screen.width*0.55,height:window.screen.height*0.55})
 }
 
-function update_size_figure(e){
-  layout = fig.layout
-  if (e.id == 'btn_width'){
-    layout['width'] = e.value
-  }else if (e.id == 'btn_height') {
-    layout['height'] = e.value
-  }
-  Plotly.relayout('plotly_fig', layout)
-}
+
+
 
 
 function resize_domain(s){
@@ -879,22 +570,6 @@ function popup_trace_color_picker(e){
     picker.style.display = 'flex'
     picker.style.zIndex=1
   }
-
-function update_traces_color(){
-  loc_table = get_active_table()
-  config_colors = Array.from(loc_table.children[0].children).slice(1,).map(x=>[x.children[1].textContent,x.children[2].children[0].value])
-  for (let x of config_colors) {
-    // console.log(x);
-    trace_id = document.getElementById('plotly_fig').data.map(x=>x.name).indexOf(x[0])
-    update = {
-      'line.color':x[1],
-      'marker.color':x[1],
-    }
-    Plotly.restyle('plotly_fig', update, trace_id);
-    }
-}
-
-
 
 function apply_traces_changes(){
   all_units = Array.from(table_traces.children[0].children).slice(1,).map(x=>x.children[2].children[0].value)
