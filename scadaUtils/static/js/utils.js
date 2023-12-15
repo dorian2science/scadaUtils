@@ -55,3 +55,8 @@ function download_json(obj){
   a.click();
   URL.revokeObjectURL(url);
 }
+
+function saturates(nb,mini,maxi){
+  nb = Math.min(nb,maxi)
+  return Math.max(nb,mini)
+}

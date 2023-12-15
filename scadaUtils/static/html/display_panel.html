@@ -1,55 +1,72 @@
-<p>change background color: </p>
-<button class='p_but' id="btn_bg_color" type="button" onclick="popup_bg_color_picker()">background <br> color</button>
-<div id='bg_color_picker' class="html_color_picker" acp-color="#EFE9E7" acp-show-rgb="no" acp-show-hsl="yes" acp-show-hex="yes" acp-show-alpha></div>
-<br>
-<p>select style: </p>
-<select class="dd" id="dd_style" onchange="update_style_fig(this)"></select>
-<br>
-<span>maker size:</span>
-<input type="number" id=marker_size class="table_input" onchange="update_size_markers()" value="5">
-<br>
-<div name='distinct_colors' id=distinct_colors_div>
-  <span><b>new colors:</b></span>
-  <label class="switch">
+
+<div id='figure_widgets'>
+  <p class="width_fig_wid" title="Change the background of the plot">background color</p>
+  <p class="width_fig_wid" title="Change the width of the figure">figure width</p>
+  <p class="width_fig_wid" title="Change the height of the figure">figure height</p>
+  <br>
+  <button class='width_fig_wid' id="btn_bg_color" type="button" onclick="popup_bg_color_picker()">background <br> color</button>
+  <div id='bg_color_picker' class="html_color_picker" acp-color="#EFE9E7" acp-show-rgb="no" acp-show-hsl="yes" acp-show-hex="yes" acp-show-alpha></div>
+  <input type="range" class="width_fig_wid" id="btn_width" min="500" max="3000" value="2000" step="1" onchange="update_size_figure(this)"/>
+  <input type="range" class="width_fig_wid" id="btn_height" min="300" max="2000" value="1000" step="1" onchange="update_size_figure(this)"/>
+  <br>
+</div>
+
+<div id="layout_widgets">
+  <p class="layout_wid" title="Adjust the number of ticks of the y-axes.">nticks</p>
+  <p class="layout_wid" title="Adjust the precision of the value when hovering on a data-point">precision</p>
+  <p class="layout_wid" title="Adjust the font size of text when hovering on datapoints">font-size</p>
+  <p class="layout_wid" title="display the grid on the x-axis">grid-x</p>
+  <p class="layout_wid" title="display the grid on the x-axis">grid-y</p>
+  <!-- <p class="layout_wid" title="change the ">grid-box</p> -->
+  <br>
+  <!-- placeholder="select the number of ticks" -->
+  <input type="number" class="layout_wid" id="in_nticks" class="table_input" min="2" max="30" value="10" step="1" onchange="update_ticks()"/>
+  <input type="number" class="layout_wid" id="n_digits" class="table_input" min="0" max="10" value="1" step="1" onchange="update_hover()"/>
+  <input type="number" class="layout_wid" id="fs_hover" class="table_input" min="10" max="30" value="12" step="1" onchange="update_hover()"/>
+  <input type="checkbox" class="layout_wid" id="grid_x" class="grid_params">
+  <input type="checkbox" class="layout_wid" id="grid_y" class="grid_params">
+  <!-- <input type="checkbox" class="layout_wid" id="grid_box" class="grid_params"> -->
+  <br>
+
+  <p class="width_layout2_wid" title="change the space between the subplots along the X-axis">space x-plots</p>
+  <p class="width_layout2_wid" title="change the space between the subplots along the Y-axis">space y-plots</p>
+  <p class="width_layout2_wid" title="change the space between the y-axis of each subplots">space y-axes</p>
+
+  <br>
+  <input type="range" class="width_layout2_wid" id="in_sx" min="0" max="0.2" value="0.05" step="0.001" onchange="update_axes()"/>
+  <input type="range" class="width_layout2_wid" id="in_sy" min="0" max="0.2" value="0.05" step="0.001" onchange="update_axes()"/>
+  <input type="range" class="width_layout2_wid" id="in_sa" min="0" max="0.2" value="0.05" step="0.001" onchange="update_axes()"/>
+  <br>
+</div>
+
+
+
+<div id="traces_wdigets">
+  <p class="width_traces_wid" title="Choose your style(because you should always have a good style )">style</p>
+  <p class="width_traces_wid" title="Adjust the size of the markers for each trace">maker size </p>
+  <p class="width_traces_wid" title="Shuffle the colors of the traces so that they become all very distincts."><b>new colors</b></p>
+  <p class="width_traces_wid" title="Remove the gaps(enlève les temps morts dans les données)"><b> remove gaps</b></p>
+  <p class="width_traces_wid" title="Select the criterion to remove gaps"><b> gaps criterion</b></p>
+  
+  <br>
+  <select class="dd width_traces_wid" id="dd_style" onchange="update_style_fig(this)"></select>
+  <input class="table_input width_traces_wid" type="number" id=marker_size  onchange="update_size_markers()" value="5">
+  <label class="switch width_traces_wid">
     <input type="checkbox" name='colors_switch' id=color_switch onclick="update_colors_figure(this)">
     <span class="slider round"></span>
   </label>
-</div>
-<div name='toogle_gaps' id=toogle_gaps_div>
-  <span><b>remove gaps(temps morts):</b></span>
-  <label class="switch">
+  <label class="switch width_traces_wid">
     <input type="checkbox" name='gaps_switch' id=gap_switch onclick="toggle_gaps()">
     <span class="slider round"></span>
   </label>
+  <select class="width_traces_wid" id="method_rgaps" class="dd">
+    <option value="I>1">I>1</option>
+    <option value="no data">no data</option>
+  </select>
 </div>
-<span>criterion to remove gaps:</span>
-<select id="method_rgaps" class="dd">
-  <option value="I>1">I>1</option>
-  <option value="no data">no data</option>
-</select>
-</div>
-    <br>
-    <p>space between axes:</p>
-    <input type="range" id="s_axes" min="0" max="0.2" value="0.05" step="0.001" onchange="update_axes()"/>
-    <br>
-    <p>number of ticks:</p>
-    <input type="number" id="nticks" class="table_input" min="2" max="30" value="10" step="1" onchange="update_ticks()"/>
-    <br>
-    <p>precision in hover mode:</p>
-    <input type="number" id="n_digits" class="table_input" min="0" max="10" value="1" step="1" onchange="update_hover()"/>
-    <br>
-    <p>font size hover:</p>
-    <input type="number" id="fs_hover" class="table_input" min="10" max="30" value="12" step="1" onchange="update_hover()"/>
-    <br>
-    <p>figure width:</p>
-    <input type="range" id="btn_width" min="500" max="3000" value="2000" step="1" onchange="update_size_figure(this)"/>
-    <br>
-    <p>figure height:</p>
-    <input type="range" id="btn_height" min="300" max="2000" value="1000" step="1" onchange="update_size_figure(this)"/>
-    <br>
-</div>
+
 <div>
-  <p>select x-axis: </p>
+  <p>select x-axis</p>
   <br>
   <select class="dd" id="select_dd_x"></select>
 </div>
@@ -59,27 +76,15 @@
 <button class='p_but' id="save_planche" type="button" onclick="save_planche()"> save planche</button>
 <table name="table_traces" id="table_traces" border="1" cellpadding="2">
   <tr>
-      <td><b>tag</b></td>
-      <td><b>color</b></td>
-      <td><b>unit</b></td>
+    <td><b>tag</b></td>
+    <td><b>color</b></td>
+    <td><b>unit</b></td>
       <td><b>row</b></td>
       <td><b>col</b></td>
-      <td><b>size_mult</b></td>
+      <!-- <td><b>size_mult</b></td> -->
       <td><b>label</b></td>
   </tr>
 </table>
-
-<br>
-<p>grid parameters:</p>
-<br>
-<input type="checkbox" id="grid_x" class="grid_params">
-<label for="grid_x"> grid on x axes</label><br>
-<input type="checkbox" id="grid_y" class="grid_params">
-<label for="grid_y"> grid on y axes</label><br>
-<input type="checkbox" id="grid_box" class="grid_params">
-<label for="grid_box"> grid box</label><br>
-<input type="checkbox" id="zeroline" class="grid_params">
-<label for="zeroline"> zeroline</label><br>
 
 <div name='display legend' class="legend_para" id=legend_para>
   <span><b>display legend mode:</b></span>
