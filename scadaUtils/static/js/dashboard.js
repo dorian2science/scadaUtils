@@ -1,5 +1,3 @@
-
-
 // ########################
 // #      FUNCTIONS       #
 // ########################
@@ -248,7 +246,7 @@ function build_request_parameters() {
   let parameters = {}
   parameters['timerange'] = datetimepicker.value
   parameters['rs_time'] = document.getElementById('in_time_res').value + document.getElementById('dd_time_unit').value
-  parameters['rs_method'] = document.getElementById('dd_resMethod').value 
+  parameters['rs_method'] = document.getElementById('dd_resMethod').value
   parameters['tags'] = extract_listTags_from_html_table().map(x=>x[0])
 
   if (document.getElementById('btn_tab_dataset').classList.contains('active')){
@@ -357,15 +355,7 @@ function update_hover(){
   Plotly.restyle('plotly_fig', update)
 }
 
-function update_size_figure(e){
-  layout = fig.layout
-  if (e.id == 'btn_width'){
-    layout['width'] = e.value
-  }else if (e.id == 'btn_height') {
-    layout['height'] = e.value
-  }
-  Plotly.relayout('plotly_fig', layout)
-}
+
 
 function change_x_axis(){
   tag_x = document.getElementById('select_dd_x').value
@@ -460,60 +450,6 @@ function modify_grid(){
     // yaxis:yaxis
   }
   Plotly.relayout('plotly_fig', layout)
-}
-
-function update_axes(){
-  layout = document.getElementById('plotly_fig').layout
-  axes = Object.keys(layout).filter(x=>x.includes('yaxis')).reduce((obj, key) => {
-    obj[key] = layout[key];
-    return obj;
-  }, {})
-  new_layout = {}
-  var k = 0
-  var p1 = 0
-  // var p2 = 0.97
-  var p2 = 1
-  s = parseFloat(document.getElementById('s_axes').value)
-  for (axisname in axes){
-    curaxis = axes[axisname]
-    if (k%2){
-      p = p1
-      p1+=s
-      curaxis['side'] = 'left'
-    }else{
-      p = p2
-      p2-=s
-      curaxis['side'] = 'right'
-    }
-    k++
-    // ax_col = curaxis['title']['font']['color']
-    ax_col = GRID_BOX_COLOR
-    curaxis['linecolor'] = ax_col
-    curaxis['linewidth'] = 4
-    curaxis['autotick']= true
-    // curaxis['nticks'] = parseFloat(document.getElementById('nticks').value)
-    curaxis['nticks'] = 10
-    curaxis['ticks'] = 'outside'
-    curaxis['tick0'] = 0
-    curaxis['tickfont'] = {'color':GRID_BOX_COLOR}
-    curaxis['dtick'] = 0.15
-    curaxis['ticklen'] = 8
-    curaxis['title'] = {
-        text: curaxis['title']['text'],
-        font: {'color': GRID_BOX_COLOR,'size':12},
-        standoff: 0, // Adjust the standoff to move the title outside
-      },
-    curaxis['tickwidth'] = 2
-    curaxis['tickcolor'] = ax_col
-    curaxis['position'] = p
-    new_layout[axisname] = curaxis
-
-  }
-  xaxis=layout['xaxis']
-  minis = -1.0*s
-  xaxis['domain']=[p1+minis,p2-minis]
-  new_layout['xaxis'] = xaxis
-Plotly.relayout('plotly_fig', new_layout)
 }
 
 function pop_menu(e){
@@ -611,7 +547,7 @@ function empty_tableOfTags(){
 }
 
 function get_active_tab(){
-  Array.from(document.getElementsByClassName("tab-button")).filter(x=>x.classList.contains('active'))[0].id 
+  Array.from(document.getElementsByClassName("tab-button")).filter(x=>x.classList.contains('active'))[0].id
 }
 
 function get_active_table(){
@@ -910,36 +846,6 @@ function pop_param_div(action){
 //# ############################
 let width=400
 
-function test(){
-
-layout = document.getElementById('plotly_fig').layout
-curaxis = 'yaxis3'
-axis = layout[curaxis]
-// axis['range']=[0,1000]
-axis['tickvals'] = ['0','2','6','8','10']
-axis['ticktext'] = ['0','2','6','8','10']
-axis['range'] = [0,60]
-axis['autorange'] = false
-axis['showgrid'] = true
-layout[curaxis] = axis
-Plotly.relayout('plotly_fig', layout)
-layout = document.getElementById('plotly_fig').layout
-axis = layout[curaxis]
-axis
-
-layout = document.getElementById('plotly_fig').layout
-curaxis = 'yaxis'
-axis = layout[curaxis]
-axis['range'] = [0,700]
-axis['showgrid'] = true
-layout[curaxis] = axis
-Plotly.relayout('plotly_fig', layout)
-layout = document.getElementById('plotly_fig').layout
-axis = layout[curaxis]
-axis
-
-}
-
 function resize_figure(){
   Plotly.relayout('plotly_fig',{width:window.screen.width*0.75,height:window.screen.height*0.75})
 }
@@ -989,84 +895,14 @@ function update_traces_color(){
 }
 
 
-function add_row_trace_table(){
-  
-}
-
-var OLDER_NAMES = {}
-function update_table_traces() {
-  nbrows = table_traces.rows.length
-  for (let index=1;index<nbrows;index++){
-    table_traces.deleteRow(1)
-  }
-
-  for (trace of plotly_fig.data){
-    var row = table_traces.insertRow(table_traces.rows.length);
-    row.insertCell(0).innerHTML = trace.name
-    
-    color_but = document.createElement('button')
-    color_but.style.backgroundColor = trace.marker.color
-    color_but.textContent = trace.marker.color
-    color_but.id = 'color_d_' + trace.name
-    color_but.classList.add('color_button')
-    color_but.addEventListener('click', function (e) {popup_trace_color_picker(e.target)})
-    row.insertCell(1).append(color_but)
-    
-    unit_in = document.createElement('input')
-    unit_in.value = trace.customdata[0]
-    unit_in.classList.add('table_input')
-    row.insertCell(2).append(unit_in)
-    
-    row_in = document.createElement('input')
-    row_in.type='number'
-    row_in.min=1
-    row_in.max=10
-    row_in.value=1
-    row_in.step=1
-    row_in.classList.add('table_input')
-    row.insertCell(3).append(row_in)
-    
-    col_in = document.createElement('input')
-    col_in.type='number'
-    col_in.min=1
-    col_in.max=10
-    col_in.value=1
-    col_in.step=1
-    col_in.classList.add('table_input')
-    row.insertCell(4).append(col_in)
-    
-    size_in = document.createElement('input')
-    size_in.type='number'
-    size_in.min=0.1
-    size_in.max=10
-    size_in.value=1
-    size_in.step=0.01
-    size_in.classList.add('table_input')
-    size_in.addEventListener('change', function (e) {
-      cur_tag = e.target.parentElement.parentElement.children[0].textContent
-      trace_id = Array.from(plotly_fig.data).map(x=>x.tag).indexOf(cur_tag)
-      Plotly.restyle(plotly_fig,{"marker.size":parseInt(marker_size.value)*parseInt(e.target.value)},trace_id)
-    });
-    row.insertCell(5).append(size_in)
-    
-    label_in = document.createElement('input')
-    label_in.classList.add('table_input')
-    label_in.value = trace.name
-    label_in.style.width = '150px'
-    label_in.addEventListener('change', function (e) {
-      cur_tag = e.target.parentElement.parentElement.children[0].textContent
-      trace_id = Array.from(plotly_fig.data).map(x=>x.tag).indexOf(cur_tag)
-      Plotly.restyle(plotly_fig,{name:e.target.value},trace_id)
-    });
-    row.insertCell(6).append(label_in)
-  }
-}
 
 function apply_traces_changes(){
   all_units = Array.from(table_traces.children[0].children).slice(1,).map(x=>x.children[2].children[0].value)
   all_units = Array.from(new Set(all_units));
+
   layout = {
   }
+
   layout['yaxis'] = {title: {text:all_units[0],font:{color:"black"}}}
   for (axis=2;axis<=all_units.length;axis++){
     layout['yaxis'+axis] = {
@@ -1074,9 +910,10 @@ function apply_traces_changes(){
       overlaying: 'y',
     }
   }
+
   Plotly.relayout('plotly_fig', layout)
-  
-  
+
+
   for (row of Array.from(table_traces.children[0].children).slice(1,)){
     name = row.children[6].children[0].value
     color = row.children[1].textContent
@@ -1084,7 +921,7 @@ function apply_traces_changes(){
     row_id = row.children[3].children[0].value
     col = row.children[4].children[0].value
     size_mult = row.children[5].children[0].value
-    
+
     id = fig.data.map(x=>x.name).indexOf(name)
     trace = fig.data[id]
     id_ax = all_units.indexOf(unit)+1
@@ -1096,7 +933,7 @@ function apply_traces_changes(){
     }
     Plotly.restyle('plotly_fig', update, id)
   }
- 
+
   //// delete unused axes
   layout = fig.layout
   axes = Object.keys(layout).filter(x=>x.includes("yaxis")).map(x=>x.slice(5,))
@@ -1107,4 +944,3 @@ function apply_traces_changes(){
   Plotly.relayout('plotly_fig', layout)
   update_axes()
 }
-
