@@ -218,7 +218,7 @@ function empty_table_traces(){
 function update_table_traces() {
   empty_table_traces()
   for (trace of plotly_fig.data){
-      add_row_trace_table(trace.name,trace.marker.color,trace.customdata[0],1,1)
+      add_row_trace_table(trace.name,trace.marker.color,trace.unit,1,1)
   }
 }
 
@@ -449,8 +449,8 @@ function update_trace_color(tag,color){
   Plotly.restyle('plotly_fig', {'line.color':color,'marker.color':color}, trace_id);
 }
 
-function update_style_fig(e) {
-  let style=e.value
+function update_style_fig() {
+  let style=dd_style.value
   let mode
   let line_shape = 'linear'
   if (style=='lines+markers'){mode = 'lines+markers'}
@@ -495,4 +495,30 @@ function change_x_axis(){
       }
       dd_style.dispatchEvent(new Event("change"));
   })
+}
+
+function update_hover(){
+  TIMES = DATA['Time']
+  fig = document.getElementById('plotly_fig')
+  text_date = TIMES.map(k=>formatDateTime(new Date(k)))
+  precision = parseInt(document.getElementById('n_digits').value)
+  tag_x = document.getElementById('select_dd_x').value
+  
+  for (k=0;k<fig.data.length;k++){
+    trace = fig.data[k]
+    units = Array(trace['y'].length).fill(trace.unit)
+    update={
+      customdata:[units],
+      hovertemplate : '<i>value</i>: %{y:.'+precision+'f} %{customdata}<br>'+'<b>%{text}' + '<br>',
+      text:[text_date],
+      hoverlabel:{
+        font:{size:parseInt(document.getElementById('fs_hover').value)},
+        font_family:"Arial"
+      }
+    }
+    if (tag_x !='Time'){
+      update['hovertemplate']= update['hovertemplate'] + tag_x +'</b> : %{x}'
+    }
+    Plotly.restyle('plotly_fig', update,k)
+  }
 }

@@ -212,7 +212,7 @@ function build_request_parameters() {
   return parameters
 }
 
-var TIMES
+var DATA
 function fetch_figure() {
   btn_update.innerHTML = 'updating...'
   btn_update.classList.add('updating')
@@ -226,78 +226,61 @@ function fetch_figure() {
   // console.log(tags_hidden);
 
   $.post(parameters['request_url'],JSON.stringify(parameters),function(res,status){
-    style = document.getElementById('dd_style').value
     // threat the notification message sent by the backend
     var notif = res['notif']
+    console.log(notif);
+    DATA = res
     if ( notif!=200){
       alert(notif)
       $('#btn_update')[0].innerHTML='request data!'
       btn_update.classList.remove('updating')
     }
-    var fig = JSON.parse(res['fig'])
+    console.log('data received');
     // turn off the new_colors and the gaps switches
     $('#color_switch')[0].checked=false
     // plot the new figure
-    Plotly.newPlot('plotly_fig', fig.data,fig.layout,CONFIG);
-    // save the time - data
-    TIMES = fig.data[0].x
-    auto_resize_figure()
-    // update_traces_color()
-    update_hover()
-    // update_axes()
-    update_size_markers()
-    // update_legend()
-    // modify_grid()
-    update_table_traces()
-    $('#btn_update')[0].innerHTML='request data!'
-    btn_update.classList.remove('updating')
-    let new_traces = plotly_fig.data.map(x=>x.name)
-    for (trace of plotly_fig.data){
-      trace.tag = trace.name
-    }
-    Plotly.restyle(plotly_fig,data)
-    // update the dropdown menu to change the x-axis
-    init_dropdown('select_dd_x',['Time'].concat(new_traces),change_x_axis)
-    let indexes = tags_hidden.map(x=>new_traces.indexOf(x))
-    if (indexes.length!=0){Plotly.restyle('plotly_fig', {visible:'legendonly'},indexes);}
-
-    if (REAL_TIME) {
-      if (REALTIME_CHECK.checked) {
-        Plotly.relayout('plotly_fig', {'paper_bgcolor':PAPER_BG_COLOR_RT})
+    data2plot=[]
+    tags = Object.keys(res['data'])
+    for (k=0;k<tags.length;k++){
+      tag = tags[k]
+      console.log(tag)
+      new_trace = {
+        x : res['Time'],
+        y : res['data'][tag],
+        marker:{'color':LIST_DISTINCT_COLORS[k]},
+        yaxis : 'y111',
+        xaxis : 'x',
+        tag : tag,
+        name : tag,
+        type : 'scattergl',
+        unit : res['units'][tag],
       }
-    }
+      data2plot.push(new_trace) 
+    } 
+    console.log('done');
+    layout = {'xaxis':{'type':'date'},'yaxis111':get_std_axis()}
+    Plotly.newPlot('plotly_fig', data2plot,layout,CONFIG).then(()=>{
+      fig = plotly_fig
+      update_style_fig()
+      update_size_markers()
+      auto_resize_figure()
+      // update_traces_color()
+      update_hover()
+      // update_axes()
+      // update_legend()
+      // modify_grid()
+      update_table_traces()
+      $('#btn_update')[0].innerHTML='request data!'
+      btn_update.classList.remove('updating')
+      // update the dropdown menu to change the x-axis
+      init_dropdown('select_dd_x',['Time'].concat(Object.keys(res['data'])),change_x_axis)
+      let indexes = tags_hidden.map(x=>new_traces.indexOf(x))
+      if (indexes.length!=0){Plotly.restyle('plotly_fig', {visible:'legendonly'},indexes);}
+    });
   })
 }
 
-function update_hover(){
-  fig = document.getElementById('plotly_fig')
-  text_date = TIMES.map(k=>formatDateTime(new Date(k)))
-  precision = parseInt(document.getElementById('n_digits').value)
-  units = Array()
-  tag_x = document.getElementById('select_dd_x').value
 
-  for (trace of fig.data){
-    ynb = trace['yaxis'].slice(1,)
-    len_data = trace.y.length
-    yaxis_name = 'yaxis'+ynb
-    unit = fig.layout[yaxis_name]['title']['text']
-    units.push(Array(len_data).fill(unit))
-  }
-  update={
-    customdata:units,
-    customdata:units,
-    hovertemplate : '<i>value</i>: %{y:.'+precision+'f} %{customdata}<br>'+'<b>%{text}' + '<br>',
-    text:[text_date],
-    hoverlabel:{
-        font:{size:parseInt(document.getElementById('fs_hover').value)},
-        font_family:"Arial"
-      }
-    }
-  if (tag_x !='Time'){
-    update['hovertemplate']= update['hovertemplate'] + tag_x +'</b> : %{x}'
-  }
-  Plotly.restyle('plotly_fig', update)
-}
 
 function addEnveloppe() {
   let fig = $('#plotly_fig')[0]

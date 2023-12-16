@@ -336,6 +336,7 @@ $.get('init',function(data){
                 }
                 cur_btn_color.style.backgroundColor = hex_color_value
                 cur_btn_color.value = hex_color_value
+                cur_btn_color.textContent = hex_color_value
                 tag = cur_btn_color.parentElement.parentElement.children[0].textContent
                 update_trace_color(tag,color)
             });

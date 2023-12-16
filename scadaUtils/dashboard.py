@@ -381,8 +381,8 @@ class Dashboard(Basic_Dashboard):
         notif = 200
         try:
             start=time.time()
-            data=request.get_data()
-            parameters=json.loads(data.decode())
+            data = request.get_data()
+            parameters = json.loads(data.decode())
             if debug:print_file(parameters)
 
             t0,t1 = [pd.Timestamp(t,tz='CET') for t in parameters['timerange'].split(' - ')]
@@ -416,7 +416,8 @@ class Dashboard(Basic_Dashboard):
             tags_empty = detect_empty_columns(df)
             if len(tags_empty)>0:
                 notif = "No data could be found for the tags " + ', '.join(tags_empty)
-            fig = self.plot_function(df,model)
+            # fig = self.plot_function(df,model)
+
             self.log_info(computetimeshow('fig generated with pool =' + str(pool),start))
 
         except:
@@ -428,9 +429,17 @@ class Dashboard(Basic_Dashboard):
                 notif = self.NOTIFS[notif] + error_message
             fig = go.Figure()
 
-        res = {'fig':fig.to_json(),'notif':notif}
+        # res = {'fig':fig.to_json(),'notif':notif}
+        dfplc = self.conf.dfplc
+        dfplc = dfplc[dfplc['MODEL']==model]
+        units = dfplc.loc[tags,'UNITE'].to_dict()
+        print_file('create data')
+        #### replace ffill.bfill by fill(null)?
+        data = {k:df[k].ffill().bfill().to_list() for k in df.columns}
+        print_file('starting reindexing')
+        Time = [k.isoformat() for k in df.index]
+        res = {'Time':Time,'data':data,'units':units,'notif':notif}
         return jsonify(res)
-
 
 from .flask_utilities import app, register_user, user_login, redirect, url_for, login_required, logout_user
 class Protected_dragdrop_dashboard(Basic_Dashboard):
