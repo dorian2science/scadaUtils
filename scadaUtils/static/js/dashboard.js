@@ -280,6 +280,7 @@ function fetch_figure() {
         update_traces_color()
         update_style_fig()
         update_hover()
+        build_layout_from_planch()
         // update_legend()
         // modify_grid()
         $('#btn_update')[0].innerHTML='request data!'
@@ -560,7 +561,6 @@ function auto_resize_figure(){
   Plotly.relayout('plotly_fig',{width:window.screen.width*0.55,height:window.screen.height*0.55})
 }
 
-
 function resize_domain(s){
   let xaxis = document.getElementById('plotly_fig').layout['xaxis']
   xaxis['domain']=[s,1-s]
@@ -574,58 +574,8 @@ function popup_bg_color_picker(){
   }
 var cur_btn_color
 function popup_trace_color_picker(e){
-    picker = document.getElementById('trace_color_picker')
-    cur_btn_color = e
-    picker.style.display = 'flex'
-    picker.style.zIndex=1
-  }
-
-function apply_traces_changes(){
-  all_units = Array.from(table_traces.children[0].children).slice(1,).map(x=>x.children[2].children[0].value)
-  all_units = Array.from(new Set(all_units));
-
-  layout = {
-  }
-
-  layout['yaxis'] = {title: {text:all_units[0],font:{color:"black"}}}
-  for (axis=2;axis<=all_units.length;axis++){
-    layout['yaxis'+axis] = {
-      title : {text:all_units[axis-1],font:{color:"black"}},
-      overlaying: 'y',
-    }
-  }
-
-  Plotly.relayout('plotly_fig', layout)
-
-
-  for (row of Array.from(table_traces.children[0].children).slice(1,)){
-    name = row.children[6].children[0].value
-    color = row.children[1].textContent
-    unit =  row.children[2].children[0].value
-    row_id = row.children[3].children[0].value
-    col = row.children[4].children[0].value
-    size_mult = row.children[5].children[0].value
-
-    id = fig.data.map(x=>x.name).indexOf(name)
-    trace = fig.data[id]
-    id_ax = all_units.indexOf(unit)+1
-    if (id_ax==1){id_ax=""}
-    axis = 'y' + id_ax
-    console.log('axis of ' + name +' is' + axis);
-    update = {
-      yaxis:axis,
-    }
-    Plotly.restyle('plotly_fig', update, id)
-  }
-
-  //// delete unused axes
-  layout = fig.layout
-  axes = Object.keys(layout).filter(x=>x.includes("yaxis")).map(x=>x.slice(5,))
-  for (k=all_units.length+1;k<=axes.length;k++){
-    console.log('yaxis'+k);
-    delete layout['yaxis'+k]
-  }
-  Plotly.relayout('plotly_fig', layout)
-  update_axes()
+  picker = document.getElementById('trace_color_picker')
+  cur_btn_color = e
+  picker.style.display = 'flex'
+  picker.style.zIndex=1
 }
-

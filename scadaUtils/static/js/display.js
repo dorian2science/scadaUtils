@@ -328,6 +328,7 @@ function reposition_yaxes(){
     reposition_yaxis(ax)
   }
 }
+
 function update_font_size_axes(){
   fs = parseFloat(in_fs_axes.value)
   for (ax of Object.keys(plotly_fig.layout).filter(x=>x.includes('axis'))){
