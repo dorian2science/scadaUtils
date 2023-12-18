@@ -108,6 +108,7 @@ class Basic_Dashboard():
     def generate_dataset_fig(self):
         debug = False
         notif = 200
+        Time,data=[],[]
         try:
             start = time.time()
             data = request.get_data()
@@ -145,14 +146,13 @@ class Basic_Dashboard():
             dfplc = pd.read_pickle(dfplc_path)
             # print_file(computetimeshow('dfplc read',start))
             if debug:print_file(df)
-            # desc = {k:k + ':' + dfplc.loc[k,'description'] for k in df.columns}
-            # units = {v:dfplc['UNITE'].loc[k] for k,v in desc.items()}
             units = dfplc.loc[list(df.columns),'UNITE'].to_dict()
-            # print_file(df)
-            # print_file(units)
-            # df = df.rename(columns=desc)
-            fig = graphics.multiUnitGraph(df,units)
-            # print_file(computetimeshow('graph generated',start))
+
+            #### replace ffill.bfill by fill(null)?
+            data = {k:df[k].ffill().bfill().to_list() for k in df.columns}
+            print_file('starting reindexing')
+            Time = [k.isoformat() for k in df.index]
+
 
         except:
             if notif==200:
@@ -161,9 +161,8 @@ class Basic_Dashboard():
                 # error_message = self.notify_error(sys.exc_info(),error)
                 error_message = traceback.format_exc()
                 notif = self.NOTIFS[notif] + error_message
-            fig = go.Figure()
 
-        res = {'fig':fig.to_json(),'notif':notif}
+        res = {'Time':Time,'data':data,'units':units,'notif':notif}
         return jsonify(res)
 
     def export2excel(self):

@@ -273,7 +273,7 @@ function fetch_figure() {
           console.log(e.value);
           // e.dispatchEvent(new Event("change"));
         }
-        update_xaxes()
+        redefine_x_domains()
         overlay_y_axes()
         auto_resize_figure()
         update_size_markers()
@@ -295,6 +295,20 @@ function fetch_figure() {
   })
 }
 
+function overlay_y_axes(){
+  // overlaying the y-axes
+  yl = Array.from(Object.keys(plotly_fig.layout)).filter(y=>y.includes('yaxis') && y!='yaxis111')
+  yl2 = {}
+  for (k=0;k<yl.length;k++){
+    sp = yl[k].slice(5,7)
+    yl2[yl[k]+'.overlaying']='y'+sp+'1'
+    transform_2_std_axis(yl[k])
+  }
+  Plotly.relayout("plotly_fig",yl2)
+  .then(()=>{
+    reposition_yaxes()
+  })
+}
 
 
 function addEnveloppe() {
@@ -545,9 +559,6 @@ let width=400
 function auto_resize_figure(){
   Plotly.relayout('plotly_fig',{width:window.screen.width*0.55,height:window.screen.height*0.55})
 }
-
-
-
 
 
 function resize_domain(s){

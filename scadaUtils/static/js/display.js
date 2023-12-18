@@ -253,7 +253,7 @@ return new Promise(function(resolve, reject) {
 });
 }
 
-function redefine_y_domains_of_col(col){
+function redefine_y_domains(){
   sy = parseFloat(in_sy.value)
   return new Promise(function(resolve, reject) {
     lay = {}
@@ -261,8 +261,11 @@ function redefine_y_domains_of_col(col){
     rows = fig_subplots.map(x=>parseInt(x[0]))
     nb_rows = Math.max(...rows)
     new_domains = divide_interval(nb_rows,sy,1)
+    nb_cols = Array.from(Object.keys(plotly_fig.layout)).filter(x=>x.includes('xaxis')).length
     for (i=1;i<=new_domains.length;i++){
-      lay['yaxis' + i + col + '1.domain'] = new_domains[i-1]
+      for (j=1;j<=nb_cols;j++){
+        lay['yaxis' + i + j + '1.domain'] = new_domains[i-1]
+      }
     }
     Plotly.relayout('plotly_fig',lay)
     .then(()=>{
@@ -271,12 +274,11 @@ function redefine_y_domains_of_col(col){
   })
 }
 
-function redefine_x_domains_of_row(row){
+function redefine_x_domains(){
 return new Promise(function(resolve, reject) {
   lay = {}
   sx = parseFloat(in_sx.value)
   max_x = 0.97
-  // console.log('current row:' + row);
   fig_subplots = Array.from(Object.keys(plotly_fig.layout)).filter(x=>x.includes('yaxis')).map(x=>x.slice(5,x.length-1))
   cols = fig_subplots.map(x=>parseInt(x[1]))
   nb_cols = Math.max(...cols)
@@ -295,103 +297,6 @@ return new Promise(function(resolve, reject) {
   })
 })
 }
-
-function update_xaxes(){
-  redefine_x_domains_of_row()
-}
-
-function update_yaxes(){
-  redefine_y_domains_of_col()
-}
-
-function repositon_trace_layout(e){
-  tag = e.parentElement.children[0].textContent
-  console.log(tag);
-
-  var table_tags_dict = get_table_traces_json()
-  cur_tag_change = table_tags_dict[tag]
-  // get the new subplot on which the trace should be
-  sp = cur_tag_change.row_id + cur_tag_change.col_id
-
-  // get all the existing fig_subplots
-  fig_subplots = Array.from(Object.keys(plotly_fig.layout)).filter(x=>x.includes('yaxis')).map(x=>x.slice(5,x.length-1))
-  trace_id = Array.from(plotly_fig.data).map(x=>x.name).indexOf(cur_tag_change.label)
-  xn = sp[1]
-  if (xn=='1'){xn=''}
-  xax_name = 'xaxis' + xn
-  var yax_name
-  // should a subplot be created ?
-  if (!fig_subplots.includes(sp)){
-    console.log('a subplot should be created :sp' +sp);
-    // should an x-axis be added ?
-    cols = fig_subplots.map(x=>parseInt(x[1]))
-    if ( !cols.includes(parseInt(sp[1])) && (sp[1]!='1')){
-      console.log('an x-axis should be created');
-      create_x_axis(xax_name)
-    }else{
-      console.log('no x-axis creation==>cols : ',cols);
-    }
-    // a y-axis must be added
-    yax_name = 'yaxis' + sp + 1
-    create_y_axis(yax_name,cur_tag_change.unit)
-  }
-  else{
-    console.log('no need to create subplot ');
-    list_y_axes = Array.from(Object.keys(plotly_fig.layout)).filter(x=>x.includes('yaxis' + sp[0] + sp[1]))
-    y_units = {}
-    for (yy of list_y_axes){
-      y_units[plotly_fig.layout[yy].unit] = yy
-    }
-    yax_name = y_units[cur_tag_change.unit]
-    // should a y-axis be overlaid ?
-    if (!yax_name){
-      nb_over = Math.max(...list_y_axes.map(x=>parseInt(x.slice(-1))))+1
-      yax_nb = sp + nb_over
-      yax_name = 'yaxis' + yax_nb
-      console.log('new y-axis '+ yax_name +' overlaying on y' + sp);
-      create_y_axis(yax_name,cur_tag_change.unit)
-      layout = {}
-      layout[yax_name+'.overlaying'] ='y' + sp + 1
-      Plotly.relayout('plotly_fig',layout)
-    }else {
-      console.log('no need to add a y-axis');
-    }
-  }
-  // position the trace on the currect axis
-  console.log(xax_name);
-  Plotly.restyle('plotly_fig',{'xaxis':'x' + xax_name.slice(5,),yaxis:'y' + yax_name.slice(5,)},trace_id)
-  .then(()=>{
-    // relayout the existing x-axis domains
-    delete_unused_axes()
-    .then(()=>{
-      redefine_x_domains_of_row(sp[0])
-      .then(()=>{
-        redefine_y_domains_of_col(sp[1])
-        .then(()=>{
-          reposition_yaxes()
-          update_ticks()
-        })
-      })
-    })
-  })
-}
-
-////fake just to reload quickly the figure
-// function load_planche(){
-//   file = fileInput.files[0];
-//   jsonread = new FileReader();
-//   jsonread.onload = function(event) {
-//     try {
-//       fig = JSON.parse(event.target.result);
-//       Plotly.newPlot('plotly_fig',plotly_fig.data,plotly_fig.layout,CONFIG).then(()=>{
-//         update_table_traces()
-//       })
-//     }catch (error) {
-//       console.error('Error loading_figure:', error);
-//     }
-//   };
-//   jsonread.readAsText(file)
-// }
 
 function reposition_yaxis(yax_name){
   lay = {}
@@ -551,23 +456,6 @@ function transform_2_std_axis(yaxis_name){
 Plotly.relayout('plotly_fig',update)
 }
 
-
-function overlay_y_axes(){
-  // overlaying the y-axes
-  yl = Array.from(Object.keys(plotly_fig.layout)).filter(y=>y.includes('yaxis') && y!='yaxis111')
-  yl2 = {}
-  for (k=0;k<yl.length;k++){
-    sp = yl[k].slice(5,7)
-    yl2[yl[k]+'.overlaying']='y'+sp+'1'
-    transform_2_std_axis(yl[k])
-  }
-  Plotly.relayout("plotly_fig",yl2)
-  .then(()=>{
-    reposition_yaxes()
-  })
-}
-
-
 function build_layout_from_planch(){
   // build the layout
   var table_tags_dict = get_table_traces_json()
@@ -655,6 +543,6 @@ function build_layout_from_planch(){
     update_style_fig()
     update_hover()
     reposition_yaxes()
-    // update_ticks()
+    update_ticks()
   })
 }
