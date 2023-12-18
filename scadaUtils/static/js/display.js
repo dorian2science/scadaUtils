@@ -38,7 +38,7 @@ function modify_grid(){
 
 function update_ticks(){
   nticks = parseInt(document.getElementById('in_nticks').value)
-  for (ax of Object.keys(fig.layout).filter(x=>x.includes('yaxis'))){
+  for (ax of Object.keys(plotly_fig.layout).filter(x=>x.includes('yaxis'))){
     r = fig['layout'][ax]['range']
     tickvals = linspace(r[0],r[1],nticks)
     ticktext = tickvals.map(x=>formatNumber(x))
@@ -51,7 +51,7 @@ function update_ticks(){
 }
 
 function update_size_figure(e){
-layout = fig.layout
+layout = plotly_fig.layout
 if (e.id == 'btn_width'){
   layout['width'] = e.value
 }else if (e.id == 'btn_height') {
@@ -64,7 +64,7 @@ function change_color_paper_background(color){
 }
 
 // #################################################
-function get_std_axis(){
+function create_std_axis(){
   // ax_col = GRID_BOX_COLOR
   ax_col = 'red'
   gw = 2
@@ -88,9 +88,13 @@ function get_std_axis(){
       gridcolor : grid_color,
       zeroline : false,
       gridwidth : gw,
-      anchor:'free'
+      anchor:'free',
+      position:0,
+      side:"left"
   }
 }
+
+
 
 function load_planche(){
   file = fileInput.files[0];
@@ -99,20 +103,20 @@ function load_planche(){
 }
 
 
-// const JSON_READER = new FileReader();
-// JSON_READER.onload = function(event) {
-//   try {
-//     const data = JSON.parse(event.target.result);
-//     // console.log('JSON content:', data);
-//     empty_table_traces()
-//     for (tag_name in data){
-//       row = data[tag_name]
-//       add_row_trace_table(tag_name,row['color'],row['unit'],row['row_id'],row['col_id']);
-//     }
-//   } catch (error) {
-//     console.error('Error parsing JSON:', error);
-//   }
-// };
+const JSON_READER = new FileReader();
+JSON_READER.onload = function(event) {
+  try {
+    const data = JSON.parse(event.target.result);
+    // console.log('JSON content:', data);
+    empty_table_traces()
+    for (tag_name in data){
+      row = data[tag_name]
+      add_row_trace_table(tag_name,row['color'],row['unit'],row['row_id'],row['col_id']);
+    }
+  } catch (error) {
+    console.error('Error parsing JSON:', error);
+  }
+};
 
 function get_table_traces_json(){
   table_tags_dict = {}
@@ -169,7 +173,7 @@ function add_row_trace_table(tag_name,color,unit,row_id,col_id){
   row_in.value=row_id
   row_in.step=1
   row_in.classList.add('table_input')
-  row_in.addEventListener('change', function (e) {repositon_trace_layout(e.target.parentElement)})
+  // row_in.addEventListener('change', function (e) {repositon_trace_layout(e.target.parentElement)})
   row.insertCell(3).append(row_in)
 
   col_in = document.createElement('input')
@@ -179,22 +183,8 @@ function add_row_trace_table(tag_name,color,unit,row_id,col_id){
   col_in.value=col_id
   col_in.step=1
   col_in.classList.add('table_input')
-  col_in.addEventListener('change', function (e) {repositon_trace_layout(e.target.parentElement)})
+  // col_in.addEventListener('change', function (e) {repositon_trace_layout(e.target.parentElement)})
   row.insertCell(4).append(col_in)
-
-  size_in = document.createElement('input')
-  size_in.type='number'
-  size_in.min=0.1
-  size_in.max=10
-  size_in.value=1
-  size_in.step=0.01
-  size_in.classList.add('table_input')
-  size_in.addEventListener('change', function (e) {
-      cur_tag = e.target.parentElement.parentElement.children[0].textContent
-      trace_id = Array.from(plotly_fig.data).map(x=>x.tag).indexOf(cur_tag)
-      Plotly.restyle(plotly_fig,{"marker.size":parseInt(marker_size.value)*parseInt(e.target.value)},trace_id)
-  });
-  // row.insertCell(5).append(size_in)
 
   label_in = document.createElement('input')
   label_in.classList.add('table_input')
@@ -216,16 +206,17 @@ function empty_table_traces(){
 }
 
 function update_table_traces() {
-  empty_table_traces()
-  for (trace of plotly_fig.data){
+  return new Promise(function(resolve, reject) {
+    empty_table_traces()
+    for (trace of plotly_fig.data){
       add_row_trace_table(trace.name,trace.marker.color,trace.unit,1,1)
-  }
+    }
+    resolve()
+  });
 }
 
-
-
 function create_x_axis(xax_name){
-xax = get_std_axis()
+xax = create_std_axis()
 xax['type'] = 'date'
 xax['title']['text'] = xax_name
 layout = {}
@@ -234,7 +225,7 @@ Plotly.relayout('plotly_fig',layout)
 }
 
 function create_y_axis(yax_name,unit){
-yax = get_std_axis()
+yax = create_std_axis()
 yaxtext = 'y' + yax_name.slice(5,) +  ' : ' + unit
 // yaxtext = unit
 yax['title']['text'] = yaxtext
@@ -246,9 +237,9 @@ Plotly.relayout('plotly_fig',layout)
 
 function delete_unused_axes(){
 return new Promise(function(resolve, reject) {
-  y_axes_data = fig.data.map(x=>x.yaxis)
-  layout = fig.layout
-  y_axis_layout = Array.from(Object.keys(fig.layout)).filter(y=>y.includes('yaxis'))
+  y_axes_data = plotly_fig.data.map(x=>x.yaxis)
+  layout = plotly_fig.layout
+  y_axis_layout = Array.from(Object.keys(plotly_fig.layout)).filter(y=>y.includes('yaxis'))
   for (y of y_axis_layout){
     if(!(y_axes_data.includes('y' + y.slice(5,)))){
       // console.log(y + 'unused. Being deleted.');
@@ -266,7 +257,7 @@ function redefine_y_domains_of_col(col){
   sy = parseFloat(in_sy.value)
   return new Promise(function(resolve, reject) {
     lay = {}
-    fig_subplots = Array.from(Object.keys(fig.layout)).filter(x=>x.includes('yaxis')).map(x=>x.slice(5,x.length-1))
+    fig_subplots = Array.from(Object.keys(plotly_fig.layout)).filter(x=>x.includes('yaxis')).map(x=>x.slice(5,x.length-1))
     rows = fig_subplots.map(x=>parseInt(x[0]))
     nb_rows = Math.max(...rows)
     new_domains = divide_interval(nb_rows,sy,1)
@@ -286,8 +277,7 @@ return new Promise(function(resolve, reject) {
   sx = parseFloat(in_sx.value)
   max_x = 0.97
   // console.log('current row:' + row);
-  row = 1
-  fig_subplots = Array.from(Object.keys(fig.layout)).filter(x=>x.includes('yaxis')).map(x=>x.slice(5,x.length-1))
+  fig_subplots = Array.from(Object.keys(plotly_fig.layout)).filter(x=>x.includes('yaxis')).map(x=>x.slice(5,x.length-1))
   cols = fig_subplots.map(x=>parseInt(x[1]))
   nb_cols = Math.max(...cols)
   new_domains = divide_interval(nb_cols,sx,max_x)
@@ -299,9 +289,19 @@ return new Promise(function(resolve, reject) {
   Plotly.relayout('plotly_fig',lay)
   .then(()=>{
     console.log('redifintion of axes domains are done');
+    reposition_yaxes()
+    update_ticks()
     resolve()
   })
 })
+}
+
+function update_xaxes(){
+  redefine_x_domains_of_row()
+}
+
+function update_yaxes(){
+  redefine_y_domains_of_col()
 }
 
 function repositon_trace_layout(e){
@@ -314,8 +314,8 @@ function repositon_trace_layout(e){
   sp = cur_tag_change.row_id + cur_tag_change.col_id
 
   // get all the existing fig_subplots
-  fig_subplots = Array.from(Object.keys(fig.layout)).filter(x=>x.includes('yaxis')).map(x=>x.slice(5,x.length-1))
-  trace_id = Array.from(fig.data).map(x=>x.name).indexOf(cur_tag_change.label)
+  fig_subplots = Array.from(Object.keys(plotly_fig.layout)).filter(x=>x.includes('yaxis')).map(x=>x.slice(5,x.length-1))
+  trace_id = Array.from(plotly_fig.data).map(x=>x.name).indexOf(cur_tag_change.label)
   xn = sp[1]
   if (xn=='1'){xn=''}
   xax_name = 'xaxis' + xn
@@ -337,10 +337,10 @@ function repositon_trace_layout(e){
   }
   else{
     console.log('no need to create subplot ');
-    list_y_axes = Array.from(Object.keys(fig.layout)).filter(x=>x.includes('yaxis' + sp[0] + sp[1]))
+    list_y_axes = Array.from(Object.keys(plotly_fig.layout)).filter(x=>x.includes('yaxis' + sp[0] + sp[1]))
     y_units = {}
     for (yy of list_y_axes){
-      y_units[fig.layout[yy].unit] = yy
+      y_units[plotly_fig.layout[yy].unit] = yy
     }
     yax_name = y_units[cur_tag_change.unit]
     // should a y-axis be overlaid ?
@@ -377,21 +377,21 @@ function repositon_trace_layout(e){
 }
 
 ////fake just to reload quickly the figure
-function load_planche(){
-  file = fileInput.files[0];
-  jsonread = new FileReader();
-  jsonread.onload = function(event) {
-    try {
-      fig = JSON.parse(event.target.result);
-      Plotly.newPlot('plotly_fig',fig.data,fig.layout,CONFIG).then(()=>{
-        update_table_traces()
-      })
-    }catch (error) {
-      console.error('Error loading_figure:', error);
-    }
-  };
-  jsonread.readAsText(file)
-}
+// function load_planche(){
+//   file = fileInput.files[0];
+//   jsonread = new FileReader();
+//   jsonread.onload = function(event) {
+//     try {
+//       fig = JSON.parse(event.target.result);
+//       Plotly.newPlot('plotly_fig',plotly_fig.data,plotly_fig.layout,CONFIG).then(()=>{
+//         update_table_traces()
+//       })
+//     }catch (error) {
+//       console.error('Error loading_figure:', error);
+//     }
+//   };
+//   jsonread.readAsText(file)
+// }
 
 function reposition_yaxis(yax_name){
   lay = {}
@@ -403,15 +403,15 @@ function reposition_yaxis(yax_name){
   //find overlay index
   k = yax_name.slice(7,8)
   nb = Math.floor((k-1)/2)
-  console.log(yax_name,x_ax,', k:'+k,' nb :'+nb);
+  // console.log(yax_name,x_ax,', k:'+k,' nb :'+nb);
   if (k%2==0){
     side ='right'
-    position = fig.layout[x_ax].domain[1] + nb*shift
+    position = plotly_fig.layout[x_ax].domain[1] + nb*shift
   }else {
     side = 'left'
-    position = fig.layout[x_ax].domain[0] - nb*shift
+    position = plotly_fig.layout[x_ax].domain[0] - nb*shift
   }
-  console.log(yax_name + ':',position, side);
+  // console.log(yax_name + ':',position, side);
   position = saturates(position,0,1)
   lay[yax_name+'.side'] = side
   lay[yax_name+'.position'] = position
@@ -419,20 +419,19 @@ function reposition_yaxis(yax_name){
 }
 
 function reposition_yaxes(){
-  for (ax of Object.keys(fig.layout).filter(x=>x.includes('yaxis'))){
+  for (ax of Object.keys(plotly_fig.layout).filter(x=>x.includes('yaxis'))){
     reposition_yaxis(ax)
   }
 }
 function update_font_size_axes(){
   fs = parseFloat(in_fs_axes.value)
-  for (ax of Object.keys(fig.layout).filter(x=>x.includes('axis'))){
+  for (ax of Object.keys(plotly_fig.layout).filter(x=>x.includes('axis'))){
     lay={}
     lay[ax+'.tickfont.size'] = fs 
     lay[ax+'.title.font.size'] = fs*1.2
     Plotly.relayout('plotly_fig',lay)
   }
 }
-
 
 // ################# TRACES WIDGETS #############
 function update_size_markers(){
@@ -445,8 +444,15 @@ function update_size_markers(){
 
 // config_colors = get_table_traces_json()
 function update_trace_color(tag,color){
-  trace_id = fig.data.map(x=>x.tag).indexOf(tag)
-  Plotly.restyle('plotly_fig', {'line.color':color,'marker.color':color}, trace_id);
+  trace_id = plotly_fig.data.map(x=>x.tag).indexOf(tag)
+  Plotly.restyle('plotly_fig', {'line.color':color,'marker.color':color}, trace_id).then(()=>update_style_fig());
+}
+
+function update_traces_color(){
+  dt = get_table_traces_json()
+  for (tag in dt){
+    update_trace_color(tag,dt[tag]['color'])
+  }
 }
 
 function update_style_fig() {
@@ -472,18 +478,18 @@ function change_x_axis(){
   tag_x = document.getElementById('select_dd_x').value
   if (tag_x=='Time'){
     new_x_data = TIMES
-    fig.layout['xaxis']['type'] = "date"
+    plotly_fig.layout['xaxis']['type'] = "date"
   }else {
-    cur_trace = fig.data.map(x=>x.name).indexOf(tag_x)
-    new_x_data = fig.data[cur_trace].y
-    fig.layout['xaxis']['type'] = "number"
+    cur_trace = plotly_fig.data.map(x=>x.name).indexOf(tag_x)
+    new_x_data = plotly_fig.data[cur_trace].y
+    plotly_fig.layout['xaxis']['type'] = "number"
   }
-  for(k=0;k<fig.data.length;k++){
-    fig.data[k].x = new_x_data;
+  for(k=0;k<plotly_fig.data.length;k++){
+    plotly_fig.data[k].x = new_x_data;
   }
-  fig.layout['xaxis']['title']['text'] = tag_x
-  // Plotly.update('plotly_fig', fig.data, fig.layout);
-  Plotly.update('plotly_fig', fig.data, fig.layout).then(()=>{
+  plotly_fig.layout['xaxis']['title']['text'] = tag_x
+  // Plotly.update('plotly_fig', plotly_fig.data, plotly_fig.layout);
+  Plotly.update('plotly_fig', plotly_fig.data, plotly_fig.layout).then(()=>{
       update_hover()
       dd_style = document.getElementById('dd_style')
       if (tag_x=='Time'){
@@ -504,8 +510,8 @@ function update_hover(){
   precision = parseInt(document.getElementById('n_digits').value)
   tag_x = document.getElementById('select_dd_x').value
   
-  for (k=0;k<fig.data.length;k++){
-    trace = fig.data[k]
+  for (k=0;k<plotly_fig.data.length;k++){
+    trace = plotly_fig.data[k]
     units = Array(trace['y'].length).fill(trace.unit)
     update={
       customdata:[units],
@@ -521,4 +527,134 @@ function update_hover(){
     }
     Plotly.restyle('plotly_fig', update,k)
   }
+}
+
+function transform_2_std_axis(yaxis_name){
+  // ax_col = GRID_BOX_COLOR
+  ax_col = 'red'
+  gw = 2
+  grid_color='#bdbdbd'
+  fs = 12
+  update={}
+  update[yaxis_name + '.' +'linecolor']= ax_col
+  update[yaxis_name + '.' +'linewidth']= 4
+  update[yaxis_name + '.' +'ticks']= 'outside'
+  update[yaxis_name + '.' +'tickfont']= {'color':ax_col}
+  update[yaxis_name + '.' +'ticklen']= 8
+  update[yaxis_name + '.' +'font.color']= ax_col
+  update[yaxis_name + '.' +'tickwidth']=2
+  update[yaxis_name + '.' +'tickcolor']=ax_col
+  update[yaxis_name + '.' +'gridcolor']= grid_color
+  update[yaxis_name + '.' +'zeroline']= false
+  update[yaxis_name + '.' +'gridwidth']= gw
+  update[yaxis_name + '.' +'anchor'] ='free'
+Plotly.relayout('plotly_fig',update)
+}
+
+
+function overlay_y_axes(){
+  // overlaying the y-axes
+  yl = Array.from(Object.keys(plotly_fig.layout)).filter(y=>y.includes('yaxis') && y!='yaxis111')
+  yl2 = {}
+  for (k=0;k<yl.length;k++){
+    sp = yl[k].slice(5,7)
+    yl2[yl[k]+'.overlaying']='y'+sp+'1'
+    transform_2_std_axis(yl[k])
+  }
+  Plotly.relayout("plotly_fig",yl2)
+  .then(()=>{
+    reposition_yaxes()
+  })
+}
+
+
+function build_layout_from_planch(){
+  // build the layout
+  var table_tags_dict = get_table_traces_json()
+  cols = Array.from(Object.values(table_tags_dict)).map(v => parseInt(v.col_id))
+  nb_cols = Math.max(...cols)
+  rows = Array.from(Object.values(table_tags_dict)).map(v => parseInt(v.row_id))
+  nb_rows = Math.max(...rows)
+  
+  x_domains = divide_interval(nb_cols,parseFloat(in_sx.value),1)
+  y_domains = divide_interval(nb_rows,parseFloat(in_sy.value),1)
+
+  layout = {}
+
+  for (j=1;j<=nb_cols;j++){
+    // create the x-axes
+    xax = create_std_axis()
+    xax['domain'] = x_domains[j-1]
+    xax['type'] = 'date'
+    ax_idx = j
+    if (ax_idx==1){
+      ax_idx = ''
+    }
+    xax_name = 'xaxis' + ax_idx
+    xax['title'].text = xax_name
+    layout[xax_name] = xax
+
+    for (i=1;i<=nb_rows;i++){
+      sp = i.toString() + j.toString()
+      first_yaxis_name = 'yaxis' + sp + 1 
+      first_y_name = 'y' + sp + 1
+
+      // determine the number of axes on that subplot
+      units_sp = Object.values(table_tags_dict).filter(x=>(x.col_id==j) &&(x.row_id==i)).map(x=>x.unit)
+      units_sp = Array.from(new Set(units_sp));
+      // console.log(units_sp);
+
+      yax = create_std_axis()
+      yax['domain'] = y_domains[i-1]
+      yax['position'] = 0
+      yax['title'].text = first_y_name +':'+ units_sp[0]
+      yax['unit'] = units_sp[0]
+      layout[first_yaxis_name] = yax
+      
+      // put the others axes/units
+      for (k=1;k<units_sp.length;k++){
+        yax = create_std_axis()
+        yax['overlaying'] = first_y_name
+        yax['unit'] = units_sp[k]
+        yax['title'].text = 'y' + sp + (k+1) + ':'+ units_sp[k]
+        layout['yaxis' + sp + (k+1)] = yax
+      }
+    }
+  }
+
+  layout
+
+
+  data = []
+  tags = Object.keys(table_tags_dict)
+  list_yaxes=Object.keys(layout).filter(x=>x.includes('yaxis'))
+  for (k=0;k<tags.length;k++){
+    tag = tags[k]
+    trace = table_tags_dict[tag]
+    sp = trace.row_id + trace.col_id 
+    list_sp_axes = list_yaxes.filter(x=>x.includes('yaxis'+sp))
+    ax_nb = list_sp_axes.map(x=>layout[x].unit).indexOf(trace.unit)+1
+    old_trace = plotly_fig.data.filter(x=>x.tag==tag)[0]
+    new_trace = {
+      x : old_trace['x'],
+      y : old_trace['y'],
+      xaxis : 'x'+sp[1],
+      yaxis : 'y'+ sp + ax_nb,
+      marker : {"color":trace['color']},
+      line : {"color":trace['color']},
+      tag : tag,
+      name : trace['label'],
+      type : 'scattergl',
+      unit : trace.unit,
+    }
+    data.push(new_trace)
+  }
+
+  Plotly.newPlot('plotly_fig',data,layout,CONFIG)
+  .then(()=>{
+    update_style_fig()
+    update_hover()
+    reposition_yaxes()
+    // update_ticks()
+  })
 }

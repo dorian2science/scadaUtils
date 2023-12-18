@@ -272,7 +272,7 @@ $.get('init',function(data){
         // ------- INITIALIZATION of myDropdown menus --------
         init_dropdown('dd_models',values=data['models'],change_model)
         init_dropdown('dd_resMethod',values=data['rsMethods'])
-        init_dropdown('dd_style',values=['default','lines+markers','markers','lines','stairs'])
+        init_dropdown('dd_style',values=['lines+markers','markers','lines','stairs'])
         // init_dropdown('dd_operation',values=['no operation'].concat(['derivative','integral','regression p1','regression p2','regression p3']))
         init_radioButton(id='legend_para',values=['unvisible','tag','description'],'legend')
         $('input[type=radio][name=legend]').change(function() {

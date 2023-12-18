@@ -416,7 +416,7 @@ class Dashboard(Basic_Dashboard):
             tags_empty = detect_empty_columns(df)
             if len(tags_empty)>0:
                 notif = "No data could be found for the tags " + ', '.join(tags_empty)
-            # fig = self.plot_function(df,model)
+            # fig = self.plot_function(df,model)()
 
             self.log_info(computetimeshow('fig generated with pool =' + str(pool),start))
 

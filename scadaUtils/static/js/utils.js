@@ -37,11 +37,11 @@ function formatNumber(number) {
   }
 }
 
-function divide_interval(nbs,s,max){
-  p = (max+s)/nbs-s
+function divide_interval(nbs,s,maxi){
+  p = (maxi-s)/nbs-s
   intervals = []
   for (k=0;k<nbs;k++){
-    intervals.push([k *(s + p), k *(s + p)+p])
+    intervals.push([s + k *(s + p), s+ k *(s + p)+p])
   }
   return intervals
 }

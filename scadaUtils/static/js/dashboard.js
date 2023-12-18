@@ -239,43 +239,58 @@ function fetch_figure() {
     // turn off the new_colors and the gaps switches
     $('#color_switch')[0].checked=false
     // plot the new figure
-    data2plot=[]
+    data2plot = []
     tags = Object.keys(res['data'])
+    all_units = Array.from(new Set(Object.values(res['units']))).map((v, k) => ({ [v]: k +1})).reduce((acc, obj) => ({ ...acc, ...obj }), {});
     for (k=0;k<tags.length;k++){
       tag = tags[k]
-      console.log(tag)
+      // console.log(tag)
+      unit = res['units'][tag]
       new_trace = {
         x : res['Time'],
         y : res['data'][tag],
-        marker:{'color':LIST_DISTINCT_COLORS[k]},
-        yaxis : 'y111',
+        yaxis : 'y11'+all_units[unit],
         xaxis : 'x',
+        marker : {"color":LIST_DISTINCT_COLORS[k]},
         tag : tag,
         name : tag,
         type : 'scattergl',
-        unit : res['units'][tag],
+        unit : unit,
       }
       data2plot.push(new_trace) 
-    } 
+    }
     console.log('done');
-    layout = {'xaxis':{'type':'date'},'yaxis111':get_std_axis()}
+    layout = {'xaxis':{'type':'date','domain':[0.05,0.95]},'yaxis111':create_std_axis()}
+    
+      
     Plotly.newPlot('plotly_fig', data2plot,layout,CONFIG).then(()=>{
-      fig = plotly_fig
-      update_style_fig()
-      update_size_markers()
-      auto_resize_figure()
-      // update_traces_color()
-      update_hover()
-      // update_axes()
-      // update_legend()
-      // modify_grid()
+      // update the table of traces to load the planche
       update_table_traces()
-      $('#btn_update')[0].innerHTML='request data!'
-      btn_update.classList.remove('updating')
+      .then(()=>{
+        // reposition the traces according to their layout
+        for (k=1;k<table_traces.rows.length-1;k++){
+          e = table_traces.rows[k].children[3].children[0]
+          console.log(e.value);
+          // e.dispatchEvent(new Event("change"));
+        }
+        update_xaxes()
+        overlay_y_axes()
+        auto_resize_figure()
+        update_size_markers()
+        update_traces_color()
+        update_style_fig()
+        update_hover()
+        // update_legend()
+        // modify_grid()
+        $('#btn_update')[0].innerHTML='request data!'
+        btn_update.classList.remove('updating')
+
+        // let indexes = tags_hidden.map(x=>new_traces.indexOf(x))
+        // if (indexes.length!=0){Plotly.restyle('plotly_fig', {visible:'legendonly'},indexes);}
+  
+      })
       // update the dropdown menu to change the x-axis
-      init_dropdown('select_dd_x',['Time'].concat(Object.keys(res['data'])),change_x_axis)
-      let indexes = tags_hidden.map(x=>new_traces.indexOf(x))
-      if (indexes.length!=0){Plotly.restyle('plotly_fig', {visible:'legendonly'},indexes);}
+      init_dropdown('select_dd_x',['Time'].concat(tags),change_x_axis)
     });
   })
 }
@@ -602,3 +617,4 @@ function apply_traces_changes(){
   Plotly.relayout('plotly_fig', layout)
   update_axes()
 }
+
