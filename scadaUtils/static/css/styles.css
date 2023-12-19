@@ -14,8 +14,8 @@ table, th, td {
   text-align: center;
 }
 p, button {
-    padding:5px;
-    margin:3px;
+    padding:1px;
+    margin:1px;
     font-size: 15px;
 }
 div,input,p,input {
@@ -195,8 +195,8 @@ p {
 
 .p_but{
   display: inline-block;
-  font-size: 20px;
-  margin-left: 10px;
+  font-size: 17px;
+  margin-left: 5px;
   transition: 1s;
 }
 .updating{

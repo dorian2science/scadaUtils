@@ -94,40 +94,19 @@ function create_std_axis(){
   }
 }
 
-
-
-function load_planche(){
-  file = fileInput.files[0];
-  console.log(file);
-  JSON_READER.readAsText(file);
-}
-
-
-const JSON_READER = new FileReader();
-JSON_READER.onload = function(event) {
-  try {
-    const data = JSON.parse(event.target.result);
-    // console.log('JSON content:', data);
-    empty_table_traces()
-    for (tag_name in data){
-      row = data[tag_name]
-      add_row_trace_table(tag_name,row['color'],row['unit'],row['row_id'],row['col_id']);
-    }
-  } catch (error) {
-    console.error('Error parsing JSON:', error);
-  }
-};
-
 function get_table_traces_json(){
   table_tags_dict = {}
-  for (row of Array.from(table_traces.children[0].children).slice(1,)){
+  rows = Array.from(table_traces.rows).slice(1,)
+  for (k=0;k<rows.length;k++){
+      row = rows[k]
       table_tags_dict[row.children[0].textContent]={
       label : row.children[5].children[0].value,
       color : row.children[1].textContent,
       unit :  row.children[2].children[0].value,
       row_id : row.children[3].children[0].value,
       col_id : row.children[4].children[0].value,
-      // size_mult : row.children[5].children[0].value,
+      // factor : row.children[5].children[0].value,
+      id : k,
       }
   }
   return table_tags_dict
@@ -146,8 +125,6 @@ function save_planche(){
 function browseForPlanche() {
   fileInput.click();
 }
-
-
 
 function add_row_trace_table(tag_name,color,unit,row_id,col_id){
   var row = table_traces.insertRow(table_traces.rows.length);
@@ -386,7 +363,7 @@ function change_x_axis(){
     new_x_data = TIMES
     plotly_fig.layout['xaxis']['type'] = "date"
   }else {
-    cur_trace = plotly_fig.data.map(x=>x.name).indexOf(tag_x)
+    cur_trace = plotly_fig.data.map(x=>x.tag).indexOf(tag_x)
     new_x_data = plotly_fig.data[cur_trace].y
     plotly_fig.layout['xaxis']['type'] = "number"
   }
@@ -546,4 +523,39 @@ function build_layout_from_planch(){
     reposition_yaxes()
     update_ticks()
   })
+}
+
+var ROW
+function load_planche(){
+  file = fileInput.files[0];
+  console.log(file);
+  const JSON_READER = new FileReader();
+  JSON_READER.onload = function(event) {
+    try {
+      const new_tags = JSON.parse(event.target.result);
+      table_tags_dict = get_table_traces_json()
+      tags = Object.keys(table_tags_dict) 
+      for (new_tag in new_tags){
+        if (tags.includes(new_tag)){
+          new_row = new_tags[new_tag]
+          old_row =   table_traces.rows[tags.indexOf(new_tag)+1]
+          ROW = old_row
+          console.log(old_row);
+          old_row.children[1].children[0].textContent = new_row['color']
+          old_row.children[1].children[0].style.backgroundColor = new_row['color']
+          old_row.children[2].children[0].value = new_row['unit']
+          old_row.children[3].children[0].value = new_row['row_id']
+          old_row.children[4].children[0].value = new_row['col_id']
+          old_row.children[5].children[0].value = new_row['label']
+          // old_row.chidren[5].value = new_row['factor']
+          // old_row.chidren[6].value = new_row['label']
+        }
+      }
+      build_layout_from_planch()
+    } catch (error) {
+      console.log(error);
+      alert('Votre planche ne semble pas être compatible ou ne pas respecté le format attendu.',error)
+    }
+  };
+  JSON_READER.readAsText(file);
 }

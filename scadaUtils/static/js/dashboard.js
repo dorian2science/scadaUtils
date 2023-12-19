@@ -195,6 +195,7 @@ function build_request_parameters() {
   parameters['rs_time'] = document.getElementById('in_time_res').value + document.getElementById('dd_time_unit').value
   parameters['rs_method'] = document.getElementById('dd_resMethod').value
   parameters['tags'] = extract_listTags_from_html_table()
+  parameters['tab'] = get_active_tab()
 
   if (document.getElementById('btn_tab_dataset').classList.contains('active')){
     parameters['session'] = document.getElementById('dd_session').value
@@ -212,7 +213,7 @@ function build_request_parameters() {
   return parameters
 }
 
-var DATA
+var DATA, LAST_REQUEST
 function fetch_figure() {
   btn_update.innerHTML = 'updating...'
   btn_update.classList.add('updating')
@@ -224,8 +225,8 @@ function fetch_figure() {
     var tags_hidden=$('#plotly_fig')[0].data.filter(x=>x.visible=='legendonly').map(x=>x.name)
   }
   // console.log(tags_hidden);
-
-  $.post(parameters['request_url'],JSON.stringify(parameters),function(res,status){
+  LAST_REQUEST = JSON.stringify(parameters)
+  $.post(parameters['request_url'],LAST_REQUEST,function(res,status){
     // threat the notification message sent by the backend
     var notif = res['notif']
     console.log(notif);
@@ -368,7 +369,7 @@ function empty_tableOfTags(){
 }
 
 function get_active_tab(){
-  Array.from(document.getElementsByClassName("tab-button")).filter(x=>x.classList.contains('active'))[0].id
+  return Array.from(document.getElementsByClassName("tab-button")).filter(x=>x.classList.contains('active'))[0].id.split('_').slice(1,).join('_')
 }
 
 function get_active_table(){
@@ -389,7 +390,7 @@ function apply_changes() {
     if (!color){
       color = LIST_DISTINCT_COLORS[(Math.floor(Math.random() * LIST_DISTINCT_COLORS.length))];
     }
-    addRow_tagTable(tag['tag'],color)
+    addRow_tagTable(tag['tag'])
   }
   // close the pop up
   document.getElementById('popup_listTags').style.display='none'
@@ -464,6 +465,7 @@ function change_dataSet(){
   dataset = document.getElementById('dd_data_set').value
   session = document.getElementById('dd_session').value
   data={'dataset':dataset,'session':session}
+  empty_tableOfTags()
   $.post('send_dfplc',JSON.stringify(data),function(tags,status){
     init_tags_dropdown('dd_y',values=tags,addRow_tagTable)
   })
@@ -579,3 +581,4 @@ function popup_trace_color_picker(e){
   picker.style.display = 'flex'
   picker.style.zIndex=1
 }
+

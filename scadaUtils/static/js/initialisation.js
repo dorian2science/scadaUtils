@@ -56,37 +56,37 @@ function init_dropdown(dd_id,values,fun_on_click) {
       }
     }
   
-  function init_radioButton(rb_id,values,name){
-    let rb_html=document.getElementById(rb_id)
+function init_radioButton(rb_id,values,name){
+let rb_html=document.getElementById(rb_id)
+for (const val of values)
+{
+    var div = document.createElement("div");
+    var input = document.createElement("input");
+    input.type = "radio";input.id=name+'_'+val;input.name=name;input.value=val;
+    var label = document.createElement("label");
+    label.setAttribute("for", name+'_'+val);
+    label.append(document.createTextNode(val));
+    div.appendChild(input)
+    div.appendChild(label)
+    rb_html.appendChild(div);
+}
+}
+
+function init_tags_dropdown(dd_id,values,fun_on_click) {
+let dd_html = document.getElementById(dd_id)
+while (dd_html.children.length > 0) {
+    dd_html.removeChild(dd_html.children[0]);
+}
     for (const val of values)
     {
-        var div = document.createElement("div");
-        var input = document.createElement("input");
-        input.type = "radio";input.id=name+'_'+val;input.name=name;input.value=val;
-        var label = document.createElement("label");
-        label.setAttribute("for", name+'_'+val);
-        label.append(document.createTextNode(val));
-        div.appendChild(input)
-        div.appendChild(label)
-        rb_html.appendChild(div);
+        var a = document.createElement("a");
+        a.innerHTML = val;
+        dd_html.appendChild(a);
+        a.addEventListener("mouseup",()=>{fun_on_click(val)})
     }
-  }
+}
   
-  function init_tags_dropdown(dd_id,values,fun_on_click) {
-    let dd_html = document.getElementById(dd_id)
-    while (dd_html.children.length > 0) {
-      dd_html.removeChild(dd_html.children[0]);
-    }
-      for (const val of values)
-      {
-          var a = document.createElement("a");
-          a.innerHTML = val;
-          dd_html.appendChild(a);
-          a.addEventListener("mouseup",()=>{fun_on_click(val)})
-      }
-  }
-  
-  // ----------------------------------------
+// ----------------------------------------
 
 function showTab(tabName) {
     var i, tabContent, tabButton;
@@ -119,10 +119,10 @@ function switch_tab_dataset(){
         list_buttons_request_dataset.appendChild(btn_update)
         list_buttons_request_dataset.appendChild(btn_export)
         list_buttons_request_dataset.appendChild(btn_fig)        
-        update_data_sets().then(()=>{
-            change_dataSet()
-        })
-
+        // update_data_sets().then(()=>{
+        //     change_dataSet()
+        // })
+        
     }else if(document.getElementById('btn_tab_parameters').classList.contains('active')){
         div_resMethod.appendChild(dd_resMethod)
         div_datetimepicker.appendChild(datetimepicker)
@@ -134,7 +134,7 @@ function switch_tab_dataset(){
         list_buttons_request.appendChild(btn_update)
         list_buttons_request.appendChild(btn_export)
         list_buttons_request.appendChild(btn_fig)
-        change_model()
+        // change_model()
     }
 }
 
