@@ -152,7 +152,7 @@ class Basic_Dashboard():
             data = {k:df[k].ffill().bfill().to_list() for k in df.columns}
             print_file('starting reindexing')
             Time = [k.isoformat() for k in df.index]
-
+                        
 
         except:
             if notif==200:
@@ -378,6 +378,7 @@ class Dashboard(Basic_Dashboard):
     def generate_fig(self):
         debug = False
         notif = 200
+        print_file(timenowstd(),'request received')
         try:
             start=time.time()
             data = request.get_data()
@@ -394,22 +395,24 @@ class Dashboard(Basic_Dashboard):
             if debug:print_file('alltags:',tags)
             rs,rsMethod = parameters['rs_time'],parameters['rs_method']
             model = parameters['model']
-            pool = 'auto'
             ####### determine if it should be loaded with COARSE DATA or fine data
             # if pd.to_timedelta(rs)>=pd.Timedelta(seconds=self.rs_min_coarse) or t1-t0>pd.Timedelta(days=self.nb_days_min_coarse):
+            print_file(timenowstd(),'load data')
             if parameters['coarse']:
                 pool='coarse'
                 df = self.visualiser.load_coarse_data(t0,t1,tags,model=model,rs=rs,rsMethod=rsMethod)
             else:
                 if debug :print_file(tags)
-                df = self.visualiser.loadtags_period(t0,t1,model=model,tags=tags,rs=rs,rsMethod=rsMethod)
+                df = self.visualiser.loadtags_period(t0,t1,model=model,tags=tags,rs=rs,rsMethod=rsMethod,pool=False,verbose=True)
                 if debug :print_file(df)
             if df.empty:
                 notif = self.NOTIFS['no_data']
                 raise Exception('no data')
+            print_file(timenowstd(),'finish loading')
 
+            print_file(timenowstd(),'check nb points')
             ####### check that the request does not have TOO MANY DATAPOINTS
-            df,notif = self.check_nb_data_points(df)
+            df, notif = self.check_nb_data_points(df)
             if debug:print_file(df)
 
             tags_empty = detect_empty_columns(df)
@@ -417,7 +420,7 @@ class Dashboard(Basic_Dashboard):
                 notif = "No data could be found for the tags " + ', '.join(tags_empty)
             # fig = self.plot_function(df,model)()
 
-            self.log_info(computetimeshow('fig generated with pool =' + str(pool),start))
+            # self.log_info(computetimeshow('fig generated with pool =' + str(pool),start))
 
         except:
             if notif==200:
@@ -432,13 +435,17 @@ class Dashboard(Basic_Dashboard):
         dfplc = self.conf.dfplc
         dfplc = dfplc[dfplc['MODEL']==model]
         units = dfplc.loc[tags,'UNITE'].to_dict()
-        print_file('create data')
         #### replace ffill.bfill by fill(null)?
         data = {k:df[k].ffill().bfill().to_list() for k in df.columns}
-        print_file('starting reindexing')
+        print_file(timenowstd(),'starting reindexing')
         Time = [k.isoformat() for k in df.index]
+        # fig = self.plot_function(df,model)()
+        print_file(timenowstd(),'starting jsonify')
+
         res = {'Time':Time,'data':data,'units':units,'notif':notif}
-        return jsonify(res)
+        res=jsonify(res)
+        print_file(timenowstd(),'done send to front')
+        return res
 
 from .flask_utilities import app, register_user, user_login, redirect, url_for, login_required, logout_user
 class Protected_dragdrop_dashboard(Basic_Dashboard):

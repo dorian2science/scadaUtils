@@ -226,6 +226,7 @@ function fetch_figure() {
   }
   // console.log(tags_hidden);
   LAST_REQUEST = JSON.stringify(parameters)
+  // console.log("sending request");
   $.post(parameters['request_url'],LAST_REQUEST,function(res,status){
     // threat the notification message sent by the backend
     var notif = res['notif']

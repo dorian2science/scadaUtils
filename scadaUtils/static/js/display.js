@@ -559,3 +559,19 @@ function load_planche(){
   };
   JSON_READER.readAsText(file);
 }
+
+
+
+function browseFigure() {
+  fileFig.click();
+}
+
+function load_figure(){
+  file = fileFig.files[0];
+  const fig_reader = new FileReader();
+  fig_reader.onload = function(event) {
+    const figure = JSON.parse(event.target.result);
+    Plotly.newPlot('plotly_fig',figure.data,figure.layout)
+    }
+    fig_reader.readAsText(file);
+};
