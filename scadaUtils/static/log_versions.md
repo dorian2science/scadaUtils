@@ -1,6 +1,17 @@
 # Log new features
-What's new in V1.10 ?
+What's new in V2.1 ?
 --------------
+### v2.1
+- display panel(a video explaining how to interact to use the options is available [here](https://inocel.atlassian.net/wiki/spaces/Diagnostiq/pages/143392794/Utilisation+de+l+onglet+display+panel)) :
+    - layout of widgets more fluid   
+    - arrange signals on different subplots(rows and columns) and change the layout.
+    - change the units/axes of a signal
+    - change the name of the signal(**label**)
+    - possible to save/load a "planche" : which is a configuration of signal:color, unit, column and row subplot id, and label.    
+    - resizing figure and elements on the figure responsive
+    - adjust the number of ticks of the axes
+    - adjust the font size of axes
+- request tabs:  
 ### v1.10
 - [possible to drag-drop files](https://inocel.atlassian.net/wiki/spaces/Diagnostiq/pages/135757872/Charger+un+fichier+de+donn+es) of pre-defined format for bench\_crio, AVL, cea_pacmat. 
 
