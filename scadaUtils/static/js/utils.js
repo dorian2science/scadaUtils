@@ -89,3 +89,12 @@ function empty_table(table){
     table.deleteRow(1)
   }
 }
+
+
+function quick_extraction(obj,idx,precision){
+  return Object.keys(obj).reduce((result, key) => {
+    result[key] = obj[key][idx].toFixed(precision)
+    return result
+  },{});
+}
+

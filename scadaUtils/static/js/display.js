@@ -571,7 +571,9 @@ function load_figure(){
   const fig_reader = new FileReader();
   fig_reader.onload = function(event) {
     const figure = JSON.parse(event.target.result);
-    Plotly.newPlot('plotly_fig',figure.data,figure.layout)
+    GREENLIGHT_DATA = figure.greenlight
+    DATA = figure.data
+    Plotly.newPlot('plotly_fig',figure.fig_data,figure.layout)
     }
     fig_reader.readAsText(file);
 };
