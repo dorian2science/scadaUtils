@@ -1,6 +1,8 @@
 # Log new features
 What's new in V2.1 ?
 --------------
+### v2.2
+- onglet dataset : bouton à cocher "greenlight" pour rejouer le live des essais AVL et voir la répartition des tensions cellules en déplacant le curseur temporel.   
 ### v2.1
 - display panel(a video explaining how to interact to use the options is available [here](https://inocel.atlassian.net/wiki/spaces/Diagnostiq/pages/143392794/Utilisation+de+l+onglet+display+panel)) :
     - layout of widgets more fluid   
