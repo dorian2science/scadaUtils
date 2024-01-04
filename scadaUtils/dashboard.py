@@ -408,9 +408,9 @@ class Dashboard(Basic_Dashboard):
             if df.empty:
                 notif = self.NOTIFS['no_data']
                 raise Exception('no data')
-            print_file(timenowstd(),'finish loading')
+            # print_file(timenowstd(),'finish loading')
 
-            print_file(timenowstd(),'check nb points')
+            # print_file(timenowstd(),'check nb points')
             ####### check that the request does not have TOO MANY DATAPOINTS
             df, notif = self.check_nb_data_points(df)
             if debug:print_file(df)
@@ -437,14 +437,14 @@ class Dashboard(Basic_Dashboard):
         units = dfplc.loc[tags,'UNITE'].to_dict()
         #### replace ffill.bfill by fill(null)?
         data = {k:df[k].ffill().bfill().to_list() for k in df.columns}
-        print_file(timenowstd(),'starting reindexing')
+        # print_file(timenowstd(),'starting reindexing')
         Time = [k.isoformat() for k in df.index]
         # fig = self.plot_function(df,model)()
-        print_file(timenowstd(),'starting jsonify')
+        # print_file(timenowstd(),'starting jsonify')
 
         res = {'Time':Time,'data':data,'units':units,'notif':notif}
         res=jsonify(res)
-        print_file(timenowstd(),'done send to front')
+        # print_file(timenowstd(),'done send to front')
         return res
 
 from .flask_utilities import app, register_user, user_login, redirect, url_for, login_required, logout_user

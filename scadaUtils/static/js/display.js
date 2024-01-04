@@ -66,9 +66,9 @@ function change_color_paper_background(color){
 // #################################################
 function create_std_axis(){
   // ax_col = GRID_BOX_COLOR
-  ax_col = 'red'
   gw = 2
   grid_color='#bdbdbd'
+  ax_col = "black"
   fs = 12
   return {
       linecolor: ax_col,

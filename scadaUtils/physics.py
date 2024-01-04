@@ -183,8 +183,10 @@ def convert_to_common_units_df(df,u2='common',format='m+u'):
 to_si = lambda v,u:convert_u1_to_u2(v,u,'si',format='m')
 from_si = lambda v,u:convert_u1_to_u2(v,get_unit(u,'si'),u,format='m')
 def convert_df_units(df,Qs):
-    '''Qs:[dictionnary] keys are columns names and values are desired units'''
-    new_df=df.copy()
+    '''
+    Qs:[dictionnary] keys are columns names and values are desired units
+    '''
+    new_df = df.copy()
     for g,u in Qs.items():
         # new_df[g]=convert_u1_to_u2(df[g].to_list(),get_unit(u,'si'),u,'m').round(2)
         new_df[g]=from_si(df[g].to_list(),u).round(2)

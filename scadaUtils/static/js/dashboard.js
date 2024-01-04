@@ -506,7 +506,6 @@ function update_timerange_picker(options){
   })
 }
 
-
 function pop_menu_refresh(e) {
   // console.log(e.checked)
   if (e.checked) {

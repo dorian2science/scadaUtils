@@ -87,7 +87,6 @@ while (dd_html.children.length > 0) {
 }
   
 // ----------------------------------------
-
 function showTab(tabName) {
     var i, tabContent, tabButton;
 
@@ -116,11 +115,12 @@ function switch_tab_dataset(){
         div_tags_dataset.appendChild(in_dd_y)
         div_tags_dataset.appendChild(dd_y)
         div_tags_dataset.appendChild(btn_add_tags)
-        list_buttons_request_dataset.appendChild(btn_update)
-        list_buttons_request_dataset.appendChild(btn_export)
-        list_buttons_request_dataset.appendChild(btn_fig)        
+        // list_buttons_request_dataset.appendChild(btn_update)
+        // list_buttons_request_dataset.appendChild(btn_export)
+        // list_buttons_request_dataset.appendChild(btn_fig)        
+        list_buttons_request_dataset.appendChild(list_buttons_request)
         // update_data_sets().then(()=>{
-        //     change_dataSet()
+            //     change_dataSet()
         // })
         
     }else if(document.getElementById('btn_tab_parameters').classList.contains('active')){
@@ -131,9 +131,7 @@ function switch_tab_dataset(){
         div_tags.appendChild(in_dd_y)
         div_tags.appendChild(dd_y)
         div_tags.appendChild(btn_add_tags)
-        list_buttons_request.appendChild(btn_update)
-        list_buttons_request.appendChild(btn_export)
-        list_buttons_request.appendChild(btn_fig)
+        list_buttons_request_dataParameters.appendChild(list_buttons_request)
         // change_model()
     }
 }
@@ -297,7 +295,7 @@ $.get('init',function(data){
         
         // ----------- more initialisations ------- 
         load_drag_drop_upload()
-        Plotly.newPlot('plotly_fig')
+        Plotly.newPlot('plotly_fig',[])
         get_sessions().then(()=>{
             $('#dd_session')[0].value = data['initial_session']
             update_data_sets().then(()=>{

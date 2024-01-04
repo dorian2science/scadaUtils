@@ -15,8 +15,8 @@ import psutil
 # #      BASIC Utils    #
 # #######################
 # basic utilities for Streamer and DumpingClientMaster
-timenowstd=lambda :pd.Timestamp.now(tz='CET').strftime('%d %b %H:%M:%S')
-computetimeshow=lambda x,y:timenowstd() + ' : ' + x + ' in {:.2f} ms'.format((time.time()-y)*1000)
+timenowstd = lambda :pd.Timestamp.now(tz='CET').strftime('%d %b %H:%M:%S')
+computetimeshow = lambda x,y:timenowstd() + ' : ' + x + ' in {:.2f} ms'.format((time.time()-y)*1000)
 from inspect import currentframe, getframeinfo
 from colorama import Fore
 FORMAT_DAY_FOLDER='%Y-%m-%d'
@@ -1612,8 +1612,8 @@ class Streamer(Basic_streamer):
 
         start=time.time()
         # remove duplicated index
-        s=s[~s.index.duplicated(keep='last')].sort_index()
-        if checkTime:computetimeshow('drop duplicates ',start)
+        # s = s[~s.index.duplicated(keep='last')].sort_index()
+        if checkTime:print_file(computetimeshow('drop duplicates ',start))
 
         # timezone conversion
         s.index = s.index.tz_convert(tz)
@@ -1656,7 +1656,7 @@ class Streamer(Basic_streamer):
                     else:
                         s = s.resample(rs,label=closed,closed=closed).nearest()
 
-        if checkTime:computetimeshow(rsMethod + ' data',start)
+        if checkTime:print_file(computetimeshow(rsMethod + ' data',start))
         return s
 
     def _load_raw_day_tag(self,day,tag,folderpkl,rs,rsMethod,closed,showTag_day=True):
@@ -1724,15 +1724,15 @@ class Streamer(Basic_streamer):
             filename = os.path.join(folderpkl,t.strftime(self._format_dayFolder),tag+'.pkl')
             if os.path.exists(filename):
                 if time_debug: print_file(filename,t.isoformat(),filename=self.log_file)
-                dfs[filename]=pd.read_pickle(filename)
+                dfs[filename] = pd.read_pickle(filename)
             else :
                 if verbose:print_file('no file : ',filename,filename=self.log_file)
                 dfs[filename] = pd.Series(dtype='float',name='value')
             t = t + pd.Timedelta(days=1)
-        if time_debug:computetimeshow('raw pkl loaded in ',start)
+        if time_debug:print_file(computetimeshow('raw pkl loaded in ',start))
         start=time.time()
         s_tag = pd.DataFrame(pd.concat(dfs.values()))
-        if time_debug:computetimeshow('contatenation done in ',start)
+        if time_debug:print_file(computetimeshow('contatenation done in ',start))
         s_tag.index.name='timestampz'
         s_tag = s_tag['value']
         start = time.time()
@@ -1740,7 +1740,7 @@ class Streamer(Basic_streamer):
             s_tag = s_tag[(s_tag.index>=t0)&(s_tag.index<=t1)]
             s_tag = self.process_tag(s_tag,**kwargs)
         s_tag.name = tag
-        if time_debug:computetimeshow('processing done in ',start)
+        if time_debug:print_file(computetimeshow('processing done in ',start))
         return s_tag
 
     def load_tag_daily_kwargs(self,t0,t1,tag,folderpkl,args, kwargs):

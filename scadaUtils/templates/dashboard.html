@@ -69,21 +69,23 @@
         </div>
 
         <div class="tab-content" id="tab_parameters" >
-            <div name='buttons' id="list_buttons_request">
-              <button class='p_but' id="btn_update" type="button" onclick="fetch_figure()" 
-                title = "Click will trigger a request to fetch the data">request data!</button>
-              <button class='p_but' id="btn_export" type="button" onclick="data2excel()"
-                title = "On click it will export the data of the figure to .xlsx format.">export to excel</button>
-            <button class='p_but' id="btn_fig" type="button" onclick="export_figure()"
-              title="On click it will export the figure to the html format 
-                (that you can open in your web browser)">export figure</button>
+            <div name='buttons' id="list_buttons_request_dataParameters">
+              <div name='buttons' id="list_buttons_request">
+                <button class='p_but' id="btn_update" type="button" onclick="fetch_figure()" 
+                  title = "Click will trigger a request to fetch the data">request data!</button>
+                <button class='p_but' id="btn_export" type="button" onclick="data2excel()"
+                  title = "On click it will export the data of the figure to .xlsx format.">export to excel</button>
+              <button class='p_but' id="btn_fig" type="button" onclick="export_figure()"
+                title="On click it will export the figure to the html format 
+                  (that you can open in your web browser)">export figure</button>
+              </div>
             </div>
           <div class="request_parameters" id="tab_dataParameters"></div>
         </div>
 
         <div class="tab-content" id="tab_dataset" >
           <div id="list_buttons_request_dataset" ></div>
-            <div class="request_parameters" id="tab_datasetParameters"></div>
+          <div class="request_parameters" id="tab_datasetParameters"></div>
         </div>
         
         <div class="tab-content" id="tab_processing"></div>

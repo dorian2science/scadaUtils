@@ -82,7 +82,6 @@ function formatDateTime(date) {
   return `${year}-${month}-${day} ${hours}h${minutes}:${seconds}.${milliseconds}`;
 }
 
-
 function empty_table(table){
   nbrows = table.rows.length
   for (let index=1;index<nbrows;index++){
@@ -90,11 +89,15 @@ function empty_table(table){
   }
 }
 
-
 function quick_extraction(obj,idx,precision){
   return Object.keys(obj).reduce((result, key) => {
-    result[key] = obj[key][idx].toFixed(precision)
+    value = obj[key][idx]
+    if (!(value==null)){
+      result[key] = value.toFixed(precision)
+    }
+    else{
+      result[key] = "NaN"
+    }
     return result
   },{});
 }
-
