@@ -2,7 +2,8 @@
 What's new in V2.1 ?
 --------------
 ### v2.3
-- onglet dataPa : bouton à cocher "greenlight" pour rejouer le live des essais DSP et voir la répartition des tensions cellules en déplacant le curseur temporel. Les données clés temps réel ont été aussi ajoutées
+- onglet dataPa : bouton à cocher "greenlight" pour rejouer le live des essais DSP et voir la répartition des tensions cellules en déplacant le curseur temporel. Les données clés temps réel ont été aussi ajoutéessu beta_usr
+
 ### v2.2
 - onglet dataset : bouton à cocher "greenlight" pour rejouer le live des essais AVL et voir la répartition des tensions cellules en déplacant le curseur temporel.   
 ### v2.1
