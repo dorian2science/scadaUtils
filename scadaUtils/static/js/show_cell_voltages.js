@@ -136,8 +136,10 @@ function initialize_summary_table() {
 function update_bar_graph(){
     idx = in_datetime.value
     a = moment(GREENLIGHT_DATA['Time'][idx])
-    time = a.format('ddd, d MMM Y, H')+'h'+a.format('mm:ss') + '.' + a.milliseconds() 
+    time = a.format('ddd, D MMM Y, H')+'h'+a.format('mm:ss') + '.' + a.milliseconds() 
     df_cells = GREENLIGHT_DATA['df_cells']
+
+    cell_ids = Object.keys(GREENLIGHT_DATA['df_cells']).map(x=>x.split('_').slice(-1)[0])
     cell_voltages = Object.keys(df_cells).map(x=>df_cells[x][idx].toFixed(2)) 
     nb_cells = cell_voltages.length
 
@@ -153,7 +155,7 @@ function update_bar_graph(){
         }
     };
     cells_data = [{
-        x: Array.from({ length: nb_cells}, (_, index) => index + 1),
+        x: cell_ids,
         y: cell_voltages,
         type: 'bar',
         marker: {
