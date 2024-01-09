@@ -1,6 +1,8 @@
 # Log new features
-What's new in V2.3 ?
+What's new in V2.4 ?
 --------------
+### v2.4
+- onglet Processing : les calculs élémentaires sur les variables sont disponibles. 
 ### v2.3
 - onglet dataParameters : bouton à cocher "greenlight" pour rejouer le live des essais DSP et voir la répartition des tensions cellules en déplacant le curseur temporel. Les données clés temps réel ont été aussi ajoutéessu beta_usr
 

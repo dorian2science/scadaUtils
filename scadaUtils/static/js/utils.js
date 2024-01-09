@@ -46,12 +46,15 @@ function divide_interval(nbs,s,maxi){
   return intervals
 }
 
-function download_json(obj){
+function download_json(obj,filename){
   const blob = new Blob([JSON.stringify(obj)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'obj.json';
+  if (!filename){
+    filename='obj.json'
+  }
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }

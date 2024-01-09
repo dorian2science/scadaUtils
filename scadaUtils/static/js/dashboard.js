@@ -159,7 +159,7 @@ function toggle_gaps(){
 
 function addRow_tagTable(tagname) {
   loc_table_tags = get_active_table()
-  list_tags = extract_listTags_from_html_table().map(x=>x[0])
+  list_tags = extract_listTags_from_html_table()
   if (!list_tags.includes(tagname)) {
     var row = loc_table_tags.insertRow(loc_table_tags.rows.length);
     row.insertCell(0).innerHTML = '<input type="button" class="btn_delete" value = "X" onClick="deleteRow(this)">';
@@ -283,6 +283,8 @@ function fetch_figure() {
         update_style_fig()
         update_hover()
         build_layout_from_planch()
+        update_dd_tag_for_formula()
+        empty_table(table_computed_vars)
         // update_legend()
         // modify_grid()
         $('#btn_update')[0].innerHTML='request data!'
@@ -445,7 +447,7 @@ function get_sessions(){
   return new Promise((resolve, reject) => {
     $.get('send_sessions',function(sessions,status){
       // console.log(sessions)
-      init_dropdown('dd_session',values=sessions)
+      init_dropdown('dd_session',values=sessions.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())))
       resolve()
     })
   })
@@ -456,7 +458,7 @@ function update_data_sets(){
     session = document.getElementById('dd_session').value
     $.post('send_data_sets',session,function(data_sets){
         document.getElementById("dd_data_set").innerHTML = ""
-        init_dropdown('dd_data_set',values=data_sets)
+        init_dropdown('dd_data_set',values=data_sets.sort((a, b) => b.localeCompare(a)))
         resolve()
     })
   });
@@ -465,7 +467,7 @@ function update_data_sets(){
 function change_dataSet(){
   dataset = document.getElementById('dd_data_set').value
   session = document.getElementById('dd_session').value
-  data={'dataset':dataset,'session':session}
+  data = {'dataset':dataset,'session':session}
   empty_tableOfTags()
   $.post('send_dfplc',JSON.stringify(data),function(tags,status){
     init_tags_dropdown('dd_y',values=tags,addRow_tagTable)
