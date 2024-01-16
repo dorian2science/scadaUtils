@@ -123,6 +123,16 @@ class Basic_Dashboard():
             tags = parameters['tags']
             if parameters['all_tags'] == True:
                 tags = df.columns
+
+            unfound_tags = [k for k in tags if k not in df.columns]
+            if len(unfound_tags)>0:
+                notif = "The list of following tags could not be found.\n"+ "\n".join(unfound_tags)+"\nPlease make sure this tag exist using the dropdown menu."
+            
+            tags = [k for k in tags if k in df.columns]
+
+            if len(tags)==0:
+                return jsonify({'notif':notif})
+
             df = df[tags]
             t0,t1 = [pd.Timestamp(t,tz='CET') for t in parameters['timerange'].split(' - ')]
             if not parameters['all_times']:
@@ -139,7 +149,9 @@ class Basic_Dashboard():
                 raise Exception('no data')
 
             ####### check that the request does not have TOO MANY DATAPOINTS
-            df,notif = self.check_nb_data_points(df)
+            df,notif2 = self.check_nb_data_points(df)
+            if notif==200:
+                notif = notif2
 
             ####### generate graph
             dfplc_path = os.path.join(self.folder_datasets,session,'dfplc',data_set + '_dfplc.pkl')
@@ -150,9 +162,10 @@ class Basic_Dashboard():
 
             #### replace ffill.bfill by fill(null)?
             data = {k:df[k].ffill().bfill().to_list() for k in df.columns}
-            print_file('starting reindexing')
+            # print_file('starting reindexing')
             Time = [k.isoformat() for k in df.index]
-                        
+            print_file(notif)
+            res = {'Time':Time,'data':data,'units':units,'notif':notif}
 
         except:
             if notif==200:
@@ -161,8 +174,8 @@ class Basic_Dashboard():
                 # error_message = self.notify_error(sys.exc_info(),error)
                 error_message = traceback.format_exc()
                 notif = self.NOTIFS[notif] + error_message
+            res = {'notif':notif}
 
-        res = {'Time':Time,'data':data,'units':units,'notif':notif}
         return jsonify(res)
 
     def export2excel(self):
@@ -224,7 +237,6 @@ class Basic_Dashboard():
                 return notif
         else:
             return 'no available parser for session : '+ session
-
 
     def send_data_sets(self):
         data = request.get_data()
@@ -389,15 +401,32 @@ class Dashboard(Basic_Dashboard):
 
             if debug:print_file('t0,t1:',t0,t1)
             tags = parameters['tags']
+
+            dfplc = self.conf.dfplc
+            model = parameters['model']
+            dfplc = dfplc[dfplc['MODEL']==model]
+            all_tags = dfplc.index.to_list()
+
+
             model_categories = self.visualiser.conf.tag_categories[parameters['model']]
             if parameters['categorie'] in model_categories:
                 tags += model_categories[parameters['categorie']]
-            if debug:print_file('alltags:',tags)
+            if debug:print_file('tags:',tags)
             rs,rsMethod = parameters['rs_time'],parameters['rs_method']
-            model = parameters['model']
             ####### determine if it should be loaded with COARSE DATA or fine data
             # if pd.to_timedelta(rs)>=pd.Timedelta(seconds=self.rs_min_coarse) or t1-t0>pd.Timedelta(days=self.nb_days_min_coarse):
             print_file(timenowstd(),'load data')
+
+            unfound_tags = [k for k in tags if k not in all_tags]
+            if len(unfound_tags)>0:
+                notif = "The list of following tags could not be found.\n\n"+ "\n".join(unfound_tags)+"\n\nPlease make sure this tag exist using the dropdown menu."
+            tags = [k for k in tags if k in all_tags]
+            units = dfplc.loc[tags,'UNITE'].to_dict()
+            if len(tags)==0:
+                return jsonify({'notif':notif})
+            print_file(notif)
+            print_file(tags)
+
             if parameters['coarse']:
                 pool='coarse'
                 df = self.visualiser.load_coarse_data(t0,t1,tags,model=model,rs=rs,rsMethod=rsMethod)
@@ -409,19 +438,23 @@ class Dashboard(Basic_Dashboard):
                 notif = self.NOTIFS['no_data']
                 raise Exception('no data')
             # print_file(timenowstd(),'finish loading')
-
             # print_file(timenowstd(),'check nb points')
             ####### check that the request does not have TOO MANY DATAPOINTS
-            df, notif = self.check_nb_data_points(df)
+            df, notif2 = self.check_nb_data_points(df)
+            if notif==200:
+                notif = notif2
+            
             if debug:print_file(df)
 
             tags_empty = detect_empty_columns(df)
             if len(tags_empty)>0:
                 notif = "No data could be found for the tags " + ', '.join(tags_empty)
             # fig = self.plot_function(df,model)()
-
             # self.log_info(computetimeshow('fig generated with pool =' + str(pool),start))
+            data = {k:df[k].ffill().bfill().to_list() for k in df.columns}
+            Time = [k.isoformat() for k in df.index]
 
+            res = {'Time':Time,'data':data,'units':units,'notif':notif}
         except:
             if notif==200:
                 notif = 'figure_generation_impossible'
@@ -429,22 +462,8 @@ class Dashboard(Basic_Dashboard):
                 # error_message = self.notify_error(sys.exc_info(),error)
                 error_message = traceback.format_exc()
                 notif = self.NOTIFS[notif] + error_message
-            fig = go.Figure()
-
-        # res = {'fig':fig.to_json(),'notif':notif}
-        dfplc = self.conf.dfplc
-        dfplc = dfplc[dfplc['MODEL']==model]
-        units = dfplc.loc[tags,'UNITE'].to_dict()
-        #### replace ffill.bfill by fill(null)?
-        data = {k:df[k].ffill().bfill().to_list() for k in df.columns}
-        # print_file(timenowstd(),'starting reindexing')
-        Time = [k.isoformat() for k in df.index]
-        # fig = self.plot_function(df,model)()
-        # print_file(timenowstd(),'starting jsonify')
-
-        res = {'Time':Time,'data':data,'units':units,'notif':notif}
-        res=jsonify(res)
-        # print_file(timenowstd(),'done send to front')
+                res = {'notif':notif}
+        res = jsonify(res)
         return res
 
 from .flask_utilities import app, register_user, user_login, redirect, url_for, login_required, logout_user

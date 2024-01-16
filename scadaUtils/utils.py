@@ -7,6 +7,37 @@ from plotly.validators.scatter.line import ShapeValidator
 from plotly.validators.scatter.marker import SymbolValidator
 from plotly.validators.scatter.line import DashValidator
 import inspect
+
+def find_functions_with_line_numbers(file_path,extension='.js'):
+    if extension=='.js':
+        pattern = re.compile(r'function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)\s*\{')
+    elif extension=='.py':
+        pattern = re.compile(r'def\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)\s*\:')
+    functions = {}
+    with open(file_path, 'r', encoding='utf-8') as file:
+        content = file.readlines()
+        for line_number, line in enumerate(content, start=1):
+            matches = re.findall(pattern, line)
+            for match in matches:
+                functions[f'{file_path}/{match}'] = line_number
+    return functions
+
+
+def find_functions(folder_path,extension='.js'):
+    function_dict = {}
+    for root, _, files in os.walk(folder_path):
+        for file_name in files:
+            if file_name.endswith(extension):
+                # print(file_name)
+                file_path = os.path.join(root, file_name)
+                functions = find_functions_with_line_numbers(file_path,extension=extension)
+                if functions:
+                    function_dict.update(functions)
+    
+    # Print the dictionary
+    return function_dict
+
+
 def inspect_simple(frame):
   # pull tuple from frame
   args,args_paramname,kwargs_paramname,values = inspect.getargvalues(frame)
