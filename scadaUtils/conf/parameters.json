@@ -4,7 +4,7 @@
   "realtime":{
     "db_parameters":{
         "host":"localhost",
-        "port":5432,
+        "port":"5432",
         "user":"test",
         "password":"test"
       },

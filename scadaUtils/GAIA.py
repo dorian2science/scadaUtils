@@ -61,9 +61,9 @@ class Services_creator():
     :param str project_name: the name of the project.
     :param str folder_project: the folder where the script files should be stored.
     :param str gaia_instance_name: the name of the gaia instance.
-    :param str url_dashboard: the url of the dashboard. If None, url will be www.<project_name>_sylfen.com
+    :param str url_dashboard: the url of the dashboard. If None, url will be www.<project_name>_scada.com
     :param int port: the port on which the dashboard will be served. Default, 15000
-    :param str user: the user owner of the services. Default, 'sylfen'
+    :param str user: the user owner of the services. Default, 'scada'
     '''
 
     def __init__(self,project_name,folder_project,gaia_instance_name,url_dashboard=None,port=15000,user='dorian'):
@@ -78,7 +78,7 @@ class Services_creator():
         self.gaia_instance=gaia_instance_name
         self.url_dashboard=url_dashboard
         if self.url_dashboard is None:
-            self.url_dashboard='www.'+self.project_name+'_sylfen.com'
+            self.url_dashboard='www.'+self.project_name+'_scada.com'
         self.port=port
         self.services={
             'dumper': {
@@ -242,7 +242,7 @@ class Heartbeat():
             # user:'drevondorian@gmail.com',
                 'host':'smtp.office365.com',
                 'port' : 587,
-                'user':'dorian.drevon@sylfen.com',
+                'user':'dorian.drevon@scada.com',
                 'password':'Qoh26867',
                 'isTls':True
             }
@@ -303,16 +303,16 @@ class Heartbeat():
 
     def send_alert(self,body,msg,to_marc=False):
         # print_file(body)
-        toAddrs=["DorianSylfen<dorian.drevon@sylfen.com>"]
+        toAddrs=["DorianSylfen<dorian.drevon@scada.com>"]
         to_marc=False
         if to_marc:
             toAddrs+=[
-                "Marc Potron<marc.potron@sylfen.com>",
-                "Damien Messi<damien.messi@sylfen.com>"
+                "Marc Potron<marc.potron@scada.com>",
+                "Damien Messi<damien.messi@scada.com>"
             ]
         try:
             SMTP.sendMessage(
-                 fromAddr = "ALERTING <dorian.drevon@sylfen.com>",
+                 fromAddr = "ALERTING <dorian.drevon@scada.com>",
                  toAddrs = toAddrs,
                  subject = "ALERT: "+body,
                  content = msg,
@@ -434,8 +434,8 @@ class GAIA():
     '''
     Super instance that create a project from scratch to dump data from devices,
     load, visualize, and serve those data on a web GUI.
-    :param \*args: see sylfenUtils.Conf_generator.Conf_generator arguments
-    :param \**kwargs: see sylfenUtils.Conf_generator.Conf_generator arguments
+    :param \*args: see scadaUtils.Conf_generator.Conf_generator arguments
+    :param \**kwargs: see scadaUtils.Conf_generator.Conf_generator arguments
     '''
     def __init__(self,*args,realtime=False,verbose=False,**kwargs):
         if realtime:
@@ -553,7 +553,7 @@ class GAIA():
 class Tester():
     def __init__(self,gaia,log_file_tester=None):
         '''
-        :param str gaia : [sylfenUtils.GAIA] instance
+        :param str gaia : [scadaUtils.GAIA] instance
         '''
         self.cfg    = gaia._visualiser
         self.conf   = gaia.conf

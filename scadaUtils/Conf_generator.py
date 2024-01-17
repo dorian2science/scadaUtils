@@ -110,7 +110,7 @@ class Conf_generator():
     def __init__(self,project_name,function_generator,project_folder=None,force_creation=False,verbose=False):
         self.project_name = project_name
         self._function_generator = function_generator
-        self._lib_sylfenUtils_path = os.path.dirname(__file__)
+        self._lib_scadaUtils_path = os.path.dirname(__file__)
         self._force_creation = force_creation
 
         homepath = {'posix': 'HOME', 'nt':'homepath'}
@@ -126,7 +126,7 @@ class Conf_generator():
 
         ## copy the DEFAULT PARAMETERS file as the parameters File into the user folder
         if not os.path.exists(self.file_parameters) or self._force_creation:
-            _default_file_parameters= os.path.join(self._lib_sylfenUtils_path,'conf','parameters.json')
+            _default_file_parameters= os.path.join(self._lib_scadaUtils_path,'conf','parameters.json')
             # sp.run('cp ' + _default_file_parameters + ' ' + self.file_parameters,shell=True)
             shutil.copy(_default_file_parameters,self.file_parameters)
 
@@ -168,7 +168,7 @@ class Conf_generator():
         if 'dfplc' not in conf_objs.keys():
             # print_file(conf_objs.keys())
             if 'modbus_maps' in conf_objs.keys():
-                from sylfenUtils.comUtils import dfplc_from_modbusmap
+                from scadaUtils.comUtils import dfplc_from_modbusmap
                 # print_file(conf_objs['modbus_maps'])
                 plcs_mb={device_name:dfplc_from_modbusmap(map) for device_name,map in conf_objs['modbus_maps'].items()}
 
@@ -176,7 +176,9 @@ class Conf_generator():
                     conf_objs['plcs']={}
 
                 conf_objs['plcs'].update(plcs_mb)
-                conf_objs['dfplc']=pd.concat(conf_objs['plcs'].values())
+                dfplc = pd.concat(conf_objs['plcs'].values())
+                dfplc['MODEL'] ='dummy'
+                conf_objs['dfplc'] = dfplc 
             else:
                 print('-'*60,'\nIt looks like your function_generator does not include a valid dfplc attribute or modbus_maps attribute.')
                 print('A standard dfplc attribute is mandatory to be able to use all the methods and features.\n','-'*60)
@@ -276,24 +278,18 @@ class Conf_generator_RT(Conf_generator):
         self._realtime='_RT'
         Conf_generator.__init__(self,*args,**kwargs)
 
-        self.PARKING_TIME=eval(self.PARKING_TIME)
-        self.DB_PARAMETERS = {
-            'host'     : self.db_host,
-            'port'     : self.db_port,
-            'dbname'   : self.dbname,
-            'user'     : self.db_user,
-            'password' : self.db_password
-        }
-        del self.db_host,self.db_port,self.dbname,self.db_user,self.db_password
+        self.PARKING_TIME = self.parameters['realtime']['parking_time']
+        self.DB_PARAMETERS = self.parameters['realtime']['db_parameters']
 
-        ###### create the REALTIME TABLE in the database if it does not exist
-        if not create_sql_table(self.DB_PARAMETERS,self.DB_TABLE):
+        ##### create the REALTIME TABLE in the database if it does not exist
+        if not create_sql_table(self.DB_PARAMETERS,self.parameters['realtime']['db_table']):
             from colorama import Fore
             print_file('-'*100,Fore.RED,
-                '\nImpossible to create the table :',self.DB_TABLE,
+                '\nImpossible to create the table :',self.parameters['realtime']['db_table'],
                 '\nPlease make sure the database credentials are correct.',
                 '\nInstanciation of your GAIA instance was killed.',
                 '\nSolve this issue before instanciating again.\n',Fore.RESET,
                 '-'*100+'\n',
                 )
             sys.exit()
+

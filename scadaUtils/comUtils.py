@@ -1991,47 +1991,8 @@ class Streamer(Basic_streamer):
     process_tag.__doc__= process_tag.__doc__.replace('XXX',"'" + "',' ".join(Basic_streamer().methods)+"'")
 
 STREAMER = Streamer()
-class Configurator():
-    '''
-    Instanciate an object *Configurator*
 
-    :param conf: an instance of sylfenUtils.ConfGenerator
-
-    ..note:: See **sylfenUtils.ConfGenerator**
-
-    '''
-    def __init__(self,conf):
-
-        self.conf         = conf
-        self.folderPkl    = conf.FOLDERPKL
-        self.dbParameters = conf.DB_PARAMETERS
-        self.dbTable      = conf.DB_TABLE
-        self.dfplc        = conf.dfplc
-        self._alltags     = list(conf.dfplc.index)
-        self._dataTypes   = DATATYPES
-        self.tz_record    = conf.TZ_RECORD
-        self.parkingTime  = conf.PARKING_TIME##seconds
-        self._format_dayFolder  = FORMAT_DAY_FOLDER##seconds
-        #####################################
-        # self.daysnotempty    = self.getdaysnotempty()
-        # self.tmin,self.tmax  = self.daysnotempty.min(),self.daysnotempty.max()
-
-    def getdaysnotempty(self,*args,**kwargs):
-        return self.conf.getdaysnotempty(*args,**kwargs)
-
-    def connect2db(self):
-        return self.conf.connect2db()
-
-    def getUsefulTags(self,usefulTag):
-        return self.conf.getUsefulTags(usefulTag)
-
-    def getUnitofTag(self,tag):
-        return self.conf.getUnitofTag(tag)
-
-    def getTagsTU(self,*args,**kwargs):
-        return self.conf.getTagsTU(*args,**kwargs)
-
-class SuperDumper(Configurator):
+class SuperDumper():
     '''
     Instanciate an object *SuperDumper*, inherited of the class **Configurator**
 
@@ -2040,10 +2001,9 @@ class SuperDumper(Configurator):
     :param bool log_console: if True, the infos will be displayed in the CLI(console), otherwise in the log file in the folder of the project. Default, False
     '''
     def __init__(self,devices,conf,log_console=False):
-
-        Configurator.__init__(self,conf)
         self.devices  = devices
-        self.log_file = os.path.join(self.conf.LOG_FOLDER,self.conf.project_name+'_dumper.log')
+        self.conf = conf
+        self.log_file = os.path.join(conf.parameters['log_folder'],conf.project_name+'_dumper.log')
         if log_console:
             self.log_file=None
         for dev in devices.values():
@@ -2316,7 +2276,7 @@ class SuperDumper_daily(SuperDumper):
             t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
             t1 = t0 + pd.Timedelta(days=1)
             dfday=df[(df.index>=t0)&(df.index<t1)]
-            folderday=os.path.join(self.folderPkl,d)
+            folderday=os.path.join(self.conf.parameters['folderpkl'],d)
             #### create folder if necessary
             if not os.path.exists(folderday):os.mkdir(folderday)
             #################################
@@ -2352,7 +2312,7 @@ class SuperDumper_daily(SuperDumper):
             t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
             t1 = t0 + pd.Timedelta(days=1)
             dfday=df[(df.index>=t0)&(df.index<t1)]
-            folderday=os.path.join(self.folderPkl,d)
+            folderday=os.path.join(self.conf.parameters['folderpkl'],d)
             #### create folder if necessary
             if not os.path.exists(folderday):os.mkdir(folderday)
             #################################
@@ -2409,9 +2369,9 @@ class SuperDumper_daily(SuperDumper):
 
     def fix_timestamp(self,t0,tag,folder_save=None):
         t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
-        if folder_save is None:folder_save=self.folderPkl
+        if folder_save is None:folder_save=self.conf.parameters['folderpkl']
         while t<pd.Timestamp.now(self.tz_record):
-            filename = os.path.join(self.folderPkl,t.strftime(self._format_dayFolder),tag+'.pkl')
+            filename = os.path.join(self.conf.parameters['folderpkl'],t.strftime(self._format_dayFolder),tag+'.pkl')
             if os.path.exists(filename):
                 s=pd.read_pickle(filename)
                 ####### FIX TIMESTAMP PROBLEM
@@ -2424,16 +2384,14 @@ class SuperDumper_daily(SuperDumper):
             t = t + pd.Timedelta(days=1)
 
 import plotly.graph_objects as go, plotly.express as px
-class VisualisationMaster(Configurator):
+class VisualisationMaster():
     '''
     Instanciate an object *VisualisationMaster*, inherited of the class **Configurator**
-
     :param conf: an instance of sylfenUtils.ConfGenerator
-
     ..note:: See sylfenUtils.Configurator
     '''
-    def __init__(self,*args,**kwargs):
-        Configurator.__init__(self,*args,**kwargs)
+    def __init__(self,conf):
+        self.conf = conf
         self.methods = STREAMER.methods
         self.utils = Utils()
         self.usefulTags=pd.DataFrame()
@@ -2493,7 +2451,7 @@ class VisualisationMaster(Configurator):
         # for k in t0,t1,tags,args,kwargs:print_file(k)
         tags=list(np.unique(tags))
         ############ read parked data
-        df = STREAMER.load_parkedtags_daily(t0,t1,tags,os.path.join(self.folderPkl,model),*args,pool=pool,verbose=verbose,**kwargs)
+        df = STREAMER.load_parkedtags_daily(t0,t1,tags,os.path.join(self.conf.parameters['folderpkl'],model),*args,pool=pool,verbose=verbose,**kwargs)
         ############ read database
         if t1<pd.Timestamp.now(self.tz_record)-pd.Timedelta(seconds=self.parkingTime) or not self.conf._realtime:
             if verbose:print_file('no need to read in the database')
@@ -2610,12 +2568,12 @@ class VisualisationMaster_daily(VisualisationMaster):
     '''
     def __init__(self,*args,**kwargs):
         VisualisationMaster.__init__(self,*args,**kwargs)
-        self.coarse_methods=['mean','min','max','median']
-        self.folder_coarse=self.folderPkl.rstrip('/')+'_coarse/'
-        if not os.path.exists(self.folder_coarse):os.mkdir(self.folder_coarse)
+        self.coarse_methods = ['mean','min','max','median']
+        self.folder_coarse = self.conf.parameters['folderpkl'].rstrip('/')+'_coarse/'
+        create_folder_if_not(self.folder_coarse)
         for m in self.coarse_methods:
             folder_method = os.path.join(self.folder_coarse,m)
-            if not os.path.exists(folder_method):os.mkdir(folder_method)
+            create_folder_if_not(folder_method)
 
     def _load_parked_tags(self,t0,t1,tags,pool):
         '''
@@ -2629,7 +2587,7 @@ class VisualisationMaster_daily(VisualisationMaster):
         if not isinstance(tags,list) or len(tags)==0:
             print_file('tags is not a list or is empty',filename=self.log_file)
             return pd.DataFrame(columns=['value','timestampz','tag']).set_index('timestampz')
-        df = STREAMER.load_parkedtags_daily(t0,t1,tags,self.folderPkl,pool)
+        df = STREAMER.load_parkedtags_daily(t0,t1,tags,self.conf.parameters['folderpkl'],pool)
         # if df.duplicated().any():
         #     print_file("==========================================")
         #     print_file("WARNING : duplicates in parked data")
@@ -2689,7 +2647,7 @@ class VisualisationMaster_daily(VisualisationMaster):
         return pb_tags
 
     def _get_t0(self,file_tag,from_start=False):
-        t0 = pd.Timestamp(min(os.listdir(self.folderPkl)),tz=self.tz_record)
+        t0 = pd.Timestamp(min(os.listdir(self.conf.parameters['folderpkl'])),tz=self.tz_record)
         if from_start:return t0
         if os.path.exists(file_tag):
             s_tag=pd.read_pickle(file_tag)
@@ -2713,7 +2671,7 @@ class VisualisationMaster_daily(VisualisationMaster):
         t0=min([self._get_t0(os.path.join(self.folder_coarse,m,tag + '.pkl'),from_start=from_start) for m in self.coarse_methods])
         ######### load the raw data
         if verbose:print(tag,t0)
-        s = STREAMER.load_tag_daily(t0,pd.Timestamp.now(self.tz_record),tag,self.folderPkl,rsMethod='raw',verbose=False)
+        s = STREAMER.load_tag_daily(t0,pd.Timestamp.now(self.tz_record),tag,self.conf.parameters['folderpkl'],rsMethod='raw',verbose=False)
         if verbose:print(tag,'read in ',time.time()-start)
         ######### build the new data
         s_new = {}
@@ -2883,7 +2841,7 @@ class VisualisatorStatic():
     def __init__(self,conf):
         self.conf = conf
         self.dfplc = self.conf.dfplc
-        self.folderPkl = self.conf.parameters['folderpkl']
+        self.conf.parameters['folderpkl'] = self.conf.parameters['folderpkl']
         self.log_file = None
         self.methods = STREAMER.methods
 
@@ -2902,6 +2860,6 @@ class VisualisatorStatic():
         # for k in t0,t1,tags,args,kwargs:print_file(k)
         tags = list(np.unique(tags))
         ############ read parked data
-        parked_folder = os.path.join(self.folderPkl,model)
+        parked_folder = os.path.join(self.conf.parameters['folderpkl'],model)
         df = STREAMER.load_parkedtags_daily(t0,t1,tags,parked_folder,*args,pool=pool,verbose=verbose,**kwargs)
         return df.sort_index()
