@@ -8,11 +8,30 @@ from plotly.validators.scatter.marker import SymbolValidator
 from plotly.validators.scatter.line import DashValidator
 import inspect
 
-def find_functions_with_line_numbers(file_path,extension='.js'):
+
+quick_day_pick = lambda df,d : df[(df.index>=pd.Timestamp(d,tz='CET'))&(df.index<=pd.Timestamp(d,tz='CET')+pd.Timedelta(days=1))]
+quick_time_pick = lambda df,t0,t1 : df[(df.index>=t0)&(df.index<=t1)]
+inter_quick = lambda l1,l2:[k for k in l1 if k in l2]
+diff_quick = lambda l1,l2:[k for k in l1 if k not in l2]
+
+def duration_on_criterium(s,seuil):
+    s = (s>seuil).astype(int)
+    seuil = group_by_front_montant(s).to_list()
+    s = s.to_frame()
+    s['seuil'] = seuil
+    s['duration'] = pd.Series(s.index).diff().dt.total_seconds().to_list()
+    # durations=s.groupby('seuil').agg({'duration':['sum']})
+    # durations.iloc[1:].sum()/3600
+    s['lifetime'] = s.apply(lambda x: x['duration'] if x['seuil']>0 else 0,axis=1).cumsum()/3600
+    return s
+
+def find_functions_with_line_numbers(file_path,extension='.js',use_lambda=False):
     if extension=='.js':
         pattern = re.compile(r'function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)\s*\{')
     elif extension=='.py':
         pattern = re.compile(r'def\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)\s*\:')
+        if use_lambda:
+            pattern = re.compile(r'(.*)\s*=\s*lambda')
     functions = {}
     with open(file_path, 'r', encoding='utf-8') as file:
         content = file.readlines()
@@ -23,19 +42,19 @@ def find_functions_with_line_numbers(file_path,extension='.js'):
     return functions
 
 
-def find_functions(folder_path,extension='.js'):
+def find_functions(folder_path,extension='.js',pattern='',use_lambda=False):
     function_dict = {}
     for root, _, files in os.walk(folder_path):
         for file_name in files:
             if file_name.endswith(extension):
                 # print(file_name)
                 file_path = os.path.join(root, file_name)
-                functions = find_functions_with_line_numbers(file_path,extension=extension)
+                functions = find_functions_with_line_numbers(file_path,extension=extension,use_lambda=use_lambda)
                 if functions:
                     function_dict.update(functions)
     
     # Print the dictionary
-    return function_dict
+    return {k:v for k,v in function_dict.items() if pattern in k}
 
 
 def inspect_simple(frame):
@@ -970,3 +989,59 @@ class EmailSmtp:
         if (self.user != None and self.password != None): con.login(self.user, self.password)
         con.sendmail(fromAddr, toAddrs, message.as_string())
         con.quit()
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import find_peaks, butter, filtfilt
+def find_steps(points,show=False):
+    # Smoothing - Low-pass filter
+    b, a = butter(N=3, Wn=0.05)  # N is the order of the filter, Wn is the cutoff frequency
+    smoothed_points = filtfilt(b, a, points)
+    
+    # Find derivatives
+    derivatives = np.diff(smoothed_points)
+    
+    # Find Peaks in the derivative (potential step changes)
+    peaks, _ = find_peaks(np.abs(derivatives), height=0.5)  # height is a threshold you might need to adjust
+    if show:
+        plt.figure(figsize=(12, 6))
+        plt.subplot(211)
+        plt.plot(points, label='Original Data')
+        plt.plot(smoothed_points, label='Smoothed Data', alpha=0.6)
+        plt.legend()
+        
+        plt.subplot(212)
+        plt.plot(derivatives, label='Derivative')
+        plt.plot(peaks, derivatives[peaks], "x", label='Detected Changes')
+        plt.legend()
+        
+        plt.show()
+    return peaks
+
+def group_by_front_montant(s):
+    """
+    Detect rising edges in a series of 0 and 1. It returns a series with identification of rising edges by incrementing the rising edge. Every 1 belongs to a rising edge.
+    Parameters:
+    ------------
+        - s[pd.Series]:series of 0 and 1.
+    Exemple : 
+        s = pd.Series([0,1,1,1,0,0,1,0,0,1,1])
+        group_by_front_montant(s)
+        >>> 
+        0     0
+        1     1
+        2     1
+        3     1
+        4     0
+        5     0
+        6     2
+        7     0
+        8     0
+        9     3
+        10    3
+        dtype: int64
+    """
+    return (s.diff().eq(1)
+        .cumsum()
+        .mul(s)
+        .where(s.eq(1), 0))

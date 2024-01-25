@@ -74,8 +74,8 @@ class SimulatorModeBus(Simulator):
         self.port = port
         self.modbus_map = modbus_map
         # initialize server with random values
-        self.modbus_map['value']=self.modbus_map['type'].apply(lambda x:np.random.randint(0,100000))
-        self.modbus_map['precision']=0.1
+        self.modbus_map['value'] = self.modbus_map[['minimum','maximum']].apply(lambda x:x[0] + np.random.randint(0,x[1]-x[0]),axis=1)
+        self.modbus_map['precision'] = 0.1
         self.modbus_map['FREQUENCE_ECHANTILLONNAGE']=1
         self.all_slaves = list(self.modbus_map['slave_unit'].unique())
         # Create an instance of ModbusServer
@@ -83,7 +83,7 @@ class SimulatorModeBus(Simulator):
         for k in self.all_slaves:
             slaves[k]  = ModbusSlaveContext(hr=ModbusSequentialDataBlock(0, [k]*128))
             self.context = ModbusServerContext(slaves=slaves, single=False)
-        self.server = ModbusTcpServer(self.context, address=("", self.port))
+        self.server = ModbusTcpServer(self.context, address=("", int(self.port)))
         self.server_thread = threading.Thread(target=self.serve)
         self.server_thread.daemon = True
         self._feedingClient = ModbusClient(host='localhost',port=int(self.port))
@@ -99,7 +99,7 @@ class SimulatorModeBus(Simulator):
     def writeInRegisters(self):
         for tag,d in self.modbus_map.T.to_dict().items():
             value = d['value'] + np.random.randn()*d['value']*self.volatilitySimu/100
-            self.modbus_map.loc[tag,'value']=value
+            self.modbus_map.loc[tag,'value'] = value
 
             if self.bo.lower()=='little' and self.wo.lower()=='big':
                 builder = BinaryPayloadBuilder(byteorder=Endian.Little, wordorder=Endian.Big)

@@ -38,7 +38,6 @@ DATATYPES={
     'STRING(40)': 'string',
     'IEEE754': 'float',
     'INT64': 'int'
-
      }
 def create_folder_if_not(folder_path,*args,**kwargs):
     '''
@@ -672,13 +671,13 @@ class ModbusDevice(Device):
         return self._isConnected
 
     def quick_decode_tag(self,tag,input=False):
-        infos=self.modbus_map.loc[tag,['intaddress','type','slave_unit','scale']]
+        infos = self.modbus_map.loc[tag,['intaddress','type','slave_unit','scale']]
         print_file(infos)
         reg,dtype,unit,scale=infos
-        nbs=int(4*int(re.findall('\d{2}',dtype)[0])/64)
+        nbs = int(4*int(re.findall('\d{2}',dtype)[0])/64)
         return self.quick_modbus_single_register_decoder(reg,nbs,dtype,unit=unit,input=input,scale=scale)
 
-    def quick_modbus_single_register_decoder(self,reg,nbs,dtype,unit=1):
+    def quick_modbus_single_register_decoder(self,reg,nbs,dtype,scale=1,input=False,unit=1):
         '''
         Decode modbus single registers
 
@@ -738,13 +737,13 @@ class ModbusDevice(Device):
             d={}
             bbs=[]
             if tags is None:
-                tags=self.modbus_map.index.to_list()
+                tags = self.modbus_map.index.to_list()
             local_modbus_map=self.modbus_map.loc[tags]
             for unit_id in local_modbus_map.slave_unit.unique():
-                bloc=local_modbus_map[local_modbus_map.slave_unit==unit_id]
-                bb=self.decode_bloc_registers(bloc,unit_id)
+                bloc = local_modbus_map[local_modbus_map.slave_unit==unit_id]
+                bb = self.decode_bloc_registers(bloc,unit_id)
                 # print_file(bb)
-                bb['timestampz']=pd.Timestamp.now(tz=tz).isoformat()
+                bb['timestampz'] = pd.Timestamp.now(tz=tz).isoformat()
                 bbs+=[bb]
             d=pd.concat(bbs)[['value','timestampz']].T.to_dict()
             return d
@@ -1347,7 +1346,7 @@ class Basic_streamer():
 
         :param str or timestamp object timestamp: timestamp
         '''
-        return timestamp.strftime(self._format_dayFolder)
+        return timestamp.strftime(FORMAT_DAY)
 
 def to_type(x,dtype):
     try:
@@ -1360,6 +1359,7 @@ def to_type(x,dtype):
     except:
         return np.nan
 
+FORMAT_DAY = "%Y-%m-%d"
 class Streamer(Basic_streamer):
     '''
     Instanciate an object *Streamer*, inherited of the class **Basic_streamer**
@@ -1368,7 +1368,6 @@ class Streamer(Basic_streamer):
     '''
     def __init__(self,*args,**kwargs):
         Basic_streamer.__init__(self,*args,**kwargs)
-        self._format_dayFolder='%Y-%m-%d'
 
     def park_tags(self,df,tag,folder,dtype,showtag=False):
         '''
@@ -1381,7 +1380,7 @@ class Streamer(Basic_streamer):
         :param bool showtag: default False. If True, applies the **print_file** function with *tag* as parameter
         '''
         if showtag:print_file(tag)
-        dftag=df[df.tag==tag]['value'].astype(dtype)
+        dftag = df[df.tag==tag]['value'].astype(dtype)
         pickle.dump(dftag,open(folder + tag + '.pkl', "wb" ))
 
     # ########################
@@ -1420,7 +1419,7 @@ class Streamer(Basic_streamer):
         :param tr or timestamp object timestamp: timestamp
         :rtype: timestamp
         '''
-        return timestamp.strftime(self._format_dayFolder)
+        return timestamp.strftime(FORMAT_DAY)
 
     def create_dayfolder(self,folderday):
         '''
@@ -1455,7 +1454,7 @@ class Streamer(Basic_streamer):
         else:### for cases with changing DST 31.10 for example
             dfday = [pd.Timestamp(k).astimezone('UTC') for k in dfday.index]
         listTags = dfday.tag.unique()
-        folderday = os.path.join(folderpkl, dfday.index.mean().strftime(self._format_dayFolder))
+        folderday = os.path.join(folderpkl, dfday.index.mean().strftime(FORMAT_DAY))
         print_file(filename=self.log_file)
         if not os.path.exists(folderday): os.mkdir(folderday)
         #park tag-day
@@ -1491,13 +1490,13 @@ class Streamer(Basic_streamer):
         '''
         print_file(t0,t1,filename=self.log_file)
         days=pd.date_range(t0,t1,freq='1D')
-        dayfolders =[os.path.join(folderPkl,k.strftime(self._format_dayFolder)) for k in days]
+        dayfolders =[os.path.join(folderPkl,k.strftime(FORMAT_DAY)) for k in days]
         if pool:
             with Pool() as p:
                 dfs = p.starmap(action,[(d,*args) for d in dayfolders])
         else:
             dfs = [action(d,*args) for d in dayfolders]
-        return {d.strftime(self._format_dayFolder):df for d,df in zip(days,dfs)}
+        return {d.strftime(FORMAT_DAY):df for d,df in zip(days,dfs)}
 
     def remove_tags_day(self,d,tags):
         '''
@@ -1721,7 +1720,7 @@ class Streamer(Basic_streamer):
         dfs={}
         t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
         while t<t1:
-            filename = os.path.join(folderpkl,t.strftime(self._format_dayFolder),tag+'.pkl')
+            filename = os.path.join(folderpkl,t.strftime(FORMAT_DAY),tag+'.pkl')
             if os.path.exists(filename):
                 if time_debug: print_file(filename,t.isoformat(),filename=self.log_file)
                 dfs[filename] = pd.read_pickle(filename)
@@ -1867,7 +1866,7 @@ class Streamer(Basic_streamer):
         elif frequence=='day':
             createfolderday=lambda x:os.mkdir(folderday)
             listDays = pd.date_range(t0,t1,freq='1D',ambiguous=True)
-            listfolderdays = [os.path.join(folderPkl ,d.strftime(self._format_dayFolder)) for d in listDays]
+            listfolderdays = [os.path.join(folderPkl ,d.strftime(FORMAT_DAY)) for d in listDays]
             with Pool() as p:
                 dfs=p.starmap(createfolderday,[(d) for d in listfolderdays])
             return dfs
@@ -2048,9 +2047,9 @@ class SuperDumper():
         self.jobs[job_name]=SetInterval(
             freq,
             device.insert_intodb,
-            self.dbParameters,
-            self.dbTable,
-            self.tz_record,
+            self.conf.DB_PARAMETERS,
+            self.conf.parameters['realtime']['db_table'],
+            'UTC',
             tags,
             *args_collect_special
             )
@@ -2082,7 +2081,7 @@ class SuperDumper():
         :param bool delete: if True, will just delete and not read
         :param bool regExp: if True, reg exp are used for tag
         '''
-        return read_db(self.dbParameters,self.dbTable,*args,**kwargs)
+        return read_db(self.conf.DB_PARAMETERS,self.conf.parameters['realtime']['db_table'],*args,**kwargs)
 
     def flushdb(self,t=None):
         '''
@@ -2090,13 +2089,13 @@ class SuperDumper():
 
         :param str t:: timestamp. Everything before this timestamp will be deleted from the db. Default None
         '''
-        connReq = ''.join([k + "=" + v + " " for k,v in self.dbParameters.items()])
+        connReq = ''.join([k + "=" + v + " " for k,v in self.conf.DB_PARAMETERS.items()])
         dbconn = psycopg2.connect(connReq)
         cur  = dbconn.cursor()
         if t is None:
             cur.execute("DELETE from " + self.dbTable + ";")
         else :
-            cur.execute("DELETE from " + self.dbTable + " where timestampz < '" + t + "';")
+            cur.execute("DELETE from " + self.conf.parameters['realtime']['db_table'] + " where timestampz < '" + t + "';")
         cur.close()
         dbconn.commit()
         dbconn.close()
@@ -2139,7 +2138,7 @@ class SuperDumper():
         df.index = df.index.tz_convert('UTC')
         df = df.sort_index()
 
-        namefile=folder + (t0+pd.Timedelta(days=1)).strftime(self._format_dayFolder).split('/')[0] +basename
+        namefile=folder + (t0+pd.Timedelta(days=1)).strftime(FORMAT_DAY).split('/')[0] +basename
         # df.to_csv(namefile)
         # zipObj = ZipFile(namefile.replace('.csv','.zip'), 'w')
         # zipObj.write(namefile,namefile.replace('.csv','.zip'))
@@ -2215,7 +2214,7 @@ class SuperDumper():
         ### call the different collectData
         df={}
         for dev_name,dev_tags in tags_devices.items():
-            device=self.devices[dev_name]
+            device = self.devices[dev_name]
             if not device.isConnected:
                 device.connectDevice()
             df[dev_name]=device.collectData(self.tz_record,dev_tags)
@@ -2261,16 +2260,16 @@ class SuperDumper_daily(SuperDumper):
         ######## start parking on time
         if park_on_time:
             now = pd.Timestamp.now(tz=self.tz_record)
-            next_round_minute_on_clock=now.ceil(str(self.parkingTime)+'s')
+            next_round_minute_on_clock=now.ceil(str(self.conf['parameters']['realtime']['parking_time'])+'s')
             time.sleep((next_round_minute_on_clock-now).total_seconds())
         print_file(timenowstd(),': START PARKING',filename=self.log_file,with_infos=False)
-        self.parkInterval = SetInterval(self.parkingTime,self.park_database)
+        self.parkInterval = SetInterval(self.conf.parameters['realtime']['parking_time'],self.park_database)
         self.parkInterval.start()
 
     def format_tag(self):
-        df=df.set_index('timestampz').tz_convert(self.tz_record)
+        df = df.set_index('timestampz').tz_convert(self.tz_record)
         tmin,tmax = df.index.min().strftime('%Y-%m-%d'),df.index.max().strftime('%Y-%m-%d')
-        listdays=[k.strftime(self._format_dayFolder) for k in pd.date_range(tmin,tmax,ambiguous=True)]
+        listdays = [k.strftime(FORMAT_DAY) for k in pd.date_range(tmin,tmax,ambiguous=True)]
         #### in case they are several days
         for d in listdays:
             t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
@@ -2296,29 +2295,31 @@ class SuperDumper_daily(SuperDumper):
         if verbose:print_file(tag)
         start = time.time()
         ######### rekad database
-        if t_park is None:t_park=pd.Timestamp.now(tz=self.tz_record).isoformat()
-        df=self.read_db(t=t_park,tag=tag,regExp=False,verbose=verbose).set_index('timestampz')
-        if verbose:print_file(computetimeshow('tag : '+tag+ ' read in '+self.dbTable + ' in '+ self.dbParameters['dbname'],start),filename=self.log_file)
+        if t_park is None:
+            t_park = pd.Timestamp.now(tz='UTC').isoformat()
+        df = self.read_db(t=t_park,tag=tag,regExp=False,verbose=verbose).set_index('timestampz')
+        if verbose:
+            print_file(computetimeshow('tag : '+tag+ ' read in '+self.dbTable + ' in '+ self.dbParameters['dbname'],start),filename=self.log_file)
         ####### check if database not empty
         if not len(df)>0:
             if verbose : print_file('tag :'+tag+' not in table '+ self.dbTable + ' in ' + self.dbParameters['dbname'],filename=self.log_file)
             return
         ####### determine the folder days to store the data
-        tmin,tmax =[t.strftime(self._format_dayFolder) for t in [df.index.min(),df.index.max()] ]
-        listdays=[k.strftime(self._format_dayFolder) for k in pd.date_range(tmin,tmax,ambiguous=True)]
+        tmin,tmax =[t.strftime(FORMAT_DAY) for t in [df.index.min(),df.index.max()] ]
+        listdays = [k.strftime(FORMAT_DAY) for k in pd.date_range(tmin,tmax,ambiguous=True)]
         # print_file(listdays)
         #### in case they are several days
         for d in listdays:
-            t0 = pd.Timestamp(d + ' 00:00:00',tz=self.tz_record)
+            t0 = pd.Timestamp(d + ' 00:00:00',tz='UTC')
             t1 = t0 + pd.Timedelta(days=1)
-            dfday=df[(df.index>=t0)&(df.index<t1)]
-            folderday=os.path.join(self.conf.parameters['folderpkl'],d)
+            dfday = df[(df.index>=t0)&(df.index<t1)]
+            folderday = os.path.join(self.conf.parameters['folderpkl'],'dummy',d)
             #### create folder if necessary
-            if not os.path.exists(folderday):os.mkdir(folderday)
+            create_folder_if_not(folderday)
             #################################
             #           park now            #
             #################################
-            start=time.time()
+            start = time.time()
             dftag = dfday[dfday.tag==tag]['value'] #### dump a pd.series
             self.parktagfromdb(tag,dftag,folderday)
 
@@ -2339,19 +2340,19 @@ class SuperDumper_daily(SuperDumper):
         if os.path.exists(namefile):
             s1 = pd.read_pickle(namefile)
             s_tag  = pd.concat([s1,s_tag])
-        STREAMER.process_dbtag(s_tag,self._dataTypes[self.dfplc.loc[tag,'DATATYPE']]).to_pickle(namefile)
+        STREAMER.process_dbtag(s_tag,DATATYPES[self.conf.dfplc.loc[tag,'DATATYPE']]).to_pickle(namefile)
 
     def park_database(self,flush_tag=False,verbose=False):
         '''
         :param bool flush_tag: if True, all tag will be flushed from the database separately, otherwise the database will be flushed all together.
         '''
         start = time.time()
-        now = pd.Timestamp.now(tz=self.tz_record)
+        now = pd.Timestamp.now(tz = 'UTC')
         t_parking = now.isoformat()
         if len(self.park_tag_pbs)>0:
             flush_tag=True
-            self.park_tag_pbs=[]
-        for tag in self.dfplc.index.to_list():
+            self.park_tag_pbs = []
+        for tag in self.conf.dfplc.index.to_list():
             try:
                 self._park_singletag_DB(tag,t_park=t_parking,deleteFromDb=flush_tag,verbose=verbose)
             except:
@@ -2359,26 +2360,26 @@ class SuperDumper_daily(SuperDumper):
                 if verbose:print_file('problem with tag : ',tag)
 
         if len(self.park_tag_pbs)==0:
-            msg=' successfully'
+            msg = ' successfully'
             self.flushdb(t_parking)
         else:
-            msg='with problems for tags:'+';'.join(self.park_tag_pbs)
-        msg=computetimeshow('database parked'+msg,start)
+            msg = 'with problems for tags:'+';'.join(self.park_tag_pbs)
+        msg = computetimeshow('database parked'+msg,start)
         print_file(msg,filename=self.log_file)
         return msg
 
     def fix_timestamp(self,t0,tag,folder_save=None):
         t=t0 - pd.Timedelta(hours=t0.hour,minutes=t0.minute,seconds=t0.second)
         if folder_save is None:folder_save=self.conf.parameters['folderpkl']
-        while t<pd.Timestamp.now(self.tz_record):
-            filename = os.path.join(self.conf.parameters['folderpkl'],t.strftime(self._format_dayFolder),tag+'.pkl')
+        while t<pd.Timestamp.now('UTC'):
+            filename = os.path.join(self.conf.parameters['folderpkl'],'dummy',t.strftime(FORMAT_DAY),tag+'.pkl')
             if os.path.exists(filename):
                 s=pd.read_pickle(filename)
                 ####### FIX TIMESTAMP PROBLEM
-                s.index=[k.tz_convert(tz=self.tz_record) for k in s.index]
-                folder_day_save=os.path.join(folder_save,t.strftime(self._format_dayFolder))
+                s.index = [k.tz_convert(tz='UTC') for k in s.index]
+                folder_day_save = os.path.join(folder_save,t.strftime(FORMAT_DAY))
                 ####### fix dupplicated index
-                if not os.path.exists(folder_day_save):os.mkdir(folder_day_save)
+                create_folder_if_not(folder_day_save)
                 new_filename = folder_day_save + tag+'.pkl'
                 s.to_pickle(new_filename)
             t = t + pd.Timedelta(days=1)
@@ -2395,6 +2396,10 @@ class VisualisationMaster():
         self.methods = STREAMER.methods
         self.utils = Utils()
         self.usefulTags=pd.DataFrame()
+        self.coarse_methods = ['mean','min','max','median']
+        self.folder_coarse = self.conf.parameters['folderpkl'].rstrip('/')+'_coarse/'
+        create_folder_if_not(self.folder_coarse)
+        self.tz_record='UTC'
 
     def _load_database_tags(self,t0,t1,tags,*args,**kwargs):
         '''
@@ -2402,12 +2407,12 @@ class VisualisationMaster():
         - tags : list of tags
         '''
         # for k in t0,t1,tags,args,kwargs:print_file(k)
-        dbconn = self.connect2db()
+        dbconn = self.conf.connect2db()
         if not isinstance(tags,list) or len(tags)==0:
                 print_file('no tags selected for database',filename=self.log_file)
                 return pd.DataFrame()
 
-        sqlQ = "select * from " + self.dbTable + " where tag in ('" + "','".join(tags) +"')"
+        sqlQ = "select * from " + self.conf.parameters['realtime']['db_table'] + " where tag in ('" + "','".join(tags) +"')"
         sqlQ += " and timestampz > '" + t0.isoformat() + "'"
         sqlQ += " and timestampz < '" + t1.isoformat() + "'"
         sqlQ +=";"
@@ -2423,7 +2428,7 @@ class VisualisationMaster():
 
         def process_dbtag(df,tag,*args,**kwargs):
             s = df[df.tag==tag]['value']
-            dtype = self._dataTypes[self.dfplc.loc[tag,'DATATYPE']]
+            dtype = DATATYPES[self.conf.dfplc.loc[tag,'DATATYPE']]
             s = STREAMER.process_dbtag(s,dtype)
             s = STREAMER.process_tag(s,*args,**kwargs)
             return s
@@ -2449,11 +2454,11 @@ class VisualisationMaster():
         '''
 
         # for k in t0,t1,tags,args,kwargs:print_file(k)
-        tags=list(np.unique(tags))
+        tags = list(np.unique(tags))
         ############ read parked data
         df = STREAMER.load_parkedtags_daily(t0,t1,tags,os.path.join(self.conf.parameters['folderpkl'],model),*args,pool=pool,verbose=verbose,**kwargs)
         ############ read database
-        if t1<pd.Timestamp.now(self.tz_record)-pd.Timedelta(seconds=self.parkingTime) or not self.conf._realtime:
+        if t1<pd.Timestamp.now('UTC')-pd.Timedelta(self.conf.parameters['realtime']['parking_time']) or not self.conf._realtime:
             if verbose:print_file('no need to read in the database')
         else:
             df_db = self._load_database_tags(t0,t1,tags,*args,**kwargs)
@@ -2480,6 +2485,115 @@ class VisualisationMaster():
             newNames  = [self.dfplc.index[self.dfplc.DESCRIPTION==k][0] for k in current_names]
             dictNames = dict(zip(current_names,newNames))
         return dictNames
+
+    def load_coarse_data(self,t0,t1,tags,model,rs,rsMethod='mean',verbose=False):
+        #### load the data
+        dfs = {}
+        empty_tags = []
+        for t in tags:
+            filename = os.path.join(self.folder_coarse,model,rsMethod,t+'.pkl')
+            if verbose:print_file(filename)
+            if os.path.exists(filename):
+                s = pd.read_pickle(filename)
+                dfs[t] = s[~s.index.duplicated(keep='first')]
+            else:
+                empty_tags+=[t]
+
+        if len(dfs)==0:
+            return pd.DataFrame(columns=dfs.keys())
+        df = pd.concat(dfs,axis=1)
+        df = df[(df.index>=t0)&(df.index<=t1)]
+        for t in empty_tags:
+            df[t] = np.nan
+
+        #### resample again according to the right method
+        if rsMethod=='min':
+            df = df.resample(rs).min()
+        elif rsMethod=='max':
+            df = df.resample(rs).max()
+        else:
+            if rsMethod=='mean':
+                df = df.resample(rs).mean()
+            elif rsMethod=='median':
+                df = df.resample(rs).median()
+            elif rsMethod=='forwardfill':
+                df = df.resample(rs).ffill()
+            elif rsMethod=='nearest':
+                df = df.resample(rs).nearest()
+        return df
+
+    def park_coarse_data(self,tags=None,*args,**kwargs):
+        '''
+        :param list[str] tags: list of tags
+        '''
+        if tags is None : tags=list(self.dfplc.index)
+        pb_tags=[]
+        for tag in tags:
+            try:
+                self._park_coarse_tag(tag,*args,**kwargs)
+                print(timenowstd(),tag,'coarse-computed and parked.')
+            except:
+                pb_tags.append(tag)
+                print(timenowstd(),tag,' not possible to coarse-compute')
+        return pb_tags
+
+    def _get_t0(self,file_tag,model,from_start=False):
+        folder_data = os.path.join(self.conf.parameters['folderpkl'],model)
+        t0 = pd.Timestamp(min(os.listdir(folder_data)),tz=self.tz_record)
+        if from_start:return t0
+        if os.path.exists(file_tag):
+            s_tag = pd.read_pickle(file_tag)
+            t1 = s_tag.index.max()
+            if s_tag.empty:t1=t0
+            t0 = max(t1,t0)
+        return t0
+
+    def _park_coarse_tag(self,tag,model,rs='60s',verbose=False,from_start=False,t1=None):
+        '''
+        Will park coarse data by pre-calculating the mean/max/min of the period from the raw data.
+        Only missing coarse data will be computed unless from_start is set to True
+
+        :param str tag: tag
+        :param str rs: default 60s
+        :param bool from_start: if set to True, will recalculate all from the begining(older day folder)
+        '''
+
+        start = time.time()
+        ########### determine t0
+        file_coarse = os.path.join(self.folder_coarse,model,'mean',tag + '.pkl')
+        t0 = self._get_t0(file_coarse,model,from_start=from_start)
+            
+        ######### load the raw data
+        folder_path = os.path.join(self.conf.parameters['folderpkl'],model)
+        if t1 is None:
+            t1 = pd.Timestamp.now(self.tz_record)
+        else:
+            t1 = pd.Timestamp(t1,tz=self.tz_record)
+        if verbose:print(tag,t0,t1)
+        s = STREAMER.load_tag_daily(t0,t1,tag,folder_path,rsMethod='raw',verbose=False)
+        if verbose:print(tag,'read in ',time.time()-start)
+        ######### build the new data
+        s_new = {}
+        if 'string' in self.dfplc.loc[tag,'DATATYPE'].lower():
+            tmp = s.resample(rs,closed='right',label='right').ffill()
+            s_new['mean'] = tmp
+            s_new['min']  = tmp
+            s_new['max']  = tmp
+        else:
+            s_new['median'] = s.resample(rs,closed='right',label='right').median()
+            s_new['mean'] = s.resample(rs,closed='right',label='right').mean()
+            s_new['min']  = s.resample(rs,closed='right',label='right').min()
+            s_new['max']  = s.resample(rs,closed='right',label='right').max()
+        for m in self.coarse_methods:
+            folder_method = os.path.join(self.folder_coarse,model, m) 
+            create_folder_if_not(folder_method)
+            filename = os.path.join(folder_method,tag + '.pkl')
+            if os.path.exists(filename) and not from_start:
+                tmp = pd.concat([pd.read_pickle(filename),s_new[m]],axis=0).sort_index()
+                s_new[m] = tmp[~tmp.index.duplicated(keep='first')]
+            s_new[m].to_pickle(filename)
+        if verbose:print(tag,'done in ',time.time()-start)
+    park_coarse_data.__doc__+=_park_coarse_tag.__doc__
 
 # #######################
 # #  STANDARD GRAPHICS  #
@@ -2568,12 +2682,6 @@ class VisualisationMaster_daily(VisualisationMaster):
     '''
     def __init__(self,*args,**kwargs):
         VisualisationMaster.__init__(self,*args,**kwargs)
-        self.coarse_methods = ['mean','min','max','median']
-        self.folder_coarse = self.conf.parameters['folderpkl'].rstrip('/')+'_coarse/'
-        create_folder_if_not(self.folder_coarse)
-        for m in self.coarse_methods:
-            folder_method = os.path.join(self.folder_coarse,m)
-            create_folder_if_not(folder_method)
 
     def _load_parked_tags(self,t0,t1,tags,pool):
         '''
@@ -2596,103 +2704,6 @@ class VisualisationMaster_daily(VisualisationMaster):
         #     df = df.drop_duplicates()
         return df
 
-    def load_coarse_data(self,t0,t1,tags,rs,rsMethod='mean',verbose=False):
-        #### load the data
-        dfs={}
-        empty_tags=[]
-        for t in tags:
-            filename=os.path.join(self.folder_coarse,rsMethod,t+'.pkl')
-            if verbose:print_file(filename)
-            if os.path.exists(filename):
-                s=pd.read_pickle(filename)
-                dfs[t]=s[~s.index.duplicated(keep='first')]
-            else:
-                empty_tags+=[t]
-
-        if len(dfs)==0:
-            return pd.DataFrame(columns=dfs.keys())
-        df=pd.concat(dfs,axis=1)
-        df=df[(df.index>=t0)&(df.index<=t1)]
-        for t in empty_tags:df[t]=np.nan
-
-        #### resample again according to the right method
-        if rsMethod=='min':
-            df=df.resample(rs).min()
-        elif rsMethod=='max':
-            df=df.resample(rs).max()
-        else:
-            if rsMethod=='mean':
-                df=df.resample(rs).mean()
-            elif rsMethod=='median':
-                df=df.resample(rs).median()
-            elif rsMethod=='forwardfill':
-                df=df.resample(rs).ffill()
-            elif rsMethod=='nearest':
-                df=df.resample(rs).nearest()
-        return df
-
-    def park_coarse_data(self,tags=None,*args,**kwargs):
-        '''
-        :param list[str] tags: list of tags
-        '''
-        if tags is None : tags=list(self.dfplc.index)
-        pb_tags=[]
-        for tag in tags:
-            try:
-                self._park_coarse_tag(tag,*args,**kwargs)
-                print(timenowstd(),tag,'coarse-computed and parked.')
-            except:
-                pb_tags.append(tag)
-                print(timenowstd(),tag,' not possible to coarse-compute')
-        return pb_tags
-
-    def _get_t0(self,file_tag,from_start=False):
-        t0 = pd.Timestamp(min(os.listdir(self.conf.parameters['folderpkl'])),tz=self.tz_record)
-        if from_start:return t0
-        if os.path.exists(file_tag):
-            s_tag=pd.read_pickle(file_tag)
-            t1=s_tag.index.max()
-            if s_tag.empty:t1=t0
-            t0=max(t1,t0)
-        return t0
-
-    def _park_coarse_tag(self,tag,rs='60s',verbose=False,from_start=False):
-        '''
-        Will park coarse data by pre-calculating the mean/max/min of the period from the raw data.
-        Only missing coarse data will be computed unless from_start is set to True
-
-        :param str tag: tag
-        :param str rs: default 60s
-        :param bool from_start: if set to True, will recalculate all from the begining(older day folder)
-        '''
-
-        start=time.time()
-        ########### determine t0
-        t0=min([self._get_t0(os.path.join(self.folder_coarse,m,tag + '.pkl'),from_start=from_start) for m in self.coarse_methods])
-        ######### load the raw data
-        if verbose:print(tag,t0)
-        s = STREAMER.load_tag_daily(t0,pd.Timestamp.now(self.tz_record),tag,self.conf.parameters['folderpkl'],rsMethod='raw',verbose=False)
-        if verbose:print(tag,'read in ',time.time()-start)
-        ######### build the new data
-        s_new = {}
-        if 'string' in self.dfplc.loc[tag,'DATATYPE'].lower():
-            tmp = s.resample(rs,closed='right',label='right').ffill()
-            s_new['mean'] = tmp
-            s_new['min']  = tmp
-            s_new['max']  = tmp
-        else:
-            s_new['median'] = s.resample(rs,closed='right',label='right').median()
-            s_new['mean'] = s.resample(rs,closed='right',label='right').mean()
-            s_new['min']  = s.resample(rs,closed='right',label='right').min()
-            s_new['max']  = s.resample(rs,closed='right',label='right').max()
-        for m in self.coarse_methods:
-            filename=os.path.join(self.folder_coarse, m,tag + '.pkl')
-            if os.path.exists(filename) and not from_start:
-                tmp=pd.concat([pd.read_pickle(filename),s_new[m]],axis=0).sort_index()
-                s_new[m]=tmp[~tmp.index.duplicated(keep='first')]
-            s_new[m].to_pickle(filename)
-        if verbose:print(tag,'done in ',time.time()-start)
-    park_coarse_data.__doc__+=_park_coarse_tag.__doc__
 
 class Fix_daily_data():
     '''
@@ -2832,19 +2843,16 @@ class Fix_daily_data():
     applyCorrectFormat_day.__doc__+=applyCorrectFormat_daytag.__doc__
     applyCorrectFormat_tag.__doc__+=applyCorrectFormat_daytag.__doc__
 
-class VisualisatorStatic():
+class VisualisatorStatic(VisualisationMaster):
     '''
     Visualiser data of folderpkl
     :param str folderPkl: path of the data
     :param pd.DataFrame dfplc : pd.DataFrame with columns DESCRIPTION, UNITE, DATATYPE and tags as index.
     '''
     def __init__(self,conf):
-        self.conf = conf
+        VisualisationMaster.__init__(self,conf)
         self.dfplc = self.conf.dfplc
-        self.conf.parameters['folderpkl'] = self.conf.parameters['folderpkl']
         self.log_file = None
-        self.methods = STREAMER.methods
-
 
     def loadtags_period(self,t0,t1,tags,model,*args,pool='auto',verbose=False,**kwargs):
         '''

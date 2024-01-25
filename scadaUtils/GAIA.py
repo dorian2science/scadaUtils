@@ -506,6 +506,22 @@ class GAIA():
     import flask
     run_GUI.__doc__=flask.app.Flask.run.__doc__
 
+    def debug_front_request(self,json_file,verbose=True,pool='auto'):
+        import json
+        from scadaUtils.comUtils import timenowstd
+        with open(json_file,"rb") as f:
+            params = json.load(f)
+        tags = params['tags']
+        date = params['timerange']
+        t0,t1 = [pd.Timestamp(t,tz='CET') for t in  date.split('-')]
+        if verbose:
+            print(params)
+            print(timenowstd())
+        df = self.loadtags_period(t0,t1,tags,rs=params['rs_time'],rsMethod=params['rs_method'],model=params['model'],verbose=verbose,pool=pool);
+        if verbose:
+            print(timenowstd())
+        return df
+
     def quick_log_read(self,filename='dumper',n=100,last=True):
         '''
         :param str filename: either the filename or one of 'dumper','dashboard' or the name of a device.

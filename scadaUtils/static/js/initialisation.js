@@ -281,6 +281,8 @@ $.get('init',function(data){
         $('#select_dd_x')[0].value = 'Time'
         $('#dd_time_unit')[0].value = 'S'
         $('#in_time_res')[0].value = data['rs_number']
+        $('#in_rt_time_window')[0].value = data['realtime_time_window']
+        $('#in_rt_refresh')[0].value = data['realtime_refresh']
         $('#dd_time_unit')[0].value = data['rs_unit']
         $('.title_fig')[0].value = data['initial_figname']
         document.title = data['initial_figname']
@@ -288,6 +290,8 @@ $.get('init',function(data){
         $('#check_times')[0].checked = true;
         $('#dd_resMethod')[0].value = data['initial_resampling_method']
         $('#dd_models')[0].value = data['initial_model']
+        toggle_real_time()
+        check_rt.disabled = true
 
         //--------  LISTENERS to hide menus when clicking outside of them ----
         var listpop_ids = ['popup_listTags',"dd_x","dd_y","pop_version_info","pop_indicators","bg_color_picker","trace_color_picker"]

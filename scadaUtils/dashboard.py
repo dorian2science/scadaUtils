@@ -379,8 +379,7 @@ class Dashboard(Basic_Dashboard):
         list_days = self.visualiser.conf.getdaysnotempty(model)
         max_day =  list_days.max()
         min_day = list_days.min()
-        all_days=pd.date_range(start=min_day,end=max_day)
-        all_days
+        all_days = pd.date_range(start=min_day,end=max_day)
         excludeddates = [k for k in all_days if k not in list_days.to_list()]
         data['max_date'] = to_folderday(max_day)
         data['min_date'] = to_folderday(min_day)

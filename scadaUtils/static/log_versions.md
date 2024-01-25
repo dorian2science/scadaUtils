@@ -1,13 +1,21 @@
 # Log new features
-What's new in V2.4 ?
+What's new in V2.6 ?
 --------------
+### v2.6
+- onglet god mode : construction de courbe de polarisation. II suffit de renseigner la période temporelle d'une courbe de polarisation sur les données du dspv1 pour obtenir la courbe de polarisation exacte.
+
+### v2.5
+- onglet dataParameters:Il est possible de charger les données sur un horizon large plus rapidement en cochant l'option  "Use coarse data" 
+
 ### v2.4
 - onglet Processing : les calculs élémentaires sur les variables sont disponibles. 
+
 ### v2.3
 - onglet dataParameters : bouton à cocher "greenlight" pour rejouer le live des essais DSP et voir la répartition des tensions cellules en déplacant le curseur temporel. Les données clés temps réel ont été aussi ajoutéessu beta_usr
 
 ### v2.2
 - onglet dataset : bouton à cocher "greenlight" pour rejouer le live des essais AVL et voir la répartition des tensions cellules en déplacant le curseur temporel.   
+
 ### v2.1
 - display panel(a video explaining how to interact to use the options is available [here](https://inocel.atlassian.net/wiki/spaces/Diagnostiq/pages/143392794/Utilisation+de+l+onglet+display+panel)) :
     - layout of widgets more fluid   

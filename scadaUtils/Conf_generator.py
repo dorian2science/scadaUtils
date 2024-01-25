@@ -219,7 +219,9 @@ class Conf_generator():
         :param int dict_size:
         :rtype: pd.Series
         '''
-        return FS.get_parked_days_not_empty(os.path.join(self.FOLDERPKL,model)+'/')
+        folder = os.path.join(self.parameters['folderpkl'],model)
+        print_file(folder)
+        return FS.get_parked_days_not_empty(folder)
 
     def connect2db(self):
         connReq = ''.join([k + "=" + v + " " for k,v in self.DB_PARAMETERS.items()])

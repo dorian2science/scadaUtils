@@ -104,3 +104,75 @@ function quick_extraction(obj,idx,precision){
     return result
   },{});
 }
+
+
+function make_axes_std(fig_id,shift){
+  fig = document.getElementsByClassName('plotly')[0].parentElement
+  fig.id = 'fig'
+  fig_id = fig.id
+  shift = 0.1
+  plotly_fig = document.getElementById(fig_id)
+  // ax_col = GRID_BOX_COLOR
+  gw = 2
+  grid_color='#bdbdbd'
+  ax_col = "black"
+  fs = 12
+  yaxes = Object.keys(plotly_fig.layout).filter(x=>x.includes('yaxis'))
+  nb = yaxes.length
+  k=0
+  positions=[]
+  for (yax_name of yaxes){
+    lay = {}
+    if (k%2==0){
+      side = 'left'
+      position = Math.floor(k/2)*shift
+    }else {
+      side ='right'
+      position = 1-Math.floor(k/2)*shift
+    }
+    positions.push(position)
+    k++
+    lay[yax_name+'.side'] = side
+    lay[yax_name+'.position'] = position
+    // ax_col = fig.layout[yax_name].tickfont.color 
+    lay[yax_name + '.' +'linecolor']= ax_col
+    lay[yax_name + '.' +'linewidth']= 4
+    lay[yax_name + '.' +'ticks']= 'outside'
+    lay[yax_name + '.' +'tickfont.color']= ax_col
+    lay[yax_name + '.' +'title.font.color']= ax_col
+    lay[yax_name + '.' +'ticklen']= 8
+    lay[yax_name + '.' +'font.color']= ax_col
+    lay[yax_name + '.' +'tickwidth']=2
+    lay[yax_name + '.' +'tickcolor']=ax_col
+    lay[yax_name + '.' +'gridcolor']= grid_color
+    lay[yax_name + '.' +'zeroline']= false
+    lay[yax_name + '.' +'gridwidth']= gw
+    lay[yax_name + '.' +'anchor'] ='free'
+    Plotly.relayout(fig_id,lay)
+  }
+  d = [Math.floor((nb-1)/2)*shift,1-(Math.floor(nb/2)-1)*shift]
+  Plotly.relayout(fig_id,{'xaxis.domain':d})
+}
+
+function quick_new_colors(){
+  const customColors = [
+    '#1f77b4', // Blue
+    '#ff7f0e', // Orange
+    '#2ca02c', // Green
+    '#d62728', // Red
+    '#9467bd', // Purple
+    '#8c564b', // Brown
+    '#e377c2', // Pink
+    '#7f7f7f', // Gray
+    '#bcbd22', // Lime
+    '#17becf'  // Cyan
+  ];
+  
+  // Change the default colors using plotly.restyle
+  Plotly.restyle('fig', {
+    'marker.color': customColors,
+    'line.color': customColors
+  });
+}
+
+

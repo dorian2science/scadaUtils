@@ -443,6 +443,21 @@ function change_model(){
   }
 )}
 
+function toggle_real_time(){
+  if (check_rt.checked){
+    in_rt_time_window.style.display='inline-block'
+    in_rt_time_window.previousElementSibling.style.display='inline-block' 
+    in_rt_refresh.style.display='inline-block'
+    in_rt_refresh.previousElementSibling.style.display='inline-block'
+  }else{
+    in_rt_time_window.style.display='none'
+    in_rt_time_window.previousElementSibling.style.display='none' 
+    in_rt_refresh.style.display='none'
+    in_rt_refresh.previousElementSibling.style.display='none'
+
+  }
+}
+
 function get_sessions(){
   return new Promise((resolve, reject) => {
     $.get('send_sessions',function(sessions,status){
@@ -477,6 +492,22 @@ function change_dataSet(){
 //# ########################
 //#    REAL TIME FEATURES  #
 //# ########################
+function real_time(){
+  if (check_rt.checked && COUNTER<0){
+    t1 = moment().format('DD MMM YYYY HH:mm:ss')
+    t0 = moment().subtract(in_rt_time_window.value,'minute').format('DD MMM YYYY HH:mm:ss')
+    dt =t0 + ' - '+ t1
+    datetimepicker.value = dt
+    '16 Jan 2024 12:00:00 - 17 Jan 2024 23:59:59' 
+    btn_update.click()
+    COUNTER = in_rt_refresh.value
+  }
+  COUNTER -=0.5 
+}
+
+var COUNTER=0
+setInterval(real_time,500)
+
 function update_timerange_picker(options){
   // let time_window = parseInt(document.getElementsByName('time_window')[0].value)
   time_window = options.time_window -1/60

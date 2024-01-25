@@ -1,5 +1,5 @@
 {
-  "folderpkl"  : "",
+  "folderpkl"  : "/home/dorian/dummy_project_gaia_user/dummy_project_gaia_daily",
   "log_folder" : "",
   "realtime":{
     "db_parameters":{
@@ -15,18 +15,19 @@
   "dashboard":{
       "test_env":"False",
       "tmax":"2022-06-22 12:00",
-      "initial_model":"",
+      "initial_model":"dummy",
       "initial_session":"",
       "initial_resampling_time":"30S",
       "initial_resampling_method":"mean",
-      "realtime_time_window":"3T",
-      "initial_time_window":"48H",
+      "realtime_time_window":3,
+      "realtime_refresh":3,
+      "initial_time_window":"12H",
       "max_nb_pts":500000,
       "rs_coarse" : "60S",
       "period_coarse":"2d",
       "initial_figname":"change me and press enter",
       "rsMethods" : ["min","max","mean","median","forwardfill","nearest"],
-      "root_path":"",
+      "root_path":"/home/dorian/gitLocals/scadaUtils/scadaUtils",
       "helpmelink":"",
       "log_version_file":"",
       "folder_datasets":"",

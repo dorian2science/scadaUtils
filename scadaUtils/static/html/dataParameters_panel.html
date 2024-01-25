@@ -1,5 +1,6 @@
 <span class="small_title">data parameters</span>
 <input id="check_coarse" type="checkbox">Use coarse data</button>
+<input id="check_rt" type="checkbox" onchange="toggle_real_time()"> realtime</button>
 <br>
 <p>select your model : </p>
 <select id="dd_models" class="dd" onchange="change_model()"></select>
@@ -10,6 +11,11 @@
   <input id='datetimepicker' class="datetimepicker" type="text" name="datetimes" />
 </div>
 
+<p>realtime window(minutes) : </p>
+<input style='display:inline-block;' id='in_rt_time_window' type="number" min=0 max=2880 value=15/>
+<br>
+<p>refresh time(seconds) : </p>
+<input style='display:inline-block;' id='in_rt_refresh' type="number" min=2 value=5/>
 <div id = div_time_res>
   <p style='display:inline-block;'>time resolution:</p>
   <input style='display:inline-block;' id='in_time_res' type="number" min=0 name="time_res" value=30/>
@@ -40,4 +46,3 @@
       <td><b>Tags selected</b></td>
   </tr>
 </table>
-<div id="real_time_panel"></div>

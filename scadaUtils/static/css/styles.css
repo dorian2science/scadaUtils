@@ -20,7 +20,9 @@ p, button {
 }
 div,input,p,input {
   border-radius:10px;
+  font-size: 20px;
 }
+
 p {
   background-color:#bdc7ff;
   border-radius:0px ;
@@ -68,6 +70,10 @@ p {
   overflow: scroll;
   resize: horizontal;
   max-width: max-content;
+}
+
+#dd_y{
+  height: 300px;
 }
 
 #drop-area {
