@@ -376,7 +376,7 @@ class Dashboard(Basic_Dashboard):
         data = {}
         try:
             data['categories'] = list(self.visualiser.conf.tag_categories[model].keys())
-            data['all_tags'] = self.visualiser.conf.getTagsTU('',model=model)
+            data['all_tags'] = pd.Series(self.conf.getTagsTU('',model=model)).sort_values().to_list()
             list_days = self.visualiser.conf.getdaysnotempty(model)
             max_day =  list_days.max()
             min_day = list_days.min()

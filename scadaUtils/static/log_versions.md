@@ -2,8 +2,7 @@
 What's new in V2.6 ?
 --------------
 ### v2.6
-- onglet god mode : construction de courbe de polarisation. II suffit de renseigner la période temporelle d'une courbe de polarisation sur les données du dspv1 pour obtenir la courbe de polarisation exacte.
-
+- onglet god mode : [construction de courbe de polarisation](https://inocel.atlassian.net/wiki/spaces/Diagnostiq/pages/181895172/Construction+automatique+d+une+courbe+de+polarisation).II suffit de renseigner la période temporelle d'une courbe de polarisation sur les données du dspv1 pour obtenir la courbe de polarisation exacte. L'export des données est possible. Il est possible de sélectionner un tag pour visualiser sa dépendence en fonction du courant en utilisant la courbe de polarisation. 
 ### v2.5
 - onglet dataParameters:Il est possible de charger les données sur un horizon large plus rapidement en cochant l'option  "Use coarse data" 
 
