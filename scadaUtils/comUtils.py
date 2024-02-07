@@ -1735,7 +1735,7 @@ class Streamer(Basic_streamer):
         s_tag.index.name='timestampz'
         s_tag = s_tag['value']
         start = time.time()
-        if not s_tag.empty: 
+        if not s_tag.empty:
             s_tag = s_tag[(s_tag.index>=t0)&(s_tag.index<=t1)]
             s_tag = self.process_tag(s_tag,**kwargs)
         s_tag.name = tag

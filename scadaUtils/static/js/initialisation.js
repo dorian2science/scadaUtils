@@ -37,54 +37,7 @@ get_all_colors()
 
 // ----------------------------------
 // FUNCTION TO INIT SOME COMPONENTS
-function init_dropdown(dd_id,values,fun_on_click) {
-    // console.log(dd_id);
-    let dd_html=document.getElementById(dd_id)
-    while (dd_html.options.length > 0) {
-      dd_html.remove(0);
-  }
-    // renove first elements
-      for (const val of values)
-      {
-          var option = document.createElement("option");
-          option.value = val;
-          option.text = val.charAt(0).toUpperCase() + val.slice(1);
-          if(fun_on_click){
-            option.addEventListener("mouseup",()=>{fun_on_click()})
-          }
-          dd_html.appendChild(option);
-      }
-    }
-  
-function init_radioButton(rb_id,values,name){
-let rb_html=document.getElementById(rb_id)
-for (const val of values)
-{
-    var div = document.createElement("div");
-    var input = document.createElement("input");
-    input.type = "radio";input.id=name+'_'+val;input.name=name;input.value=val;
-    var label = document.createElement("label");
-    label.setAttribute("for", name+'_'+val);
-    label.append(document.createTextNode(val));
-    div.appendChild(input)
-    div.appendChild(label)
-    rb_html.appendChild(div);
-}
-}
 
-function init_tags_dropdown(dd_id,values,fun_on_click) {
-let dd_html = document.getElementById(dd_id)
-while (dd_html.children.length > 0) {
-    dd_html.removeChild(dd_html.children[0]);
-}
-    for (const val of values)
-    {
-        var a = document.createElement("a");
-        a.innerHTML = val;
-        dd_html.appendChild(a);
-        a.addEventListener("mouseup",()=>{fun_on_click(val)})
-    }
-}
   
 // ----------------------------------------
 function showTab(tabName) {
@@ -107,6 +60,7 @@ function showTab(tabName) {
 }
 
 function switch_tab_dataset(){
+    // console.log('switching tab');
     if (document.getElementById('btn_tab_dataset').classList.contains('active')){
         div_resMethod_dataset.appendChild(dd_resMethod)
         div_datetimepicker_dataset.appendChild(datetimepicker)
@@ -119,9 +73,13 @@ function switch_tab_dataset(){
         // list_buttons_request_dataset.appendChild(btn_export)
         // list_buttons_request_dataset.appendChild(btn_fig)        
         list_buttons_request_dataset.appendChild(list_buttons_request)
-        // update_data_sets().then(()=>{
-            //     change_dataSet()
-        // })
+        get_sessions()
+        .then(()=>{
+            update_data_sets()
+            .then(()=>{
+                change_dataSet()
+            })
+        })
         
     }else if(document.getElementById('btn_tab_parameters').classList.contains('active')){
         div_resMethod.appendChild(dd_resMethod)
@@ -132,7 +90,7 @@ function switch_tab_dataset(){
         div_tags.appendChild(dd_y)
         div_tags.appendChild(btn_add_tags)
         list_buttons_request_dataParameters.appendChild(list_buttons_request)
-        // change_model()
+        change_model()
     }
 }
 
@@ -163,23 +121,23 @@ function load_html_content() {
             document.getElementById('grid_y').checked = true
             // document.getElementById('grid_box').checked = true
             document.getElementById('gap_switch').checked = false
-            console.log('tab_display is fully loaded.');
+            // console.log('tab_display is fully loaded.');
         })
 
         $('#tab_processing').load('../static/html/processing_panel.html', function() {
-            console.log('tab_processing is fully loaded.');
+            // console.log('tab_processing is fully loaded.');
         })
 
         $('#tab_god_mode').load('../static/html/god_mode.html', function() {
-            console.log('tab_god_mode is fully loaded.');
+            // console.log('tab_god_mode is fully loaded.');
         })
         
         $('#tab_datasetParameters').load("../static/html/datasetParameters_panel.html", function() {
-            console.log('tab_datasetParameters is fully loaded.');
+            // console.log('tab_datasetParameters is fully loaded.');
             $('#tab_dataParameters').load("../static/html/dataParameters_panel.html", function() {
-                console.log('tab_dataParameters is fully loaded.');
+                // console.log('tab_dataParameters is fully loaded.');
                 $('#div_time_res').load("../static/html/time_res_div.html", function() {
-                    console.log('div_time_res is fully loaded.');
+                    // console.log('div_time_res is fully loaded.');
                     resolve()
                 })
             })
@@ -252,8 +210,9 @@ function send_file(file) {
 }
 
 var INIT_DATA
-$.get('init',function(data){
-    load_html_content().then(()=>{
+function initialize(data){
+    return new Promise((resolve, reject) => {
+        console.log("start initialisation");
         data = JSON.parse(data)
         INIT_DATA = data
         document.title = data['title'] +':'+$('.title_fig')[0].value
@@ -263,10 +222,9 @@ $.get('init',function(data){
         $.get(data["log_version_file"], function(md_text) {
             converter = new showdown.Converter()
             $('#pop_version_info')[0].innerHTML=converter.makeHtml(md_text)
-            console.log('version_features logger is fully loaded.');
+            // console.log('version_features logger is fully loaded.');
         })
         
-        document.querySelector('.tab-button.active').click()
         // ------- INITIALIZATION of myDropdown menus --------
         init_dropdown('dd_models',values=data['models'],change_model)
         init_dropdown('dd_resMethod',values=data['rsMethods'])
@@ -300,14 +258,6 @@ $.get('init',function(data){
         // ----------- more initialisations ------- 
         load_drag_drop_upload()
         Plotly.newPlot('plotly_fig',[])
-        get_sessions().then(()=>{
-            $('#dd_session')[0].value = data['initial_session']
-            update_data_sets().then(()=>{
-                change_dataSet()
-            })
-        })
-
-        change_model()
         INITIAL_TIMEWINDOW = data['initial_time_window']/60
         $('#datetimepicker').daterangepicker({
             timePicker: true,
@@ -315,12 +265,12 @@ $.get('init',function(data){
             timePickerSeconds:true,
             showDropdowns:true,
             locale: {
-              monthNamesShort: ['Janv.', 'Févr.', 'Mars', 'Avril', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'],
-              monthNames: ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Aout","Septembre","Octobre","Novembre","Decembre"],
-              format: 'D MMM YYYY HH:mm:ss',
+                monthNamesShort: ['Janv.', 'Févr.', 'Mars', 'Avril', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'],
+                monthNames: ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Aout","Septembre","Octobre","Novembre","Decembre"],
+                format: 'D MMM YYYY HH:mm:ss',
             }
-            })
-
+        })
+        
         AColorPicker.from('#bg_color_picker',{'hueBarSize':[width-60,50],'slBarSize':[width,150]})
         .on('change', (picker, color) => {
             hex_color_value=AColorPicker.parseColor(color, "hex");
@@ -353,5 +303,21 @@ $.get('init',function(data){
             else if (e.key == 'd') {$('#legend_description')[0].checked=true;update_legend($('input[name="legend"]')[0].value)}
             else if (e.key == 'u') {$('#legend_unvisible')[0].checked=true;update_legend($('input[name="legend"]')[0].value)}
         }
+        check_hr.checked = true
+        resolve()
+    })
+}
+
+$.get('init',function(data){
+    load_html_content()
+    .then(()=>{
+        initialize(data)
+        .then(()=>{
+            // console.log('click on buttons');
+            check_hr.click()
+            // btn_tab_dataset.click()
+            btn_tab_parameters.click()
+            // change_dataSet()
+        })
     })
 })

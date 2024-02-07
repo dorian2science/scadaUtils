@@ -207,6 +207,7 @@ function build_request_parameters() {
     parameters['model'] = document.getElementById('dd_models').value
     parameters['categorie'] = document.getElementById('dd_categorie').value
     parameters['coarse'] = document.getElementById('check_coarse').checked
+    parameters['high_res'] = document.getElementById('check_hr').checked
     parameters['request_url'] =  '/generate_fig'
   }
   // console.log(parameters);
@@ -244,13 +245,27 @@ function fetch_figure() {
     data2plot = []
     tags = Object.keys(res['data'])
     all_units = Array.from(new Set(Object.values(res['units']))).map((v, k) => ({ [v]: k +1})).reduce((acc, obj) => ({ ...acc, ...obj }), {});
+
+    
+    x = DATA['Time']
+    if (check_hr.checked){
+      btn_hr_t0.max = x.length
+      time_window = parseInt(in_window_hr.value)
+      t0 = parseInt(btn_hr_t0.value)
+      t1 = t0 + time_window
+      x = x.slice(t0,t1)
+    }
     for (k=0;k<tags.length;k++){
       tag = tags[k]
+      y = DATA['data'][tag]
+      if (check_hr.checked){
+        y = y.slice(t0,t1)
+      }
       // console.log(tag)
       unit = res['units'][tag]
       new_trace = {
-        x : res['Time'],
-        y : res['data'][tag],
+        x : x,
+        y : y,
         yaxis : 'y11'+all_units[unit],
         xaxis : 'x',
         marker : {"color":LIST_DISTINCT_COLORS[k]},
@@ -399,6 +414,25 @@ function apply_changes() {
   document.getElementById('popup_listTags').style.display='none'
 }
 
+function update_high_res_data(){
+  time_window = parseInt(in_window_hr.value)
+  t0 = parseInt(btn_hr_t0.value)
+  t1 = t0 + time_window
+  x = [DATA['Time'].slice(t0,t1)]
+
+  for (tag in DATA['data']){
+    y = [DATA['data'][tag].slice(t0,t1)]
+    Plotly.restyle("plotly_fig",{'x':x,'y':y},plotly_fig.data.map(x=>x.tag).indexOf(tag)).then(()=>{
+      update_ticks()
+    })
+  }
+}
+
+function increment_high_res(inc){
+  btn_hr_t0.value = parseInt(btn_hr_t0.value) + inc
+  update_high_res_data()
+}
+
 function extract_listTags_from_html_table() {
   loc_table = get_active_table()
   return Array.from(loc_table.children[0].children).slice(1,).map(x=>x.children[1].textContent)
@@ -428,8 +462,9 @@ function change_model(){
     model_tags = JSON.parse(data)
     empyt_select('dd_categorie')
     empyt_select('dd_y')
-    init_tags_dropdown('dd_y',values=model_tags['all_tags'],addRow_tagTable)
+    // console.log('changing tags from model');
     init_dropdown('dd_categorie',values=['no categorie'].concat(model_tags['categories']))
+    init_tags_dropdown('dd_y',values=model_tags['all_tags'],addRow_tagTable)
     // update timepicker
     max_date = moment(model_tags['max_date']).startOf('second').add(24*3600-1,'second')
     opt = {
@@ -442,6 +477,17 @@ function change_model(){
     update_timerange_picker(opt)
   }
 )}
+
+function toggle_check(check_id,div_id){
+  div = document.getElementById(div_id)
+  check = document.getElementById(check_id)
+  if (check.checked){
+    div.style.display='inline-block'
+  }else{
+    div.style.display='none'
+  }
+
+}
 
 function toggle_real_time(){
   if (check_rt.checked){
@@ -461,29 +507,37 @@ function toggle_real_time(){
 function get_sessions(){
   return new Promise((resolve, reject) => {
     $.get('send_sessions',function(sessions,status){
-      // console.log(sessions)
       init_dropdown('dd_session',values=sessions.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())))
-      resolve()
+      .then(()=>{
+        dd_session.value = INIT_DATA['initial_session']
+        resolve()
+      })
     })
   })
 }
 
 function update_data_sets(){
+  // console.log("get datasets");
   return new Promise(function(resolve, reject) {
     session = document.getElementById('dd_session').value
     $.post('send_data_sets',session,function(data_sets){
         document.getElementById("dd_data_set").innerHTML = ""
         init_dropdown('dd_data_set',values=data_sets.sort((a, b) => b.localeCompare(a)))
-        resolve()
+        .then(()=>{
+          // console.log(data_sets);
+          resolve()
+        })
     })
   });
 }
 
 function change_dataSet(){
-  dataset = document.getElementById('dd_data_set').value
   session = document.getElementById('dd_session').value
+  dataset = document.getElementById('dd_data_set').value
   data = {'dataset':dataset,'session':session}
+  // console.log(data)
   empty_tableOfTags()
+  // console.log('changing tags from dataset');
   $.post('send_dfplc',JSON.stringify(data),function(tags,status){
     init_tags_dropdown('dd_y',values=tags,addRow_tagTable)
   })

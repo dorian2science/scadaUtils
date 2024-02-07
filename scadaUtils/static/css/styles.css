@@ -37,6 +37,10 @@ p {
   display: inline;
 }
 
+#taglist{
+  height: 200px;
+}
+
 #arrow_nav{
   font-size: 30px;
   background-color: transparent;
@@ -70,6 +74,7 @@ p {
   overflow: scroll;
   resize: horizontal;
   max-width: max-content;
+  width:-moz-available
 }
 
 #dd_y{
@@ -187,10 +192,11 @@ p {
 
 
 .datetimepicker{
-  width:420px;
+  width:400px;
   font-size: 18px;
   margin:5px
 }
+
 #in_time_res{
   width:50px;
   font-size: 18px;

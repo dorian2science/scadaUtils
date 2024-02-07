@@ -993,11 +993,14 @@ class EmailSmtp:
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks, butter, filtfilt
-def find_steps(points,show=False):
+def find_steps(points,smooth_data=True,show=False):
     # Smoothing - Low-pass filter
     b, a = butter(N=3, Wn=0.05)  # N is the order of the filter, Wn is the cutoff frequency
-    smoothed_points = filtfilt(b, a, points)
-    
+    if smooth_data:
+        smoothed_points = filtfilt(b, a, points)
+    else:
+        smoothed_points = points
+     
     # Find derivatives
     derivatives = np.diff(smoothed_points)
     
@@ -1045,3 +1048,4 @@ def group_by_front_montant(s):
         .cumsum()
         .mul(s)
         .where(s.eq(1), 0))
+

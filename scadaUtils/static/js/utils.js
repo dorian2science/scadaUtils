@@ -176,3 +176,55 @@ function quick_new_colors(){
 }
 
 
+function init_dropdown(dd_id,values,fun_on_click) {
+  return new Promise((resolve, reject) => {
+      // console.log(dd_id);
+      let dd_html=document.getElementById(dd_id)
+      // remove first the elements
+      while (dd_html.options.length > 0) {
+          dd_html.remove(0);
+      }
+      for (const val of values)
+      {
+        var option = document.createElement("option");
+        option.value = val;
+        option.text = val.charAt(0).toUpperCase() + val.slice(1);
+        if(fun_on_click){
+          option.addEventListener("mouseup",()=>{fun_on_click()})
+        }
+        dd_html.appendChild(option);
+      }
+      resolve()
+      //console.log(dd_id+' finished')
+  })
+}
+  
+function init_radioButton(rb_id,values,name){
+  let rb_html=document.getElementById(rb_id)
+  for (const val of values)
+  {
+      var div = document.createElement("div");
+      var input = document.createElement("input");
+      input.type = "radio";input.id=name+'_'+val;input.name=name;input.value=val;
+      var label = document.createElement("label");
+      label.setAttribute("for", name+'_'+val);
+      label.append(document.createTextNode(val));
+      div.appendChild(input)
+      div.appendChild(label)
+      rb_html.appendChild(div);
+  }
+}
+  
+function init_tags_dropdown(dd_id,values,fun_on_click) {
+  let dd_html = document.getElementById(dd_id)
+  while (dd_html.children.length > 0) {
+      dd_html.removeChild(dd_html.children[0]);
+  }
+  for (const val of values)
+  {
+      var a = document.createElement("a");
+      a.innerHTML = val;
+      dd_html.appendChild(a);
+      a.addEventListener("mouseup",()=>{fun_on_click(val)})
+  }
+}

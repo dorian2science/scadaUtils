@@ -164,7 +164,7 @@ class Basic_Dashboard():
             data = {k:df[k].ffill().bfill().to_list() for k in df.columns}
             # print_file('starting reindexing')
             Time = [k.isoformat() for k in df.index]
-            print_file(notif)
+            # print_file(notif)
             res = {'Time':Time,'data':data,'units':units,'notif':notif}
 
         except:
@@ -222,7 +222,7 @@ class Basic_Dashboard():
         if file.filename == '':
             return 'No selected file'
 
-        print_file(session)        
+        # print_file(session)        
         filepath = os.path.join(self.conf.parameters['dashboard']['upload_folder'],session, file.filename)
         file.save(filepath)
         print_file('file stored successfully')
@@ -241,7 +241,7 @@ class Basic_Dashboard():
     def send_data_sets(self):
         data = request.get_data()
         session = data.decode()
-        print_file(session)
+        # print_file(session)
         return [k.strip('.pkl') for k in os.listdir(os.path.join(self.folder_datasets,session)) if '.pkl' in k]
 
     def send_dfplc(self):
@@ -374,16 +374,21 @@ class Dashboard(Basic_Dashboard):
         data = request.get_data()
         model = json.loads(data.decode())
         data = {}
-        data['categories'] = list(self.visualiser.conf.tag_categories[model].keys())
-        data['all_tags'] = self.visualiser.conf.getTagsTU('',model=model)
-        list_days = self.visualiser.conf.getdaysnotempty(model)
-        max_day =  list_days.max()
-        min_day = list_days.min()
-        all_days = pd.date_range(start=min_day,end=max_day)
-        excludeddates = [k for k in all_days if k not in list_days.to_list()]
-        data['max_date'] = to_folderday(max_day)
-        data['min_date'] = to_folderday(min_day)
-        data['excludeddates'] = [to_folderday(k) for k in excludeddates]
+        try:
+            data['categories'] = list(self.visualiser.conf.tag_categories[model].keys())
+            data['all_tags'] = self.visualiser.conf.getTagsTU('',model=model)
+            list_days = self.visualiser.conf.getdaysnotempty(model)
+            max_day =  list_days.max()
+            min_day = list_days.min()
+            all_days = pd.date_range(start=min_day,end=max_day)
+            excludeddates = [k for k in all_days if k not in list_days.to_list()]
+            data['max_date'] = to_folderday(max_day)
+            data['min_date'] = to_folderday(min_day)
+            data['excludeddates'] = [to_folderday(k) for k in excludeddates]
+        except:
+            data['all_tags'] = []
+            error_message = traceback.format_exc()
+            data['notif'] = 'unexcepted error:' + error_message
         return json.dumps(data)
 
     def generate_fig(self):
@@ -439,9 +444,10 @@ class Dashboard(Basic_Dashboard):
             # print_file(timenowstd(),'finish loading')
             # print_file(timenowstd(),'check nb points')
             ####### check that the request does not have TOO MANY DATAPOINTS
-            df, notif2 = self.check_nb_data_points(df)
-            if notif==200:
-                notif = notif2
+            if not parameters['high_res']:
+                df, notif2 = self.check_nb_data_points(df)
+                if notif==200:
+                    notif = notif2
             
             if debug:print_file(df)
 

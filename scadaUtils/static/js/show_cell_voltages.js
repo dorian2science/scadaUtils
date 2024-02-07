@@ -38,6 +38,9 @@ function waitForPlotly_fig() {
         figs_div.appendChild(div_bar_graph)
         
         clearInterval(interval);
+        in_greenlight.click()
+        in_greenlight.click()
+
     }
   }
 const interval = setInterval(waitForPlotly_fig, 100); // Check every 100 milliseconds

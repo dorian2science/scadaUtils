@@ -1,6 +1,7 @@
 <span class="small_title">data parameters</span>
 <input id="check_coarse" type="checkbox">Use coarse data</button>
 <input id="check_rt" type="checkbox" onchange="toggle_real_time()"> realtime</button>
+<input id="check_hr" type="checkbox" onchange="toggle_check('check_hr','div_high_res')"> high resolution</button>
 <br>
 <p>select your model : </p>
 <select id="dd_models" class="dd" onchange="change_model()"></select>
@@ -9,6 +10,7 @@
   <p>select start and end time : </p>
   <br>
   <input id='datetimepicker' class="datetimepicker" type="text" name="datetimes" />
+  <button onclick="navigator.clipboard.writeText(datetimepicker.value)">copy</button>
 </div>
 
 <p>realtime window(minutes) : </p>
@@ -20,13 +22,31 @@
   <p style='display:inline-block;'>time resolution:</p>
   <input style='display:inline-block;' id='in_time_res' type="number" min=0 name="time_res" value=30/>
   <select id='dd_time_unit' type="text" value="S"/>
-  </select>
+</select>
 </div>
 
 <div id = div_resMethod>
   <p>select the resampling method: </p>
   <select class=dd id="dd_resMethod"><select/>
 </div>
+
+<div id="div_high_res">
+  <p style='display:inline-block;'>time window <br> high resolution(datapoints):</p>
+  <input style='display:inline-block;width:70px' id='in_window_hr' type="number" min=1 value=120 />
+  <br>
+  
+  <p style='display:inline-block;'>increment speed</p>
+  <input style='display:inline-block;width:70px' id='in_inc_hr' type="number" min=1 value=60 
+    onchange="btn_hr_inc_minus.textContent = '-' + in_inc_hr.value;
+    btn_hr_inc_plus.textContent = '+' + in_inc_hr.value" />
+  <br>
+
+  <p style='display:inline-block;'>t0 slider</p>
+  <button id="btn_hr_inc_minus" onclick="increment_high_res(-parseInt(in_inc_hr.value))">-inc</button>
+  <input type="range" id="btn_hr_t0" min=0  value=0 step=1 max="0" oninput="update_high_res_data()"/>
+  <button id="btn_hr_inc_plus" onclick="increment_high_res(parseInt(in_inc_hr.value))">+inc</button>
+</div>
+
 
 <div id=div_tags>
   <span class='list_tags'>your list of tags:</span>
@@ -35,7 +55,10 @@
   <br>
   <input id="in_dd_y" type="text" placeholder="add a tag, search it.." class="in_dd_tag" onclick="show_tag_list(this)" onkeyup="filterTag(this)">
   <div id="dd_y" class="dropdown-content"></div>
-  <button id=btn_add_tags onclick="pop_listTags_up()">enter your list of tags </button>
+  <div>
+    <button id=btn_add_tags onclick="pop_listTags_up()">enter your list of tags </button>
+    <button id=btn_copy_tags onclick="navigator.clipboard.writeText(extract_listTags_from_html_table().join('\n'))">copy tags</button>
+  </div>
 </div>
 
 <table name="table_tags" id="table_tags" border="1" cellpadding="2">
