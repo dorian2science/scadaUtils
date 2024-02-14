@@ -224,7 +224,9 @@ class Basic_Dashboard():
 
         # print_file(session)        
         filepath = os.path.join(self.conf.parameters['dashboard']['upload_folder'],session, file.filename)
+        os.remove(filepath)
         file.save(filepath)
+        os.chmod(filepath, 0o777)
         print_file('file stored successfully')
         if session in self.sessions.keys():
             try:
