@@ -73,13 +73,7 @@ function switch_tab_dataset(){
         // list_buttons_request_dataset.appendChild(btn_export)
         // list_buttons_request_dataset.appendChild(btn_fig)        
         list_buttons_request_dataset.appendChild(list_buttons_request)
-        get_sessions()
-        .then(()=>{
-            update_data_sets()
-            .then(()=>{
-                change_dataSet()
-            })
-        })
+        update_filter_tags()
         
     }else if(document.getElementById('btn_tab_parameters').classList.contains('active')){
         div_resMethod.appendChild(dd_resMethod)
@@ -311,13 +305,17 @@ function initialize(data){
 $.get('init',function(data){
     load_html_content()
     .then(()=>{
+        get_sessions()
+        .then(()=>{
+            update_data_sets()
+        })
+        // btn_tab_dataset.click()
+        btn_tab_parameters.click()
         initialize(data)
         .then(()=>{
-            // console.log('click on buttons');
+            change_model()
             check_hr.click()
-            // btn_tab_dataset.click()
-            btn_tab_parameters.click()
-            // change_dataSet()
+
         })
     })
 })

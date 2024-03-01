@@ -531,16 +531,20 @@ function update_data_sets(){
   });
 }
 
-function change_dataSet(){
+function update_filter_tags(){
   session = document.getElementById('dd_session').value
   dataset = document.getElementById('dd_data_set').value
   data = {'dataset':dataset,'session':session}
-  // console.log(data)
-  empty_tableOfTags()
-  // console.log('changing tags from dataset');
   $.post('send_dfplc',JSON.stringify(data),function(tags,status){
     init_tags_dropdown('dd_y',values=tags,addRow_tagTable)
   })
+}
+
+function change_dataSet(){
+  // console.log(data)
+  empty_tableOfTags()
+  update_filter_tags()
+  // console.log('changing tags from dataset');
 }
 
 //# ########################

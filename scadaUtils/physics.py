@@ -32,14 +32,14 @@ def convert_to_common_unit(v):
         if units_test(v,u):
             return v.to(u)
     return v
-def show_locals(locs,fa):
-    res={k:v for k,v in locs.items() if k not in fa.keys()}
+def show_locals(locs,fa,show_res=True):
+    res = {k:v for k,v in locs.items() if k not in fa.keys()}
     for k,v in res.items():
         if isinstance(v,Q_):
-            val=v.to_root_units()
-            res[k]=convert_to_common_unit(val)
-    res=show_pretty(pd.Series(res).T)
-    print(res)
+            val = v.to_root_units()
+            res[k] = convert_to_common_unit(val)
+    res = show_pretty(pd.Series(res).T)
+    if show_res:print(res)
     return res
 
 coolProps_Q={

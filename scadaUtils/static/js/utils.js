@@ -105,12 +105,10 @@ function quick_extraction(obj,idx,precision){
   },{});
 }
 
-
 function make_axes_std(fig_id,shift){
   fig = document.getElementsByClassName('plotly')[0].parentElement
   fig.id = 'fig'
   fig_id = fig.id
-  shift = 0.1
   plotly_fig = document.getElementById(fig_id)
   // ax_col = GRID_BOX_COLOR
   gw = 2
@@ -119,7 +117,7 @@ function make_axes_std(fig_id,shift){
   fs = 12
   yaxes = Object.keys(plotly_fig.layout).filter(x=>x.includes('yaxis'))
   nb = yaxes.length
-  k=0
+  k = 0
   positions=[]
   for (yax_name of yaxes){
     lay = {}

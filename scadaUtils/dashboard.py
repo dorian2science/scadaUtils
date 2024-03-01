@@ -224,7 +224,8 @@ class Basic_Dashboard():
 
         # print_file(session)        
         filepath = os.path.join(self.conf.parameters['dashboard']['upload_folder'],session, file.filename)
-        os.remove(filepath)
+        if os.path.exists(filepath):
+           os.remove(filepath)
         file.save(filepath)
         os.chmod(filepath, 0o777)
         print_file('file stored successfully')
@@ -359,7 +360,7 @@ class Dashboard(Basic_Dashboard):
 
         #### initial parameters
         init_par_keys = list(self.init_parameters.keys())
-        self.init_parameters['models'] = list(conf.dfplc['MODEL'].unique())
+        self.init_parameters['models'] = list(self.conf.dfplc['MODEL'].unique())
         if self.init_parameters['initial_model'] =="":
             self.init_parameters['initial_model'] = self.init_parameters['models'][0] 
         self.init_parameters['all_tags'] = conf.getTagsTU('',model=self.init_parameters['initial_model'])
@@ -377,7 +378,10 @@ class Dashboard(Basic_Dashboard):
         model = json.loads(data.decode())
         data = {}
         try:
-            data['categories'] = list(self.visualiser.conf.tag_categories[model].keys())
+            if model in self.conf.tag_categories:
+                data['categories'] = list(self.conf.tag_categories[model].keys())
+            else:
+                data['categories'] = []
             data['all_tags'] = pd.Series(self.conf.getTagsTU('',model=model)).sort_values().to_list()
             list_days = self.visualiser.conf.getdaysnotempty(model)
             max_day =  list_days.max()

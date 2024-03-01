@@ -1049,3 +1049,79 @@ def group_by_front_montant(s):
         .mul(s)
         .where(s.eq(1), 0))
 
+def show_all_figures(filenames,n):
+    from IPython.display import display, Markdown, Latex
+    import numpy as np 
+    
+    nrows = len(filenames)//n
+    hs_=np.reshape(filenames[:n*nrows],(nrows,n))
+    txt=''
+    for hs in hs_:
+        txt += '\n%s\n%s --\n%s\n'%(
+            ' | ' .join(hs),
+            ' -- | '*(len(hs)-1),
+            ' | '.join([ '![](%s)' %h for h in hs])
+        )
+    display(Markdown(txt))
+    return txt
+
+def save_figure(fig,html_file,png=False,**kwargs):
+    CONFIG = {
+        'showEditInChartStudio': False,
+        'locale': 'fr',
+        'displaylogo': False,
+        'editable':False,
+        'modeBarButtonsToRemove': ['select2d','lasso2d'],
+        'modeBarButtonsToAdd': ['toggleSpikelines','lasso2d','toggleHover','hoverclosest','hovercompare'],
+        }
+    fig.write_html(html_file,div_id='fig',config=CONFIG,**kwargs)
+    custom_script = """
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/dorian2science/js_lib@main/js_utils.js"></script>
+    """
+    with open(html_file, "a") as f:
+        f.write(custom_script)
+
+    if png:
+        fig.write_image(html_file.replace('.html','.png'))
+
+def make_axes_std(plotly_fig, shift):
+    grid_color = '#bdbdbd'
+    ax_col = "black"
+    gw = 2
+    fs = 12
+    
+    yaxes = [axis for axis in plotly_fig.layout if axis.startswith('yaxis')]
+    nb = len(yaxes)
+    positions = []
+    
+    lay = {}
+    for k, yax_name in enumerate(yaxes):
+        if k % 2 == 0:
+            side = 'left'
+            position = k // 2 * shift
+        else:
+            side = 'right'
+            position = 1 - (k // 2) * shift
+    
+        positions.append(position)
+        lay[yax_name + '.side'] = side
+        lay[yax_name + '.position'] = position
+    
+        lay[yax_name + '.linecolor'] = ax_col
+        lay[yax_name + '.linewidth'] = 4
+        lay[yax_name + '.ticks'] = 'outside'
+        lay[yax_name + '.tickfont.color'] = ax_col
+        lay[yax_name + '.title.font.color'] = ax_col
+        lay[yax_name + '.ticklen'] = 8
+        # lay[yax_name + '.font.color'] = ax_col
+        lay[yax_name + '.tickwidth'] = 2
+        lay[yax_name + '.tickcolor'] = ax_col
+        lay[yax_name + '.gridcolor'] = grid_color
+        lay[yax_name + '.zeroline'] = False
+        lay[yax_name + '.gridwidth'] = gw
+        lay[yax_name + '.anchor'] = 'free'
+    
+    
+    lay['xaxis.domain'] = [((nb - 1) // 2) * shift, 1 - ((nb // 2) - 1) * shift]
+    plotly_fig.layout.update(lay)
+    return plotly_fig
